@@ -1,5 +1,5 @@
-const rootPath = location.hash.slice(1);
-const orbiter = new Orbiter(rootPath);
+const roots = location.hash.slice(1).split(':');
+const orbiter = new Orbiter();
 
 // TODO
 window.require = function (names) {
@@ -366,7 +366,7 @@ Vue.component('edit-file', {
 var app = new Vue({
   el: '#app',
   data: {
-    rootPath: rootPath,
+    roots: roots,
     tabList: [],
     tabKeys: {},
     currentTab: null,
