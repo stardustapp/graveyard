@@ -8,10 +8,12 @@
 <div id="app">
   <ul id="root-tree" class="tree">
     <entry-item
+      v-for="root in roots"
+      :key="root"
       class="entry-item"
-      :name="'sd://apt' + rootPath"
+      :name="'sd://apt' + root"
       ref="tree"
-      :path="''"
+      :path="root"
       :stat="{}"
       :type="'Folder'"
       :start-open="true">

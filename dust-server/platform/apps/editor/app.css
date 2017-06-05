@@ -45,14 +45,12 @@ ul {
 #root-tree {
   min-width: 5em;
   display: flex; /* shows x-scrollbar */
+  flex-direction: column;
   overflow: auto;
   margin: 0;
   padding: 1em;
   flex: 2;
   background-color: #333;
-}
-#root-tree > li {
-  flex: 1;
 }
 
 .sub-tree {
