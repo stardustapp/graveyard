@@ -118,7 +118,7 @@
   <form class="form-panel"
       @submit.prevent="invoke">
     <h3 class="form-row">Invoke {{tab.path}}</h3>
-    
+
     <p>
       <span v-if="inputType">
         Accepts a <strong>{{inputType}}</strong>.
@@ -127,7 +127,7 @@
         Returns a <strong>{{outputType}}</strong>.
       </span>
     </p>
-    
+
     <label
         v-for="prop in props"
         :key="prop.name"
@@ -135,15 +135,15 @@
       <span>{{prop.name}}</span>
       <input type="text" :name="prop.name" v-model="input[prop.name]" :required="!prop.optional">
     </label>
-    
+
     <div class="form-row">
       <button type="submit">Invoke</button>
     </div>
-    
+
     <p v-show="status">
       Status: {{status}}
     </p>
-    
+
     <pre v-if="outputType === 'String'">{{output}}</pre>
   </form>
 </div>

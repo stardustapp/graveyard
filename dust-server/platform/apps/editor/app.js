@@ -56,13 +56,13 @@ Vue.component('entry-item', {
         });
         return;
       }
-        
+
       switch (this.type) {
         case 'Folder':
           this.open = !this.open;
           this.load();
           break;
-          
+
         case 'File':
           app.openEditor({
             type: 'edit-file',
@@ -71,7 +71,7 @@ Vue.component('entry-item', {
             path: this.path,
           });
           break;
-          
+
         case 'Function':
           app.openEditor({
             type: 'invoke-function',
@@ -97,7 +97,7 @@ Vue.component('entry-item', {
           });
           return x;
         });
-        
+
         this.loader.then(x => this.entry = x);
       }
       return this.loader;
@@ -204,7 +204,7 @@ Vue.component('invoke-function', {
       if (!this.tab.bare) {
         invokePath += '/invoke';
       }
-      
+
       var input = {};
       this.props.forEach(prop => {
         var val = this.input[prop.name];
@@ -214,17 +214,17 @@ Vue.component('invoke-function', {
           }
           return;
         }
-        
+
         switch (prop.type) {
           case 'String':
             input[prop.name] = Orbiter.String(val);
             break;
-            
+
           default:
             alert(`Property ${prop.name} is supported to be unknown type ${prop.type}`);
         }
       });
-      
+
       this.output = null;
       this.status = 'Pending';
       orbiter
@@ -291,7 +291,7 @@ Vue.component('invoke-function', {
           this.getInputProps();
         }
       });
-    
+
     orbiter
       .loadFile(this.tab.path + '/output-shape/type')
       .then(x => {
@@ -346,7 +346,7 @@ Vue.component('edit-file', {
     save() {
       // TODO: cleaning should be opt-in. via MIME?
       const input = this.editor.getValue();
-      const source = input.replace(/\t/g, '  ').replace(/ +$/g, '');
+      const source = input.replace(/\t/g, '  ').replace(/ +$/gm, '');
       if (input != source) {
         // TODO: transform cursor to account for replacement
         const cursor = this.editor.getCursor();
@@ -354,10 +354,10 @@ Vue.component('edit-file', {
         this.editor.setCursor(cursor);
         console.log('Updated buffer to cleaned version of source');
       }
-      
+
       orbiter.putFile(this.tab.path, source).then(x => {
         alert('Saved');
-        
+
         // If this file didn't exist yet, dirty the treeview
         if (this.tab.isNew === true) {
           this.tab.isNew = false;
@@ -423,29 +423,29 @@ var app = new Vue({
         const idx = this.tabList.indexOf(this.currentTab);
       }
     },
-    
+
     // Given /n/osfs/index.html, selects the 'index.html' component or null if it's not loaded
     selectTreeNode(path) {
       // TODO: return a list from multiple trees
       var node = this.$refs.trees.find(tree => path.startsWith(tree.path));
       if (!node) { return null; }
-      
+
       // get path parts after the common prefix
       const parts = path.slice(node.path.length + 1).split('/');
       if (parts.length == 1 && parts[0] === '') {
         parts.pop();
       }
-        
+
       while (parts.length && node != null && 'children' in (node.$refs || {}) ) {
         const part = parts.shift();
         node = node.$refs.children.find(child => child.name === part);
       }
-      
+
       if (parts.length === 0) {
         return node;
       }
     },
-    
+
     offsetTabIdx(baseTab, offset) {
       const idx = this.tabList.indexOf(baseTab);
       if (idx === -1) {
@@ -465,7 +465,7 @@ var app = new Vue({
       }
 
       switch (true) {
-          
+
       // previous/next tab
       case evt.code === 'Comma' && evt.ctrlKey:
       case evt.code === 'BracketLeft' && evt.metaKey:
