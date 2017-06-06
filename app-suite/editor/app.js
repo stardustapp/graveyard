@@ -346,7 +346,7 @@ Vue.component('edit-file', {
     save() {
       // TODO: cleaning should be opt-in. via MIME?
       const input = this.editor.getValue();
-      const source = input.replace(/\t/g, '  ');
+      const source = input.replace(/\t/g, '  ').replace(/ +$/g, '');
       if (input != source) {
         // TODO: transform cursor to account for replacement
         const cursor = this.editor.getCursor();
