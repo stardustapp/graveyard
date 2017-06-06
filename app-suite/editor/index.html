@@ -125,13 +125,13 @@
       </span>
       <span v-if="outputType">
         Returns a <strong>{{outputType}}</strong>.
-  		</span>
-  	</p>
+      </span>
+    </p>
     
     <label
-    		v-for="prop in props"
+        v-for="prop in props"
         :key="prop.name"
-    		class="form-row">
+        class="form-row">
       <span>{{prop.name}}</span>
       <input type="text" :name="prop.name" v-model="input[prop.name]" :required="!prop.optional">
     </label>
@@ -141,8 +141,8 @@
     </div>
     
     <p v-show="status">
-    	Status: {{status}}
-		</p>
+      Status: {{status}}
+    </p>
     
     <pre v-if="outputType === 'String'">{{output}}</pre>
   </form>
@@ -152,7 +152,11 @@
 
 <script type="text/x-template" id="edit-file">
   <div class="panel-parent cm-panel">
-    <codemirror v-model="source" :options="editorOptions"></codemirror>
+    <codemirror
+    		ref="editor"
+    		:code="source"
+        :options="editorOptions"
+      ></codemirror>
   </div>
 </script>
 
