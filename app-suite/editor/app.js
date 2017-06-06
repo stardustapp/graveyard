@@ -426,13 +426,21 @@ var app = new Vue({
     
     // Given /n/osfs/index.html, selects the 'index.html' component or null if it's not loaded
     selectTreeNode(path) {
-      const parts = path.slice(1).split('/');
-      var node = this.$refs.tree;
-      var trees
-      while (parts.length && node != null && 'children' in node.$refs) {
+      // TODO: return a list from multiple trees
+      var node = this.$refs.trees.find(tree => path.startsWith(tree.path));
+      if (!node) { return null; }
+      
+      // get path parts after the common prefix
+      const parts = path.slice(node.path.length + 1).split('/');
+      if (parts.length == 1 && parts[0] === '') {
+        parts.pop();
+      }
+        
+      while (parts.length && node != null && 'children' in (node.$refs || {}) ) {
         const part = parts.shift();
         node = node.$refs.children.find(child => child.name === part);
       }
+      
       if (parts.length === 0) {
         return node;
       }
