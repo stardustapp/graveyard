@@ -1,0 +1,49 @@
+<!doctype html>
+<title>TODONE</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<div id="app">
+  <h2>TO-DONE!</h2>
+  
+  <p>What's next?</p>
+  <add-todo></add-todo>
+  
+  <p>Here are your things!</p>
+  <ul>
+    <todo-item
+        v-for="id in list"
+        :key="id"
+        :id="id">
+    </todo-item>
+  </ul>
+</div>
+
+<script type="text/x-template" id="add-todo">
+  <form @submit.prevent="save">
+    <input
+        type="text"
+        placeholder="What's the thing?"
+        autofocus
+        v-model="text"
+      />
+    <button type="submit">
+      Add the thing
+    </button>
+  </form>
+</script>
+
+<script type="text/x-template" id="todo-item">
+  <li v-if="!loading">
+    <input
+        type="checkbox"
+        @click="done"
+      />
+    <span>{{text}}</span>
+  </li>
+</script>
+
+<script src="https://unpkg.com/vue"></script>
+<script src="../lib/orbiter.js"></script>
+<script src="app.js"></script>
