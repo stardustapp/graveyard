@@ -25,7 +25,7 @@ Vue.component('entry-item', {
   computed: {
     isFunction() {
       return this.stat.shapes &&
-        	this.stat.shapes.indexOf('function') !== -1;
+          this.stat.shapes.indexOf('function') !== -1;
     },
     isFolder() {
       return this.type === "Folder";
@@ -229,20 +229,20 @@ Vue.component('invoke-function', {
       this.status = 'Pending';
       orbiter
         .invoke(invokePath, input, true)
-      	.then(out => {
-		      this.status = 'Completed';
-        	if (out) {
-			      // TODO: depends on output type
+        .then(out => {
+          this.status = 'Completed';
+          if (out) {
+            // TODO: depends on output type
             out
               .loadFile('')
               .then(x => this.output = x);
           } else {
             this.output = null;
           }
-      	}, err => {
-		      this.status = 'Crashed';
+        }, err => {
+          this.status = 'Crashed';
         });
-      	//.then(x => console.log('invocation got', x));
+        //.then(x => console.log('invocation got', x));
     },
     getInputProps() {
       const propsPath = this.tab.path + '/input-shape/props';
@@ -285,21 +285,21 @@ Vue.component('invoke-function', {
   created() {
     orbiter
       .loadFile(this.tab.path + '/input-shape/type')
-    	.then(x => {
-      	this.inputType = x;
-      	if (x == 'Folder') {
+      .then(x => {
+        this.inputType = x;
+        if (x == 'Folder') {
           this.getInputProps();
         }
-    	});
+      });
     
     orbiter
       .loadFile(this.tab.path + '/output-shape/type')
-    	.then(x => {
-      	this.outputType = x;
-      	if (x == 'Folder') {
+      .then(x => {
+        this.outputType = x;
+        if (x == 'Folder') {
           //this.getInputProps();
         }
-    	});
+      });
   },
 });
 
@@ -333,16 +333,32 @@ Vue.component('edit-file', {
   },
   computed: {
     parentPath() {
-    	const pathParts = this.tab.path.split('/');
+      const pathParts = this.tab.path.split('/');
       return pathParts.slice(0, -1).join('/');
+    },
+    editor() {
+      return this.$refs.editor.editor;
     },
   },
   methods: {
     activate() {
     },
     save() {
-      orbiter.putFile(this.tab.path, this.source).then(x => {
+      // TODO: cleaning should be opt-in. via MIME?
+      const input = this.editor.getValue();
+      const source = input.replace(/\t/g, '  ');
+      if (input != source) {
+        // TODO: transform cursor to account for replacement
+        const cursor = this.editor.getCursor();
+        this.editor.setValue(source);
+        this.editor.setCursor(cursor);
+        console.log('Updated buffer to cleaned version of source');
+      }
+      
+      orbiter.putFile(this.tab.path, source).then(x => {
         alert('Saved');
+        
+        // If this file didn't exist yet, dirty the treeview
         if (this.tab.isNew === true) {
           this.tab.isNew = false;
 
@@ -418,7 +434,7 @@ var app = new Vue({
         node = node.$refs.children.find(child => child.name === part);
       }
       if (parts.length === 0) {
-      	return node;
+        return node;
       }
     },
     
