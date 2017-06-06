@@ -14,9 +14,10 @@ Vue.component('todo-item', {
   },
   methods: {
     done() {
-      orbiter
-        .delete(`/todo/${this.id}`)
-        .then(x => app.load());
+      orbiter.putString(`/done/${this.id}`, this.id)
+        .then(() => orbiter.delete(`/todo/${this.id}`))
+        .then(() => orbiter.putString(`/records/${this.id}/completed-at`, new Date().toISOString()))
+        .then(() => app.load());
     },
   },
   created() {
@@ -40,7 +41,7 @@ Vue.component('add-todo', {
     save() {
       orbiter.putRandomFolder('/records', {
         text: Orbiter.String(this.text),
-        added: Orbiter.String(new Date().toISOString()),
+        'added-at': Orbiter.String(new Date().toISOString()),
       }).then(id => {
         console.log('Created todo', id);
         this.text = '';
