@@ -69,6 +69,7 @@ Vue.component('entry-item', {
             label: this.name,
             icon: 'edit',
             path: this.path,
+            dirty: false,
           });
           break;
 
@@ -157,6 +158,7 @@ Vue.component('create-name', {
           label: this.name,
           path: fullPath,
           isNew: true,
+          dirty: true,
         });
         app.closeTab(this.tab);
         break;
@@ -341,8 +343,10 @@ Vue.component('edit-file', {
     },
   },
   methods: {
-    activate() {
+    onChange() {
+      this.tab.dirty = (this.editor.getValue() !== this.source);
     },
+
     save() {
       // TODO: cleaning should be opt-in. via MIME?
       const input = this.editor.getValue();
@@ -358,6 +362,10 @@ Vue.component('edit-file', {
       orbiter.putFile(this.tab.path, source).then(x => {
         alert('Saved');
 
+        // update the dirty marker
+        this.source = source;
+        this.onChange();
+
         // If this file didn't exist yet, dirty the treeview
         if (this.tab.isNew === true) {
           this.tab.isNew = false;
@@ -370,7 +378,10 @@ Vue.component('edit-file', {
       });
     },
   },
+
   created() {
+    this.onChange = debounce(this.onChange, 250);
+
     if (!this.tab.isNew) {
       orbiter
         .loadFile(this.tab.path)
@@ -394,6 +405,7 @@ var app = new Vue({
     window.removeEventListener('keydown', this.handleKeyDown);
   },
   methods: {
+
     // Focus or open a new editor for given details
     openEditor(deets) {
       deets.key = [deets.path, deets.type].join(':');
@@ -406,10 +418,12 @@ var app = new Vue({
         this.tabKeys[deets.key] = deets;
       }
     },
+
     activateTab(tab) {
       console.log("Switching to tab", tab.label);
       this.currentTab = tab;
     },
+
     closeTab(tab) {
       const idx = this.tabList.indexOf(tab);
       console.log("Closing tab", tab.label, "idx", idx);

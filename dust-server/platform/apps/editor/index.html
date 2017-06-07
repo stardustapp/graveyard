@@ -26,7 +26,7 @@
           :title="tab.key"
           @click="activateTab(tab)"
           :key="tab.key"
-          :class="{active: currentTab === tab}">
+          :class="{active: currentTab === tab, dirty: tab.dirty}">
         <i class="material-icons tree-icon">{{tab.icon}}</i>
         <span class="label">{{tab.label}}</span>
         <i class="material-icons tree-icon close-btn"
@@ -156,6 +156,7 @@
         ref="editor"
         :code="source"
         :options="editorOptions"
+        @change="onChange"
       ></codemirror>
   </div>
 </script>
@@ -175,4 +176,5 @@
 <script src="/~~/n/osfs/vendor/vue-codemirror.js"></script>
 
 <script src="../lib/orbiter.js"></script>
+<script src="../lib/utils.js"></script>
 <script src="app.js"></script>

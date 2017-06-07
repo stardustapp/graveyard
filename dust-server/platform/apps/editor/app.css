@@ -131,6 +131,10 @@ ul {
   border-radius: 5px;
 }
 
+#tab-bar .dirty {
+  color: #9977ff;
+}
+
 
 .panel-parent {
   flex: 1;
