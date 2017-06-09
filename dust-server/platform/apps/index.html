@@ -7,10 +7,9 @@
 <div id="app">
   <h2>TO-DONE!</h2>
 
-  <p>What's next?</p>
   <add-todo></add-todo>
 
-  <p>Here are your things!</p>
+  <p>Here are your things:</p>
   <ul>
     <todo-item
         v-for="id in list"
@@ -25,8 +24,9 @@
   <form @submit.prevent="save">
     <input
         type="text"
-        placeholder="What's the thing?"
+        placeholder="What's next?"
         autofocus
+        required
         v-model="text"
       />
     <button type="submit">
@@ -37,11 +37,13 @@
 
 <script type="text/x-template" id="todo-item">
   <li v-if="!loading">
-    <input
-        type="checkbox"
-        @click="done"
-      />
-    <span>{{text}}</span>
+    <label>
+      <input
+          type="checkbox"
+          @click="done"
+        />
+      <span>{{text}}</span>
+    </label>
   </li>
 </script>
 
