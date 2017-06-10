@@ -70,6 +70,7 @@ Vue.component('entry-item', {
             icon: 'edit',
             path: this.path,
             dirty: false,
+            untouched: true,
           });
           break;
 
@@ -345,6 +346,11 @@ Vue.component('edit-file', {
   methods: {
     onChange() {
       this.tab.dirty = (this.editor.getValue() !== this.source);
+
+      // once a file is touched, let's keep it open
+      if (this.tab.dirty) {
+        this.tab.untouched = false;
+      }
     },
 
     save() {
@@ -413,28 +419,40 @@ var app = new Vue({
         this.activateTab(this.tabKeys[deets.key]);
       } else {
         console.log("Opening editor", deets.key, 'labelled', deets.label);
-        this.currentTab = deets;
         this.tabList.push(deets);
         this.tabKeys[deets.key] = deets;
+        this.activateTab(deets);
       }
     },
 
     activateTab(tab) {
+      if (tab && this.currentTab && this.currentTab !== tab && this.currentTab.untouched) {
+        console.log('Closing untouched blurred tab', this.currentTab.key);
+        this.closeTab(this.currentTab);
+      }
+
       console.log("Switching to tab", tab.label);
       this.currentTab = tab;
     },
 
     closeTab(tab) {
+      if (tab.dirty) {
+        if (!confirm(`Close dirty tab ${tab.key}?`)) {
+          return;
+        }
+      }
+
       const idx = this.tabList.indexOf(tab);
       console.log("Closing tab", tab.label, "idx", idx);
       if (idx !== -1) {
         this.tabList.splice(idx, 1);
-      }
-      delete this.tabKeys[tab.key];
+        delete this.tabKeys[tab.key];
 
-      if (this.currentTab === tab) {
-        this.currentTab = this.tabList[0];
-        const idx = this.tabList.indexOf(this.currentTab);
+        if (this.currentTab === tab) {
+          this.currentTab = null;
+          this.activateTab(this.tabList[0]);
+          //const idx = this.tabList.indexOf(this.currentTab);
+        }
       }
     },
 
@@ -467,7 +485,7 @@ var app = new Vue({
       }
       const newIdx = idx + offset;
       if (newIdx >= 0 && newIdx < this.tabList.length) {
-        this.currentTab = this.tabList[newIdx];
+        this.activateTab(this.tabList[newIdx]);
       }
     },
 
