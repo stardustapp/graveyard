@@ -134,6 +134,9 @@ ul {
 #tab-bar .dirty {
   color: #9977ff;
 }
+#tab-bar .untouched {
+  font-style: italic;
+}
 
 
 .panel-parent {

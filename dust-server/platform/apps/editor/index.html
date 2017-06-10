@@ -26,7 +26,7 @@
           :title="tab.key"
           @click="activateTab(tab)"
           :key="tab.key"
-          :class="{active: currentTab === tab, dirty: tab.dirty}">
+          :class="{active: currentTab === tab, dirty: tab.dirty, untouched: tab.untouched}">
         <i class="material-icons tree-icon">{{tab.icon}}</i>
         <span class="label">{{tab.label}}</span>
         <i class="material-icons tree-icon close-btn"
