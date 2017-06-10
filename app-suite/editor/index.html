@@ -162,6 +162,30 @@
 </script>
 
 
+<script type="text/x-template" id="edit-string">
+<div class="panel-parent">
+  <form class="form-panel"
+      @submit.prevent="save">
+    <h3 class="form-row">Edit String</h3>
+    <label class="form-row">
+      <span>Value:</span>
+      <input
+          type="text"
+          name="value"
+          v-model="value"
+          autofocus
+          required
+          @change="onChange"
+        >
+    </label>
+    <div class="form-row">
+      <button type="submit">Save</button>
+    </div>
+  </form>
+</div>
+</script>
+
+
 <script src="https://unpkg.com/vue"></script>
 
 <link rel="stylesheet" href="/~~/n/osfs/vendor/codemirror.css">

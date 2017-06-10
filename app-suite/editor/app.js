@@ -74,6 +74,17 @@ Vue.component('entry-item', {
           });
           break;
 
+        case 'String':
+          app.openEditor({
+            type: 'edit-string',
+            label: this.name,
+            icon: 'edit',
+            path: this.path,
+            dirty: false,
+            untouched: true,
+          });
+          break;
+
         case 'Function':
           app.openEditor({
             type: 'invoke-function',
@@ -155,6 +166,19 @@ Vue.component('create-name', {
         // Don't actually create yet, just open a buffer
         app.openEditor({
           type: "edit-file",
+          icon: "edit",
+          label: this.name,
+          path: fullPath,
+          isNew: true,
+          dirty: true,
+        });
+        app.closeTab(this.tab);
+        break;
+
+      case "String":
+        // Don't actually create yet, just open a buffer
+        app.openEditor({
+          type: "edit-string",
           icon: "edit",
           label: this.name,
           path: fullPath,
@@ -395,6 +419,71 @@ Vue.component('edit-file', {
     }
   },
 });
+
+
+Vue.component('edit-string', {
+  template: '#edit-string',
+  props: {
+    tab: Object,
+  },
+  data() {
+    const pathParts = this.tab.path.split('/');
+    return {
+      source: '',
+      value: '',
+    };
+  },
+  computed: {
+    parentPath() {
+      const pathParts = this.tab.path.split('/');
+      return pathParts.slice(0, -1).join('/');
+    },
+  },
+  methods: {
+    onChange() {
+      this.tab.dirty = (this.value !== this.source);
+
+      // once a string is touched, let's keep it open
+      if (this.tab.dirty) {
+        this.tab.untouched = false;
+      }
+    },
+
+    save() {
+      orbiter.putString(this.tab.path, this.value).then(x => {
+        alert('Saved');
+
+        // update the dirty marker
+        this.source = this.value;
+        this.onChange();
+
+        // If this string didn't exist yet, dirty the treeview
+        if (this.tab.isNew === true) {
+          this.tab.isNew = false;
+
+          const parent = app.selectTreeNode(this.parentPath);
+          if (parent != null && parent.reload) {
+            parent.reload();
+          }
+        }
+      });
+    },
+  },
+
+  created() {
+    this.onChange = debounce(this.onChange, 100);
+
+    if (!this.tab.isNew) {
+      orbiter
+        .loadFile(this.tab.path)
+        .then(x => {
+          this.source = x;
+          this.value = x;
+        });
+    }
+  },
+});
+
 
 var app = new Vue({
   el: '#app',
