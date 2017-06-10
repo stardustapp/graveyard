@@ -98,26 +98,15 @@ func (me *StarFs) Open(name string, flags uint32, context *fuse.Context) (file n
 func (me *StarFs) Rename(oldName string, newName string, context *fuse.Context) (code fuse.Status) {
 	log.Printf("fs: rename %s -> %s", oldName, newName)
 
-	// first: get the file data
 	if len(oldName) > 0 {
 		oldName = "/" + oldName
 	}
-	err, data := me.orbiter.ReadFile(oldName)
-	if err != nil {
-		log.Println("read file for copy failed", oldName, err)
-		return fuse.ENOENT
-	}
-
-	// second: upload to new location
 	if len(newName) > 0 {
 		newName = "/" + newName
 	}
-	if err = me.orbiter.PutFile(newName, data); err != nil {
-		log.Println(err)
-	}
 
-	// third: delete old location
-	if err = me.orbiter.Delete(oldName); err != nil {
+	err := me.orbiter.Rename(oldName, newName)
+	if err != nil {
 		return fuse.ENOENT
 	} else {
 		return fuse.OK

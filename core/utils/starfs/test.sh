@@ -17,7 +17,7 @@ rm -rf app/
 cp -r $template/ app/
 
 cd app/
-npm install --production
+npm install #--production
 npm run build
 
 kill $StarFsPid

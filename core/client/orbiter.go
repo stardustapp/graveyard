@@ -105,3 +105,15 @@ func (o *Orbiter) Delete(path string) (err error) {
   }
   return err
 }
+
+func (o *Orbiter) Rename(oldPath, newPath string) (err error) {
+  resp, err := resty.R().
+    SetHeader("Destination", newPath).
+    Execute("MOVE", o.base + oldPath)
+
+  if resp.StatusCode() < 200 || resp.StatusCode() > 399 {
+    log.Println("got", resp.StatusCode())
+    err = errors.New("Error HTTP status code")
+  }
+  return err
+}
