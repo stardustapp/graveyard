@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -364,8 +365,13 @@ func (p *golang) GenerateDriver() error {
 // Requires starfs to be mounted at /mnt/stardust
 func (p *golang) CompileDriver() error {
 	log.Println("Starting compiler")
+	os.RemoveAll(p.gen.TargetPath)
+	if err := os.Mkdir(p.gen.TargetPath, 0777); err != nil {
+		panic("Can't create target path " + p.gen.TargetPath + " on host: " + err.Error())
+	}
+
 	workDir := "/mnt/stardust" + p.gen.CompilePath + "/go-src"
-	script := "cd " + workDir + "\n\ngo get -d\ngo build -o /tmp/stardust-driver\n"
+	script := "cd " + workDir + "\n\ngo get -d\ngo build -o " + p.gen.TargetPath + "/driver\n"
 
 	cmd := exec.Command("sh", "-ex")
 	cmd.Stdin = strings.NewReader(script)
@@ -376,7 +382,7 @@ func (p *golang) CompileDriver() error {
 	log.Println("Compiler output:", err, out.String())
 
 	if err == nil {
-		cmd = exec.Command("/tmp/stardust-driver")
+		cmd = exec.Command(p.gen.TargetPath + "/driver")
 		var out2 bytes.Buffer
 		cmd.Stdout = &out2
 		cmd.Stderr = &out2

@@ -14,7 +14,7 @@ func main() {
 	var starBase = flag.String("stardust-base", "http://localhost:9234/~~", "Stardust HTTP API root")
 	var driverPath = flag.String("driver-path", "", "Path within Stardust to driver source")
 	var compilePath = flag.String("compile-path", "/tmp/stargen", "Path within Stardust for temporary source files")
-	var targetPath = flag.String("target-path", "/tmp/driver", "Path within Stardust for final build artifact (binary or archive)")
+	var targetPath = flag.String("target-path", "/tmp/stargen-out", "Path on host FS for build artifacts (and final binary or archive, called 'driver')")
 	flag.Parse()
 
 	if *driverPath == "" {
