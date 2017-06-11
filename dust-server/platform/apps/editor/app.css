@@ -154,6 +154,7 @@ ul {
 }
 .form-row {
   display: flex;
+  flex-shrink: 0;
   margin: 0.5em 0;
   align-items: center;
 }
@@ -189,6 +190,16 @@ h3.form-row {
   border-color: #ccc;
   background-color: #444;
 }
+form p {
+  margin: 0;
+}
+.func-output {
+  overflow: auto;
+  margin: 0;
+  padding: 1em;
+  flex: 1;
+}
+
 .cm-panel > .CodeMirror {
   flex: 1;
   font-family: 'Fira Code', monospace;

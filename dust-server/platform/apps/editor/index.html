@@ -143,9 +143,12 @@
     <p v-show="status">
       Status: {{status}}
     </p>
-
-    <pre v-if="outputType === 'String'">{{output}}</pre>
   </form>
+
+  <pre
+      v-if="outputType === 'String'"
+      class="func-output"
+    >{{output}}</pre>
 </div>
 </script>
 
