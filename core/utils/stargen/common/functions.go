@@ -27,6 +27,9 @@ func (g *Stargen) ListFunctions() []FunctionDef {
 
 func (g *Stargen) readFuncStr(funcName string, limbName string) string {
   limbPath := g.DriverPath + "/functions/" + funcName + "/" + limbName
-  str, _ := g.Orbiter.ReadString(limbPath)
+  str, err := g.Orbiter.ReadString(limbPath)
+  if err != nil {
+    return ""
+  }
   return str
 }

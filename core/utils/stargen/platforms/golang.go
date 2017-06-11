@@ -152,7 +152,13 @@ func (p *golang) GenerateDriver() error {
 
 			// functions are exposed directly
 			if prop.Type == "Function" {
-				shapeWriter.write("    return &%sFunc{e}, true\n\n", extras.SnakeToCamel(prop.Target))
+				shapeWriter.write("    return &%sFunc{", extras.SnakeToCamel(prop.Target))
+				for _, def := range funcDefs {
+					if def.Name == prop.Target && def.ContextShape != "" {
+						shapeWriter.write("e")
+					}
+				}
+				shapeWriter.write("}, true\n\n")
 			} else if prop.Type == "String" {
 				shapeWriter.useDep("inmem")
 				shapeWriter.write("    return inmem.NewString(\"%s\", e.%s), true\n\n", prop.Name, extras.SnakeToCamel(prop.Name))
@@ -189,13 +195,34 @@ func (p *golang) GenerateDriver() error {
 		// Write out a primitive Function impl
 		// TODO: make one static instance of this?
 		funcWriter.useDep("base")
-		funcWriter.write("type %sInner struct {}\n\n", properName)
+		funcWriter.write("type %sInner struct {", properName)
+		if funct.ContextShape != "" {
+			funcWriter.write("\n  ctx *%s\n", extras.SnakeToCamel(funct.ContextShape))
+		}
+		funcWriter.write("}\n\n")
+
 		funcWriter.write("var _ base.Function = (*%sInner)(nil)\n\n", properName)
 		funcWriter.write("func (e *%sInner) Name() string {\n", properName)
 		funcWriter.write("  return \"invoke\"\n}\n\n")
 		funcWriter.write("func (e *%sInner) Invoke(ctx base.Context, input base.Entry) base.Entry {\n", properName)
-		funcWriter.write("  return %sImpl(input.(*%s))\n}\n\n", extras.SnakeToCamel(funct.Name), extras.SnakeToCamel(funct.InputShape))
 
+		// This call syntax changed based on all three of the shape presences
+		funcWriter.write("  ")
+		if funct.OutputShape != "" {
+			funcWriter.write("return ")
+		}
+		if funct.ContextShape != "" {
+			funcWriter.write("e.ctx.")
+		}
+		funcWriter.write("%sImpl(", extras.SnakeToCamel(funct.Name))
+		if funct.InputShape != "" {
+			funcWriter.write("input.(*%s)", extras.SnakeToCamel(funct.InputShape))
+		}
+		funcWriter.write(")")
+		if funct.OutputShape == "" {
+			funcWriter.write("\n  return nil")
+		}
+		funcWriter.write("\n}\n\n")
 
 		// gotta gen a folder impl for every function
 		// TODO: if no context, make one static instance of this
@@ -229,7 +256,11 @@ func (p *golang) GenerateDriver() error {
 		funcWriter.write("  switch name {\n\n")
 
 		funcWriter.write("  case \"invoke\":\n")
-		funcWriter.write("    return &%sInner{}, true\n", properName)
+		funcWriter.write("    return &%sInner{", properName)
+		if funct.ContextShape != "" {
+			funcWriter.write("e.ctx")
+		}
+		funcWriter.write("}, true\n")
 
 		// TODO: We don't write out shape _definitions_ yet!
 		/*
@@ -266,14 +297,6 @@ func (p *golang) GenerateDriver() error {
 	mainWriter.write("  log.Println(\"Driver subsystem started\")\n")
 	mainWriter.write("}")
 	p.gen.Orbiter.PutFile(p.gen.CompilePath + "/go-src/main.go", mainWriter.bytes())
-
-	/*
-	return inmem.NewFolderOf("status",
-		&gitStatusFunc{e.worktree},
-		gitStatusShape,
-		stringOutputShape,
-	).Freeze(), true
-	*/
 
 	/*
 	// Get the Init executable from /rom/bin
