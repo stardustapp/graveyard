@@ -30,7 +30,7 @@ func (me *StarFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.
 	}
 
 	// TODO: there's gotta be a better way to get the size
-	err, data := me.orbiter.ReadFile(name)
+	data, err := me.orbiter.ReadFile(name)
 	if err != nil {
 		log.Println("read file for size failed", name, err)
 		return nil, fuse.ENOENT
@@ -54,7 +54,7 @@ func (me *StarFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry
 	if len(name) > 0 {
 		name = "/" + name
 	}
-	err, fi := me.orbiter.LoadFolder(name)
+	fi, err := me.orbiter.LoadFolder(name)
 	if err != nil {
 		log.Println("load folder failed", name, err)
 		return nil, fuse.ENOENT
@@ -82,7 +82,7 @@ func (me *StarFs) Open(name string, flags uint32, context *fuse.Context) (file n
 	if len(name) > 0 {
 		name = "/" + name
 	}
-	err, data := me.orbiter.ReadFile(name)
+	data, err := me.orbiter.ReadFile(name)
 	if err != nil {
 		log.Println("read file failed", name, err)
 		return nil, fuse.ENOENT
