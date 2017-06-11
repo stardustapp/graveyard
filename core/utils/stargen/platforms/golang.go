@@ -48,12 +48,14 @@ func (w *goWriter) bytes() []byte {
 	final.WriteString("package main\n\n")
 
 	// only imports that were used
-	final.WriteString("import (\n")
-	for depKey, _ := range w.depsUsed {
-		depSrc := w.depsAvail[depKey]
-		final.WriteString(fmt.Sprintf("  %s %s\n", depKey, depSrc))
+	if len(w.depsUsed) > 0 {
+		final.WriteString("import (\n")
+		for depKey, _ := range w.depsUsed {
+			depSrc := w.depsAvail[depKey]
+			final.WriteString(fmt.Sprintf("  %s %s\n", depKey, depSrc))
+		}
+		final.WriteString(")\n\n")
 	}
-	final.WriteString(")\n\n")
 
 	final.WriteString(w.buf.String())
 	return final.Bytes()
@@ -91,84 +93,121 @@ func (p *golang) GenerateDriver() error {
 		panic("Unable to create compile directory " + p.gen.CompilePath)
 	}
 
-	p.loadDeps()
-
 	shapeDefs := p.gen.ListShapes()
 	funcDefs := p.gen.ListFunctions()
-	//log.Printf("Shape definitions: %+v", shapeDefs)
+
+	p.loadDeps()
+	log.Println("Starting code generation")
 
 	shapeWriter := newGoWriter(p.deps)
+
+	// first write a folder with all the shapes listed
+	shapeWriter.write("//////////////////////////////////\n// Shape collection\n\n")
+	shapeWriter.write("var AllShapes *inmem.Folder = inmem.NewFolderOf(\"shapes\",\n")
+	for _, shape := range shapeDefs {
+		improperName := extras.SnakeToCamelLower(shape.Name)
+		shapeWriter.write("  %sShape,\n", improperName)
+	}
+	shapeWriter.write(")\n\n")
+
+	// now write out the shapes themselves
 	for _, shape := range shapeDefs {
 		shapeWriter.write("//////////////////////////////////\n// Shape: %s\n\n", shape.Name)
+		improperName := extras.SnakeToCamelLower(shape.Name)
 
-		// TODO: not EVERYTHING should be a Folder/struct
-		if shape.Type != "Folder" {
-			panic("Shape " + shape.Name + " is not a Folder :/")
+		shapeWriter.useDep("inmem")
+		shapeWriter.write("var %sShape *inmem.Shape = inmem.NewShape(\n", improperName)
+		shapeWriter.write("	inmem.NewFolderOf(\"%s\",\n", shape.Name)
+		shapeWriter.write("		inmem.NewString(\"type\", \"%s\"),\n", shape.Type)
+
+		switch shape.Type {
+		case "Folder":
+			shapeWriter.write("		inmem.NewFolderOf(\"props\",\n")
+			for _, prop := range shape.Props {
+				shapeWriter.write("			inmem.NewFolderOf(\"%s\",\n", prop.Name)
+				shapeWriter.write("				inmem.NewString(\"type\", \"%s\"),\n", prop.Type)
+				//shapeWriter.write("				inmem.NewString(\"optional\", \"yes\"),\n")
+				shapeWriter.write("			),\n")
+			}
+			shapeWriter.write("		),\n")
 		}
+		shapeWriter.write("	))\n\n")
+	}
+	p.gen.Orbiter.PutFile(p.gen.CompilePath + "/go-src/shapes.go", shapeWriter.bytes())
+
+
+	folderWriter := newGoWriter(p.deps)
+	for _, shape := range shapeDefs {
+		if shape.Type != "Folder" { // TODO
+			log.Println("WARN: Shape", shape.Name, " is not a Folder, not supported yet")
+			continue
+		}
+
+		folderWriter.write("//////////////////////////////////\n// Folder for shape: %s\n\n", shape.Name)
 		properName := extras.SnakeToCamel(shape.Name)
 
 		// Write out the basic struct w/ fields
-		shapeWriter.write("type %s struct {\n", properName)
+		folderWriter.write("type %s struct {\n", properName)
 		for _, prop := range shape.Props {
 			if prop.Type == "Function" {
 				continue // functions are exposed virtually
 			} else if prop.Type == "String" {
 				// let's put raw strings in
-				shapeWriter.write("  %s string\n", extras.SnakeToCamel(prop.Name))
+				folderWriter.write("  %s string\n", extras.SnakeToCamel(prop.Name))
 			} else {
-				shapeWriter.write("  %s base.%s\n", extras.SnakeToCamel(prop.Name), prop.Type)
-				shapeWriter.useDep("base")
+				folderWriter.write("  %s base.%s\n", extras.SnakeToCamel(prop.Name), prop.Type)
+				folderWriter.useDep("base")
 			}
 		}
 		for _, prop := range shape.NativeProps {
-			shapeWriter.write("  %s %s\n", extras.SnakeToCamelLower(prop.Name), prop.Type)
-			shapeWriter.useDep(strings.TrimPrefix(strings.Split(prop.Type, ".")[0], "*"))
+			folderWriter.write("  %s %s\n", extras.SnakeToCamelLower(prop.Name), prop.Type)
+			folderWriter.useDep(strings.TrimPrefix(strings.Split(prop.Type, ".")[0], "*"))
 		}
-		shapeWriter.write("}\n\n")
+		folderWriter.write("}\n\n")
 
 		// Start the struct to be a Folder
-		shapeWriter.useDep("base")
-		shapeWriter.write("var _ base.Folder = (*%s)(nil)\n\n", properName)
-		shapeWriter.write("func (e *%s) Name() string {\n", properName)
-		shapeWriter.write("  return \"%s\"\n}\n\n", shape.Name)
+		folderWriter.useDep("base")
+		folderWriter.write("var _ base.Folder = (*%s)(nil)\n\n", properName)
+		folderWriter.write("func (e *%s) Name() string {\n", properName)
+		folderWriter.write("  return \"%s\"\n}\n\n", shape.Name)
 
 		// List the children
-		shapeWriter.write("func (e *%s) Children() []string {\n", properName)
-		shapeWriter.write("  return []string{\n")
+		folderWriter.write("func (e *%s) Children() []string {\n", properName)
+		folderWriter.write("  return []string{\n")
 		for _, prop := range shape.Props {
-			shapeWriter.write("    \"%s\",\n", prop.Name)
+			folderWriter.write("    \"%s\",\n", prop.Name)
 		}
-		shapeWriter.write("  }\n}\n\n")
+		folderWriter.write("  }\n}\n\n")
 
 		// Enable child fetching
-		shapeWriter.write("func (e *%s) Fetch(name string) (entry base.Entry, ok bool) {\n", properName)
-		shapeWriter.write("  switch name {\n\n")
+		folderWriter.write("func (e *%s) Fetch(name string) (entry base.Entry, ok bool) {\n", properName)
+		folderWriter.write("  switch name {\n\n")
 		for _, prop := range shape.Props {
-			shapeWriter.write("  case \"%s\":\n", prop.Name)
+			folderWriter.write("  case \"%s\":\n", prop.Name)
 
 			// functions are exposed directly
 			if prop.Type == "Function" {
-				shapeWriter.write("    return &%sFunc{", extras.SnakeToCamel(prop.Target))
+				folderWriter.write("    return &%sFunc{", extras.SnakeToCamel(prop.Target))
 				for _, def := range funcDefs {
 					if def.Name == prop.Target && def.ContextShape != "" {
-						shapeWriter.write("e")
+						folderWriter.write("e")
 					}
 				}
-				shapeWriter.write("}, true\n\n")
+				folderWriter.write("}, true\n\n")
 			} else if prop.Type == "String" {
-				shapeWriter.useDep("inmem")
-				shapeWriter.write("    return inmem.NewString(\"%s\", e.%s), true\n\n", prop.Name, extras.SnakeToCamel(prop.Name))
+				folderWriter.useDep("inmem")
+				folderWriter.write("    return inmem.NewString(\"%s\", e.%s), true\n\n", prop.Name, extras.SnakeToCamel(prop.Name))
 			} else {
-				shapeWriter.write("    return e.%s, true\n\n", extras.SnakeToCamel(prop.Name))
+				folderWriter.write("    return e.%s, true\n\n", extras.SnakeToCamel(prop.Name))
 			}
 		}
-		shapeWriter.write("  default:\n    return\n  }\n}\n\n")
+		folderWriter.write("  default:\n    return\n  }\n}\n\n")
 
 		// TODO: this doesn't enable put!
-		shapeWriter.write("func (e *%s) Put(name string, entry base.Entry) (ok bool) {\n", properName)
-		shapeWriter.write("  return false\n}\n\n")
+		folderWriter.write("func (e *%s) Put(name string, entry base.Entry) (ok bool) {\n", properName)
+		folderWriter.write("  return false\n}\n\n")
 	}
-	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/shapes.go", shapeWriter.bytes())
+	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/folders.go", folderWriter.bytes())
 
 	funcWriter := newGoWriter(p.deps)
 	for _, funct := range funcDefs {
