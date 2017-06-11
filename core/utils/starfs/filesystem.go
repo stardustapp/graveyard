@@ -2,8 +2,8 @@ package main
 
 import (
 	"log"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/stardustapp/core/client"
 
@@ -14,7 +14,7 @@ import (
 
 type StarFs struct {
 	pathfs.FileSystem
-  orbiter *client.Orbiter
+	orbiter *client.Orbiter
 }
 
 func (me *StarFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {

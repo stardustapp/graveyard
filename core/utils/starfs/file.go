@@ -5,14 +5,13 @@ import (
 
 	"github.com/stardustapp/core/client"
 
-
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 )
 
 type StarFile struct {
-	name string
-	data []byte
+	name    string
+	data    []byte
 	orbiter *client.Orbiter
 
 	nodefs.File
@@ -20,10 +19,10 @@ type StarFile struct {
 
 func NewStarFile(name string, data []byte, orbiter *client.Orbiter) *StarFile {
 	return &StarFile{
-		name: name,
-		data: data,
+		name:    name,
+		data:    data,
 		orbiter: orbiter,
-		File: nodefs.NewDefaultFile(),
+		File:    nodefs.NewDefaultFile(),
 	}
 }
 

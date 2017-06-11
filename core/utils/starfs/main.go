@@ -50,13 +50,13 @@ func Run(mountpoint string, orbiter *client.Orbiter) {
 func Mount(mountpoint string, orbiter *client.Orbiter) (*fuse.Server, error) {
 	starfs := &StarFs{
 		FileSystem: pathfs.NewDefaultFileSystem(),
-		orbiter: orbiter,
+		orbiter:    orbiter,
 	}
 	nfs := pathfs.NewPathNodeFs(starfs, nil)
 
 	conn := nodefs.NewFileSystemConnector(nfs.Root(), nil)
 	return fuse.NewServer(conn.RawFS(), mountpoint, &fuse.MountOptions{
-		MaxBackground: 12,   // default
+		MaxBackground: 12, // default
 		FsName:        "starfs",
 		Name:          "stardust",
 	})

@@ -1,36 +1,34 @@
 package platforms
 
 import (
+	"bytes"
+	"fmt"
 	"log"
 	"os/exec"
-	"bytes"
 	"strings"
-	"fmt"
 
-	stargen "github.com/stardustapp/core/utils/stargen/common"
 	"github.com/stardustapp/core/extras"
+	stargen "github.com/stardustapp/core/utils/stargen/common"
 )
 
 func init() {
-  stargen.Platforms["golang"] = func(gen *stargen.Stargen) stargen.Platform {
-    return &golang{
+	stargen.Platforms["golang"] = func(gen *stargen.Stargen) stargen.Platform {
+		return &golang{
 			gen: gen,
 		}
-  }
+	}
 }
-
-
 
 type goWriter struct {
 	depsAvail map[string]string
-	depsUsed map[string]bool
-	buf bytes.Buffer
+	depsUsed  map[string]bool
+	buf       bytes.Buffer
 }
 
 func newGoWriter(depsAvail map[string]string) *goWriter {
 	return &goWriter{
 		depsAvail: depsAvail,
-		depsUsed: make(map[string]bool),
+		depsUsed:  make(map[string]bool),
 	}
 }
 
@@ -61,10 +59,8 @@ func (w *goWriter) bytes() []byte {
 	return final.Bytes()
 }
 
-
-
 type golang struct {
-  gen *stargen.Stargen
+	gen  *stargen.Stargen
 	deps map[string]string
 }
 
@@ -87,7 +83,7 @@ func (p *golang) loadDeps() {
 }
 
 func (p *golang) GenerateDriver() error {
-  log.Println("Generating driver")
+	log.Println("Generating driver")
 	p.gen.Orbiter.Delete(p.gen.CompilePath)
 	p.gen.Orbiter.PutFolder(p.gen.CompilePath)
 	err := p.gen.Orbiter.PutFolder(p.gen.CompilePath + "/go-src")
@@ -97,8 +93,8 @@ func (p *golang) GenerateDriver() error {
 
 	p.loadDeps()
 
-  shapeDefs := p.gen.ListShapes()
-  funcDefs := p.gen.ListFunctions()
+	shapeDefs := p.gen.ListShapes()
+	funcDefs := p.gen.ListFunctions()
 	//log.Printf("Shape definitions: %+v", shapeDefs)
 
 	shapeWriter := newGoWriter(p.deps)
@@ -172,13 +168,7 @@ func (p *golang) GenerateDriver() error {
 		shapeWriter.write("func (e *%s) Put(name string, entry base.Entry) (ok bool) {\n", properName)
 		shapeWriter.write("  return false\n}\n\n")
 	}
-	p.gen.Orbiter.PutFile(p.gen.CompilePath + "/go-src/shapes.go", shapeWriter.bytes())
-
-
-
-
-
-
+	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/shapes.go", shapeWriter.bytes())
 
 	funcWriter := newGoWriter(p.deps)
 	for _, funct := range funcDefs {
@@ -187,10 +177,9 @@ func (p *golang) GenerateDriver() error {
 		// first let's write out the impl
 		implWriter := newGoWriter(p.deps)
 		implWriter.write(funct.Source)
-		p.gen.Orbiter.PutFile(p.gen.CompilePath + "/go-src/func-" + funct.Name + ".go", implWriter.bytes())
+		p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/func-"+funct.Name+".go", implWriter.bytes())
 
 		properName := extras.SnakeToCamel(funct.Name) + "Func"
-
 
 		// Write out a primitive Function impl
 		// TODO: make one static instance of this?
@@ -264,10 +253,10 @@ func (p *golang) GenerateDriver() error {
 
 		// TODO: We don't write out shape _definitions_ yet!
 		/*
-		funcWriter.write("  case \"input-shape\":\n")
-		if funct.InputShape != "" {
-			funcWriter.write("    return inmem.NewShape(\"invoke\", %sImpl), true\n", extras.SnakeToCamel(funct.Name))
-		}
+			funcWriter.write("  case \"input-shape\":\n")
+			if funct.InputShape != "" {
+				funcWriter.write("    return inmem.NewShape(\"invoke\", %sImpl), true\n", extras.SnakeToCamel(funct.Name))
+			}
 		*/
 
 		funcWriter.write("  default:\n    return\n  }\n}\n\n")
@@ -276,9 +265,7 @@ func (p *golang) GenerateDriver() error {
 		funcWriter.write("func (e *%s) Put(name string, entry base.Entry) (ok bool) {\n", properName)
 		funcWriter.write("  return false\n}\n\n")
 	}
-	p.gen.Orbiter.PutFile(p.gen.CompilePath + "/go-src/functions.go", funcWriter.bytes())
-
-
+	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/functions.go", funcWriter.bytes())
 
 	// Create a single main()
 	mainWriter := newGoWriter(p.deps)
@@ -296,40 +283,40 @@ func (p *golang) GenerateDriver() error {
 	mainWriter.write("  ctx.Put(\"/srv\", &Root{})\n\n")
 	mainWriter.write("  log.Println(\"Driver subsystem started\")\n")
 	mainWriter.write("}")
-	p.gen.Orbiter.PutFile(p.gen.CompilePath + "/go-src/main.go", mainWriter.bytes())
+	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/main.go", mainWriter.bytes())
 
 	/*
-	// Get the Init executable from /rom/bin
-	init, ok := ctx.GetFunction("/rom/bin/init/invoke") // TODO
-	if !ok {
-		panic("Init executable not found. That shouldn't happen.")
-	}
+		// Get the Init executable from /rom/bin
+		init, ok := ctx.GetFunction("/rom/bin/init/invoke") // TODO
+		if !ok {
+			panic("Init executable not found. That shouldn't happen.")
+		}
 
-	// Get the Consul driver in /rom/drv
-	consulClone, ok := ctx.GetFunction("/rom/drv/consul/invoke") // TODO
-	if !ok {
-		panic("Consul Driver not found. That shouldn't happen.")
-	}
+		// Get the Consul driver in /rom/drv
+		consulClone, ok := ctx.GetFunction("/rom/drv/consul/invoke") // TODO
+		if !ok {
+			panic("Consul Driver not found. That shouldn't happen.")
+		}
 
-	// Mount the Consul driver at /n/consul
-	ctx.Put("/n/consul", consulClone.Invoke(ctx, inmem.NewString("uri", *consulUri)))
+		// Mount the Consul driver at /n/consul
+		ctx.Put("/n/consul", consulClone.Invoke(ctx, inmem.NewString("uri", *consulUri)))
 
-	// Bind consul keyval tree to /boot/cfg
-	kv, ok := ctx.GetFolder("/n/consul/kv")
-	if !ok {
-		panic("Consul KV not found. That shouldn't happen.")
-	}
-	ctx.Put("/boot/cfg", kv)
+		// Bind consul keyval tree to /boot/cfg
+		kv, ok := ctx.GetFolder("/n/consul/kv")
+		if !ok {
+			panic("Consul KV not found. That shouldn't happen.")
+		}
+		ctx.Put("/boot/cfg", kv)
 
-	// Get the init config
-	services, ok := ctx.GetFolder("/boot/cfg/services")
-	if !ok {
-		panic("/boot/cfg/services wasn't a Folder, provide services and try again")
-	}
+		// Get the init config
+		services, ok := ctx.GetFolder("/boot/cfg/services")
+		if !ok {
+			panic("/boot/cfg/services wasn't a Folder, provide services and try again")
+		}
 
-	// Run init
-	log.Println("Bootstrapped kernel. Handing control to initsys")
-	init.Invoke(ctx, services)
+		// Run init
+		log.Println("Bootstrapped kernel. Handing control to initsys")
+		init.Invoke(ctx, services)
 	*/
 
 	return nil
@@ -358,5 +345,5 @@ func (p *golang) CompileDriver() error {
 		log.Println("Test run output:", err2, out2.String())
 	}
 
-  return nil
+	return nil
 }

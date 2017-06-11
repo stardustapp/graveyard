@@ -5,5 +5,5 @@ import (
 )
 
 func CountPlatforms() int {
-  return len(stargen.Platforms)
+	return len(stargen.Platforms)
 }

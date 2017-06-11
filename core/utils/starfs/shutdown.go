@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/signal"
 
-		"github.com/hanwen/go-fuse/fuse"
+	"github.com/hanwen/go-fuse/fuse"
 )
 
 func handleShutdown(server *fuse.Server) {
