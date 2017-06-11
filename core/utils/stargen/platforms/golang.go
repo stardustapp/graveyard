@@ -71,9 +71,8 @@ func (p *golang) loadDeps() {
 	p.deps = make(map[string]string)
 
 	// Offer stardust essentials by default
-	p.deps["base"] = "\"github.com/danopia/stardust/star-router/base\""
-	p.deps["entries"] = "\"github.com/danopia/stardust/star-router/entries\""
-	p.deps["inmem"] = "\"github.com/danopia/stardust/star-router/inmem\""
+	p.deps["base"] = "\"github.com/stardustapp/core/base\""
+	p.deps["inmem"] = "\"github.com/stardustapp/core/inmem\""
 	p.deps["stardust"] = "\"github.com/stardustapp/core/client\""
 
 	deps, _ := p.gen.Orbiter.ReadFile(p.gen.DriverPath + "/deps.txt")
@@ -309,13 +308,16 @@ func (p *golang) GenerateDriver() error {
 
 	// Create a single main()
 	mainWriter := newGoWriter(p.deps)
-	mainWriter.useDep("entries")
+	mainWriter.useDep("inmem")
 	mainWriter.useDep("base")
 	mainWriter.write("import \"log\"\n\n")
 
 	// Create a blank Stardust
 	mainWriter.write("func main() {\n")
-	mainWriter.write("  root := entries.NewRootEntry()\n")
+	mainWriter.write("  root := inmem.NewFolderOf(\"/\",\n");
+	mainWriter.write("	  inmem.NewFolder(\"n\"),\n");
+	mainWriter.write("	  inmem.NewFolder(\"tmp\"),\n");
+	mainWriter.write("  )\n\n");
 	mainWriter.write("  ns := base.NewNamespace(\"/\", root)\n")
 	mainWriter.write("  ctx := base.NewRootContext(ns)\n\n")
 
