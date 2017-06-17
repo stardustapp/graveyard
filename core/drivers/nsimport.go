@@ -16,8 +16,17 @@ import (
 func GetNsimportDriver() base.Folder {
 	return inmem.NewFolderOf("nsimport",
 		inmem.NewFunction("invoke", nsimportFunc),
+		nsimportInputShape,
 	).Freeze()
 }
+
+var nsimportInputShape *inmem.Shape = inmem.NewShape(
+	inmem.NewFolderOf("input-shape",
+		inmem.NewString("type", "Folder"),
+		inmem.NewFolderOf("props",
+			inmem.NewString("endpoint-url", "String"),
+		),
+	))
 
 // Function that returns a remote filesystem when invoked
 func nsimportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
