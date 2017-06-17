@@ -74,6 +74,7 @@ func (p *golang) loadDeps() {
 	p.deps["base"] = "\"github.com/stardustapp/core/base\""
 	p.deps["inmem"] = "\"github.com/stardustapp/core/inmem\""
 	p.deps["stardust"] = "\"github.com/stardustapp/core/client\""
+	p.deps["drivers"] = "\"github.com/stardustapp/core/drivers\""
 
 	deps, _ := p.gen.Orbiter.ReadFile(p.gen.DriverPath + "/deps.txt")
 	for _, line := range strings.Split(string(deps), "\n") {
@@ -308,23 +309,40 @@ func (p *golang) GenerateDriver() error {
 
 	// Create a single main()
 	mainWriter := newGoWriter(p.deps)
+	mainWriter.useDep("drivers")
 	mainWriter.useDep("inmem")
 	mainWriter.useDep("base")
-	mainWriter.write("import \"log\"\n\n")
+	mainWriter.write("import \"log\"\n")
+	mainWriter.write("import \"fmt\"\n")
+	mainWriter.write("import \"net/http\"\n\n")
 
 	// Create a blank Stardust
 	mainWriter.write("func main() {\n")
 	mainWriter.write("  root := inmem.NewFolderOf(\"/\",\n");
 	mainWriter.write("	  inmem.NewFolder(\"n\"),\n");
 	mainWriter.write("	  inmem.NewFolder(\"tmp\"),\n");
+	mainWriter.write("	  inmem.NewFolderOf(\"drivers\",\n");
+	mainWriter.write("	    drivers.GetNsexportDriver(),\n");
+	mainWriter.write("    ),\n");
 	mainWriter.write("  )\n\n");
 	mainWriter.write("  ns := base.NewNamespace(\"/\", root)\n")
 	mainWriter.write("  ctx := base.NewRootContext(ns)\n\n")
 
 	// Mount "root" shape at /srv
 	mainWriter.write("  ctx.Put(\"/srv\", &Root{})\n\n")
-	mainWriter.write("  log.Println(\"Driver subsystem started\")\n")
-	mainWriter.write("}")
+
+	mainWriter.write("  log.Println(\"Starting nsexport...\")\n")
+	mainWriter.write("  exportFunc, _ := ctx.GetFunction(\"/drivers/nsexport/invoke\")\n")
+	mainWriter.write("  exportBase, _ := ctx.Get(\"/srv\")\n")
+	mainWriter.write("  exportFunc.Invoke(ctx, exportBase)\n\n")
+
+	mainWriter.write("  host := fmt.Sprint(\"0.0.0.0:\", 9234)\n")
+	mainWriter.write("  log.Printf(\"Listening on %s...\", host)\n")
+	mainWriter.write("  if err := http.ListenAndServe(host, nil); err != nil {\n")
+  mainWriter.write("    log.Println(\"ListenAndServe: \", err)\n")
+	mainWriter.write("  }\n")
+
+	mainWriter.write("}\n")
 	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/main.go", mainWriter.bytes())
 
 	/*
@@ -383,6 +401,8 @@ func (p *golang) CompileDriver() error {
 	err := cmd.Run()
 	log.Println("Compiler output:", err, out.String())
 
+	// TODO: verify the endpoint is available, then shut down the test
+	/*
 	if err == nil {
 		cmd = exec.Command(p.gen.TargetPath + "/driver")
 		var out2 bytes.Buffer
@@ -391,6 +411,7 @@ func (p *golang) CompileDriver() error {
 		err2 := cmd.Run()
 		log.Println("Test run output:", err2, out2.String())
 	}
+	*/
 
 	return nil
 }

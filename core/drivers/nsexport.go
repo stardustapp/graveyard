@@ -38,7 +38,7 @@ func nsexportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 	}
 
 	http.Handle("/~~export", svc)
-	go svc.listen()
+	//go svc.listen()
 
 	return nil // svc.tmpFolder
 }
