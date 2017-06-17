@@ -101,6 +101,9 @@ func (e *Shape) Check(ctx base.Context, entry base.Entry) (ok bool) {
 	case "Shape":
 		_, ok = entry.(base.Shape)
 
+	case "File":
+		_, ok = entry.(base.File)
+
 	default:
 		//log.Printf("Can't validate unknown type for %+v", e)
 
