@@ -9,10 +9,13 @@
   <h1>Welcome to the Stardust Driver Management Vortex</h1>
 
   <ul class="drivers">
-    <li v-for="name in driverList">
+    <li v-for="name in driverList" @click="compile(name)">
       {{name}}
     </li>
   </ul>
+
+  <p>{{status}}</p>
+  <pre>{{output}}</pre>
 </div>
 
 <script type="text/x-template" id="entry-item">
