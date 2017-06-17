@@ -27,6 +27,10 @@ Vue.component('entry-item', {
       return this.stat.shapes &&
           this.stat.shapes.indexOf('function') !== -1;
     },
+    canLaunch() {
+      return this.stat.shapes &&
+          this.stat.shapes.indexOf('web-app') !== -1;
+    },
     isFolder() {
       return this.type === "Folder";
     },
@@ -45,6 +49,10 @@ Vue.component('entry-item', {
     },
   },
   methods: {
+    launch() {
+      console.log('Launching app', this.path);
+      app.runningApp = '/~~' + this.path + '/index.html';
+    },
     activate() {
       if (this.isFunction) {
         app.openEditor({
@@ -99,7 +107,10 @@ Vue.component('entry-item', {
     load() {
       if (!this.loader) {
         this.loader = orbiter.loadMetadata(this.path, {
-          shapes: ['/rom/shapes/function'],
+          shapes: [
+            '/rom/shapes/function',
+            '/rom/shapes/web-app',
+          ],
         }).then(x => {
           x.children = x.children.sort((a, b) => {
             var nameA = a.name.toUpperCase();
@@ -274,7 +285,10 @@ Vue.component('invoke-function', {
     getInputProps() {
       const propsPath = this.tab.path + '/input-shape/props';
       orbiter.loadMetadata(propsPath, {
-        shapes: ['/rom/shapes/function'],
+        shapes: [
+          '/rom/shapes/function',
+          '/rom/shapes/web-app',
+        ],
       }).then(x => x.children.map(child => {
         if (child.type === 'String') {
           return orbiter
@@ -492,6 +506,7 @@ var app = new Vue({
     tabList: [],
     tabKeys: {},
     currentTab: null,
+    runningApp: null,
   },
   created() {
     window.addEventListener('keydown', this.handleKeyDown);
@@ -500,6 +515,10 @@ var app = new Vue({
     window.removeEventListener('keydown', this.handleKeyDown);
   },
   methods: {
+
+    reloadApp() {
+      this.$refs.appframe.contentWindow.location.reload();
+    },
 
     // Focus or open a new editor for given details
     openEditor(deets) {
