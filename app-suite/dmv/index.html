@@ -1,0 +1,25 @@
+<!doctype html>
+<title>DMV - Stardust</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="/~~/n/osfs/fonts/fira_code.css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<div id="app">
+  <h1>Welcome to the Stardust Driver Management Vortex</h1>
+
+  <ul class="drivers">
+    <li v-for="name in driverList">
+      {{name}}
+    </li>
+  </ul>
+</div>
+
+<script type="text/x-template" id="entry-item">
+
+</script>
+
+<script src="https://unpkg.com/vue"></script>
+<script src="../lib/orbiter.js"></script>
+<script src="../lib/utils.js"></script>
+<script src="app.js"></script>
