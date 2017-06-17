@@ -43,6 +43,17 @@
         :tab="tab"
         ref="tabElems"></component>
   </div>
+
+  <div v-if="runningApp" id="run-pane">
+    <ul id="tool-bar">
+      <li @click="reloadApp">
+        <i class="material-icons">refresh</i>
+        <span class="label">refresh</span>
+      </li>
+    </ul>
+
+    <iframe class="appframe" :src="runningApp" ref="appframe"></iframe>
+  </div>
 </div>
 
 <script type="text/x-template" id="entry-item">
@@ -51,7 +62,8 @@
       class="folder-name"
       @click="activate">
       <i class="material-icons tree-icon">{{icon}}</i>
-      {{name}}
+      <span class="name">{{name}}</span>
+      <i v-if="canLaunch" class="material-icons launch-icon" @click.stop="launch">launch</i>
     </div>
 
     <ul v-show="open" v-if="isFolder" class="sub-tree">
