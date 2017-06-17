@@ -202,5 +202,5 @@ form p {
 .cm-panel > .CodeMirror {
   flex: 1;
   font-family: 'Fira Code', monospace;
-  font-variant-ligatures: contextual;
+  /*font-variant-ligatures: contextual;*/
 }
