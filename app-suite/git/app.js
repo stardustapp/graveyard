@@ -32,12 +32,12 @@ Vue.component('commit', {
             out.loadFile('').then(x => {
               this.message = '';
               this.output += "\n" + x;
-              this.running = false;
+              app.running = false;
             });
           }
         }, err => {
           alert("git commit failed.\n\n" + err.stack);
-          this.running = false;
+          app.running = false;
         });
     },
   },
