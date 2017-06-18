@@ -160,6 +160,11 @@
       <button type="submit">Invoke</button>
     </div>
 
+    <label class="form-row">
+      <span>Output destination</span>
+      <input type="text" name="output-path" v-model="outputPath">
+    </label>
+
     <p v-show="status">
       Status: {{status}}
     </p>
