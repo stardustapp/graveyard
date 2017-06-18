@@ -391,7 +391,7 @@ func (p *golang) CompileDriver() error {
 	}
 
 	workDir := "/mnt/stardust" + p.gen.CompilePath + "/go-src"
-	script := "cd " + workDir + "\n\ngo get -d\ngo build -o " + p.gen.TargetPath + "/driver\n"
+	script := "cd " + workDir + "\n\ntime go get -d\ntime go build -o " + p.gen.TargetPath + "/driver\n"
 
 	cmd := exec.Command("sh", "-ex")
 	cmd.Stdin = strings.NewReader(script)
