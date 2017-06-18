@@ -125,6 +125,7 @@ func (e *nsexport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Add("content-type", "application/json; charset=UTF-8")
+	log.Printf("response: %+v", res)
 	json.NewEncoder(w).Encode(res)
 }
 
