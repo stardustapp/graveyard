@@ -38,6 +38,9 @@ Vue.component('entry-item', {
       if (this.isFunction) {
         return "flash_on"; // lightning bolt
       }
+      if (this.canLaunch) {
+        return "web"; // web app
+      }
       switch (this.type) {
         case "Folder":
           return this.open ? "folder_open" : "folder";
@@ -518,6 +521,12 @@ var app = new Vue({
 
     reloadApp() {
       this.$refs.appframe.contentWindow.location.reload();
+    },
+    navigateBack() {
+      this.$refs.appframe.contentWindow.history.back();
+    },
+    navigateFwd() {
+      this.$refs.appframe.contentWindow.history.forward();
     },
 
     // Focus or open a new editor for given details

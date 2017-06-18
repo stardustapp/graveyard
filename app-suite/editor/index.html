@@ -50,6 +50,14 @@
         <i class="material-icons">refresh</i>
         <span class="label">refresh</span>
       </li>
+      <li @click="navigateBack">
+        <i class="material-icons">arrow_back</i>
+        <span class="label">back</span>
+      </li>
+      <li @click="navigateFwd">
+        <i class="material-icons">arrow_forward</i>
+        <span class="label">fwd</span>
+      </li>
     </ul>
 
     <iframe class="appframe" :src="runningApp" ref="appframe"></iframe>

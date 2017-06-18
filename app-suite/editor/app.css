@@ -162,6 +162,22 @@ ul {
   font-style: italic;
 }
 
+#tool-bar {
+  display: flex;
+  margin: 0;
+  padding: 0;
+}
+#tool-bar li {
+  display: flex;
+  margin: 0.2em;
+  padding: 0.2em;
+  background-color: #333;
+  border: 1px solid transparent;
+}
+#tool-bar li:hover {
+  cursor: pointer;
+  border-color: #666;
+}
 
 .panel-parent {
   flex: 1;
