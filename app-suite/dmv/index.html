@@ -6,20 +6,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <div id="app">
-  <h1>Welcome to the Stardust Driver Management Vee</h1>
-
-  <ul class="drivers">
-    <li v-for="name in driverList" @click="compile(name)">
-      {{name}}
-    </li>
-  </ul>
-
-  <p>{{status}}</p>
+  <h1>Driver Management V</h1>
+  <driver-list></driver-list>
   <pre>{{output}}</pre>
 </div>
 
-<script type="text/x-template" id="entry-item">
+<script type="text/x-template" id="driver-list">
+  <table class="drivers">
+    <driver
+        v-for="name in names"
+        :key="name"
+        :name="name"
+      ></driver>
+  </table>
+</script>
 
+<script type="text/x-template" id="driver">
+  <tr>
+    <th>{{name}}</th>
+    <td>
+      <i
+          class="material-icons"
+          @click="compile"
+        >settings</i>
+      <i
+          class="material-icons"
+          @click="deploy"
+        >play_arrow</i>
+    </td>
+    <td>{{status}}</td>
+  </tr>
 </script>
 
 <script src="https://unpkg.com/vue"></script>

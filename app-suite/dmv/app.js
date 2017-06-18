@@ -2,40 +2,42 @@ const orbiter = new Orbiter();
 const sourceOrbiter = new Orbiter('/n/aws-ns/native-drivers');
 const kubeOrbiter = new Orbiter('/n/kube-apt');
 
-var app = new Vue({
-  el: '#app',
-  data: {
-    driverList: [],
-    driverUris: {},
-    status: 'Idle',
-    output: 'None',
+Vue.component('driver', {
+  template: '#driver',
+  props: {
+    name: String,
   },
-  created() {
-    sourceOrbiter.loadMetadata('/').then(entry => {
-      this.driverList = entry.children
-        .filter(x => x.type === 'Folder')
-        .map(x => x.name);
-    });
+  data() {
+    return {
+      uri: '',
+      status: 'idle',
+    };
   },
   methods: {
 
-    compile(driver) {
+    parseOutput(output) {
+      this.exitCode = +output.match(/Pod terminated with code (\d+)/)[1]
+      console.log(3, this.exitCode);
+    },
+
+    compile() {
       this.status = 'Generating';
       kubeOrbiter
         .invoke("/run-pod/invoke", {
-          name: Orbiter.String(`sd-builddriver-${driver}`),
+          name: Orbiter.String(`sd-builddriver-${this.name}`),
           image: Orbiter.String('stardustapp/utils:latest'),
-          command: Orbiter.String(`stardust-build-driver http://star-router-http/~~ ${driver}`),
+          command: Orbiter.String(`stardust-build-driver http://star-router-http/~~ ${this.name}`),
           privileged: Orbiter.String('yes'),
         }, true)
         .then(out => {
           this.status = 'Build completed';
           if (out) {
             out.loadFile('').then(x => {
-              this.output = x;
+              app.output = x;
+              this.parseOutput(x);
 
-              if (x.includes('Pod terminated with code 0')) {
-                this.deploy(driver);
+              if (x.exitCode === 0) {
+                this.deploy();
               }
             });
           } else {
@@ -44,21 +46,20 @@ var app = new Vue({
         }, err => {
           this.status = 'Crashed';
         });
-        //.then(x => console.log('invocation got', x));
     },
 
-    deploy(driver) {
+    deploy() {
       this.status = 'Deploying';
       kubeOrbiter
         .invoke("/deploy-svc/invoke", {
-          name: Orbiter.String(driver),
-          image: Orbiter.String(`stardriver-${driver}:latest`),
+          name: Orbiter.String(this.name),
+          image: Orbiter.String(`stardriver-${this.name}:latest`),
         }, true).then(out => {
           this.status = 'Deployed successfully';
           if (out) {
             out.loadFile('').then(x => {
-              this.driverUris[driver] = x;
-              this.mount(driver);
+              this.uri = x;
+              this.mount();
             });
           }
         }, err => {
@@ -66,22 +67,44 @@ var app = new Vue({
         });
     },
 
-    mount(driver) {
-      const endpointUri = this.driverUris[driver];
-      if (!endpointUri) {
-        return alert("No endpoint known for driver " + driver);
+    mount() {
+      if (!this.uri) {
+        return alert("No endpoint known for driver " + this.name);
       }
 
       this.status = 'Mounting';
       orbiter
         .invoke("/rom/drv/nsimport/invoke", {
-          'endpoint-url': Orbiter.String(endpointUri),
-        }, `/n/${driver}`).then(out => {
+          'endpoint-url': Orbiter.String(this.uri),
+        }, `/n/${this.name}`).then(out => {
           this.status = 'Mounted successfully';
         }, err => {
           this.status = 'Mounting crashed';
         });
     },
 
+  },
+});
+
+Vue.component('driver-list', {
+  template: '#driver-list',
+  data() {
+    return {
+      names: [],
+    };
+  },
+  created() {
+    sourceOrbiter.loadMetadata('/').then(entry => {
+      this.names = entry.children
+        .filter(x => x.type === 'Folder')
+        .map(x => x.name);
+    });
+  },
+});
+
+var app = new Vue({
+  el: '#app',
+  data: {
+    output: 'None',
   },
 });
