@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/extras"
@@ -32,6 +33,7 @@ var nsimportInputShape *inmem.Shape = inmem.NewShape(
 func nsimportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 	inputFolder := input.(base.Folder)
 	endpointUrl, _ := extras.GetChildString(inputFolder, "endpoint-url")
+	log.Println("nsimport requested for", endpointUrl)
 
 	svc := &nsimport{
 		endpoint: endpointUrl,
@@ -42,6 +44,7 @@ func nsimportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 		log.Println("nsimport failed:", err)
 		return nil
 	} else {
+		log.Println("nsimport passed on", endpointUrl)
 		return root
 	}
 }
@@ -52,6 +55,8 @@ type nsimport struct {
 }
 
 func (svc *nsimport) exec(req nsRequest) (res nsResponse, err error) {
+	resty.SetTimeout(time.Duration(5 * time.Second))
+
 	resp, err := resty.R(). // SetAuthToken
 				SetHeader("Accept", "application/json").
 				SetHeader("Content-Type", "application/json").
@@ -77,27 +82,31 @@ func (svc *nsimport) getEntry(path string) (base.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !resp.Ok {
+		return nil, errors.New("ns get response wasn't okay")
+	}
+	entry := resp.Output
 
-	switch resp.Type {
+	switch entry.Type {
 
 	case "Folder":
 		return &importedFolder{
 			svc:      svc,
 			prefix:   path,
-			name:     resp.Name,
-			children: resp.Children,
+			name:     entry.Name,
+			children: entry.Children,
 		}, nil
 
 	case "File":
 		// TODO: how will writing files work?
-		return inmem.NewFile(resp.Name, resp.FileData), nil
+		return inmem.NewFile(entry.Name, entry.FileData), nil
 
 	case "String":
-		return inmem.NewString(resp.Name, resp.StringValue), nil
+		return inmem.NewString(entry.Name, entry.StringValue), nil
 
 	default:
-		log.Println("nsimport: unknown entry type", resp.Type)
-		return nil, errors.New("unknown entry type " + resp.Type)
+		log.Println("nsimport: unknown entry type", entry.Type)
+		return nil, errors.New("unknown entry type " + entry.Type)
 	}
 }
 
@@ -105,7 +114,7 @@ type importedFolder struct {
 	svc      *nsimport
 	prefix   string
 	name     string
-	children []string
+	children []nsEntry
 }
 
 var _ base.Folder = (*importedFolder)(nil)
@@ -114,7 +123,11 @@ func (e *importedFolder) Name() string {
 	return e.name
 }
 func (e *importedFolder) Children() []string {
-	return e.children
+	names := make([]string, len(e.children))
+	for idx, child := range e.children {
+		names[idx] = child.Name
+	}
+	return names
 }
 func (e *importedFolder) Fetch(name string) (child base.Entry, ok bool) {
 	child, err := e.svc.getEntry(e.prefix + "/" + name)
@@ -127,107 +140,28 @@ func (e *importedFolder) Put(name string, child base.Entry) (ok bool) {
 	return false
 }
 
-/*
-func (o *Orbiter) LoadFolder(path string) (fi FolderInfo, err error) {
-	resp, err := resty.R(). // SetAuthToken
-				SetHeader("Accept", "application/json"). // X-Sd-Match-Shape
-				SetResult(&fi).
-				Get(o.base + path + "/")
+type importedFunction struct {
+	svc  *nsimport
+	path string
+	name string
+}
 
-	if resp.StatusCode() < 200 || resp.StatusCode() > 399 {
-		log.Println("got", resp.StatusCode(), "on", path)
-		err = errors.New("Error HTTP status code")
+var _ base.Function = (*importedFunction)(nil)
+
+func (e *importedFunction) Name() string {
+	return e.name
+}
+func (e *importedFunction) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
+	resp, err := e.svc.exec(nsRequest{
+		Op:    "invoke",
+		Path:  e.path,
+		Input: convertEntryToApi(input),
+	})
+	if err != nil {
+		log.Println("nsimport invoke err:", err)
+		return nil
 	}
-	return
+
+	// TODO: functions should be able to return interactive nodes like Functions
+	return convertEntryFromApi(resp.Output)
 }
-
-type FolderInfo struct {
-	Name     string
-	Children []FolderEntry
-}
-
-type FolderEntry struct {
-	Name   string
-	Type   string
-	Shapes []string
-	Size   int
-}
-
-func (o *Orbiter) LoadEntry(path string) (err error, ent FolderEntry) {
-	resp, err := resty.R().
-		SetHeader("Accept", "application/json").
-		SetResult(&ent).
-		Get(o.base + path)
-
-	if err == nil && (resp.StatusCode() < 200 || resp.StatusCode() > 399) {
-		log.Println("got", resp.StatusCode(), "on", path)
-		err = errors.New("Error HTTP status code")
-	}
-	return
-}
-
-func (o *Orbiter) ReadString(path string) (value string, err error) {
-	data, err := o.ReadFile(path)
-	return string(data), err
-}
-
-func (o *Orbiter) ReadFile(path string) (data []byte, err error) {
-	resp, err := resty.R().
-		SetHeader("Accept", "text/plain").
-		Get(o.base + path)
-
-	if err == nil && (resp.StatusCode() < 200 || resp.StatusCode() > 399) {
-		log.Println("got", resp.StatusCode(), "on", path)
-		err = errors.New("Error HTTP status code")
-	}
-	return resp.Body(), err
-}
-
-func (o *Orbiter) PutFile(path string, data []byte) (err error) {
-	resp, err := resty.R().
-		SetHeader("X-Sd-Entry-Type", "File").
-		SetHeader("Content-Type", "text/plain").
-		SetBody(data).
-		Put(o.base + path)
-
-	if err == nil && (resp.StatusCode() < 200 || resp.StatusCode() > 399) {
-		log.Println("got", resp.StatusCode(), "on", path)
-		err = errors.New("Error HTTP status code")
-	}
-	return err
-}
-
-func (o *Orbiter) PutFolder(path string) (err error) {
-	resp, err := resty.R().
-		SetHeader("X-Sd-Entry-Type", "Folder").
-		Put(o.base + path)
-
-	if err == nil && (resp.StatusCode() < 200 || resp.StatusCode() > 399) {
-		log.Println("got", resp.StatusCode(), "on", path)
-		err = errors.New("Error HTTP status code")
-	}
-	return err
-}
-
-func (o *Orbiter) Delete(path string) (err error) {
-	resp, err := resty.R().
-		Delete(o.base + path)
-
-	if resp.StatusCode() < 200 || resp.StatusCode() > 399 {
-		log.Println("got", resp.StatusCode(), "on", path)
-		err = errors.New("Error HTTP status code")
-	}
-	return err
-}
-
-func (o *Orbiter) Rename(oldPath, newPath string) (err error) {
-	resp, err := resty.R().
-		SetHeader("Destination", newPath).
-		Execute("MOVE", o.base+oldPath)
-
-	if resp.StatusCode() < 200 || resp.StatusCode() > 399 {
-		log.Println("got", resp.StatusCode(), "on", oldPath)
-		err = errors.New("Error HTTP status code")
-	}
-	return err
-}*/

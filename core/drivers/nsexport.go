@@ -88,24 +88,37 @@ func (e *nsexport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		res.Name = ent.Name()
+		wireEnt := &nsEntry{
+			Name: ent.Name(),
+		}
 		switch ent := ent.(type) {
 
 		case base.Folder:
-			res.Type = "Folder"
-			res.Children = ent.Children()
+			names := ent.Children()
+			children := make([]nsEntry, len(names))
+			for idx, name := range names {
+				children[idx] = nsEntry{
+					Name: name,
+				}
+			}
+			wireEnt.Type = "Folder"
+			wireEnt.Children = children
 
 		case base.File:
-			res.Type = "File"
-			res.FileData = ent.Read(0, int(ent.GetSize()))
+			wireEnt.Type = "File"
+			wireEnt.FileData = ent.Read(0, int(ent.GetSize()))
 
 		case base.String:
-			res.Type = "String"
-			res.StringValue = ent.Get()
+			wireEnt.Type = "String"
+			wireEnt.StringValue = ent.Get()
+
+		case base.Function:
+			wireEnt.Type = "Function"
 
 		default:
-			res.Type = "Unknown"
+			wireEnt.Type = "Unknown"
 		}
+		res.Output = wireEnt
 
 	default:
 		http.Error(w, "Not implemented", 500)
