@@ -55,7 +55,7 @@ type nsimport struct {
 }
 
 func (svc *nsimport) exec(req nsRequest) (res nsResponse, err error) {
-	resty.SetTimeout(time.Duration(5 * time.Second))
+	resty.SetTimeout(time.Duration(30 * time.Second))
 
 	resp, err := resty.R(). // SetAuthToken
 				SetHeader("Accept", "application/json").
@@ -74,7 +74,7 @@ func (svc *nsimport) exec(req nsRequest) (res nsResponse, err error) {
 }
 
 func (svc *nsimport) getEntry(path string) (base.Entry, error) {
-	path = "/" + strings.TrimPrefix(path, "/")
+	path = "/" + strings.TrimLeft(path, "/")
 	resp, err := svc.exec(nsRequest{
 		Op:   "get",
 		Path: path,
@@ -100,11 +100,19 @@ func (svc *nsimport) getEntry(path string) (base.Entry, error) {
 			children: entry.Children,
 		}, nil
 
+	case "Shape":
+		return inmem.NewShape(&importedFolder{
+			svc:      svc,
+			prefix:   path,
+			name:     entry.Name,
+			children: entry.Children,
+		}), nil
+
 	case "Function":
 		return &importedFunction{
-			svc:      svc,
-			path:   path,
-			name:     entry.Name,
+			svc:  svc,
+			path: path,
+			name: entry.Name,
 		}, nil
 
 	case "File":
