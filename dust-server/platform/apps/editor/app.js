@@ -234,6 +234,7 @@ Vue.component('invoke-function', {
       output: null,
       inputType: '',
       outputType: '',
+      outputPath: '',
       //output: null,
     };
   },
@@ -269,7 +270,7 @@ Vue.component('invoke-function', {
       this.output = null;
       this.status = 'Pending';
       orbiter
-        .invoke(invokePath, input, true)
+        .invoke(invokePath, input, this.outputPath || true)
         .then(out => {
           this.status = 'Completed';
           if (out) {
