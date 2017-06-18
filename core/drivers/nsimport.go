@@ -85,6 +85,9 @@ func (svc *nsimport) getEntry(path string) (base.Entry, error) {
 	if !resp.Ok {
 		return nil, errors.New("ns get response wasn't okay")
 	}
+	if resp.Output == nil {
+		return nil, errors.New("ns get response was nil")
+	}
 	entry := resp.Output
 
 	switch entry.Type {
@@ -95,6 +98,13 @@ func (svc *nsimport) getEntry(path string) (base.Entry, error) {
 			prefix:   path,
 			name:     entry.Name,
 			children: entry.Children,
+		}, nil
+
+	case "Function":
+		return &importedFunction{
+			svc:      svc,
+			path:   path,
+			name:     entry.Name,
 		}, nil
 
 	case "File":
