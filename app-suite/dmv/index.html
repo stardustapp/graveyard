@@ -28,6 +28,7 @@
       <i
           class="material-icons"
           @click="compile"
+          :class="{'building-icon': status === 'Generating'}"
         >settings</i>
       <i
           class="material-icons"

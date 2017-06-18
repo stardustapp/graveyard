@@ -78,6 +78,7 @@ Vue.component('driver', {
           'endpoint-url': Orbiter.String(this.uri),
         }, `/n/${this.name}`).then(out => {
           this.status = 'Mounted successfully';
+          window.parent.app.selectTreeNode('/n').reload();
         }, err => {
           this.status = 'Mounting crashed';
         });

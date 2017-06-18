@@ -30,3 +30,12 @@ pre {
 i {
   cursor: pointer;
 }
+
+
+.building-icon {
+  animation: spin 4s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
