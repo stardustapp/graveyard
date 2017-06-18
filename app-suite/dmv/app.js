@@ -36,7 +36,7 @@ Vue.component('driver', {
               app.output = x;
               this.parseOutput(x);
 
-              if (x.exitCode === 0) {
+              if (this.exitCode === 0) {
                 this.deploy();
               }
             });
