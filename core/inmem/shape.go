@@ -111,7 +111,7 @@ func (e *Shape) Check(ctx base.Context, entry base.Entry) (ok bool) {
 
 	if !ok {
 		//log.Printf("Validating failed: %+v against %+v", entry, e)
-		log.Printf("Validating failed")
+		//log.Printf("Validating failed")
 	}
 
 	return
