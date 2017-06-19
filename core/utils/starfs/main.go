@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"os/exec"
-	"time"
 
 	"github.com/stardustapp/core/client"
 
@@ -29,9 +28,6 @@ func Run(mountpoint string, orbiter *client.Orbiter) {
 	exec.Command("fusermount", "-u", mountpoint).Run()
 	exec.Command("rm", "-rf", mountpoint).Run()
 	exec.Command("mkdir", mountpoint).Run()
-
-	log.Println("Waiting a second...")
-	time.Sleep(time.Second)
 
 	server, err := Mount(mountpoint, orbiter)
 	if err != nil {
