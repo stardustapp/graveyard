@@ -51,10 +51,13 @@ ul {
 .tree-icon {
   margin-right: 5px;
 }
+.launch-icon {
+  color: #ccc;
+  text-decoration: none;
+}
 .launch-icon:hover {
   color: #9f9;
-  margin-right: 5px;
-  margin-left: -5px;
+  padding-right: 5px;
 }
 
 #root-tree {

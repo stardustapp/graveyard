@@ -41,7 +41,8 @@
         :key="tab.key"
         :is="tab.type"
         :tab="tab"
-        ref="tabElems"></component>
+        ref="tabElems">
+    </component>
   </div>
 
   <div v-if="runningApp" id="run-pane">
@@ -71,7 +72,9 @@
       @click="activate">
       <i class="material-icons tree-icon">{{icon}}</i>
       <span class="name">{{name}}</span>
-      <i v-if="canLaunch" class="material-icons launch-icon" @click.stop="launch">launch</i>
+      <a v-if="canLaunch" class="material-icons launch-icon"
+          :href="launchUri" @click.stop.prevent="launch"
+          >launch</a>
     </div>
 
     <ul v-show="open" v-if="isFolder" class="sub-tree">

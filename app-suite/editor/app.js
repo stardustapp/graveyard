@@ -31,6 +31,9 @@ Vue.component('entry-item', {
       return this.stat.shapes &&
           this.stat.shapes.indexOf('web-app') !== -1;
     },
+    launchUri() {
+      return '/~~' + this.path + '/index.html';
+    },
     isFolder() {
       return this.type === "Folder";
     },
@@ -54,7 +57,7 @@ Vue.component('entry-item', {
   methods: {
     launch() {
       console.log('Launching app', this.path);
-      app.runningApp = '/~~' + this.path + '/index.html';
+      app.runningApp = this.launchUri;
     },
     activate() {
       if (this.isFunction) {
@@ -288,12 +291,7 @@ Vue.component('invoke-function', {
     },
     getInputProps() {
       const propsPath = this.tab.path + '/input-shape/props';
-      orbiter.loadMetadata(propsPath, {
-        shapes: [
-          '/rom/shapes/function',
-          '/rom/shapes/web-app',
-        ],
-      }).then(x => x.children.map(child => {
+      orbiter.loadMetadata(propsPath).then(x => x.children.map(child => {
         if (child.type === 'String') {
           return orbiter
             .loadFile(propsPath + '/' + child.name)
