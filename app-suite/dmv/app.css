@@ -8,6 +8,9 @@ body {
 h1 {
   font-weight: 400;
 }
+.big-icon {
+  font-size: 36px;
+}
 
 table {
   display: inline-block;

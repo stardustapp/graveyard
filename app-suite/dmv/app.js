@@ -17,12 +17,11 @@ Vue.component('driver', {
 
     parseOutput(output) {
       this.exitCode = +output.match(/Pod terminated with code (\d+)/)[1]
-      console.log(3, this.exitCode);
     },
 
-    compile() {
+    compile(prom) {
       this.status = 'Generating';
-      kubeOrbiter
+      return kubeOrbiter
         .invoke("/run-pod/invoke", {
           name: Orbiter.String(`sd-builddriver-${this.name}`),
           image: Orbiter.String('stardustapp/utils:latest'),
@@ -37,7 +36,7 @@ Vue.component('driver', {
               this.parseOutput(x);
 
               if (this.exitCode === 0) {
-                this.deploy();
+                this.deploy(prom);
               }
             });
           } else {
@@ -45,12 +44,13 @@ Vue.component('driver', {
           }
         }, err => {
           this.status = 'Crashed';
+          prom && prom();
         });
     },
 
-    deploy() {
+    deploy(prom) {
       this.status = 'Deploying';
-      kubeOrbiter
+      return kubeOrbiter
         .invoke("/deploy-svc/invoke", {
           name: Orbiter.String(this.name),
           image: Orbiter.String(`stardriver-${this.name}:latest`),
@@ -59,28 +59,31 @@ Vue.component('driver', {
           if (out) {
             out.loadFile('').then(x => {
               this.uri = x;
-              this.mount();
+              this.mount(prom);
             });
           }
         }, err => {
           this.status = 'Deploying crashed';
+          prom && prom();
         });
     },
 
-    mount() {
+    mount(prom) {
       if (!this.uri) {
         return alert("No endpoint known for driver " + this.name);
       }
 
       this.status = 'Mounting';
-      orbiter
+      return orbiter
         .invoke("/rom/drv/nsimport/invoke", {
           'endpoint-url': Orbiter.String(this.uri),
         }, `/n/${this.name}`).then(out => {
           this.status = 'Mounted successfully';
+          prom && prom(true);
           window.parent.app.selectTreeNode('/n').reload();
         }, err => {
           this.status = 'Mounting crashed';
+          prom && prom();
         });
     },
 
@@ -101,11 +104,37 @@ Vue.component('driver-list', {
         .map(x => x.name);
     });
   },
+  methods: {
+
+    buildAll() {
+      app.buildingAll = true;
+      const toGo = Array.from(this.$refs.drivers);
+      const doNext = (res) => {
+        if (toGo.length === 0) {
+          app.buildingAll = false;
+        } else if (toGo.length === 1) {
+          const driver = toGo.shift();
+          driver.compile(doNext);
+        } else {
+          const driver = toGo.shift();
+          driver.compile().then(doNext);
+        }
+      };
+      doNext();
+    },
+
+  },
 });
 
 var app = new Vue({
   el: '#app',
   data: {
     output: 'None',
+    buildingAll: false,
+  },
+  methods: {
+    buildAll() {
+      this.$refs.list.buildAll();
+    },
   },
 });

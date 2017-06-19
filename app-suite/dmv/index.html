@@ -6,8 +6,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <div id="app">
-  <h1>Driver Management V</h1>
-  <driver-list></driver-list>
+  <h1>
+    Driver Management V
+    <i
+       class="big-icon material-icons"
+       @click="buildAll"
+       :class="{'building-icon': buildingAll}"
+     >autorenew</i>
+  </h1>
+
+  <driver-list ref="list"></driver-list>
   <pre>{{output}}</pre>
 </div>
 
@@ -15,6 +23,7 @@
   <table class="drivers">
     <driver
         v-for="name in names"
+        ref="drivers"
         :key="name"
         :name="name"
       ></driver>
