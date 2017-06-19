@@ -1,0 +1,108 @@
+<!doctype html>
+<title>Stardust App Designer</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="/~~/n/osfs/fonts/fira_code.css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<div id="app">
+  <h1>Driver Designer</h1>
+  <select v-model="driver" @change="loadDriver">
+    <option
+        v-for="driver in drivers"
+        :key="driver"
+      >{{driver}}</option>
+  </select>
+
+  <p>Functions</p>
+  <ul>
+    <function v-for="func in functions"
+        :key="func"
+        :driver="driver"
+        :func="func"
+      ></function>
+  </ul>
+
+  <p>Shapes</p>
+  <ul>
+    <shape v-for="shape in shapes"
+        :key="shape"
+        :driver="driver"
+        :shape="shape"
+      ></shape>
+  </ul>
+</div>
+
+<script type="text/x-template" id="function">
+  <li>
+    {{func}}
+
+    <select v-model="contextShape" @change="setShape('context')">
+      <option value="">no context</option>
+      <option
+          v-for="shape in shapes"
+          :key="shape"
+        >{{shape}}</option>
+    </select>
+    <select v-model="inputShape" @change="setShape('input')">
+      <option value="">no input</option>
+      <option
+          v-for="shape in shapes"
+          :key="shape"
+        >{{shape}}</option>
+    </select>
+    <select v-model="outputShape" @change="setShape('output')">
+      <option value="">no output</option>
+      <option
+          v-for="shape in shapes"
+          :key="shape"
+        >{{shape}}</option>
+    </select>
+  </li>
+</script>
+
+<script type="text/x-template" id="shape">
+  <li>
+    {{shape}}
+    <ul>
+      <shape-prop
+          v-for="prop in props"
+          :key="prop"
+          :driver="driver"
+          :shape="shape"
+          :prop="prop.name"
+          :shorthand="prop.shorthand"
+        ></shape-prop>
+    </ul>
+  </li>
+</script>
+
+<script type="text/x-template" id="shape-prop">
+  <li>
+    {{prop}}
+
+    <select
+        v-model="type"
+        @change="setType">
+      <option>String</option>
+      <option>Function</option>
+      <option>File</option>
+    </select>
+
+    <select
+        v-if="type === 'Function'"
+        v-model="target"
+        @change="setTarget()">
+      <option value="">no target</option>
+      <option
+          v-for="func in functions"
+          :key="func"
+        >{{func}}</option>
+    </select>
+  </li>
+</script>
+
+<script src="https://unpkg.com/vue"></script>
+<script src="../lib/orbiter.js"></script>
+<script src="../lib/utils.js"></script>
+<script src="app.js"></script>

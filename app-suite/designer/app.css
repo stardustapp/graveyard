@@ -1,0 +1,41 @@
+body {
+  font-family: 'Roboto';
+  background-color: #00701a;
+  color: #fff;
+}
+
+h1 {
+  text-align: center;
+  font-weight: 400;
+}
+
+table {
+  display: inline-block;
+  background-color: #43a047;
+}
+
+th {
+  font-weight: 400;
+  text-align: left;
+}
+
+td, th {
+  padding: 0.4em 1em;
+}
+
+pre {
+  text-align: left;
+}
+
+i {
+  cursor: pointer;
+}
+
+
+.building-icon {
+  animation: spin 4s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
