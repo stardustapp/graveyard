@@ -1,0 +1,13 @@
+#!/bin/sh -ex
+
+if [ ! -d redis ]; then
+  git clone git@github.com:antirez/redis.git
+  cd redis
+  make
+  make test
+  cd -
+fi
+
+go build -buildmode=c-shared
+
+redis/src/redis-server --loadmodule ./redis-module --loglevel debug
