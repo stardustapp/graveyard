@@ -99,7 +99,7 @@ Vue.component('shape', {
     newProp() {
       const name = prompt(`New shape prop name:`);
       if (name) {
-        orbiter.putFolderOf(`${this.name}/props/${name}`, {
+        orbiter.putFolderOf(`${this.path}/props/${name}`, {
           'type': Orbiter.String('String'),
         }).then(() => this.loadShape());
       }

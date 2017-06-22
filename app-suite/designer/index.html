@@ -63,6 +63,9 @@
           v-for="shape in shapes"
           :key="shape"
         >{{shape}}</option>
+      <option>String</option>
+      <option>Function</option>
+      <option>File</option>
     </select>
     <select v-model="outputShape" @change="setShape('output')">
       <option value="">no output</option>
@@ -70,6 +73,9 @@
           v-for="shape in shapes"
           :key="shape"
         >{{shape}}</option>
+      <option>String</option>
+      <option>Function</option>
+      <option>File</option>
     </select>
   </li>
 </script>
