@@ -298,13 +298,18 @@ func (p *golang) GenerateDriver() error {
 		}
 		funcWriter.write("}, true\n")
 
-		// TODO: We don't write out shape _definitions_ yet!
-		/*
+		if funct.ContextShape != "" {
+			funcWriter.write("  case \"context-shape\":\n")
+			funcWriter.write("    return %sShape, true\n", extras.SnakeToCamelLower(funct.ContextShape))
+		}
+		if funct.InputShape != "" {
 			funcWriter.write("  case \"input-shape\":\n")
-			if funct.InputShape != "" {
-				funcWriter.write("    return inmem.NewShape(\"invoke\", %sImpl), true\n", extras.SnakeToCamel(funct.Name))
-			}
-		*/
+			funcWriter.write("    return %sShape, true\n", extras.SnakeToCamelLower(funct.InputShape))
+		}
+		if funct.OutputShape != "" {
+			funcWriter.write("  case \"output-shape\":\n")
+			funcWriter.write("    return %sShape, true\n", extras.SnakeToCamelLower(funct.OutputShape))
+		}
 
 		funcWriter.write("  default:\n    return\n  }\n}\n\n")
 
