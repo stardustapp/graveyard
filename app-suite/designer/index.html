@@ -92,8 +92,18 @@
           :prop="prop.name"
           :shorthand="prop.shorthand"
         ></shape-prop>
+      <shape-prop
+          v-for="prop in nativeProps"
+          :key="prop.name"
+          :driver="driver"
+          :shape="shape"
+          :prop="prop.name"
+          :shorthand="prop.shorthand"
+          :native="true"
+        ></shape-prop>
       <li>
         <button @click="newProp">add prop</button>
+        <button @click="newNativeProp">add native prop</button>
       </li>
     </ul>
   </li>
@@ -105,6 +115,7 @@
 
     <select
         v-model="type"
+        v-if="!native"
         @change="setType">
       <option
           v-for="shape in shapes"
@@ -114,6 +125,12 @@
       <option>Function</option>
       <option>File</option>
     </select>
+    <input
+        type="text"
+        v-model="type"
+        v-if="native"
+        @change="setType"
+      />
 
     <select
         v-if="type === 'Function'"

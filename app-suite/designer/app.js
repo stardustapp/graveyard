@@ -77,6 +77,7 @@ Vue.component('shape', {
     return {
       type: '',
       props: [],
+      nativeProps: [],
     };
   },
   computed: {
@@ -95,6 +96,10 @@ Vue.component('shape', {
         .then(entry => entry.children
           .map(x => {return {name: x.name, shorthand: x.type !== 'Folder'}}))
         .then(x => this.props = x);
+      orbiter.loadMetadata(this.path + '/native-props')
+        .then(entry => entry.children
+          .map(x => {return {name: x.name, shorthand: x.type !== 'Folder'}}))
+        .then(x => this.nativeProps = x);
     },
     newProp() {
       const name = prompt(`New shape prop name:`);
@@ -102,6 +107,15 @@ Vue.component('shape', {
         orbiter.putFolderOf(`${this.path}/props/${name}`, {
           'type': Orbiter.String('String'),
         }).then(() => this.loadShape());
+      }
+    },
+    newNativeProp() {
+      const name = prompt(`New native prop name:`);
+      if (name) {
+        orbiter.mkdirp(`${this.path}/native-props`);
+        .then(() => orbiter.putFolderOf(`${this.path}/native-props/${name}`, {
+          'type': Orbiter.String(''),
+        })).then(() => this.loadShape());
       }
     },
   },
@@ -114,6 +128,7 @@ Vue.component('shape-prop', {
     shape: String,
     prop: String,
     shorthand: Boolean,
+    native: Boolean,
   },
   data() {
     return {
@@ -124,7 +139,11 @@ Vue.component('shape-prop', {
   },
   computed: {
     path() {
-      return `${driverRoot}/${this.driver}/shapes/${this.shape}/props/${this.prop}`;
+      var typePart = 'props';
+      if (this.native) {
+        typePart = 'native-props';
+      }
+      return `${driverRoot}/${this.driver}/shapes/${this.shape}/${typePart}/${this.prop}`;
     },
     functions() {
       return app.functions;
