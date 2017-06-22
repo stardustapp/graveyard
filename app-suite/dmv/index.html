@@ -36,12 +36,12 @@
     <td>
       <i
           class="material-icons"
-          @click="compile"
+          @click="compile()"
           :class="{'building-icon': status === 'Generating'}"
         >settings</i>
       <i
           class="material-icons"
-          @click="deploy"
+          @click="deploy()"
         >play_arrow</i>
     </td>
     <td>{{status}}</td>

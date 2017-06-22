@@ -40,11 +40,15 @@
       <button @click="newShape">add shape</button>
     </li>
   </ul>
+
+  <button @click="openDeps">edit dependencies</button>
 </div>
 
 <script type="text/x-template" id="function">
   <li>
     {{func}}
+
+    <button @click="openSource">edit source</button>
 
     <select v-model="contextShape" @change="setShape('context')">
       <option value="">no context</option>

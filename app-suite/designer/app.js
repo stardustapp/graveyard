@@ -56,6 +56,14 @@ Vue.component('function', {
         orbiter.delete(path);
       }
     },
+    openSource() {
+      window.parent.app.openEditor({
+        type: "edit-file",
+        icon: "edit",
+        label: this.func,
+        path: `${this.path}/source.go`,
+      });
+    },
   },
 });
 
@@ -221,6 +229,14 @@ var app = new Vue({
           this.driver = name;
         });
       }
+    },
+    openDeps() {
+      window.parent.app.openEditor({
+        type: "edit-file",
+        icon: "edit",
+        label: 'dependencies',
+        path: `${driverRoot}/${this.driver}/deps.txt`,
+      });
     },
   },
   created() {
