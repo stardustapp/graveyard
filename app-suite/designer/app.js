@@ -46,7 +46,16 @@ Vue.component('function', {
     });
   },
   methods: {
+    setShape(prop) {
+      const value = this[prop + 'Shape'];
+      const path = this.path + '/' + prop + '-shape';
 
+      if (value) {
+        orbiter.putFile(path, value);
+      } else {
+        orbiter.delete(path);
+      }
+    },
   },
 });
 
@@ -68,15 +77,25 @@ Vue.component('shape', {
     },
   },
   created() {
-    orbiter.loadFile(this.path + '/type')
-      .then(x => this.type = x);
-    orbiter.loadMetadata(this.path + '/props')
-      .then(entry => entry.children
-        .map(x => {return {name: x.name, shorthand: x.type === 'String'}}))
-      .then(x => this.props = x);
+    this.loadShape();
   },
   methods: {
-
+    loadShape() {
+      orbiter.loadFile(this.path + '/type')
+        .then(x => this.type = x);
+      orbiter.loadMetadata(this.path + '/props')
+        .then(entry => entry.children
+          .map(x => {return {name: x.name, shorthand: x.type !== 'Folder'}}))
+        .then(x => this.props = x);
+    },
+    newProp() {
+      const name = prompt(`New shape prop name:`);
+      if (name) {
+        orbiter.putFolderOf(`${this.name}/props/${name}`, {
+          'type': Orbiter.String('String'),
+        }).then(() => this.loadShape());
+      }
+    },
   },
 });
 
@@ -129,7 +148,23 @@ Vue.component('shape-prop', {
     }
   },
   methods: {
-
+    setType() {
+      var path = this.path;
+      if (!this.shorthand) {
+        path += '/type';
+      }
+      console.log(3, this.type);
+      orbiter.putFile(path, this.type);
+    },
+    setTarget() {
+      if (this.shorthand) {
+        alert(`Shorthands can't have a target`); // TODO
+      } else if (this.target) {
+        orbiter.putFile(this.path + '/target', this.target);
+      } else {
+        orbiter.delete(this.path + '/target');
+      }
+    },
   },
 });
 
@@ -142,6 +177,10 @@ var app = new Vue({
     shapes: [],
   },
   methods: {
+    loadDriverList() {
+      orbiter.listChildren(driverRoot, x => x.type === 'Folder')
+        .then(names => this.drivers = names);
+    },
     loadDriver() {
       this.functions = [];
       this.shapes = [];
@@ -150,10 +189,42 @@ var app = new Vue({
       orbiter.listChildren(`${driverRoot}/${this.driver}/shapes`)
         .then(names => this.shapes = names);
     },
+    newFunc() {
+      const name = prompt(`New function name:`);
+      const goName = ('-' + name).replace(/-./g, a => a[1].toUpperCase());
+      if (name) {
+        orbiter.putFolderOf(`${driverRoot}/${this.driver}/functions/${name}`, {
+          'output-shape': Orbiter.String('String'),
+          'source.go': Orbiter.String(`func ${goName}Impl() string {\n  return "hello world";\n}`),
+        }).then(() => this.loadDriver());
+      }
+    },
+    newShape() {
+      const name = prompt(`New shape name:`);
+      if (name) {
+        orbiter.putFolderOf(`${driverRoot}/${this.driver}/shapes/${name}`, {
+          'type': Orbiter.String('Folder'),
+          'props': Orbiter.Folder({}),
+        }).then(() => this.loadDriver());
+      }
+    },
+    newDriver() {
+      const name = prompt(`New driver name:`);
+      if (name) {
+        orbiter.putFolderOf(`${driverRoot}/${name}`, {
+          'platform': Orbiter.String('golang'),
+          'deps.txt': Orbiter.File(''),
+          'functions': Orbiter.Folder({}),
+          'shapes': Orbiter.Folder({}),
+        }).then(() => {
+          this.loadDriverList();
+          this.driver = name;
+        });
+      }
+    },
   },
   created() {
-    orbiter.listChildren(driverRoot, x => x.type === 'Folder')
-      .then(names => this.drivers = names);
-     this.loadDriver();
+    this.loadDriverList();
+    this.loadDriver();
   },
 });

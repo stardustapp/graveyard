@@ -1,5 +1,5 @@
 const orbiter = new Orbiter();
-const sourceOrbiter = new Orbiter('/n/aws-ns/native-drivers');
+const sourceOrbiter = new Orbiter('/n/redis-ns/native-drivers');
 const kubeOrbiter = new Orbiter('/n/kube-apt');
 
 Vue.component('driver', {

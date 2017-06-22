@@ -7,12 +7,15 @@
 
 <div id="app">
   <h1>Driver Designer</h1>
-  <select v-model="driver" @change="loadDriver">
-    <option
-        v-for="driver in drivers"
-        :key="driver"
-      >{{driver}}</option>
-  </select>
+  <div class="select-driver">
+    <select v-model="driver" @change="loadDriver">
+      <option
+          v-for="driver in drivers"
+          :key="driver"
+        >{{driver}}</option>
+    </select>
+    <button @click="newDriver">new driver</button>
+  </div>
 
   <p>Functions</p>
   <ul>
@@ -21,6 +24,9 @@
         :driver="driver"
         :func="func"
       ></function>
+    <li>
+      <button @click="newFunc">add func</button>
+    </li>
   </ul>
 
   <p>Shapes</p>
@@ -30,6 +36,9 @@
         :driver="driver"
         :shape="shape"
       ></shape>
+    <li>
+      <button @click="newShape">add shape</button>
+    </li>
   </ul>
 </div>
 
@@ -67,12 +76,15 @@
     <ul>
       <shape-prop
           v-for="prop in props"
-          :key="prop"
+          :key="prop.name"
           :driver="driver"
           :shape="shape"
           :prop="prop.name"
           :shorthand="prop.shorthand"
         ></shape-prop>
+      <li>
+        <button @click="newProp">add prop</button>
+      </li>
     </ul>
   </li>
 </script>
@@ -92,7 +104,7 @@
     <select
         v-if="type === 'Function'"
         v-model="target"
-        @change="setTarget()">
+        @change="setTarget">
       <option value="">no target</option>
       <option
           v-for="func in functions"
