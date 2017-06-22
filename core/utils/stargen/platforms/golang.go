@@ -97,6 +97,11 @@ func (p *golang) GenerateDriver() error {
 	shapeDefs := p.gen.ListShapes()
 	funcDefs := p.gen.ListFunctions()
 
+	shapeNames := make(map[string]stargen.ShapeDef)
+	for _, shape := range shapeDefs {
+		shapeNames[shape.Name] = shape
+	}
+
 	p.loadDeps()
 	log.Println("Starting code generation")
 
@@ -155,6 +160,8 @@ func (p *golang) GenerateDriver() error {
 			} else if prop.Type == "String" {
 				// let's put raw strings in
 				folderWriter.write("  %s string\n", extras.SnakeToCamel(prop.Name))
+			} else if _, ok := shapeNames[prop.Type]; ok {
+				folderWriter.write("  %s *%s\n", extras.SnakeToCamel(prop.Name), extras.SnakeToCamel(prop.Type))
 			} else {
 				folderWriter.write("  %s base.%s\n", extras.SnakeToCamel(prop.Name), prop.Type)
 				folderWriter.useDep("base")
