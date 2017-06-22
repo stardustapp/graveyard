@@ -112,7 +112,7 @@ Vue.component('shape', {
     newNativeProp() {
       const name = prompt(`New native prop name:`);
       if (name) {
-        orbiter.mkdirp(`${this.path}/native-props`);
+        orbiter.mkdirp(`${this.path}/native-props`)
         .then(() => orbiter.putFolderOf(`${this.path}/native-props/${name}`, {
           'type': Orbiter.String(''),
         })).then(() => this.loadShape());
