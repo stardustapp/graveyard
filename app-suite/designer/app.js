@@ -129,6 +129,9 @@ Vue.component('shape-prop', {
     functions() {
       return app.functions;
     },
+    shapes() {
+      return app.shapes;
+    },
   },
   created() {
     if (this.shorthand) {

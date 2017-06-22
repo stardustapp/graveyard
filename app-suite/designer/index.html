@@ -106,6 +106,10 @@
     <select
         v-model="type"
         @change="setType">
+      <option
+          v-for="shape in shapes"
+          :key="shape"
+        >{{shape}}</option>
       <option>String</option>
       <option>Function</option>
       <option>File</option>
