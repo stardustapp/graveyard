@@ -7,7 +7,7 @@ Vue.component('commit', {
       message: '',
       aName: 'Daniel Lamando',
       aEmail: 'dan+stardust@danopia.net',
-      all: false,
+      all: true,
     };
   },
   computed: {
