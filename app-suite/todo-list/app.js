@@ -1,4 +1,6 @@
-const orbiter = new Orbiter("/n/aws-ns/data/todo-list");
+const orbiter = new Orbiter("/n/redis-ns/app-data/todo-list");
+orbiter.mkdirp('/records');
+orbiter.mkdirp('/todo');
 
 Vue.component('todo-item', {
   template: '#todo-item',
