@@ -4,13 +4,11 @@ import (
 	"errors"
 	"log"
 	"strings"
-	"time"
+	"net/url"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/extras"
 	"github.com/stardustapp/core/inmem"
-
-	"gopkg.in/resty.v0"
 )
 
 // Directory containing the clone function
@@ -33,12 +31,37 @@ var nsimportInputShape *inmem.Shape = inmem.NewShape(
 func nsimportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 	inputFolder := input.(base.Folder)
 	endpointUrl, _ := extras.GetChildString(inputFolder, "endpoint-url")
-	log.Println("nsimport requested for", endpointUrl)
+	log.Println("nsimport: requested for", endpointUrl)
 
-	svc := &nsimport{
-		endpoint: endpointUrl,
+	uri, err := url.Parse(endpointUrl)
+	if err != nil {
+		log.Println("nsimport: given invalid url", endpointUrl, err)
+		return nil
 	}
 
+	var transport nsTransportClient
+	switch uri.Scheme {
+	case "ws", "wss":
+		transport = &nsWebsocketClient{
+			endpoint: endpointUrl,
+		}
+	case "http", "https":
+		transport = &nsHttpClient{
+			endpoint: endpointUrl,
+		}
+	default:
+		log.Println("nsimport: given invalid url scheme", uri.Scheme, "from", endpointUrl)
+		return nil
+	}
+
+	if err := transport.init(); err != nil {
+		log.Println("nsimport: failed to init", endpointUrl, "-", err)
+		return nil
+	}
+
+	svc := &nsimport{
+		transport: transport,
+	}
 	root, err := svc.getEntry("/")
 	if err != nil {
 		log.Println("nsimport failed:", err)
@@ -49,33 +72,20 @@ func nsimportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 	}
 }
 
-// Context for a running NS client
+// An active NS client w/ a transport
 type nsimport struct {
-	endpoint string
+	transport nsTransportClient
 }
 
-func (svc *nsimport) exec(req nsRequest) (res nsResponse, err error) {
-	resty.SetTimeout(time.Duration(30 * time.Second))
-
-	resp, err := resty.R(). // SetAuthToken
-				SetHeader("Accept", "application/json").
-				SetHeader("Content-Type", "application/json").
-				SetBody(&req).
-				SetResult(&res).
-				Post(svc.endpoint)
-
-	if resp.StatusCode() < 200 || resp.StatusCode() > 399 {
-		log.Println("got", resp.StatusCode(), "from", svc.endpoint)
-		err = errors.New("Error HTTP status code")
-	} else if err != nil && res.Ok != true {
-		err = errors.New("NS Export server response wasn't okay")
-	}
-	return
+// Context for a running NS client
+type nsTransportClient interface {
+	init() error
+	exec(req nsRequest) (res nsResponse, err error)
 }
 
 func (svc *nsimport) getEntry(path string) (base.Entry, error) {
 	path = "/" + strings.TrimLeft(path, "/")
-	resp, err := svc.exec(nsRequest{
+	resp, err := svc.transport.exec(nsRequest{
 		Op:   "get",
 		Path: path,
 	})
@@ -170,7 +180,7 @@ func (e *importedFunction) Name() string {
 	return e.name
 }
 func (e *importedFunction) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
-	resp, err := e.svc.exec(nsRequest{
+	resp, err := e.svc.transport.exec(nsRequest{
 		Op:    "invoke",
 		Path:  e.path,
 		Input: convertEntryToApi(input),
