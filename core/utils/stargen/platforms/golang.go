@@ -139,8 +139,7 @@ func (p *golang) GenerateDriver() error {
 		}
 		shapeWriter.write("	))\n\n")
 	}
-	p.gen.Orbiter.PutFile(p.gen.CompilePath + "/go-src/shapes.go", shapeWriter.bytes())
-
+	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/shapes.go", shapeWriter.bytes())
 
 	folderWriter := newGoWriter(p.deps)
 	for _, shape := range shapeDefs {
@@ -397,13 +396,13 @@ func (p *golang) GenerateDriver() error {
 
 	// Create a blank Stardust
 	mainWriter.write("func main() {\n")
-	mainWriter.write("  root := inmem.NewFolderOf(\"/\",\n");
-	mainWriter.write("	  inmem.NewFolder(\"n\"),\n");
-	mainWriter.write("	  inmem.NewFolder(\"tmp\"),\n");
-	mainWriter.write("	  inmem.NewFolderOf(\"drivers\",\n");
-	mainWriter.write("	    drivers.GetNsexportDriver(),\n");
-	mainWriter.write("    ),\n");
-	mainWriter.write("  )\n\n");
+	mainWriter.write("  root := inmem.NewFolderOf(\"/\",\n")
+	mainWriter.write("	  inmem.NewFolder(\"n\"),\n")
+	mainWriter.write("	  inmem.NewFolder(\"tmp\"),\n")
+	mainWriter.write("	  inmem.NewFolderOf(\"drivers\",\n")
+	mainWriter.write("	    drivers.GetNsexportDriver(),\n")
+	mainWriter.write("    ),\n")
+	mainWriter.write("  )\n\n")
 	mainWriter.write("  ns := base.NewNamespace(\"/\", root)\n")
 	mainWriter.write("  ctx := base.NewRootContext(ns)\n\n")
 
@@ -418,7 +417,7 @@ func (p *golang) GenerateDriver() error {
 	mainWriter.write("  host := fmt.Sprint(\"0.0.0.0:\", 9234)\n")
 	mainWriter.write("  log.Printf(\"Listening on %%s...\", host)\n")
 	mainWriter.write("  if err := http.ListenAndServe(host, nil); err != nil {\n")
-  mainWriter.write("    log.Println(\"ListenAndServe:\", err)\n")
+	mainWriter.write("    log.Println(\"ListenAndServe:\", err)\n")
 	mainWriter.write("  }\n")
 
 	mainWriter.write("}\n")
@@ -482,14 +481,14 @@ func (p *golang) CompileDriver() error {
 
 	// TODO: verify the endpoint is available, then shut down the test
 	/*
-	if err == nil {
-		cmd = exec.Command(p.gen.TargetPath + "/driver")
-		var out2 bytes.Buffer
-		cmd.Stdout = &out2
-		cmd.Stderr = &out2
-		err2 := cmd.Run()
-		log.Println("Test run output:", err2, out2.String())
-	}
+		if err == nil {
+			cmd = exec.Command(p.gen.TargetPath + "/driver")
+			var out2 bytes.Buffer
+			cmd.Stdout = &out2
+			cmd.Stderr = &out2
+			err2 := cmd.Run()
+			log.Println("Test run output:", err2, out2.String())
+		}
 	*/
 
 	return nil
