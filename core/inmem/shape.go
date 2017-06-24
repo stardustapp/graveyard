@@ -75,15 +75,24 @@ func (e *Shape) Check(ctx base.Context, entry base.Entry) (ok bool) {
 
 	case "Folder":
 		if folder, castOk := entry.(base.Folder); castOk {
+			// make list of present children
+			children := make(map[string]bool)
+			for _, name := range folder.Children() {
+				children[name] = true
+			}
+
 			ok = true
 			for _, prop := range e.props {
-				actual, _ := folder.Fetch(prop.Name())
-				// TODO: not recursive, not DRY, doesn't handle context
-				if link, ok := actual.(base.Link); ok {
-					actual, ok = ctx.Get(link.Target())
-					if !ok {
-						log.Println("Following link for", prop, "to", link.Target(), "failed")
-						continue
+				var actual base.Entry
+				if _, ok := children[prop.Name()]; ok {
+					actual, _ = folder.Fetch(prop.Name())
+					// TODO: not recursive, not DRY, doesn't handle context
+					if link, ok := actual.(base.Link); ok {
+						actual, ok = ctx.Get(link.Target())
+						if !ok {
+							log.Println("Following link for", prop, "to", link.Target(), "failed")
+							continue
+						}
 					}
 				}
 				if !prop.Check(ctx, actual) {

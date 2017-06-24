@@ -155,7 +155,7 @@ func (h *handle) SelectName(name string) (ok bool) {
 				ok = true
 			}
 		} else {
-			log.Println("Cannot select into a non-Folder entry")
+			log.Println("Cannot select into a non-Folder entry", h.names)
 		}
 	}
 
