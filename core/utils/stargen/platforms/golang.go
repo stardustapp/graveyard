@@ -214,6 +214,51 @@ func (p *golang) GenerateDriver() error {
 		// TODO: this doesn't enable put!
 		folderWriter.write("func (e *%s) Put(name string, entry base.Entry) (ok bool) {\n", properName)
 		folderWriter.write("  return false\n}\n\n")
+
+		// Check if there are fields to pull off a givenfolder
+		var needsFolder bool = false
+		for _, prop := range shape.Props {
+			if prop.Type == "Function" {
+				continue
+			}
+			needsFolder = true
+		}
+
+		// Upconvert basic entries into a typed shape
+		// TODO: Only works with folders so far
+		// Dual-returns with an okay status - checks for required fields and such
+		folderWriter.write("func inflate%s(input base.Entry) (out *%s, ok bool) {\n", properName, properName)
+		if needsFolder {
+			folderWriter.write("  folder, ok := input.(base.Folder)\n")
+			folderWriter.write("  if !ok {\n    return nil, false\n  }\n\n")
+		}
+
+		folderWriter.write("  x := &%s{}\n\n", properName)
+		for _, prop := range shape.Props {
+			if prop.Type == "Function" {
+				continue // functions are not assigned to instances
+			}
+			folderWriter.write("  if ent, ok := folder.Fetch(\"%s\"); ok {\n", prop.Name)
+
+			if prop.Type == "String" {
+				folderWriter.write("    if stringEnt, ok := ent.(base.String); ok {\n")
+				folderWriter.write("      x.%s = stringEnt.Get()\n", extras.SnakeToCamel(prop.Name))
+				folderWriter.write("    }\n")
+			} else if _, ok := shapeNames[prop.Type]; ok {
+				folderWriter.write("    if native, ok := inflate%s(ent); ok {\n", extras.SnakeToCamel(prop.Type))
+				folderWriter.write("      x.%s = native\n", extras.SnakeToCamel(prop.Name))
+				folderWriter.write("    }\n")
+			} else {
+				folderWriter.write("    if ent, ok := ent.(base.%s); ok {\n", prop.Type)
+				folderWriter.write("      x.%s = ent\n", extras.SnakeToCamel(prop.Name))
+				folderWriter.write("    }\n")
+				folderWriter.useDep("base")
+			}
+
+			folderWriter.write("  }\n\n")
+		}
+		folderWriter.write("  return x, true\n")
+		folderWriter.write("}\n\n")
 	}
 	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/folders.go", folderWriter.bytes())
 
@@ -242,23 +287,38 @@ func (p *golang) GenerateDriver() error {
 		funcWriter.write("  return \"invoke\"\n}\n\n")
 		funcWriter.write("func (e *%sInner) Invoke(ctx base.Context, input base.Entry) base.Entry {\n", properName)
 
-		// This call syntax changed based on all three of the shape presences
+		// Do some input mapping
+		if funct.InputShape == "String" {
+			funcWriter.write("  realInput := input.Get()\n")
+		} else if funct.InputShape != "" {
+			funcWriter.write("  realInput, ok := inflate%s(input)\n", extras.SnakeToCamel(funct.InputShape))
+			funcWriter.write("  if !ok {\n    return nil\n  }\n\n")
+		}
+
+		// This call syntax changes based on presence of all three shapes
 		funcWriter.write("  ")
 		if funct.OutputShape != "" {
-			funcWriter.write("return ")
+			funcWriter.write("result := ")
 		}
 		if funct.ContextShape != "" {
 			funcWriter.write("e.ctx.")
 		}
 		funcWriter.write("%sImpl(", extras.SnakeToCamel(funct.Name))
 		if funct.InputShape != "" {
-			funcWriter.write("input.(*%s)", extras.SnakeToCamel(funct.InputShape))
+			funcWriter.write("realInput")
 		}
-		funcWriter.write(")")
+		funcWriter.write(")\n")
+
+		// Map output too if needed
 		if funct.OutputShape == "" {
-			funcWriter.write("\n  return nil")
+			funcWriter.write("  return nil\n")
+		} else if funct.OutputShape == "String" {
+			funcWriter.useDep("inmem")
+			funcWriter.write("  return inmem.NewString(\"%s-output\", result)\n", funct.Name)
+		} else {
+			funcWriter.write("  return result\n")
 		}
-		funcWriter.write("\n}\n\n")
+		funcWriter.write("}\n\n")
 
 		// gotta gen a folder impl for every function
 		// TODO: if no context, make one static instance of this
@@ -308,7 +368,14 @@ func (p *golang) GenerateDriver() error {
 		}
 		if funct.OutputShape != "" {
 			funcWriter.write("  case \"output-shape\":\n")
-			funcWriter.write("    return %sShape, true\n", extras.SnakeToCamelLower(funct.OutputShape))
+			if funct.OutputShape == "String" {
+				funcWriter.useDep("inmem")
+				funcWriter.write("    return inmem.NewFolderOf(\"output-shape\",\n")
+				funcWriter.write("      inmem.NewString(\"type\", \"%s\"),\n", funct.OutputShape)
+				funcWriter.write("    ), true\n")
+			} else {
+				funcWriter.write("    return %sShape, true\n", extras.SnakeToCamelLower(funct.OutputShape))
+			}
 		}
 
 		funcWriter.write("  default:\n    return\n  }\n}\n\n")
