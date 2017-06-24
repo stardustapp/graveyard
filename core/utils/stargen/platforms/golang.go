@@ -416,9 +416,9 @@ func (p *golang) GenerateDriver() error {
 	mainWriter.write("  exportFunc.Invoke(ctx, exportBase)\n\n")
 
 	mainWriter.write("  host := fmt.Sprint(\"0.0.0.0:\", 9234)\n")
-	mainWriter.write("  log.Printf(\"Listening on %s...\", host)\n")
+	mainWriter.write("  log.Printf(\"Listening on %%s...\", host)\n")
 	mainWriter.write("  if err := http.ListenAndServe(host, nil); err != nil {\n")
-  mainWriter.write("    log.Println(\"ListenAndServe: \", err)\n")
+  mainWriter.write("    log.Println(\"ListenAndServe:\", err)\n")
 	mainWriter.write("  }\n")
 
 	mainWriter.write("}\n")
