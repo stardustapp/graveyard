@@ -15,7 +15,7 @@ import (
 
 func NewHttpBroker(ns *nsexport, path string) *nsexportHttpBroker {
 	broker := &nsexportHttpBroker{
-		svc: ns,
+		svc:  ns,
 		root: ns.root,
 	}
 
@@ -26,7 +26,7 @@ func NewHttpBroker(ns *nsexport, path string) *nsexportHttpBroker {
 
 // Context for a stateful client connection
 type nsexportHttpBroker struct {
-	svc *nsexport
+	svc  *nsexport
 	root base.Context
 }
 
@@ -48,9 +48,8 @@ func (b *nsexportHttpBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("nsexport-http:", req.Op, "operation from", r.RemoteAddr)
 	res := processNsRequest(b.root, req)
-	log.Println("nsexport-http: op ok:", res.Ok)
+	log.Println("nsexport-ws:", req.Op, "op on", req.Path, "from", r.RemoteAddr, "was ok:", res.Ok)
 
 	w.Header().Add("content-type", "application/json; charset=UTF-8")
 	json.NewEncoder(w).Encode(res)

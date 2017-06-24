@@ -75,10 +75,18 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 
 		// TODO: support storing output with 'dest'
 
-		log.Printf("=> invoking %s",  req.Path)
+		log.Printf("=> invoking %s", req.Path)
 		input := convertEntryFromApi(req.Input)
 		output := fun.Invoke(root, input)
-		res.Output = convertEntryToApi(output)
+
+		if req.Dest != "" {
+			res.Ok = root.Put(req.Dest, output)
+			if !res.Ok {
+				log.Println("nsapi: failed to store output at", req.Dest)
+			}
+		} else {
+			res.Output = convertEntryToApi(output)
+		}
 
 	default:
 		log.Println("nsexport op", req.Op, "not implemented")

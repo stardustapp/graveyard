@@ -1,8 +1,8 @@
 package drivers
 
 import (
-	"sync"
 	"errors"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -10,8 +10,8 @@ import (
 // Context for a stateful Websocket-based NS client
 type nsWebsocketClient struct {
 	endpoint string
-	conn *websocket.Conn
-	mutex sync.Mutex
+	conn     *websocket.Conn
+	mutex    sync.Mutex
 }
 
 func (svc *nsWebsocketClient) init() error {

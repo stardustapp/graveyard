@@ -23,7 +23,7 @@ func NewWsBroker(ns *nsexport, path string) *nsexportWsBroker {
 	}
 
 	broker := &nsexportWsBroker{
-		svc: ns,
+		svc:    ns,
 		public: public,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
@@ -39,8 +39,8 @@ func NewWsBroker(ns *nsexport, path string) *nsexportWsBroker {
 
 // Context for a stateful client connection
 type nsexportWsBroker struct {
-	svc *nsexport
-	public base.Entry
+	svc      *nsexport
+	public   base.Entry
 	upgrader websocket.Upgrader
 }
 
@@ -65,20 +65,19 @@ func (b *nsexportWsBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println("nsexport-ws: accepted connection from", r.RemoteAddr)
 	client := &nsexportWs{
 		broker: b,
-		root: base.NewRootContext(ns),
-		conn: conn,
+		root:   base.NewRootContext(ns),
+		conn:   conn,
 
 		remoteAddr: r.RemoteAddr,
 	}
 	go client.loop()
 }
 
-
 // Context for a stateful client connection
 type nsexportWs struct {
 	broker *nsexportWsBroker
-	root base.Context
-	conn *websocket.Conn
+	root   base.Context
+	conn   *websocket.Conn
 
 	remoteAddr string
 }
@@ -92,9 +91,8 @@ func (e *nsexportWs) loop() {
 			break
 		}
 
-		log.Println("nsexport-ws:", req.Op, "operation from", e.remoteAddr)
 		res := processNsRequest(e.root, req)
-		log.Println("nsexport-ws: op ok:", res.Ok)
+		log.Println("nsexport-ws:", req.Op, "op on", req.Path, "from", e.remoteAddr, "was ok:", res.Ok)
 
 		if err := e.conn.WriteJSON(&res); err != nil {
 			log.Println("nsexport-ws: error writing outbound json:", err, res)
