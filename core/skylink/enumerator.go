@@ -40,7 +40,7 @@ func (e *Enumerator) AddShapeByPath(path string) bool {
 func (e *Enumerator) Run() <-chan nsEntry {
 	log.Println("nsapi: matching entries against", len(e.shapes), "shapes")
 
-	e.output = make(chan nsEntry)
+	e.output = make(chan nsEntry, 5)
 	go e.enumerate(0, "", e.root)
 	return e.output
 }

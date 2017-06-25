@@ -73,16 +73,16 @@ Response:
   (note: not related to invocation success)
 - Output: shallow export of the result, unless dest was set
 
-# Planned future operations
-These will be needed to support FUSE and others
-
 ## store
 Request:
-- Dest: abs path to drop new entries
-- Input: nested structure to store at dest
+- Input: nested structure to store
+- Dest: absolute path to drop the new entry at
 
 Response:
 - Ok: if the entire operation was successful
+
+# Planned future operations
+These will be needed to support FUSE and others
 
 ## copy
 Request:

@@ -102,8 +102,6 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 			return
 		}
 
-		// TODO: support storing output with 'dest'
-
 		log.Printf("=> invoking %s", req.Path)
 		input := convertEntryFromApi(req.Input)
 		output := fun.Invoke(root, input)
@@ -116,6 +114,11 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		} else {
 			res.Output = convertEntryToApi(output)
 		}
+
+	case "store":
+		log.Printf("=> storing to %s", req.Dest)
+		entry := convertEntryFromApi(req.Input)
+		res.Ok = root.Put(req.Dest, entry)
 
 	default:
 		log.Println("nsexport op", req.Op, "not implemented")
