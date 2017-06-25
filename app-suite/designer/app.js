@@ -135,6 +135,7 @@ Vue.component('shape-prop', {
       type: '',
       extras: [],
       target: '',
+      optional: false,
     };
   },
   computed: {
@@ -163,6 +164,9 @@ Vue.component('shape-prop', {
     } else {
       orbiter.loadFile(this.path + '/type')
         .then(x => this.type = x);
+
+      orbiter.loadFile(this.path + '/optional')
+        .then(x => this.optional = x === 'yes');
 
       orbiter.listChildren(this.path).then(x => {
         this.extras = x.filter(y => y.name !== 'type');
@@ -193,6 +197,13 @@ Vue.component('shape-prop', {
         orbiter.putFile(this.path + '/target', this.target);
       } else {
         orbiter.delete(this.path + '/target');
+      }
+    },
+    setOptional() {
+      if (this.shorthand) {
+        alert(`Shorthands can't be optional`); // TODO
+      } else {
+        orbiter.putFile(this.path + '/optional', this.optional ? 'yes' : 'no');
       }
     },
   },

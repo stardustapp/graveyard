@@ -125,6 +125,7 @@
       <option>Function</option>
       <option>File</option>
     </select>
+
     <input
         type="text"
         v-model="type"
@@ -142,6 +143,12 @@
           :key="func"
         >{{func}}</option>
     </select>
+
+    <input
+        type="checkbox"
+        v-model="optional"
+        @change="setOptional"
+      >Optional
   </li>
 </script>
 
