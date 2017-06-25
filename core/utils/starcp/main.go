@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/stardustapp/core/base"
-	"github.com/stardustapp/core/drivers"
+	"github.com/stardustapp/core/skylink"
 	"github.com/stardustapp/core/inmem"
 )
 
@@ -22,7 +22,7 @@ func main() {
 	ctx := base.NewRootContext(ns)
 
 	log.Println("Launching nsimport...")
-	ctx.Put("/nsimport", drivers.GetNsimportDriver())
+	ctx.Put("/nsimport", skylink.GetNsimportDriver())
 	importFunc, _ := ctx.GetFunction("/nsimport/invoke")
 	remoteFs := importFunc.Invoke(ctx, inmem.NewFolderOf("opts",
 		inmem.NewString("endpoint-url", *starBase),

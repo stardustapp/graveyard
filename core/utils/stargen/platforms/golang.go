@@ -74,7 +74,7 @@ func (p *golang) loadDeps() {
 	p.deps["base"] = "\"github.com/stardustapp/core/base\""
 	p.deps["inmem"] = "\"github.com/stardustapp/core/inmem\""
 	p.deps["stardust"] = "\"github.com/stardustapp/core/client\""
-	p.deps["drivers"] = "\"github.com/stardustapp/core/drivers\""
+	p.deps["skylink"] = "\"github.com/stardustapp/core/skylink\""
 
 	deps, _ := p.gen.Orbiter.ReadFile(p.gen.DriverPath + "/deps.txt")
 	for _, line := range strings.Split(string(deps), "\n") {
@@ -387,7 +387,7 @@ func (p *golang) GenerateDriver() error {
 
 	// Create a single main()
 	mainWriter := newGoWriter(p.deps)
-	mainWriter.useDep("drivers")
+	mainWriter.useDep("skylink")
 	mainWriter.useDep("inmem")
 	mainWriter.useDep("base")
 	mainWriter.write("import \"log\"\n")
@@ -400,7 +400,7 @@ func (p *golang) GenerateDriver() error {
 	mainWriter.write("	  inmem.NewFolder(\"n\"),\n")
 	mainWriter.write("	  inmem.NewFolder(\"tmp\"),\n")
 	mainWriter.write("	  inmem.NewFolderOf(\"drivers\",\n")
-	mainWriter.write("	    drivers.GetNsexportDriver(),\n")
+	mainWriter.write("	    skylink.GetNsexportDriver(),\n")
 	mainWriter.write("    ),\n")
 	mainWriter.write("  )\n\n")
 	mainWriter.write("  ns := base.NewNamespace(\"/\", root)\n")

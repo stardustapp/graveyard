@@ -1,4 +1,4 @@
-package drivers
+package skylink
 
 import (
 	"github.com/stardustapp/core/base"

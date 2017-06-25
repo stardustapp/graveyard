@@ -1,5 +1,5 @@
 # API overview
-nsapi is implemented as a JSON request/response call pattern.
+Skylink is implemented as a JSON request/response call pattern.
 There are two reference transports at this time: HTTP POST and Websocket.
 Send a request and get a response. It's that easy.
 
