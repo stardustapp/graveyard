@@ -58,8 +58,11 @@ Vue.component('driver', {
           this.status = 'Deployed successfully';
           if (out) {
             out.loadFile('').then(x => {
-              this.uri = x;
-              this.mount(prom);
+              // convert driver URL into websocket transport
+              this.uri = x.replace('http://', 'ws://') + '/ws';
+              setTimeout(() => {
+                this.mount(prom);
+              }, 2500);
             });
           }
         }, err => {
