@@ -51,7 +51,7 @@ Vue.component('function', {
       const path = this.path + '/' + prop + '-shape';
 
       if (value) {
-        orbiter.putFile(path, value);
+        orbiter.putString(path, value);
       } else {
         orbiter.delete(path);
       }
@@ -187,14 +187,13 @@ Vue.component('shape-prop', {
       if (!this.shorthand) {
         path += '/type';
       }
-      console.log(3, this.type);
-      orbiter.putFile(path, this.type);
+      orbiter.putString(path, this.type);
     },
     setTarget() {
       if (this.shorthand) {
         alert(`Shorthands can't have a target`); // TODO
       } else if (this.target) {
-        orbiter.putFile(this.path + '/target', this.target);
+        orbiter.putString(this.path + '/target', this.target);
       } else {
         orbiter.delete(this.path + '/target');
       }
@@ -203,7 +202,7 @@ Vue.component('shape-prop', {
       if (this.shorthand) {
         alert(`Shorthands can't be optional`); // TODO
       } else {
-        orbiter.putFile(this.path + '/optional', this.optional ? 'yes' : 'no');
+        orbiter.putString(this.path + '/optional', this.optional ? 'yes' : 'no');
       }
     },
   },
