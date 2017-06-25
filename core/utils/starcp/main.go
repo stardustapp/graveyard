@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/stardustapp/core/base"
-	"github.com/stardustapp/core/skylink"
 	"github.com/stardustapp/core/inmem"
+	"github.com/stardustapp/core/skylink"
 )
 
 func main() {
