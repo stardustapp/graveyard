@@ -9,6 +9,9 @@ import (
 func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 	switch req.Op {
 
+	case "ping":
+		res.Ok = true
+
 	case "get":
 		var ent base.Entry
 		ent, res.Ok = root.Get(req.Path)

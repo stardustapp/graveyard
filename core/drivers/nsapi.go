@@ -24,6 +24,11 @@ type nsEntry struct {
 /*
 	# Implemented operations
 
+	## ping
+	request: none
+	response:
+	- ok: true
+
 	## get
 	request:
 	- path: absolute path to return
