@@ -59,6 +59,10 @@
         <i class="material-icons">arrow_forward</i>
         <span class="label">fwd</span>
       </li>
+      <li @click="closeApp">
+        <i class="material-icons">close</i>
+        <span class="label">close</span>
+      </li>
     </ul>
 
     <iframe class="appframe" :src="runningApp" ref="appframe"></iframe>

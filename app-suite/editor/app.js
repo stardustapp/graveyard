@@ -527,6 +527,9 @@ var app = new Vue({
     navigateFwd() {
       this.$refs.appframe.contentWindow.history.forward();
     },
+    closeApp() {
+      this.runningApp = null;
+    },
 
     // Focus or open a new editor for given details
     openEditor(deets) {
