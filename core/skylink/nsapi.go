@@ -2,9 +2,13 @@ package skylink
 
 type nsRequest struct {
 	Op    string
-	Path  string `json:",omitempty"`
-	Dest  string `json:",omitempty"` // destination for output
+	Path  string   `json:",omitempty"`
+	Dest  string   `json:",omitempty"` // destination for output
 	Input *nsEntry `json:",omitempty"`
+
+	// for `enumerate` op
+	Depth  int `json:",omitempty"`
+	Shapes []string
 }
 
 type nsResponse struct {
@@ -16,7 +20,8 @@ type nsEntry struct {
 	Name string
 	Type string `json:",omitempty"`
 
-	StringValue string `json:",omitempty"`
-	FileData    []byte `json:",omitempty"`
+	StringValue string    `json:",omitempty"`
+	FileData    []byte    `json:",omitempty"`
 	Children    []nsEntry `json:",omitempty"`
+	Shapes      []string  `json:",omitempty"`
 }

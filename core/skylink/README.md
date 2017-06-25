@@ -35,12 +35,32 @@ Response:
 - Ok: true
 
 ## get
+Retrieves a shallow copy of a named Entry.
+Folders include a list of children's names.
+Strings and Files include their direct value.
+
 Request:
 - Path: absolute path to return
 
 Response:
 - Ok: if the path was found
 - Output: a shallow export of that node
+
+## enumerate
+Lists the children of a Folder including types and string values.
+Supports limited recursion and shape-matching.
+Children are not nested in the output.
+A simple linear list of fully-qualified entries is returned instead.
+
+Request:
+- Path: absolute path to Folder of interest
+- Depth: default `1`. `-1` for unlimited
+- Shapes: array of paths to Shapes that everything should be matched against
+
+Response:
+- Ok: if the enumeration of Path was error-free
+- Output: a Folder containing all nodes encountered,
+  named with their path relative to Path
 
 ## invoke
 Request:
@@ -55,8 +75,6 @@ Response:
 
 # Planned future operations
 These will be needed to support FUSE and others
-
-TODO: match output against given shapes
 
 ## store
 Request:

@@ -69,6 +69,32 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		}
 		res.Output = wireEnt
 
+	case "enumerate":
+		var ent base.Entry
+		ent, res.Ok = root.Get(req.Path)
+		if !res.Ok {
+			log.Println("nsapi: can't find", req.Path, "to start enumeration at")
+			return
+		}
+
+		listEnt := &nsEntry{
+			Name: "enumeration",
+			Type: "Folder",
+		}
+
+		enum := NewEnumerator(root, ent, req.Depth)
+		for _, path := range req.Shapes {
+			enum.AddShapeByPath(path)
+		}
+
+		results := enum.Run()
+		for listing := range results {
+			listEnt.Children = append(listEnt.Children, listing)
+		}
+
+		res.Ok = enum.IsOk()
+		res.Output = listEnt
+
 	case "invoke":
 		var fun base.Function
 		fun, res.Ok = root.GetFunction(req.Path)
