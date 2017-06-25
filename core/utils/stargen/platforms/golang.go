@@ -369,9 +369,9 @@ func (p *golang) GenerateDriver() error {
 			funcWriter.write("  case \"output-shape\":\n")
 			if funct.OutputShape == "String" {
 				funcWriter.useDep("inmem")
-				funcWriter.write("    return inmem.NewFolderOf(\"output-shape\",\n")
+				funcWriter.write("    return inmem.NewShape(inmem.NewFolderOf(\"output-shape\",\n")
 				funcWriter.write("      inmem.NewString(\"type\", \"%s\"),\n", funct.OutputShape)
-				funcWriter.write("    ), true\n")
+				funcWriter.write("    )), true\n")
 			} else {
 				funcWriter.write("    return %sShape, true\n", extras.SnakeToCamelLower(funct.OutputShape))
 			}
