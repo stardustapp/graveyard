@@ -28,10 +28,10 @@ Vue.component('commit', {
           Skylink.String('author-email', this.aEmail),
           Skylink.String('all', this.all ? 'yes' : 'no'),
         ])).then(out => {
-          if (out) {
-            this.message = '';
+           app.running = false;
+          this.message = '';
+          if (out && out.StringValue) {
             this.output += "\n" + out.StringValue;
-            app.running = false;
           }
         }, err => {
           alert("git commit failed.\n\n" + err.stack);
@@ -62,7 +62,9 @@ var app = new Vue({
       skylink
         .invoke(this.apiPath + "/status/invoke")
         .then(out => {
-          if (out) {
+          this.status = [];
+          this.running = false;
+          if (out && out.StringValue) {
             this.status = out.StringValue.split("\n").slice(0, -1).map(line => {
               return {
                 stage: line[0],
@@ -70,7 +72,6 @@ var app = new Vue({
                 path: line.slice(3),
               };
             });
-            this.running = false;
           }
         }, err => {
           alert("git status failed.\n\n" + err.stack);
@@ -88,9 +89,9 @@ var app = new Vue({
           Skylink.String('path', path),
         ]))
         .then(out => {
+          this.running = false;
           if (out) {
             this.output += "\n" + out.StringValue;
-            this.running = false;
           }
         }, err => {
           alert("git add failed.\n\n" + err.stack);
@@ -107,9 +108,9 @@ var app = new Vue({
       skylink
         .invoke(this.apiPath + "/push/invoke", Skylink.Folder('input'))
         .then(out => {
+          this.running = false;
           if (out) {
             this.output = out.StringValue;
-            this.running = false;
           }
         }, err => {
           alert("git push failed.\n\n" + err.stack);
@@ -126,9 +127,9 @@ var app = new Vue({
       skylink
         .invoke(this.apiPath + "/pull/invoke", Skylink.Folder('input'))
         .then(out => {
+          this.running = false;
           if (out) {
             this.output = out.StringValue;
-            this.running = false;
           }
         }, err => {
           alert("git pull failed.\n\n" + err.stack);
