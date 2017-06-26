@@ -105,7 +105,7 @@ var app = new Vue({
       this.mode = 'push';
 
       skylink
-        .invoke(this.apiPath + "/push/invoke")
+        .invoke(this.apiPath + "/push/invoke", Skylink.Folder('input'))
         .then(out => {
           if (out) {
             this.output = out.StringValue;
@@ -124,7 +124,7 @@ var app = new Vue({
       this.mode = 'pull';
 
       skylink
-        .invoke(this.apiPath + "/pull/invoke")
+        .invoke(this.apiPath + "/pull/invoke", Skylink.Folder('input'))
         .then(out => {
           if (out) {
             this.output = out.StringValue;
