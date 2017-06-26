@@ -137,8 +137,8 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		res.Ok = root.Put(req.Dest, src)
 
 	case "unlink":
-		log.Println("=> unlinking", req.Dest)
-		res.Ok = root.Put(req.Dest, nil)
+		log.Println("=> unlinking", req.Path)
+		res.Ok = root.Put(req.Path, nil)
 
 	default:
 		log.Println("nsexport op", req.Op, "not implemented")
