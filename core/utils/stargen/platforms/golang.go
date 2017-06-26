@@ -168,7 +168,9 @@ func (p *golang) GenerateDriver() error {
 		}
 		for _, prop := range shape.NativeProps {
 			folderWriter.write("  %s %s\n", extras.SnakeToCamelLower(prop.Name), prop.Type)
-			folderWriter.useDep(strings.TrimPrefix(strings.Split(prop.Type, ".")[0], "*"))
+			if strings.Contains(prop.Type, ".") {
+				folderWriter.useDep(strings.TrimPrefix(strings.Split(prop.Type, ".")[0], "*"))
+			}
 		}
 		folderWriter.write("}\n\n")
 
