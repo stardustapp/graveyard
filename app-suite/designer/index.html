@@ -15,6 +15,7 @@
         >{{driver}}</option>
     </select>
     <button @click="newDriver">new driver</button>
+    {{platform}}
   </div>
 
   <p>Functions</p>
@@ -90,7 +91,6 @@
           :driver="driver"
           :shape="shape"
           :prop="prop.name"
-          :shorthand="prop.shorthand"
         ></shape-prop>
       <shape-prop
           v-for="prop in nativeProps"
@@ -98,7 +98,6 @@
           :driver="driver"
           :shape="shape"
           :prop="prop.name"
-          :shorthand="prop.shorthand"
           :native="true"
         ></shape-prop>
       <li>
@@ -153,6 +152,6 @@
 </script>
 
 <script src="https://unpkg.com/vue"></script>
-<script src="../lib/orbiter.js"></script>
+<script src="../lib/skylink.js"></script>
 <script src="../lib/utils.js"></script>
 <script src="app.js"></script>

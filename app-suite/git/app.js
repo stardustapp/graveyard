@@ -1,4 +1,4 @@
-const orbiter = new Orbiter();
+const skylink = new Skylink();
 
 Vue.component('commit', {
   template: '#commit',
@@ -21,19 +21,17 @@ Vue.component('commit', {
       app.running = 'commit';
       app.output = '+ git commit';
 
-      orbiter
-        .invoke(app.apiPath + "/commit/invoke", {
-          'message': Orbiter.String(this.message),
-          'author-name': Orbiter.String(this.aName),
-          'author-email': Orbiter.String(this.aEmail),
-          'all': Orbiter.String(this.all ? 'yes' : 'no'),
-        }, true).then(out => {
+      skylink
+        .invoke(app.apiPath + "/commit/invoke", Skylink.Folder('input', [
+          Skylink.String('message', this.message),
+          Skylink.String('author-name', this.aName),
+          Skylink.String('author-email', this.aEmail),
+          Skylink.String('all', this.all ? 'yes' : 'no'),
+        ])).then(out => {
           if (out) {
-            out.loadFile('').then(x => {
-              this.message = '';
-              this.output += "\n" + x;
-              app.running = false;
-            });
+            this.message = '';
+            this.output += "\n" + out.StringValue;
+            app.running = false;
           }
         }, err => {
           alert("git commit failed.\n\n" + err.stack);
@@ -61,20 +59,18 @@ var app = new Vue({
       this.mode = 'status';
       this.status = [];
 
-      orbiter
-        .invoke(this.apiPath + "/status/invoke", {}, true)
+      skylink
+        .invoke(this.apiPath + "/status/invoke")
         .then(out => {
           if (out) {
-            out.loadFile('').then(x => {
-              this.status = x.split("\n").slice(0, -1).map(line => {
-                return {
-                  stage: line[0],
-                  tree: line[1],
-                  path: line.slice(3),
-                };
-              });
-              this.running = false;
+            this.status = out.StringValue.split("\n").slice(0, -1).map(line => {
+              return {
+                stage: line[0],
+                tree: line[1],
+                path: line.slice(3),
+              };
             });
+            this.running = false;
           }
         }, err => {
           alert("git status failed.\n\n" + err.stack);
@@ -87,16 +83,14 @@ var app = new Vue({
       this.running = 'add ' + path
       this.output = '+ git add ' + path;
 
-      orbiter
-        .invoke(this.apiPath + "/add/invoke", {
-          path: Orbiter.String(path),
-        }, true)
+      skylink
+        .invoke(this.apiPath + "/add/invoke", Skylink.Folder('input', [
+          Skylink.String('path', path),
+        ]))
         .then(out => {
           if (out) {
-            out.loadFile('').then(x => {
-              this.output += "\n" + x;
-              this.running = false;
-            });
+            this.output += "\n" + out.StringValue;
+            this.running = false;
           }
         }, err => {
           alert("git add failed.\n\n" + err.stack);
@@ -110,14 +104,12 @@ var app = new Vue({
       this.output = '+ git push';
       this.mode = 'push';
 
-      orbiter
-        .invoke(this.apiPath + "/push/invoke", {}, true)
+      skylink
+        .invoke(this.apiPath + "/push/invoke")
         .then(out => {
           if (out) {
-            out.loadFile('').then(x => {
-              this.output = x;
-              this.running = false;
-            });
+            this.output = out.StringValue;
+            this.running = false;
           }
         }, err => {
           alert("git push failed.\n\n" + err.stack);
@@ -131,14 +123,12 @@ var app = new Vue({
       this.output = '+ git pull';
       this.mode = 'pull';
 
-      orbiter
-        .invoke(this.apiPath + "/pull/invoke", {}, true)
+      skylink
+        .invoke(this.apiPath + "/pull/invoke")
         .then(out => {
           if (out) {
-            out.loadFile('').then(x => {
-              this.output = x;
-              this.running = false;
-            });
+            this.output = out.StringValue;
+            this.running = false;
           }
         }, err => {
           alert("git pull failed.\n\n" + err.stack);

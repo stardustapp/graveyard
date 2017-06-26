@@ -1,6 +1,6 @@
-const orbiter = new Orbiter();
-const sourceOrbiter = new Orbiter('/n/redis-ns/native-drivers');
-const kubeOrbiter = new Orbiter('/n/kube-apt');
+const skylink = new Skylink();
+const sourceSkylink = new Skylink('/n/redis-ns/native-drivers');
+const kubeSkylink = new Skylink('/n/kube-apt');
 
 Vue.component('driver', {
   template: '#driver',
@@ -21,24 +21,22 @@ Vue.component('driver', {
 
     compile(prom) {
       this.status = 'Generating';
-      return kubeOrbiter
-        .invoke("/run-pod/invoke", {
-          name: Orbiter.String(`sd-builddriver-${this.name}`),
-          image: Orbiter.String('stardustapp/utils:latest'),
-          command: Orbiter.String(`stardust-build-driver http://star-router-http/~~ ${this.name}`),
-          privileged: Orbiter.String('yes'),
-        }, true)
+      return kubeSkylink
+        .invoke("/run-pod/invoke", Skylink.Folder('input', [
+          Skylink.String('name', `sd-builddriver-${this.name}`),
+          Skylink.String('image', 'stardustapp/utils:latest'),
+          Skylink.String('command', `stardust-build-driver http://star-router-http/~~ ${this.name}`),
+          Skylink.String('privileged', 'yes'),
+        ]))
         .then(out => {
           this.status = 'Build completed';
-          if (out) {
-            out.loadFile('').then(x => {
-              app.output = x;
-              this.parseOutput(x);
+          if (out && out.Type === 'String') {
+            app.output = out.StringValue;
+            this.parseOutput(out.StringValue);
 
-              if (this.exitCode === 0) {
-                this.deploy(prom);
-              }
-            });
+            if (this.exitCode === 0) {
+              this.deploy(prom);
+            }
           } else {
             this.output = null;
           }
@@ -50,20 +48,18 @@ Vue.component('driver', {
 
     deploy(prom) {
       this.status = 'Deploying';
-      return kubeOrbiter
-        .invoke("/deploy-svc/invoke", {
-          name: Orbiter.String(this.name),
-          image: Orbiter.String(`stardriver-${this.name}:latest`),
-        }, true).then(out => {
+      return kubeSkylink
+        .invoke("/deploy-svc/invoke", Skylink.Folder('input', [
+          Skylink.String('name', this.name),
+          Skylink.String('image', `stardriver-${this.name}:latest`),
+        ])).then(out => {
           this.status = 'Deployed successfully';
-          if (out) {
-            out.loadFile('').then(x => {
-              // convert driver URL into websocket transport
-              this.uri = x.replace('http://', 'ws://') + '/ws';
-              setTimeout(() => {
-                this.mount(prom);
-              }, 2500);
-            });
+          if (out && out.Type === 'String') {
+            // convert driver URL into websocket transport
+            this.uri = out.StringValue.replace('http://', 'ws://') + '/ws';
+            setTimeout(() => {
+              this.mount(prom);
+            }, 2500);
           }
         }, err => {
           this.status = 'Deploying crashed';
@@ -77,10 +73,10 @@ Vue.component('driver', {
       }
 
       this.status = 'Mounting';
-      return orbiter
-        .invoke("/rom/drv/nsimport/invoke", {
-          'endpoint-url': Orbiter.String(this.uri),
-        }, `/n/${this.name}`).then(out => {
+      return skylink
+        .invoke("/rom/drv/nsimport/invoke", Skylink.Folder('input', [
+          Skylink.String('endpoint-url', this.uri),
+        ]), `/n/${this.name}`).then(() => {
           this.status = 'Mounted successfully';
           prom && prom(true);
           window.parent.app.selectTreeNode('/n').reload();
@@ -101,10 +97,12 @@ Vue.component('driver-list', {
     };
   },
   created() {
-    sourceOrbiter.loadMetadata('/').then(entry => {
-      this.names = entry.children
-        .filter(x => x.type === 'Folder')
-        .map(x => x.name);
+    sourceSkylink.enumerate('', {
+      includeRoot: false,
+    }).then(list => {
+      this.names = list
+        .filter(x => x.Type === 'Folder')
+        .map(x => x.Name);
     });
   },
   methods: {

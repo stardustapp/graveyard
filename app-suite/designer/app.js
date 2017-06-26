@@ -1,4 +1,4 @@
-const orbiter = new Orbiter();
+const skylink = new Skylink();
 const driverRoot = '/n/redis-ns/native-drivers';
 
 Vue.component('function', {
@@ -24,25 +24,23 @@ Vue.component('function', {
     },
   },
   created() {
-    orbiter.listChildren(this.path).then(names => {
-      if (names.includes('context-shape')) {
-        orbiter.loadFile(this.path + '/context-shape')
-          .then(x => this.contextShape = x);
-      } else {
-        this.contextShape = '';
-      }
-      if (names.includes('input-shape')) {
-        orbiter.loadFile(this.path + '/input-shape')
-          .then(x => this.inputShape = x);
-      } else {
-        this.inputShape = '';
-      }
-      if (names.includes('output-shape')) {
-        orbiter.loadFile(this.path + '/output-shape')
-          .then(x => this.outputShape = x);
-      } else {
-        this.outputShape = '';
-      }
+    skylink.enumerate(this.path, {includeRoot: false}).then(children => {
+      this.contextShape = '';
+      this.inputShape = '';
+      this.outputShape = '';
+      this.sourceFile = '';
+
+      children.forEach(child => {
+        if (child.Name === 'context-shape') {
+          this.contextShape = child.StringValue;
+        } else if (child.Name === 'input-shape') {
+          this.inputShape = child.StringValue;
+        } else if (child.Name === 'output-shape') {
+          this.outputShape = child.StringValue;
+        } else if (child.Name.startsWith('source.') && child.Type === 'File') {
+          this.sourceFile = child.Name;
+        }
+      });
     });
   },
   methods: {
@@ -51,9 +49,9 @@ Vue.component('function', {
       const path = this.path + '/' + prop + '-shape';
 
       if (value) {
-        orbiter.putString(path, value);
+        skylink.putString(path, value);
       } else {
-        orbiter.delete(path);
+        skylink.unlink(path);
       }
     },
     openSource() {
@@ -61,7 +59,7 @@ Vue.component('function', {
         type: "edit-file",
         icon: "edit",
         label: this.func,
-        path: `${this.path}/source.go`,
+        path: `${this.path}/${this.sourceFile}`,
       });
     },
   },
@@ -90,32 +88,51 @@ Vue.component('shape', {
   },
   methods: {
     loadShape() {
-      orbiter.loadFile(this.path + '/type')
-        .then(x => this.type = x);
-      orbiter.loadMetadata(this.path + '/props')
-        .then(entry => entry.children
-          .map(x => {return {name: x.name, shorthand: x.type !== 'Folder'}}))
-        .then(x => this.props = x);
-      orbiter.loadMetadata(this.path + '/native-props')
-        .then(entry => entry.children
-          .map(x => {return {name: x.name, shorthand: x.type !== 'Folder'}}))
-        .then(x => this.nativeProps = x);
+      skylink.enumerate(this.path, {
+        includeRoot: false,
+        maxDepth: 2,
+      }).then(children => {
+        this.type = '';
+        this.props = [];
+        this.nativeProps = [];
+
+        children.forEach(child => {
+          console.log('shape child', child);
+          const parts = child.Name.split('/');
+
+          if (child.Name === 'type') {
+            this.type = child.StringValue;
+          } else if (parts[0] === 'props' && parts.length === 2) {
+            this.props.push({
+              name: parts[1],
+            });
+          } else if (parts[0] === 'native-props' && parts.length === 2) {
+            this.nativeProps.push({
+              name: parts[1],
+            });
+          }
+        });
+      });
     },
     newProp() {
       const name = prompt(`New shape prop name:`);
       if (name) {
-        orbiter.putFolderOf(`${this.path}/props/${name}`, {
-          'type': Orbiter.String('String'),
-        }).then(() => this.loadShape());
+        return skylink
+          .store(`${this.path}/props/${name}`, Skylink.Folder(name, [
+            Skylink.String('type', 'String'),
+          ]))
+          .then(() => this.loadShape());
       }
     },
     newNativeProp() {
       const name = prompt(`New native prop name:`);
       if (name) {
-        orbiter.mkdirp(`${this.path}/native-props`)
-        .then(() => orbiter.putFolderOf(`${this.path}/native-props/${name}`, {
-          'type': Orbiter.String(''),
-        })).then(() => this.loadShape());
+        return skylink
+          .mkdirp(`${this.path}/native-props`)
+          .then(() => skylink.store(`${this.path}/native-props/${name}`, Skylink.Folder(name, [
+            Skylink.String('type', ''),
+          ])))
+          .then(() => this.loadShape());
       }
     },
   },
@@ -127,7 +144,6 @@ Vue.component('shape-prop', {
     driver: String,
     shape: String,
     prop: String,
-    shorthand: Boolean,
     native: Boolean,
   },
   data() {
@@ -136,6 +152,7 @@ Vue.component('shape-prop', {
       extras: [],
       target: '',
       optional: false,
+      shorthand: false,
     };
   },
   computed: {
@@ -154,32 +171,25 @@ Vue.component('shape-prop', {
     },
   },
   created() {
-    if (this.shorthand) {
-      orbiter.loadFile(this.path)
-        .then(x => this.type = x);
-
-      this.extras = [];
+    skylink.enumerate(this.path).then(children => {
+      this.type = '';
+      this.optional = false;
       this.target = '';
+      this.shorthand = false;
 
-    } else {
-      orbiter.loadFile(this.path + '/type')
-        .then(x => this.type = x);
-
-      orbiter.loadFile(this.path + '/optional')
-        .then(x => this.optional = x === 'yes');
-
-      orbiter.listChildren(this.path).then(x => {
-        this.extras = x.filter(y => y.name !== 'type');
-
-        if (this.extras.includes('target')) {
-          orbiter.loadFile(this.path + '/target')
-            .then(x => this.target = x);
-        } else {
-          this.target = '';
+      children.forEach(child => {
+        if (child.Name === '' && child.Type === 'String') {
+          this.type = child.StringValue;
+          this.shorthand = true;
+        } else if (child.Name === 'type') {
+          this.type = child.StringValue;
+        } else if (child.Name === 'optional') {
+          this.optional = child.StringValue === 'yes';
+        } else if (child.Name === 'target') {
+          this.target = child.StringValue;
         }
-
       });
-    }
+    });
   },
   methods: {
     setType() {
@@ -187,22 +197,22 @@ Vue.component('shape-prop', {
       if (!this.shorthand) {
         path += '/type';
       }
-      orbiter.putString(path, this.type);
+      skylink.putString(path, this.type);
     },
     setTarget() {
       if (this.shorthand) {
         alert(`Shorthands can't have a target`); // TODO
       } else if (this.target) {
-        orbiter.putString(this.path + '/target', this.target);
+        skylink.putString(this.path + '/target', this.target);
       } else {
-        orbiter.delete(this.path + '/target');
+        skylink.unlink(this.path + '/target');
       }
     },
     setOptional() {
       if (this.shorthand) {
         alert(`Shorthands can't be optional`); // TODO
       } else {
-        orbiter.putString(this.path + '/optional', this.optional ? 'yes' : 'no');
+        skylink.putString(this.path + '/optional', this.optional ? 'yes' : 'no');
       }
     },
   },
@@ -211,52 +221,68 @@ Vue.component('shape-prop', {
 var app = new Vue({
   el: '#app',
   data: {
-    driver: 'hue-client',
+    driver: 'irc-client',
+    platform: '',
     drivers: [],
     functions: [],
     shapes: [],
   },
   methods: {
     loadDriverList() {
-      orbiter.listChildren(driverRoot, x => x.type === 'Folder')
-        .then(names => this.drivers = names);
+      skylink.enumerate(driverRoot)
+        .then(x => x
+              .filter(x => x.Type === 'Folder')
+              .map(x => x.Name))
+        .then(x => this.drivers = x);
     },
     loadDriver() {
-      this.functions = [];
-      this.shapes = [];
-      orbiter.listChildren(`${driverRoot}/${this.driver}/functions`)
-        .then(names => this.functions = names);
-      orbiter.listChildren(`${driverRoot}/${this.driver}/shapes`)
-        .then(names => this.shapes = names);
+      skylink.enumerate(`${driverRoot}/${this.driver}`, {
+        maxDepth: 2,
+      }).then(children => {
+        this.functions = [];
+        this.shapes = [];
+        this.platform = '';
+
+        children.forEach(child => {
+          const parts = child.Name.split('/');
+          if (parts[0] === 'functions' && parts.length === 2) {
+            this.functions.push(parts[1]);
+          } else if (parts[0] === 'shapes' && parts.length === 2) {
+            this.shapes.push(parts[1]);
+          } else if (child.Name === 'platform') {
+            this.platform = child.StringValue;
+          }
+        });
+      });
     },
     newFunc() {
       const name = prompt(`New function name:`);
       const goName = ('-' + name).replace(/-./g, a => a[1].toUpperCase());
       if (name) {
-        orbiter.putFolderOf(`${driverRoot}/${this.driver}/functions/${name}`, {
-          'output-shape': Orbiter.String('String'),
-          'source.go': Orbiter.String(`func ${goName}Impl() string {\n  return "hello world";\n}`),
-        }).then(() => this.loadDriver());
+        skylink.store(`${driverRoot}/${this.driver}/functions/${name}`, Skylink.Folder(name, [
+          Skylink.String('output-shape', 'String'),
+          Skylink.File('source.go', `func ${goName}Impl() string {\n  return "hello world";\n}`),
+        ])).then(() => this.loadDriver());
       }
     },
     newShape() {
       const name = prompt(`New shape name:`);
       if (name) {
-        orbiter.putFolderOf(`${driverRoot}/${this.driver}/shapes/${name}`, {
-          'type': Orbiter.String('Folder'),
-          'props': Orbiter.Folder({}),
-        }).then(() => this.loadDriver());
+        skylink.store(`${driverRoot}/${this.driver}/shapes/${name}`, Skylink.Folder(name, [
+          Skylink.String('type', 'Folder'),
+          Skylink.Folder('props'),
+        ])).then(() => this.loadDriver());
       }
     },
     newDriver() {
       const name = prompt(`New driver name:`);
       if (name) {
-        orbiter.putFolderOf(`${driverRoot}/${name}`, {
-          'platform': Orbiter.String('golang'),
-          'deps.txt': Orbiter.File(''),
-          'functions': Orbiter.Folder({}),
-          'shapes': Orbiter.Folder({}),
-        }).then(() => {
+        skylink.store(`${driverRoot}/${name}`, Skylink.Folder(name, [
+          Skylink.String('platform', 'golang'),
+          Skylink.File('deps.txt', ''),
+          Skylink.Folder('functions'),
+          Skylink.Folder('shapes'),
+        ])).then(() => {
           this.loadDriverList();
           this.driver = name;
         });

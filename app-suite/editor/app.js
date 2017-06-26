@@ -1,5 +1,5 @@
-const roots = location.hash.slice(1).split(':');
-const orbiter = new Orbiter();
+const roots = (location.hash.slice(1) || '/').split(':');
+const skylink = new Skylink();
 
 // TODO
 window.require = function (names) {
@@ -24,12 +24,12 @@ Vue.component('entry-item', {
   },
   computed: {
     isFunction() {
-      return this.stat.shapes &&
-          this.stat.shapes.indexOf('function') !== -1;
+      return this.stat.Shapes &&
+          this.stat.Shapes.indexOf('/rom/shapes/function') !== -1;
     },
     canLaunch() {
-      return this.stat.shapes &&
-          this.stat.shapes.indexOf('web-app') !== -1;
+      return this.stat.Shapes &&
+          this.stat.Shapes.indexOf('/rom/shapes/web-app') !== -1;
     },
     launchUri() {
       return '/~~' + this.path + '/index.html';
@@ -112,23 +112,21 @@ Vue.component('entry-item', {
     },
     load() {
       if (!this.loader) {
-        this.loader = orbiter.loadMetadata(this.path, {
+        this.loader = skylink.enumerate(this.path, {
           shapes: [
             '/rom/shapes/function',
             '/rom/shapes/web-app',
           ],
         }).then(x => {
-          x.children = x.children.sort((a, b) => {
-            var nameA = a.name.toUpperCase();
-            var nameB = b.name.toUpperCase();
+          this.entry = x.splice(0, 1)[0];
+          this.entry.Children = x.sort((a, b) => {
+            var nameA = a.Name.toUpperCase();
+            var nameB = b.Name.toUpperCase();
             if (nameA < nameB) { return -1; }
             if (nameA > nameB) { return 1; }
             return 0;
           });
-          return x;
         });
-
-        this.loader.then(x => this.entry = x);
       }
       return this.loader;
     },
@@ -206,7 +204,7 @@ Vue.component('create-name', {
         break;
 
       case "Folder":
-        orbiter.putFolder(fullPath).then(x => {
+        skylink.store(fullPath, Skylink.Folder(this.name)).then(x => {
           alert('Created');
           const parent = app.selectTreeNode(this.tab.path);
           if (parent != null && parent.reload) {
@@ -231,14 +229,12 @@ Vue.component('invoke-function', {
   },
   data() {
     return {
-      props: [],
       status: '',
       input: {},
       output: null,
-      inputType: '',
-      outputType: '',
+      inShape: {},
+      outShape: {},
       outputPath: '',
-      //output: null,
     };
   },
   computed: {
@@ -250,8 +246,8 @@ Vue.component('invoke-function', {
         invokePath += '/invoke';
       }
 
-      var input = {};
-      this.props.forEach(prop => {
+      var input = [];
+      this.inShape.props.forEach(prop => {
         var val = this.input[prop.name];
         if (!val) {
           if (!prop.optional) {
@@ -262,7 +258,7 @@ Vue.component('invoke-function', {
 
         switch (prop.type) {
           case 'String':
-            input[prop.name] = Orbiter.String(val);
+            input.push(Skylink.String(prop.name, val));
             break;
 
           default:
@@ -272,77 +268,34 @@ Vue.component('invoke-function', {
 
       this.output = null;
       this.status = 'Pending';
-      orbiter
-        .invoke(invokePath, input, this.outputPath || true)
+      skylink
+        .invoke(invokePath, Skylink.Folder('input', input), this.outputPath)
         .then(out => {
           this.status = 'Completed';
-          if (out) {
-            // TODO: depends on output type
-            out
-              .loadFile('')
-              .then(x => this.output = x);
-          } else {
+          if (!out) {
             this.output = null;
+          } else if (out.Type === 'String') {
+            this.output = out.StringValue;
+          } else {
+            this.output = JSON.stringify(out);
           }
         }, err => {
           this.status = 'Crashed';
         });
         //.then(x => console.log('invocation got', x));
     },
-    getInputProps() {
-      const propsPath = this.tab.path + '/input-shape/props';
-      orbiter.loadMetadata(propsPath).then(x => x.children.map(child => {
-        if (child.type === 'String') {
-          return orbiter
-            .loadFile(propsPath + '/' + child.name)
-            .then(typeV => {
-              return {
-                name: child.name,
-                type: typeV,
-                optional: false,
-              };
-            });
-        } else if (child.type === 'Folder') {
-          const typeP = orbiter
-            .loadFile(propsPath + '/' + child.name + '/type');
-          const optionalP = orbiter
-            .loadFile(propsPath + '/' + child.name + '/optional')
-            .then(raw => (raw === '/') + 'yes')
-            .catch(ex => false);
-
-          return Promise
-            .all([typeP, optionalP])
-            .then(values => {
-              return {
-                name: child.name,
-                type: values[0],
-                optional: values[1],
-              };
-            });
-        }
-      }))
-        .then(x => Promise.all(x))
-        .then(x => this.props = x);
-    },
   },
   created() {
-    orbiter
-      .loadFile(this.tab.path + '/input-shape/type')
-      .then(x => {
-        this.inputType = x;
-        if (x == 'Folder') {
-          this.getInputProps();
-        }
-      });
+    skylink.fetchShape(this.tab.path + '/input-shape')
+    .then(shape => {
+      this.inShape = shape;
+      this.props = shape.props;
+    });
 
-    orbiter
-      .loadFile(this.tab.path + '/output-shape/type')
-      .then(x => {
-        this.outputType = x;
-        if (x == 'Folder') {
-          //this.getInputProps();
-        }
-      });
+    skylink.fetchShape(this.tab.path + '/output-shape')
+    .then(shape => {
+      this.outShape = shape;
+    });
   },
 });
 
@@ -405,7 +358,7 @@ Vue.component('edit-file', {
         console.log('Updated buffer to cleaned version of source');
       }
 
-      orbiter.putFile(this.tab.path, source).then(x => {
+      skylink.putFile(this.tab.path, source).then(x => {
         alert('Saved');
 
         // update the dirty marker
@@ -429,7 +382,7 @@ Vue.component('edit-file', {
     this.onChange = debounce(this.onChange, 250);
 
     if (!this.tab.isNew) {
-      orbiter
+      skylink
         .loadFile(this.tab.path)
         .then(x => this.source = x);
     }
@@ -466,7 +419,7 @@ Vue.component('edit-string', {
     },
 
     save() {
-      orbiter.putString(this.tab.path, this.value).then(x => {
+      skylink.putString(this.tab.path, this.value).then(x => {
         alert('Saved');
 
         // update the dirty marker
@@ -490,8 +443,8 @@ Vue.component('edit-string', {
     this.onChange = debounce(this.onChange, 100);
 
     if (!this.tab.isNew) {
-      orbiter
-        .loadFile(this.tab.path)
+      skylink
+        .loadString(this.tab.path)
         .then(x => {
           this.source = x;
           this.value = x;
