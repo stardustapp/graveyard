@@ -102,7 +102,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 			return
 		}
 
-		log.Printf("=> invoking %s", req.Path)
+		log.Println("=> invoking", req.Path)
 		input := convertEntryFromApi(req.Input)
 		output := fun.Invoke(root, input)
 
@@ -116,9 +116,29 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		}
 
 	case "store":
-		log.Printf("=> storing to %s", req.Dest)
 		entry := convertEntryFromApi(req.Input)
+		if entry == nil {
+			// block deleting via store
+			log.Println("=> blocking nil store to", req.Dest)
+			return
+		}
+
+		log.Println("=> storing to", req.Dest)
 		res.Ok = root.Put(req.Dest, entry)
+
+	case "copy":
+		var src base.Entry
+		src, res.Ok = root.Get(req.Path)
+		if !res.Ok {
+			return
+		}
+
+		log.Println("=> copying", req.Path, "to", req.Dest)
+		res.Ok = root.Put(req.Dest, src)
+
+	case "unlink":
+		log.Println("=> unlinking", req.Dest)
+		res.Ok = root.Put(req.Dest, nil)
 
 	default:
 		log.Println("nsexport op", req.Op, "not implemented")

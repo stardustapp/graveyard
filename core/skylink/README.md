@@ -81,9 +81,6 @@ Request:
 Response:
 - Ok: if the entire operation was successful
 
-# Planned future operations
-These will be needed to support FUSE and others
-
 ## copy
 Request:
 - Path: abs path to source entry
