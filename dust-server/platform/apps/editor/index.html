@@ -83,13 +83,13 @@
 
     <ul v-show="open" v-if="isFolder" class="sub-tree">
       <entry-item
-        v-for="child in entry.children"
+        v-for="child in entry.Children"
         ref="children"
-        :key="child.name"
-        :name="child.name"
-        :type="child.type"
+        :key="child.Name"
+        :name="child.Name"
+        :type="child.Type"
         :stat="child"
-        :path="path + '/' + child.name"
+        :path="path + '/' + child.Name"
         :start-open="name === 'sd://apt.danopia.net'">
       </entry-item>
 
@@ -147,16 +147,16 @@
     <h3 class="form-row">Invoke {{tab.path}}</h3>
 
     <p>
-      <span v-if="inputType">
-        Accepts a <strong>{{inputType}}</strong>.
+      <span v-if="inShape.type">
+        Accepts a <strong>{{inShape.type}}</strong>.
       </span>
-      <span v-if="outputType">
-        Returns a <strong>{{outputType}}</strong>.
+      <span v-if="outShape.type">
+        Returns a <strong>{{outShape.type}}</strong>.
       </span>
     </p>
 
     <label
-        v-for="prop in props"
+        v-for="prop in inShape.props"
         :key="prop.name"
         class="form-row">
       <span>{{prop.name}}</span>
@@ -178,7 +178,7 @@
   </form>
 
   <pre
-      v-if="outputType === 'String'"
+      v-if="outShape.type === 'String'"
       class="func-output"
     >{{output}}</pre>
 </div>
@@ -235,6 +235,6 @@
 <script src="/~~/n/osfs/vendor/codemirror-mode-go.js"></script>
 <script src="/~~/n/osfs/vendor/vue-codemirror.js"></script>
 
-<script src="../lib/orbiter.js"></script>
+<script src="../lib/skylink.js"></script>
 <script src="../lib/utils.js"></script>
 <script src="app.js"></script>
