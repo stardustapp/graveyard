@@ -97,7 +97,6 @@ Vue.component('shape', {
         this.nativeProps = [];
 
         children.forEach(child => {
-          console.log('shape child', child);
           const parts = child.Name.split('/');
 
           if (child.Name === 'type') {
@@ -296,6 +295,160 @@ var app = new Vue({
         path: `${driverRoot}/${this.driver}/deps.txt`,
       });
     },
+
+    exportDrivers() {
+      // const driverRoot = '/n/redis-ns/native-drivers';
+      const exportSkylink = new Skylink('/n/redis-ns/native-drivers-export');
+      return exportSkylink.unlink('')
+        .then(() => exportSkylink.store('', Skylink.Folder('native-drivers')))
+        .then(() => skylink.enumerate(driverRoot, {
+          includeRoot: false,
+        }))
+        .then(list => list.map(entry => {
+          if (entry.Type === 'Folder') {
+            return this.exportDriver(entry.Name);
+          } else {
+            return skylink
+              .get(driverRoot + '/' + entry.Name)
+              .then(out => exportSkylink.store('/' + entry.Name, out));
+          }
+        }))
+        .then(list => Promise.all(list))
+        .then(x => console.log('Exported all drivers', x));
+    },
+
+    exportDriver(driver) {
+      const exportSkylink = new Skylink('/n/redis-ns/native-drivers-export/'+driver);
+      return exportSkylink
+        .store('', Skylink.Folder(driver, [
+          Skylink.Folder('functions'),
+          Skylink.Folder('shapes'),
+        ]))
+        .then(() => skylink.enumerate(driverRoot + '/' + driver, {
+          includeRoot: false,
+          maxDepth: -1,
+        }))
+        .then(list => {
+          const shapes = new Map();
+          const functions = new Map();
+          var metaYaml = '';
+          const promises = [];
+          list.forEach(entry => {
+            const parts = entry.Name.split('/');
+
+                   if (parts[0] === 'functions' && parts.length === 1) {
+            } else if (parts[0] === 'functions' && parts.length === 2) {
+              functions.set(parts[1], {
+                name: parts[1],
+              });
+            } else if (parts[0] === 'functions' && parts[2] === 'context-shape') {
+              functions.get(parts[1]).contextShape = entry.StringValue;
+            } else if (parts[0] === 'functions' && parts[2] === 'input-shape') {
+              functions.get(parts[1]).inputShape = entry.StringValue;
+            } else if (parts[0] === 'functions' && parts[2] === 'output-shape') {
+              functions.get(parts[1]).outputShape = entry.StringValue;
+
+            } else if (parts[0] === 'functions' && parts[2] && parts[2].startsWith('source.')) {
+              const newName = `/functions/${parts[1]}.` + parts[2].split('.')[1];
+              promises.push(skylink
+                            .get(driverRoot + '/' + driver + '/' + entry.Name)
+                            .then(out => exportSkylink.store(newName, out)));
+
+            } else if (parts[0] === 'shapes' && parts.length === 1) {
+            } else if (parts[0] === 'shapes' && parts.length === 2) {
+              shapes.set(parts[1], {
+                name: parts[1],
+                type: 'Folder',
+                props: new Map(),
+                nativeProps: new Map(),
+              });
+            } else if (parts[0] === 'shapes' && parts[2] === 'type') {
+              shapes.get(parts[1]).type = entry.StringValue;
+
+            } else if (parts[0] === 'shapes' && parts[2] === 'props' && parts.length === 3) {
+            } else if (parts[0] === 'shapes' && parts[2] === 'props' && parts.length === 4) {
+              shapes.get(parts[1]).props.set(parts[3], {
+                name: parts[3],
+              });
+              if (entry.Type === 'String') {
+                shapes.get(parts[1]).props.get(parts[3]).type = entry.StringValue;
+              }
+            } else if (parts[0] === 'shapes' && parts[2] === 'props' && parts[4] === 'type') {
+              shapes.get(parts[1]).props.get(parts[3]).type = entry.StringValue;
+            } else if (parts[0] === 'shapes' && parts[2] === 'props' && parts[4] === 'target') {
+              shapes.get(parts[1]).props.get(parts[3]).target = entry.StringValue;
+            } else if (parts[0] === 'shapes' && parts[2] === 'props' && parts[4] === 'optional') {
+              shapes.get(parts[1]).props.get(parts[3]).optional = entry.StringValue === 'yes';
+
+            } else if (parts[0] === 'shapes' && parts[2] === 'native-props' && parts.length === 3) {
+            } else if (parts[0] === 'shapes' && parts[2] === 'native-props' && parts.length === 4) {
+              shapes.get(parts[1]).nativeProps.set(parts[3], {
+                name: parts[3],
+              });
+              if (entry.Type === 'String') {
+                shapes.get(parts[1]).nativeProps.get(parts[3]).type = entry.StringValue;
+              }
+            } else if (parts[0] === 'shapes' && parts[2] === 'native-props' && parts[4] === 'type') {
+              shapes.get(parts[1]).nativeProps.get(parts[3]).type = entry.StringValue;
+
+            } else if (parts.length === 1 && entry.Type === 'File') {
+              promises.push(skylink
+                            .get(driverRoot + '/' + driver + '/' + entry.Name)
+                            .then(out => exportSkylink.store('/' + entry.Name, out)));
+
+            } else if (parts.length === 1 && entry.Type === 'String') {
+              metaYaml += `${entry.Name}: "${entry.StringValue}"\n`;
+
+            } else {
+              console.log('export of', driver, 'missed', entry);
+            }
+          });
+
+          shapes.forEach(shape => {
+            var yaml = `type: "${shape.type}"\n\n`;
+
+            if (shape.props.size > 0) {
+              yaml += `props:\n`;
+            }
+            shape.props.forEach(prop => {
+              yaml += `- name: "${prop.name}"\n`;
+              yaml += `  type: "${prop.type}"\n`;
+              if (prop.target)
+                yaml += `  target: "${prop.target}"\n`;
+              if (prop.optional)
+                yaml += `  optional: ${prop.optional}\n`;
+              yaml += `\n`;
+            });
+
+            if (shape.nativeProps.size > 0) {
+              yaml += `native-props:\n`;
+            }
+            shape.nativeProps.forEach(prop => {
+              yaml += `- name: "${prop.name}"\n`;
+              yaml += `  type: "${prop.type}"\n\n`;
+            });
+
+            promises.push(exportSkylink.putFile(`/shapes/${shape.name}.yaml`, yaml));
+          });
+
+          functions.forEach(func => {
+            var yaml = '';
+
+            if (func.contextShape)
+              yaml += `context-shape: "${func.contextShape}"\n`;
+            if (func.inputShape)
+              yaml += `input-shape: "${func.inputShape}"\n`;
+            if (func.outputShape)
+              yaml += `output-shape: "${func.outputShape}"\n`;
+
+            promises.push(exportSkylink.putFile(`/functions/${func.name}.yaml`, yaml));
+          });
+
+          promises.push(exportSkylink.putFile(`/metadata.yaml`, metaYaml));
+          return Promise.all(promises);
+        });
+    },
+
   },
   created() {
     this.loadDriverList();
