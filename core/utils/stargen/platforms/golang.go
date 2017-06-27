@@ -290,7 +290,9 @@ func (p *golang) GenerateDriver() error {
 
 		// Do some input mapping
 		if funct.InputShape == "String" {
-			funcWriter.write("  realInput := input.Get()\n")
+			funcWriter.write("  inStr, ok := input.(base.String)\n")
+			funcWriter.write("  if !ok {\n    return nil\n  }\n\n")
+			funcWriter.write("  realInput := inStr.Get()\n")
 		} else if funct.InputShape != "" {
 			funcWriter.write("  realInput, ok := inflate%s(input)\n", extras.SnakeToCamel(funct.InputShape))
 			funcWriter.write("  if !ok {\n    return nil\n  }\n\n")
@@ -365,7 +367,14 @@ func (p *golang) GenerateDriver() error {
 		}
 		if funct.InputShape != "" {
 			funcWriter.write("  case \"input-shape\":\n")
-			funcWriter.write("    return %sShape, true\n", extras.SnakeToCamelLower(funct.InputShape))
+			if funct.InputShape == "String" {
+				funcWriter.useDep("inmem")
+				funcWriter.write("    return inmem.NewShape(inmem.NewFolderOf(\"input-shape\",\n")
+				funcWriter.write("      inmem.NewString(\"type\", \"%s\"),\n", funct.InputShape)
+				funcWriter.write("    )), true\n")
+			} else {
+				funcWriter.write("    return %sShape, true\n", extras.SnakeToCamelLower(funct.InputShape))
+			}
 		}
 		if funct.OutputShape != "" {
 			funcWriter.write("  case \"output-shape\":\n")
