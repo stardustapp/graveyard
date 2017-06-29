@@ -13,7 +13,7 @@ import (
 
 func main() {
 	var starBase = flag.String("stardust-base", "ws://apt:32031/~~export/ws", "Skylink API root")
-	var ircServer = flag.String("irc-server", "irc.stardustapp.run", "IRC server hostname")
+	var ircServer = flag.String("irc-server", "chat.freenode.net", "IRC server hostname")
 	var ircPort = flag.String("irc-port", "6667", "IRC server port (not SSL)")
 	var ircNick = flag.String("irc-nickname", "skylink", "Nickname to use on the IRC server")
 	var ircPass = flag.String("irc-password", os.Getenv("IRC_PASSWORD"), "Optional IRC password")
