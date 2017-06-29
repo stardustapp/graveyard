@@ -3,7 +3,7 @@ package extras
 import (
 	"crypto/rand"
 	"encoding/base64"
-	//"encoding/hex"
+	"encoding/hex"
 	"fmt"
 )
 
@@ -28,6 +28,5 @@ func GenerateId() string {
 		return "error" // TODO
 	}
 
-	//return hex.EncodeToString(bytes)
-	return base64.StdEncoding.EncodeToString(bytes)
+	return hex.EncodeToString(bytes)
 }
