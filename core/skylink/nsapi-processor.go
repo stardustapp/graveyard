@@ -143,7 +143,6 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		log.Println("=> unlinking", req.Path)
 		res.Ok = root.Put(req.Path, nil)
 
-
 	case "chan/next", "chan/try-next":
 		var channel base.Channel
 		channel, res.Ok = root.GetChannel(req.Path)
@@ -209,7 +208,6 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		log.Println("=> closing channel", req.Path)
 		channel.Close()
 		res.Ok = true
-
 
 	default:
 		log.Println("nsexport op", req.Op, "not implemented")

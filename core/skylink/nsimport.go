@@ -243,8 +243,8 @@ func (e *importedChannel) Push(value base.Entry) (ok bool) {
 
 func (e *importedChannel) Close() {
 	_, err := e.svc.transport.exec(nsRequest{
-		Op:    "chan/close",
-		Path:  e.path,
+		Op:   "chan/close",
+		Path: e.path,
 	})
 	if err != nil {
 		log.Println("nsimport chan/close err:", err)
@@ -257,9 +257,9 @@ func (e *importedChannel) Next() (value base.Entry, ok bool) {
 	dest := "/tmp/output-" + extras.GenerateId()
 
 	resp, err := e.svc.transport.exec(nsRequest{
-		Op:    "chan/next",
-		Path:  e.path,
-		Dest:  dest,
+		Op:   "chan/next",
+		Path: e.path,
+		Dest: dest,
 	})
 	if err != nil {
 		log.Println("nsimport chan/next err:", err)
@@ -283,9 +283,9 @@ func (e *importedChannel) TryNext() (value base.Entry, ok bool) {
 	dest := "/tmp/output-" + extras.GenerateId()
 
 	resp, err := e.svc.transport.exec(nsRequest{
-		Op:    "chan/try-next",
-		Path:  e.path,
-		Dest:  dest,
+		Op:   "chan/try-next",
+		Path: e.path,
+		Dest: dest,
 	})
 	if err != nil {
 		log.Println("nsimport chan/try-next err:", err)

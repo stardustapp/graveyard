@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"log"
-	"time"
 	"os"
+	"time"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
