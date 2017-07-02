@@ -367,7 +367,7 @@ func (p *golang) GenerateDriver() error {
 		}
 		if funct.InputShape != "" {
 			funcWriter.write("  case \"input-shape\":\n")
-			if funct.InputShape == "String" {
+			if funct.InputShape == "String" || funct.InputShape == "Channel" {
 				funcWriter.useDep("inmem")
 				funcWriter.write("    return inmem.NewShape(inmem.NewFolderOf(\"input-shape\",\n")
 				funcWriter.write("      inmem.NewString(\"type\", \"%s\"),\n", funct.InputShape)
@@ -378,7 +378,7 @@ func (p *golang) GenerateDriver() error {
 		}
 		if funct.OutputShape != "" {
 			funcWriter.write("  case \"output-shape\":\n")
-			if funct.OutputShape == "String" {
+			if funct.OutputShape == "String" || funct.OutputShape == "Channel" {
 				funcWriter.useDep("inmem")
 				funcWriter.write("    return inmem.NewShape(inmem.NewFolderOf(\"output-shape\",\n")
 				funcWriter.write("      inmem.NewString(\"type\", \"%s\"),\n", funct.OutputShape)
