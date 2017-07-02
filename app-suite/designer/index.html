@@ -25,7 +25,7 @@
   <p>Functions</p>
   <ul>
     <function v-for="func in functions"
-        :key="func"
+        :key="driver+'/'+func"
         :driver="driver"
         :func="func"
       ></function>
@@ -37,7 +37,7 @@
   <p>Shapes</p>
   <ul>
     <shape v-for="shape in shapes"
-        :key="shape"
+        :key="driver+'/'+shape"
         :driver="driver"
         :shape="shape"
       ></shape>
