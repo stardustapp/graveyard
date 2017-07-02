@@ -31,6 +31,7 @@ func nsexportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 
 	NewHttpBroker(svc, "/~~export")
 	NewWsBroker(svc, "/~~export/ws")
+	NewPingBroker(svc, "/~~export/ping")
 
 	return nil // svc.tmpFolder
 }
