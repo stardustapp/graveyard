@@ -3,7 +3,6 @@ package base
 import (
 	"log"
 	"path"
-	//"strings"
 )
 
 //type ContextSystem struct {
