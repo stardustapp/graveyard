@@ -64,6 +64,9 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		case base.Function:
 			wireEnt.Type = "Function"
 
+		case base.Channel:
+			wireEnt.Type = "Channel"
+
 		default:
 			wireEnt.Type = "Unknown"
 		}
@@ -139,6 +142,74 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 	case "unlink":
 		log.Println("=> unlinking", req.Path)
 		res.Ok = root.Put(req.Path, nil)
+
+
+	case "chan/next", "chan/try-next":
+		var channel base.Channel
+		channel, res.Ok = root.GetChannel(req.Path)
+		if !res.Ok {
+			return
+		}
+
+		log.Println("=> reading from channel", req.Path)
+		var value base.Entry
+
+		switch req.Op {
+		case "chan/next":
+			value, res.Ok = channel.Next()
+		case "chan/try-next":
+			value, res.Ok = channel.TryNext()
+		}
+		if !res.Ok {
+			return
+		}
+
+		if req.Dest != "" {
+			res.Ok = root.Put(req.Dest, value)
+			if !res.Ok {
+				log.Println("nsapi: failed to store output at", req.Dest)
+			}
+		} else {
+			res.Output = convertEntryToApi(value)
+		}
+
+	case "chan/push":
+		var channel base.Channel
+		channel, res.Ok = root.GetChannel(req.Dest)
+		if !res.Ok {
+			return
+		}
+
+		var entry base.Entry
+		if req.Path != "" {
+			entry, res.Ok = root.Get(req.Path)
+			if !res.Ok {
+				return
+			}
+		} else {
+			entry = convertEntryFromApi(req.Input)
+		}
+
+		if entry == nil {
+			// block deleting via store
+			log.Println("=> blocking nil write to", req.Dest)
+			return
+		}
+
+		log.Println("=> writing to channel", req.Dest)
+		res.Ok = channel.Push(entry)
+
+	case "chan/close":
+		var channel base.Channel
+		channel, res.Ok = root.GetChannel(req.Path)
+		if !res.Ok {
+			return
+		}
+
+		log.Println("=> closing channel", req.Path)
+		channel.Close()
+		res.Ok = true
+
 
 	default:
 		log.Println("nsexport op", req.Op, "not implemented")

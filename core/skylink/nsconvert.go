@@ -49,6 +49,8 @@ func convertEntryToApi(root base.Entry) *nsEntry {
 			FileData: root.Read(0, int(root.GetSize())),
 		}
 
+	// TODO: return Links to rich objects like Channels
+
 	default:
 		log.Println("Unable to convert entry", root, "to nsapi")
 		return nil
