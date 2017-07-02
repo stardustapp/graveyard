@@ -228,14 +228,14 @@ var app = new Vue({
   },
   methods: {
     loadDriverList() {
-      skylink.enumerate(driverRoot)
+      return skylink.enumerate(driverRoot)
         .then(x => x
               .filter(x => x.Type === 'Folder')
               .map(x => x.Name))
         .then(x => this.drivers = x);
     },
     loadDriver() {
-      skylink.enumerate(`${driverRoot}/${this.driver}`, {
+      return skylink.enumerate(`${driverRoot}/${this.driver}`, {
         maxDepth: 2,
       }).then(children => {
         this.functions = [];
@@ -281,10 +281,9 @@ var app = new Vue({
           Skylink.File('deps.txt', ''),
           Skylink.Folder('functions'),
           Skylink.Folder('shapes'),
-        ])).then(() => {
-          this.loadDriverList();
-          this.driver = name;
-        });
+        ]))
+          .then(() => this.loadDriverList())
+          .then(() => this.driver = name);
       }
     },
     openDeps() {
