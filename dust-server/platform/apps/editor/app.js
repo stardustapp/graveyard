@@ -246,30 +246,36 @@ Vue.component('invoke-function', {
         invokePath += '/invoke';
       }
 
-      var input = [];
-      this.inShape.props.forEach(prop => {
-        var val = this.input[prop.name];
-        if (!val) {
-          if (!prop.optional) {
-            alert(`Property ${prop.name} is required`);
+      var input = null;
+      if (this.inShape.type === 'Folder') {
+        var props = [];
+        this.inShape.props.forEach(prop => {
+          var val = this.input[prop.name];
+          if (!val) {
+            if (!prop.optional) {
+              alert(`Property ${prop.name} is required`);
+            }
+            return;
           }
-          return;
-        }
 
-        switch (prop.type) {
-          case 'String':
-            input.push(Skylink.String(prop.name, val));
-            break;
+          switch (prop.type) {
+            case 'String':
+              props.push(Skylink.String(prop.name, val));
+              break;
 
-          default:
-            alert(`Property ${prop.name} is supported to be unknown type ${prop.type}`);
-        }
-      });
+            default:
+              alert(`Property ${prop.name} is supported to be unknown type ${prop.type}`);
+          }
+        });
+        input = Skylink.Folder('input', props);
+      } else if (this.inShape.type === 'String') {
+        this.input = Skylink.String('input', prompt('input:'));
+      }
 
       this.output = null;
       this.status = 'Pending';
       skylink
-        .invoke(invokePath, Skylink.Folder('input', input), this.outputPath)
+        .invoke(invokePath, input, this.outputPath)
         .then(out => {
           this.status = 'Completed';
           if (!out) {
