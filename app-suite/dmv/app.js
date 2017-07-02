@@ -16,7 +16,18 @@ Vue.component('driver', {
   methods: {
 
     parseOutput(output) {
-      this.exitCode = +output.match(/Pod terminated with code (\d+)/)[1]
+      this.exitCode = +output.match(/Pod terminated with code (\d+)/)[1];
+
+      var goIdx = output.lastIndexOf('\n+ time go ');
+      if (goIdx !== -1) {
+        app.output = output.slice(goIdx);
+        goIdx = app.output.indexOf('\n+ kill');
+        if (goIdx !== -1) {
+          app.output = app.output.slice(0, goIdx);
+        }
+      } else {
+        app.output = output;
+      }
     },
 
     compile(prom) {
@@ -29,12 +40,12 @@ Vue.component('driver', {
           Skylink.String('privileged', 'yes'),
         ]))
         .then(out => {
-          this.status = 'Build completed';
+          this.status = 'Build failed';
           if (out && out.Type === 'String') {
-            app.output = out.StringValue;
             this.parseOutput(out.StringValue);
 
             if (this.exitCode === 0) {
+              this.status = 'Built';
               this.deploy(prom);
             }
           } else {
@@ -53,7 +64,7 @@ Vue.component('driver', {
           Skylink.String('name', this.name),
           Skylink.String('image', `stardriver-${this.name}:latest`),
         ])).then(out => {
-          this.status = 'Deployed successfully';
+          this.status = 'Deployed';
           if (out && out.Type === 'String') {
             // convert driver URL into websocket transport
             this.uri = out.StringValue.replace('http://', 'ws://') + '/ws';
@@ -77,7 +88,7 @@ Vue.component('driver', {
         .invoke("/rom/drv/nsimport/invoke", Skylink.Folder('input', [
           Skylink.String('endpoint-url', this.uri),
         ]), `/n/${this.name}`).then(() => {
-          this.status = 'Mounted successfully';
+          this.status = 'Mounted';
           prom && prom(true);
           window.parent.app.selectTreeNode('/n').reload();
         }, err => {
