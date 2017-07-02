@@ -74,7 +74,7 @@ func (e *Log) Append(value base.Entry) (ok bool) {
 
 // always start at idx 0
 // TODO: let you start at latest, probably.
-func (e *Log) Subscribe(opts base.Entry) (queue base.Queue) {
+func (e *Log) Subscribe(opts base.Entry) (queue base.Channel) {
 	sub := &LogSub{
 		log:      e,
 		waitChan: make(chan int64),
@@ -91,7 +91,7 @@ type LogSub struct {
 	mutex    sync.Mutex
 }
 
-var _ base.Queue = (*LogSub)(nil)
+var _ base.Channel = (*LogSub)(nil)
 
 func (e *LogSub) Name() string {
 	return "subscription"

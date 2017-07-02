@@ -28,7 +28,7 @@ type Context interface {
 	GetString(path string) (entry String, ok bool)
 	GetLink(path string) (entry Link, ok bool)
 	GetFile(path string) (entry File, ok bool)
-	GetQueue(path string) (entry Queue, ok bool)
+	GetChannel(path string) (entry Channel, ok bool)
 	GetLog(path string) (entry Log, ok bool)
 }
 
@@ -140,13 +140,13 @@ func (c *context) GetFile(path string) (entry File, ok bool) {
 	entry, ok = h.GetFile()
 	return
 }
-func (c *context) GetQueue(path string) (entry Queue, ok bool) {
+func (c *context) GetChannel(path string) (entry Channel, ok bool) {
 	h := c.handle.Clone()
 	if !h.Walk(path) {
 		return nil, false
 	}
 
-	entry, ok = h.GetQueue()
+	entry, ok = h.GetChannel()
 	return
 }
 func (c *context) GetLog(path string) (entry Log, ok bool) {

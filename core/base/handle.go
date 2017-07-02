@@ -20,7 +20,7 @@ type Handle interface {
 	GetString() (entry String, ok bool)
 	GetLink() (entry Link, ok bool)
 	GetFile() (entry File, ok bool)
-	GetQueue() (entry Queue, ok bool)
+	GetChannel() (entry Channel, ok bool)
 	GetLog() (entry Log, ok bool)
 
 	Clone() Handle
@@ -115,8 +115,8 @@ func (h *handle) GetFile() (entry File, ok bool) {
 	entry, ok = h.Get().(File)
 	return
 }
-func (h *handle) GetQueue() (entry Queue, ok bool) {
-	entry, ok = h.Get().(Queue)
+func (h *handle) GetChannel() (entry Channel, ok bool) {
+	entry, ok = h.Get().(Channel)
 	return
 }
 func (h *handle) GetLog() (entry Log, ok bool) {

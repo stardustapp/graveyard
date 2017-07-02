@@ -50,7 +50,7 @@ type String interface {
 }
 
 // An immutable alias node which names a relative path target.
-// Compare to unix symlinks
+// Cross between a unix symlink and an HTTP Redirect
 type Link interface {
 	Entry
 	Target() (value string)
@@ -66,9 +66,8 @@ type File interface {
 	Truncate() (ok bool)
 }
 
-// A node which acts as a FIFO pipe of foreign Entries
-// (PS: should be usable for AWS SQS deliveries)
-type Queue interface {
+// A node which acts as a FIFO pipe of foreign Entries (like a golang channel)
+type Channel interface {
 	Entry
 	Push(value Entry) (ok bool)
 	Close()
@@ -83,7 +82,7 @@ type Log interface {
 	Entry
 	Append(value Entry) (ok bool)
 	Close()
-	Subscribe(opts Entry) (sub Queue) // writes values into dest
+	Subscribe(opts Entry) (sub Channel) // writes values into dest
 }
 
 // TODO: this shouldn't be baked in, right?
