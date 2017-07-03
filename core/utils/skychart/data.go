@@ -63,7 +63,7 @@ func (l *ChartList) createChart(id string, ownerName string, ownerEmail string) 
 	ok := l.ctx.Put("/charts/"+id, inmem.NewFolderOf(id,
 		inmem.NewString("owner-name", ownerName),
 		inmem.NewString("owner-email", ownerEmail),
-		inmem.NewFolder("mounts"),
+		inmem.NewFolder("names"),
 	))
 	if !ok {
 		log.Println("Couldn't store chart", id)
