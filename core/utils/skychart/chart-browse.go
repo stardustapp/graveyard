@@ -8,14 +8,14 @@ import (
 )
 
 type chartBrowseFunc struct {
-	chart *Chart
-	dir   base.Folder
+	chart      *Chart
+	entriesDir base.Folder
 }
 
 var _ base.Function = (*chartBrowseFunc)(nil)
 
 func (e *chartBrowseFunc) Name() string {
-	return "mount"
+	return "invoke"
 }
 
 func (e *chartBrowseFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {

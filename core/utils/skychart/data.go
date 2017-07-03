@@ -50,6 +50,7 @@ func (l *ChartList) openChart(id string) *Chart {
 	chartCtx := base.NewRootContext(ns)
 
 	return &Chart{
+		name: id,
 		list: l,
 		ctx:  chartCtx,
 	}
@@ -64,7 +65,7 @@ func (l *ChartList) createChart(id string, ownerName string, ownerEmail string) 
 	ok := l.ctx.Put("/charts/"+id, inmem.NewFolderOf(id,
 		inmem.NewString("owner-name", ownerName),
 		inmem.NewString("owner-email", ownerEmail),
-		inmem.NewFolder("names"),
+		inmem.NewFolder("entries"),
 	))
 	if !ok {
 		log.Println("Couldn't store chart", id)

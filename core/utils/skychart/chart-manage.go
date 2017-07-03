@@ -8,20 +8,20 @@ import (
 )
 
 type chartManageFunc struct {
-	chart *Chart
-	dir   base.Folder
+	chart      *Chart
+	entriesDir base.Folder
 }
 
 var _ base.Function = (*chartManageFunc)(nil)
 
 func (e *chartManageFunc) Name() string {
-	return "manage"
+	return "invoke"
 }
 
 func (e *chartManageFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
 	// TODO: check auth from input
-	return inmem.NewFolderOf("manage-"+e.dir.Name(),
-		&chartEntriesFolder{e.chart, e.dir},
+	return inmem.NewFolderOf("manage-" + e.chart.name,
+		&chartEntriesFolder{e.chart, e.entriesDir},
 	)
 }
 
