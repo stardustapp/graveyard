@@ -2,6 +2,8 @@ package common
 
 import (
 	"log"
+
+	"github.com/stardustapp/core/base"
 )
 
 type ShapeDef struct {
@@ -18,48 +20,60 @@ type PropDef struct {
 }
 
 func (g *Stargen) ListShapes() []ShapeDef {
-	folder, err := g.Orbiter.LoadFolder(g.DriverPath + "/shapes")
-	if err != nil {
-		panic(err.Error())
+	folder, ok := g.DriverCtx.GetFolder("/shapes")
+	if !ok {
+		return nil // TODO: only if 404
 	}
 
-	shapes := make([]ShapeDef, len(folder.Children))
-	for idx, child := range folder.Children {
-		shapes[idx].Name = child.Name
+	shapes := make([]ShapeDef, len(folder.Children()))
+	for idx, child := range folder.Children() {
+		shapes[idx].Name = child
 		shapes[idx].Type = "Folder" // TODO!!
-		shapes[idx].Props = g.readProps(child.Name, "props")
-		shapes[idx].NativeProps = g.readProps(child.Name, "native-props")
+		shapes[idx].Props = g.readProps(child, "props")
+		shapes[idx].NativeProps = g.readProps(child, "native-props")
 	}
 	return shapes
 }
 
 func (g *Stargen) readProps(shapeName string, propType string) []PropDef {
-	propRoot := g.DriverPath + "/shapes/" + shapeName + "/" + propType
-	folder, err := g.Orbiter.LoadFolder(propRoot)
-	if err != nil {
+	propRoot := "/shapes/" + shapeName + "/" + propType
+	folder, ok := g.DriverCtx.GetFolder(propRoot)
+	if !ok {
 		return nil // TODO: only if 404
 	}
 
 	log.Println("shape props:", folder)
 
-	props := make([]PropDef, len(folder.Children))
-	for idx, child := range folder.Children {
-		props[idx].Name = child.Name
-		log.Println("handling prop", child.Name, child.Type)
-		switch child.Type {
+	props := make([]PropDef, len(folder.Children()))
+	for idx, childName := range folder.Children() {
+		props[idx].Name = childName
+		child, _ := folder.Fetch(childName)
 
-		case "String":
+		log.Println("handling prop", childName)
+		switch child := child.(type) {
+
+		case base.String:
 			// shorthand for simple props
-			props[idx].Type, _ = g.Orbiter.ReadString(propRoot + "/" + child.Name)
+			props[idx].Type = child.Get()
 
-		case "Folder":
+		case base.Folder:
 			// TODO: only fetch children that exist
-			//subFolder, _ := g.Orbiter.LoadFolder(propRoot + "/" + child.Name)
-			props[idx].Type, _ = g.Orbiter.ReadString(propRoot + "/" + child.Name + "/type")
-			props[idx].Target, _ = g.Orbiter.ReadString(propRoot + "/" + child.Name + "/target")
+
+			if typeEnt, ok := child.Fetch("type"); ok {
+				if typeStr, ok := typeEnt.(base.String); ok {
+					props[idx].Type = typeStr.Get()
+				}
+			}
+
+			if targetEnt, ok := child.Fetch("target"); ok {
+				if targetStr, ok := targetEnt.(base.String); ok {
+					props[idx].Target = targetStr.Get()
+				}
+			}
 
 		default:
-			panic("Property at " + propRoot + "/" + child.Name + " was a weird type " + child.Type)
+			log.Println("weird prop:", child)
+			panic("Property at " + propRoot + "/" + childName + " was a weird type")
 		}
 	}
 	return props

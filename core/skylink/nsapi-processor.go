@@ -126,7 +126,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 			return
 		}
 
-		log.Println("=> storing to", req.Dest)
+		log.Println("=> storing to", req.Dest, entry)
 		res.Ok = root.Put(req.Dest, entry)
 
 	case "copy":

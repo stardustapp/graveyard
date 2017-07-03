@@ -12,10 +12,10 @@ import (
 func NewOrbiter(nsPrefix, skyLinkUri string) *Orbiter {
 	log.Println("Creating Stardust Orbiter...")
 	root := inmem.NewFolderOf("/",
-    inmem.NewFolderOf("drivers",
-      skylink.GetNsimportDriver(),
-      skylink.GetNsexportDriver(),
-    ),
+		inmem.NewFolderOf("drivers",
+			skylink.GetNsimportDriver(),
+			skylink.GetNsexportDriver(),
+		),
 	)
 	ns := base.NewNamespace(nsPrefix, root)
 	ctx := base.NewRootContext(ns)
@@ -38,13 +38,20 @@ type Orbiter struct {
 }
 
 func (o *Orbiter) GetContextFor(subPath string) base.Context {
-	newRoot, ok := o.ctx.Get(strings.TrimSuffix(subPath, "/"))
+	subPath = strings.TrimSuffix(subPath, "/")
+	ok := Mkdirp(o.ctx, subPath)
 	if !ok {
-		log.Println("orbiter: Failed to select subpath", subPath, "for chroot")
+		log.Println("orbiter: Failed to mkdirp subpath", subPath, "for chrooting")
 		return nil
 	}
 
-	ns := base.NewNamespace("noroot://", newRoot)
+	newRoot, ok := o.ctx.Get(subPath)
+	if !ok {
+		log.Println("orbiter: Failed to select subpath", subPath, "for chrooting")
+		return nil
+	}
+
+	ns := base.NewNamespace("noroot://"+subPath, newRoot)
 	ctx := base.NewRootContext(ns)
 	return ctx
 }

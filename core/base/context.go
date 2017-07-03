@@ -41,7 +41,7 @@ type context struct {
 
 func NewRootContext(ns *Namespace) Context {
 	return &context{
-		name:   "root",
+		name:   ns.BaseUri, // was "root"
 		handle: newRootHandle(ns),
 	}
 }

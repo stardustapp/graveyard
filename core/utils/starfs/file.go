@@ -11,8 +11,8 @@ import (
 
 type StarFile struct {
 	name    string
-	entry base.File
-	ctx base.Context
+	entry   base.File
+	ctx     base.Context
 	isDirty bool
 
 	nodefs.File
@@ -20,10 +20,10 @@ type StarFile struct {
 
 func NewStarFile(name string, entry base.File, ctx base.Context) *StarFile {
 	return &StarFile{
-		name:    name,
+		name:  name,
 		entry: entry,
-		ctx: ctx,
-		File:    nodefs.NewDefaultFile(),
+		ctx:   ctx,
+		File:  nodefs.NewDefaultFile(),
 	}
 }
 

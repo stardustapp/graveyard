@@ -16,7 +16,7 @@ func NewPingBroker(ns *nsexport, path string) *nsexportPingBroker {
 		root: ns.root,
 	}
 
-  http.Handle(path, broker)
+	http.Handle(path, broker)
 	log.Println("nsexport-http: mounted at", path)
 	return broker
 }

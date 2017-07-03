@@ -9,27 +9,31 @@ type FunctionDef struct {
 }
 
 func (g *Stargen) ListFunctions() []FunctionDef {
-	folder, err := g.Orbiter.LoadFolder(g.DriverPath + "/functions")
-	if err != nil {
+	folder, ok := g.DriverCtx.GetFolder("/functions")
+	if !ok {
 		return nil // TODO: only if 404
 	}
 
-	funcs := make([]FunctionDef, len(folder.Children))
-	for idx, child := range folder.Children {
-		funcs[idx].Name = child.Name
-		funcs[idx].InputShape = g.readFuncStr(child.Name, "input-shape")
-		funcs[idx].OutputShape = g.readFuncStr(child.Name, "output-shape")
-		funcs[idx].ContextShape = g.readFuncStr(child.Name, "context-shape")
-		funcs[idx].Source = g.readFuncStr(child.Name, "source.go") // TODO
+	funcs := make([]FunctionDef, len(folder.Children()))
+	for idx, child := range folder.Children() {
+		funcs[idx].Name = child
+		funcs[idx].InputShape = g.readFuncStr(child, "input-shape")
+		funcs[idx].OutputShape = g.readFuncStr(child, "output-shape")
+		funcs[idx].ContextShape = g.readFuncStr(child, "context-shape")
+
+		// TODO
+		sourcePath := "/functions/" + child + "/source.go"
+		if file, ok := g.DriverCtx.GetFile(sourcePath); ok {
+			funcs[idx].Source = string(file.Read(0, int(file.GetSize())))
+		}
 	}
 	return funcs
 }
 
 func (g *Stargen) readFuncStr(funcName string, limbName string) string {
-	limbPath := g.DriverPath + "/functions/" + funcName + "/" + limbName
-	str, err := g.Orbiter.ReadString(limbPath)
-	if err != nil {
-		return ""
+	limbPath := "/functions/" + funcName + "/" + limbName
+	if str, ok := g.DriverCtx.GetString(limbPath); ok {
+		return str.Get()
 	}
-	return str
+	return ""
 }

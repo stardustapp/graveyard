@@ -6,12 +6,13 @@ import (
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
+	"github.com/stardustapp/core/toolbox"
 )
 
 var chartList *ChartList
 
 func mountChartList(ctx base.Context, path string) base.Folder {
-	if ok := Mkdirp(ctx, path); !ok {
+	if ok := toolbox.Mkdirp(ctx, path); !ok {
 		panic("State path " + path + " couldn't be created")
 	}
 

@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/stardustapp/core/extras"
+	"github.com/stardustapp/core/inmem"
+
 	stargen "github.com/stardustapp/core/utils/stargen/common"
 )
 
@@ -76,7 +78,13 @@ func (p *golang) loadDeps() {
 	p.deps["stardust"] = "\"github.com/stardustapp/core/client\""
 	p.deps["skylink"] = "\"github.com/stardustapp/core/skylink\""
 
-	deps, _ := p.gen.Orbiter.ReadFile(p.gen.DriverPath + "/deps.txt")
+	depFile, ok := p.gen.DriverCtx.GetFile("/deps.txt")
+	if !ok {
+		log.Println("No dependency file found in driver")
+		return
+	}
+	deps := depFile.Read(0, int(depFile.GetSize()))
+
 	for _, line := range strings.Split(string(deps), "\n") {
 		if strings.HasPrefix(line, "golang ") {
 			parts := strings.Split(line, " ")
@@ -87,11 +95,9 @@ func (p *golang) loadDeps() {
 
 func (p *golang) GenerateDriver() error {
 	log.Println("Generating driver")
-	p.gen.Orbiter.Delete(p.gen.CompilePath)
-	p.gen.Orbiter.PutFolder(p.gen.CompilePath)
-	err := p.gen.Orbiter.PutFolder(p.gen.CompilePath + "/go-src")
-	if err != nil {
-		panic("Unable to create compile directory " + p.gen.CompilePath)
+	ok := p.gen.CompileCtx.Put("/go-src", inmem.NewFolder("go-src"))
+	if !ok {
+		panic("Unable to create go-src directory in compile path")
 	}
 
 	shapeDefs := p.gen.ListShapes()
@@ -139,7 +145,7 @@ func (p *golang) GenerateDriver() error {
 		}
 		shapeWriter.write("	))\n\n")
 	}
-	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/shapes.go", shapeWriter.bytes())
+	p.gen.CompileCtx.Put("/go-src/shapes.go", inmem.NewFile("shapes.go", shapeWriter.bytes()))
 
 	folderWriter := newGoWriter(p.deps)
 	for _, shape := range shapeDefs {
@@ -261,7 +267,7 @@ func (p *golang) GenerateDriver() error {
 		folderWriter.write("  return x, true\n")
 		folderWriter.write("}\n\n")
 	}
-	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/folders.go", folderWriter.bytes())
+	p.gen.CompileCtx.Put("/go-src/folders.go", inmem.NewFile("folders.go", folderWriter.bytes()))
 
 	funcWriter := newGoWriter(p.deps)
 	for _, funct := range funcDefs {
@@ -270,7 +276,8 @@ func (p *golang) GenerateDriver() error {
 		// first let's write out the impl
 		implWriter := newGoWriter(p.deps)
 		implWriter.write(funct.Source)
-		p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/func-"+funct.Name+".go", implWriter.bytes())
+		implFileName := fmt.Sprintf("func-%s.go", funct.Name)
+		p.gen.CompileCtx.Put("/go-src/"+implFileName, inmem.NewFile(implFileName, implWriter.bytes()))
 
 		properName := extras.SnakeToCamel(funct.Name) + "Func"
 
@@ -394,7 +401,7 @@ func (p *golang) GenerateDriver() error {
 		funcWriter.write("func (e *%s) Put(name string, entry base.Entry) (ok bool) {\n", properName)
 		funcWriter.write("  return false\n}\n\n")
 	}
-	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/functions.go", funcWriter.bytes())
+	p.gen.CompileCtx.Put("/go-src/functions.go", inmem.NewFile("functions.go", funcWriter.bytes()))
 
 	// Create a single main()
 	mainWriter := newGoWriter(p.deps)
@@ -432,7 +439,7 @@ func (p *golang) GenerateDriver() error {
 	mainWriter.write("  }\n")
 
 	mainWriter.write("}\n")
-	p.gen.Orbiter.PutFile(p.gen.CompilePath+"/go-src/main.go", mainWriter.bytes())
+	p.gen.CompileCtx.Put("/go-src/main.go", inmem.NewFile("main.go", mainWriter.bytes()))
 
 	/*
 		// Get the Init executable from /rom/bin

@@ -68,13 +68,14 @@ func convertEntryFromApi(root *nsEntry) base.Entry {
 		for _, child := range root.Children {
 			folder.Put(child.Name, convertEntryFromApi(&child))
 		}
-		return folder.Freeze()
+		return folder //.Freeze()
+		// TODO: downstream should clone instead of freezing
 
 	case "String":
 		return inmem.NewString(root.Name, root.StringValue)
 
 	case "File":
-		return inmem.NewFile(root.Name, root.FileData).Freeze()
+		return inmem.NewFile(root.Name, root.FileData) //.Freeze()
 
 	default:
 		log.Println("Unable to convert entry", root, "from nsapi")
