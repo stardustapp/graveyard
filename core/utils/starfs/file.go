@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/stardustapp/core/client"
+	"github.com/stardustapp/core/base"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -11,53 +11,51 @@ import (
 
 type StarFile struct {
 	name    string
-	data    []byte
-	orbiter *client.Orbiter
+	entry base.File
+	ctx base.Context
+	isDirty bool
 
 	nodefs.File
 }
 
-func NewStarFile(name string, data []byte, orbiter *client.Orbiter) *StarFile {
+func NewStarFile(name string, entry base.File, ctx base.Context) *StarFile {
 	return &StarFile{
 		name:    name,
-		data:    data,
-		orbiter: orbiter,
+		entry: entry,
+		ctx: ctx,
 		File:    nodefs.NewDefaultFile(),
 	}
 }
 
 func (f *StarFile) GetAttr(out *fuse.Attr) fuse.Status {
 	out.Mode = fuse.S_IFREG | 0644
-	out.Size = uint64(len(f.data))
+	out.Size = uint64(f.entry.GetSize())
 	return fuse.OK
 }
 
 func (f *StarFile) Read(buf []byte, off int64) (fuse.ReadResult, fuse.Status) {
-	// TODO
-	log.Println("Reading", len(buf), "bytes from", f, "at", off)
-
-	end := int(off) + int(len(buf))
-	if end > len(f.data) {
-		end = len(f.data)
-	}
-	return fuse.ReadResultData(f.data[off:end]), fuse.OK
+	log.Println("file: Reading", len(buf), "bytes from", f.name, "at", off)
+	data := f.entry.Read(off, len(buf))
+	return fuse.ReadResultData(data), fuse.OK
 }
 
 func (f *StarFile) Write(content []byte, offset int64) (uint32, fuse.Status) {
-	// TODO
-	log.Println("Writing", len(content), "bytes to", f, "at", offset)
-
-	f.data = append(append(f.data[0:offset], content...), f.data[offset:]...)
-
-	return uint32(len(content)), fuse.OK
+	log.Println("file: Writing", len(content), "bytes to", f, "at", offset)
+	f.isDirty = true
+	numBytes := f.entry.Write(offset, content)
+	return uint32(numBytes), fuse.OK
 }
 
 // cleanup
 func (f *StarFile) Release() {
 	log.Printf("file: closed %s", f.name)
 
-	err := f.orbiter.PutFile(f.name, f.data)
-	if err != nil {
-		log.Println(err)
+	if f.isDirty {
+		ok := f.ctx.Put(f.name, f.entry)
+		if !ok {
+			log.Println("file: Couldn't write file", f.name, "on release")
+		} else {
+			log.Println("file: Implicitly saved", f.name, "on release")
+		}
 	}
 }

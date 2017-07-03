@@ -4,8 +4,10 @@ import (
 	"log"
 	"strings"
 	"time"
+	"path"
 
-	"github.com/stardustapp/core/client"
+	"github.com/stardustapp/core/base"
+	"github.com/stardustapp/core/inmem"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -14,62 +16,59 @@ import (
 
 type StarFs struct {
 	pathfs.FileSystem
-	orbiter *client.Orbiter
+	ctx base.Context
 }
 
 func (me *StarFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
 	log.Printf("fs: get attributes on %s", name)
 
-	if len(name) > 0 {
-		name = "/" + name
-	}
-	err, ent := me.orbiter.LoadEntry(name)
-	if err != nil {
-		log.Println("get entry attrs failed", err)
+	name = "/" + name
+	ent, ok := me.ctx.Get(name)
+	if !ok {
+		log.Println("fs: get entry failed on", name)
 		return nil, fuse.ENOENT
 	}
 
-	// TODO: there's gotta be a better way to get the size
-	data, err := me.orbiter.ReadFile(name)
-	if err != nil {
-		log.Println("read file for size failed", name, err)
-		return nil, fuse.ENOENT
-	}
-
-	var mode uint32 = fuse.S_IFREG | 0644
-	if ent.Type == "Folder" {
-		mode = fuse.S_IFDIR | 0755
-	}
-
-	return &fuse.Attr{
-		Mode:  mode,
-		Size:  uint64(len(data)),
+	attrs := &fuse.Attr{
+		Mode:  fuse.S_IFREG | 0644,
+		Size:  0,
 		Mtime: uint64(time.Now().Unix()),
-	}, fuse.OK
+	}
+
+	if _, isFolder := ent.(base.Folder); isFolder {
+		attrs.Mode = fuse.S_IFDIR | 0755
+	}
+	if file, isFile := ent.(base.File); isFile {
+		attrs.Size = uint64(file.GetSize())
+	}
+
+	return attrs, fuse.OK
 }
 
 func (me *StarFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
 	log.Printf("fs: open directory %s", name)
 
-	if len(name) > 0 {
-		name = "/" + name
-	}
-	fi, err := me.orbiter.LoadFolder(name)
-	if err != nil {
-		log.Println("load folder failed", name, err)
+	name = "/" + name
+	fi, ok := me.ctx.GetFolder(name)
+	if !ok {
+		log.Println("get folder failed", name)
 		return nil, fuse.ENOENT
 	}
 
 	log.Println("got folder list", fi)
-	entries := make([]fuse.DirEntry, len(fi.Children))
-	for idx, child := range fi.Children {
+	entries := make([]fuse.DirEntry, len(fi.Children()))
+	for idx, child := range fi.Children() {
+
+		// TODO: use enumeration subsystem
+		_, isFolder := me.ctx.GetFolder(name + "/" + child)
+
 		var mode uint32 = fuse.S_IFREG | 0644
-		if child.Type == "Folder" {
+		if isFolder {
 			mode = fuse.S_IFDIR | 0755
 		}
 
 		entries[idx] = fuse.DirEntry{
-			Name: child.Name,
+			Name: child,
 			Mode: mode,
 		}
 	}
@@ -79,12 +78,10 @@ func (me *StarFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry
 func (me *StarFs) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
 	log.Printf("fs: open %s flags 0x%x", name, flags)
 
-	if len(name) > 0 {
-		name = "/" + name
-	}
-	data, err := me.orbiter.ReadFile(name)
-	if err != nil {
-		log.Println("read file failed", name, err)
+	name = "/" + name
+	fEnt, ok := me.ctx.GetFile(name)
+	if !ok {
+		log.Println("read file failed", name)
 		return nil, fuse.ENOENT
 	}
 
@@ -92,7 +89,7 @@ func (me *StarFs) Open(name string, flags uint32, context *fuse.Context) (file n
 	//	return nil, fuse.EPERM
 	//}
 
-	return NewStarFile(name, data, me.orbiter), fuse.OK
+	return NewStarFile(name, fEnt, me.ctx), fuse.OK
 }
 
 func (me *StarFs) Rename(oldName string, newName string, context *fuse.Context) (code fuse.Status) {
@@ -105,24 +102,25 @@ func (me *StarFs) Rename(oldName string, newName string, context *fuse.Context) 
 		newName = "/" + newName
 	}
 
-	err := me.orbiter.Rename(oldName, newName)
-	if err != nil {
+	if ok := me.ctx.Copy(oldName, newName); !ok {
+		log.Println("fs: Failed to copy", oldName, "to", newName)
 		return fuse.ENOENT
-	} else {
-		return fuse.OK
 	}
+	if ok := me.ctx.Put(oldName, nil); !ok {
+		log.Println("fs: Failed to clean up", oldName, "after rename op")
+		return fuse.ENOENT
+	}
+	return fuse.OK
 }
 
 func (me *StarFs) Create(name string, flags uint32, mode uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
 	log.Printf("fs: create %s flags 0x%x mode 0x%x", name, flags, mode)
 	rawName := name
 
-	if len(name) > 0 {
-		name = "/" + name
-	}
-	err := me.orbiter.PutFile(name, make([]byte, 0))
-	if err != nil {
-		log.Println(err)
+	name = "/" + name
+	ok := me.ctx.Put(name, inmem.NewFile(path.Base(name), make([]byte, 0)))
+	if !ok {
+		log.Println("fs: Couldn't create empty file", name)
 		return nil, fuse.ENOENT
 	}
 
@@ -132,11 +130,9 @@ func (me *StarFs) Create(name string, flags uint32, mode uint32, context *fuse.C
 func (me *StarFs) Mkdir(name string, mode uint32, context *fuse.Context) fuse.Status {
 	log.Printf("fs: mkdir %s mode 0x%x", name, mode)
 
-	if len(name) > 0 {
-		name = "/" + name
-	}
-	err := me.orbiter.PutFolder(name)
-	if err != nil {
+	name = "/" + name
+	ok := me.ctx.Put(name, inmem.NewFolder(path.Base(name)))
+	if !ok {
 		return fuse.ENOENT
 	} else {
 		return fuse.OK
@@ -151,11 +147,9 @@ func (me *StarFs) Rmdir(name string, context *fuse.Context) (code fuse.Status) {
 		return fuse.OK
 	}
 
-	if len(name) > 0 {
-		name = "/" + name
-	}
-	err := me.orbiter.Delete(name)
-	if err != nil {
+	name = "/" + name
+	ok := me.ctx.Put(name, nil)
+	if !ok {
 		return fuse.ENOENT
 	} else {
 		return fuse.OK
@@ -165,11 +159,9 @@ func (me *StarFs) Rmdir(name string, context *fuse.Context) (code fuse.Status) {
 func (me *StarFs) Unlink(name string, context *fuse.Context) (code fuse.Status) {
 	log.Printf("fs: unlink %s", name)
 
-	if len(name) > 0 {
-		name = "/" + name
-	}
-	err := me.orbiter.Delete(name)
-	if err != nil {
+	name = "/" + name
+	ok := me.ctx.Put(name, nil)
+	if !ok {
 		return fuse.ENOENT
 	} else {
 		return fuse.OK

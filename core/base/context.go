@@ -17,6 +17,7 @@ type Context interface {
 	Fork(name string) Context // TODO: bind map
 
 	Put(path string, entry Entry) (ok bool)
+	Copy(oldPath, newPath string) (ok bool)
 
 	// All of these except GetLink() follow Links
 	Get(path string) (entry Entry, ok bool)
@@ -65,6 +66,15 @@ func (c *context) Put(fullPath string, entry Entry) (ok bool) {
 	}
 
 	return parent.Put(path.Base(fullPath), entry)
+}
+
+func (c *context) Copy(oldPath, newPath string) (ok bool) {
+	if entry, ok := c.Get(oldPath); ok {
+		if entry != nil {
+			return c.Put(newPath, entry)
+		}
+	}
+	return false
 }
 
 // Cast helpers
