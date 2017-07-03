@@ -36,7 +36,7 @@ Vue.component('driver', {
         .invoke("/run-pod/invoke", Skylink.Folder('input', [
           Skylink.String('name', `sd-builddriver-${this.name}`),
           Skylink.String('image', 'stardustapp/utils:latest'),
-          Skylink.String('command', `stardust-build-driver http://star-router-http/~~ ${this.name}`),
+          Skylink.String('command', `stardust-build-driver ws://star-router-http/~~export/ws ${this.name}`),
           Skylink.String('privileged', 'yes'),
         ]))
         .then(out => {
