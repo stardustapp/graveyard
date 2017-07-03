@@ -22,7 +22,7 @@ func (c *Chart) getEntry() base.Entry {
 		ownerName,
 		ownerEmail,
     inmem.NewFolderOf("manage",
-      &mountManageFunc{c, nameDir},
+      &chartManageFunc{c, nameDir},
     ).Freeze(),
     inmem.NewFolderOf("browse",
       &mountBrowseFunc{c, nameDir},

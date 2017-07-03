@@ -9,6 +9,7 @@ import (
 
 type mountBrowseFunc struct {
   chart *Chart
+  dir base.Folder
 }
 
 var _ base.Function = (*mountBrowseFunc)(nil)
