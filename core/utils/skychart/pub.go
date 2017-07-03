@@ -47,5 +47,5 @@ func createChart(ctx base.Context, input base.Entry) (output base.Entry) {
 		return nil
 	}
 
-	return openChart(chartName)
+	return openChart(ctx, inmem.NewString("chart-name", chartName))
 }

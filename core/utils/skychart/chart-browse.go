@@ -7,18 +7,18 @@ import (
 	//"github.com/stardustapp/core/inmem"
 )
 
-type mountBrowseFunc struct {
-  chart *Chart
-  dir base.Folder
+type chartBrowseFunc struct {
+	chart *Chart
+	dir   base.Folder
 }
 
-var _ base.Function = (*mountBrowseFunc)(nil)
+var _ base.Function = (*chartBrowseFunc)(nil)
 
-func (e *mountBrowseFunc) Name() string {
+func (e *chartBrowseFunc) Name() string {
 	return "mount"
 }
 
-func (e *mountBrowseFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
-  // TODO: assemble a DAG and inflate all the names
-  return nil
+func (e *chartBrowseFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
+	// TODO: assemble a DAG and inflate all the names
+	return nil
 }
