@@ -55,7 +55,9 @@ func (e *chartEntriesFolder) Fetch(name string) (entry base.Entry, ok bool) {
 }
 
 func (e *chartEntriesFolder) Put(name string, entry base.Entry) (ok bool) {
-	if ok := entryShape.Check(e.chart.ctx, entry); !ok {
+	if entry == nil {
+		log.Println("Allowing deletion of mount entry", name)
+	} else if ok := entryShape.Check(e.chart.ctx, entry); !ok {
 		log.Println("Inbound chart mount entry doesn't validate, refusing put")
 		return false
 	}
