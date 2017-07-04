@@ -15,6 +15,7 @@ var pubFolder *inmem.Folder = inmem.NewFolderOf("pub",
 	inmem.NewFolderOf("create",
 		inmem.NewFunction("invoke", createChart),
 	).Freeze(),
+	inmem.NewFolderOf("graphs"), // TODO: rm
 )
 
 var chartCache map[string]*Chart = make(map[string]*Chart)

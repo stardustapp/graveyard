@@ -5,6 +5,7 @@ import (
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
+	"github.com/stardustapp/core/utils/skychart/dag"
 )
 
 // Function returning an API folder
@@ -73,6 +74,8 @@ func (e *chartCompileFunc) Name() string {
 }
 
 func (e *chartCompileFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
-	log.Println("look ma no hands")
-	return inmem.NewFolderOf("dag")
+	graph := dag.InflateGraphFromConfig(e.chart.ctx)
+	graph.Compile()
+	log.Println("Compiled DAG for", e.chart.name)
+	return graph.GetFolder()
 }

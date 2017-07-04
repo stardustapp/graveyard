@@ -43,22 +43,9 @@ func main() {
 	ctx.Put("/data", mountChartList(ctx, *statePath))
 
 	if *rootChart != "" {
-		log.Println("Compiling", *rootChart, "...")
-		openFunc, _ := ctx.GetFunction("/pub/open/invoke")
-		chartApi := openFunc.Invoke(ctx, inmem.NewString("", *rootChart))
-		chartDir := chartApi.(base.Folder)
-		manageEnt, _ := chartDir.Fetch("manage")
-		manageFold := manageEnt.(base.Folder)
-		manageIvkEnt, _ := manageFold.Fetch("invoke")
-		manageFunc := manageIvkEnt.(base.Function)
-		manageApi := manageFunc.Invoke(ctx, nil)
-		manageDir := manageApi.(base.Folder)
-		compileEnt, _ := manageDir.Fetch("compile")
-		compileFold := compileEnt.(base.Folder)
-		compileIvkEnt, _ := compileFold.Fetch("invoke")
-		compileFunc := compileIvkEnt.(base.Function)
-		dagEnt := compileFunc.Invoke(ctx, nil)
-		log.Println("Compiled", *rootChart, "into", dagEnt)
+		launchChart(ctx, *rootChart)
+		launchChart(ctx, "dan-chat")
+		launchChart(ctx, "dan")
 	}
 
 	root.Freeze()
@@ -73,4 +60,24 @@ func main() {
 	if err := http.ListenAndServe(host, nil); err != nil {
 		log.Println("ListenAndServe:", err)
 	}
+}
+
+func launchChart(ctx base.Context, name string) {
+	openFunc, _ := ctx.GetFunction("/pub/open/invoke")
+	chartApi := openFunc.Invoke(ctx, inmem.NewString("", name))
+	chartDir := chartApi.(base.Folder)
+	manageEnt, _ := chartDir.Fetch("manage")
+	manageFold := manageEnt.(base.Folder)
+	manageIvkEnt, _ := manageFold.Fetch("invoke")
+	manageFunc := manageIvkEnt.(base.Function)
+	manageApi := manageFunc.Invoke(ctx, nil)
+	manageDir := manageApi.(base.Folder)
+	compileEnt, _ := manageDir.Fetch("compile")
+	compileFold := compileEnt.(base.Folder)
+	compileIvkEnt, _ := compileFold.Fetch("invoke")
+	compileFunc := compileIvkEnt.(base.Function)
+	dagEnt := compileFunc.Invoke(ctx, nil)
+
+	log.Println("Compiled", name, "into", dagEnt)
+	ctx.Put("/pub/graphs/"+name, dagEnt)
 }
