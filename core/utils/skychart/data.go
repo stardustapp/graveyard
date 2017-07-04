@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
@@ -65,6 +66,8 @@ func (l *ChartList) createChart(id string, ownerName string, ownerEmail string) 
 	ok := l.ctx.Put("/charts/"+id, inmem.NewFolderOf(id,
 		inmem.NewString("owner-name", ownerName),
 		inmem.NewString("owner-email", ownerEmail),
+		inmem.NewString("home-domain", "devmode.cloud"),
+		inmem.NewString("created-date", time.Now().Format(time.RFC3339)),
 		inmem.NewFolder("entries"),
 	))
 	if !ok {
