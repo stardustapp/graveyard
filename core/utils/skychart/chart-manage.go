@@ -79,12 +79,15 @@ func (e *chartEntryFolder) Children() []string {
 }
 func (e *chartEntryFolder) Fetch(name string) (entry base.Entry, ok bool) {
 	switch name {
-
 	default:
 		return e.dir.Fetch(name)
 	}
 }
 func (e *chartEntryFolder) Put(name string, entry base.Entry) (ok bool) {
-	log.Println("put ", e.name, name, entry)
-	return false
+	if ok := entryShape.Check(e.chart.ctx, entry); !ok {
+		log.Println("Inbound chart mount entry doesn't validate, refusing put")
+		return false
+	}
+
+	return e.dir.Put(name, entry)
 }
