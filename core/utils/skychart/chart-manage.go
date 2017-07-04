@@ -20,7 +20,7 @@ func (e *chartManageFunc) Name() string {
 
 func (e *chartManageFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
 	// TODO: check auth from input
-	return inmem.NewFolderOf("manage-" + e.chart.name,
+	return inmem.NewFolderOf("manage-"+e.chart.name,
 		&chartEntriesFolder{e.chart, e.entriesDir},
 	)
 }
@@ -51,39 +51,10 @@ func (e *chartEntriesFolder) Fetch(name string) (entry base.Entry, ok bool) {
 		return nil, false
 	}
 
-	return &chartEntryFolder{
-		chart: e.chart,
-		name:  name,
-		dir:   dataFolder,
-	}, true
+	return dataFolder, ok
 }
 
 func (e *chartEntriesFolder) Put(name string, entry base.Entry) (ok bool) {
-	log.Println("put", name, entry)
-	return false
-}
-
-type chartEntryFolder struct {
-	chart *Chart
-	name  string
-	dir   base.Folder
-}
-
-var _ base.Folder = (*chartEntryFolder)(nil)
-
-func (e *chartEntryFolder) Name() string {
-	return e.name
-}
-func (e *chartEntryFolder) Children() []string {
-	return e.dir.Children()
-}
-func (e *chartEntryFolder) Fetch(name string) (entry base.Entry, ok bool) {
-	switch name {
-	default:
-		return e.dir.Fetch(name)
-	}
-}
-func (e *chartEntryFolder) Put(name string, entry base.Entry) (ok bool) {
 	if ok := entryShape.Check(e.chart.ctx, entry); !ok {
 		log.Println("Inbound chart mount entry doesn't validate, refusing put")
 		return false
