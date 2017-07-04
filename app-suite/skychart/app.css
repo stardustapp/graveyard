@@ -1,0 +1,24 @@
+table td:first-child,
+table th:first-child{
+  padding-left: 24px;
+}
+
+i {
+  cursor: pointer;
+}
+
+code {
+  border: 1px solid #cde;
+  border-radius: 3px;
+  padding: 0.1em 0.4em;
+  background-color: #eef7ff;
+  font-family: 'Fira Code', monospace;
+}
+
+.building-icon {
+  animation: spin 4s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
