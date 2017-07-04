@@ -19,7 +19,7 @@ func (c *Chart) getEntry() base.Entry {
 
 	ent := inmem.NewFolderOf("chart",
 		inmem.NewFolderOf("manage",
-			&chartManageFunc{c, entriesDir},
+			&chartManageFunc{c},
 		).Freeze(),
 		inmem.NewFolderOf("browse",
 			&chartBrowseFunc{c, entriesDir},

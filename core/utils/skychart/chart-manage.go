@@ -7,9 +7,9 @@ import (
 	"github.com/stardustapp/core/inmem"
 )
 
+// Function returning an API folder
 type chartManageFunc struct {
-	chart      *Chart
-	entriesDir base.Folder
+	chart *Chart
 }
 
 var _ base.Function = (*chartManageFunc)(nil)
@@ -21,13 +21,16 @@ func (e *chartManageFunc) Name() string {
 func (e *chartManageFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
 	// TODO: check auth from input
 	return inmem.NewFolderOf("manage-"+e.chart.name,
-		&chartEntriesFolder{e.chart, e.entriesDir},
+		&chartEntriesFolder{e.chart},
+		inmem.NewFolderOf("compile",
+			&chartCompileFunc{e.chart},
+		).Freeze(),
 	)
 }
 
+// Folder mapping to /charts/:chart/entries
 type chartEntriesFolder struct {
 	chart *Chart
-	dir   base.Folder
 }
 
 var _ base.Folder = (*chartEntriesFolder)(nil)
@@ -37,21 +40,14 @@ func (e *chartEntriesFolder) Name() string {
 }
 
 func (e *chartEntriesFolder) Children() []string {
-	return e.dir.Children()
+	if folder, ok := e.chart.ctx.GetFolder("/entries"); ok {
+		return folder.Children()
+	}
+	return nil
 }
 
 func (e *chartEntriesFolder) Fetch(name string) (entry base.Entry, ok bool) {
-	dataEnt, ok := e.dir.Fetch(name)
-	if !ok {
-		return nil, false
-	}
-
-	dataFolder, ok := dataEnt.(base.Folder)
-	if !ok {
-		return nil, false
-	}
-
-	return dataFolder, ok
+	return e.chart.ctx.GetFolder("/entries/" + name)
 }
 
 func (e *chartEntriesFolder) Put(name string, entry base.Entry) (ok bool) {
@@ -62,5 +58,21 @@ func (e *chartEntriesFolder) Put(name string, entry base.Entry) (ok bool) {
 		return false
 	}
 
-	return e.dir.Put(name, entry)
+	return e.chart.ctx.Put("/entries/"+name, entry)
+}
+
+// Function, reads the mount table and assembles a mount DAG
+type chartCompileFunc struct {
+	chart *Chart
+}
+
+var _ base.Function = (*chartCompileFunc)(nil)
+
+func (e *chartCompileFunc) Name() string {
+	return "invoke"
+}
+
+func (e *chartCompileFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
+	log.Println("look ma no hands")
+	return inmem.NewFolderOf("dag")
 }
