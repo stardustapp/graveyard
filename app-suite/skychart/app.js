@@ -19,6 +19,7 @@ Vue.component('manage-chart', {
     return {
       entries: [],
       editing: null,
+      vis: '',
     };
   },
   computed: {
@@ -83,6 +84,15 @@ Vue.component('manage-chart', {
         this.loadEntries();
       });
     },
+
+    compile() {
+      const dest = '/tmp/compile-' + parseInt(Math.random().toString().slice(2)).toString(36);
+      skychart
+        .invoke(this.path + '/compile/invoke', null, dest)
+        .then(() => skychart.loadFile(dest + '/visualization.html'))
+        .then(x => this.vis = btoa(x));
+    },
+
   },
 });
 
