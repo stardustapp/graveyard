@@ -11,7 +11,9 @@ import (
 
 // TODO: automatically build multibind mounts?
 
-func (g *Graph) getImportNode(uri string) *Node {
+func (g *Graph) getImportNode(scheme, host string) *Node {
+	uri := fmt.Sprintf("%s://%s", scheme, host)
+
 	// check if the import already exists
 	for _, node := range g.nodes {
 		if node.nodeType == "Import" && node.deviceUri == uri {
@@ -23,7 +25,7 @@ func (g *Graph) getImportNode(uri string) *Node {
 	node := &Node{
 		id:         extras.GenerateId(),
 		nodeType:   "Import",
-		mountPath:  "/mnt/" + strings.Replace(uri, "/", "-", -1),
+		mountPath:  fmt.Sprintf("/mnt/%s/%s", scheme, host),
 		deviceType: "ActiveMount",
 		deviceUri:  uri,
 	}
@@ -62,7 +64,7 @@ func (g *Graph) Compile() bool {
 				log.Println("deviceUri parsing failed.", err)
 				continue
 			}
-			parent = g.getImportNode(fmt.Sprintf("%s://%s", u.Scheme, u.Host))
+			parent = g.getImportNode(u.Scheme, u.Host)
 
 		} else {
 			for _, iter := range g.nodes {
