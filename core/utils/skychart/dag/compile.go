@@ -28,6 +28,15 @@ func (g *Graph) getImportNode(uri string) *Node {
 		deviceUri:  uri,
 	}
 	g.nodes[node.id] = node
+
+	// depend on the root node
+	edgeId := extras.GenerateId()
+	g.edges[edgeId] = &Edge{
+		id:           edgeId,
+		upstreamId:   "root",
+		downstreamId: node.id,
+	}
+
 	return node
 }
 
