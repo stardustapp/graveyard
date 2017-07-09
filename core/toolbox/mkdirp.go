@@ -16,7 +16,6 @@ func Mkdirp(ctx base.Context, path string) (ok bool) {
 		ent, ok := ctx.Get(path)
 		if !ok {
 			ok := ctx.Put(path, inmem.NewFolder(name))
-			log.Println(path, ok)
 			if !ok {
 				log.Println("mkdirp: Failed to create", path)
 				return false

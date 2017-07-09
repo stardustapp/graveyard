@@ -7,8 +7,9 @@ import (
 )
 
 func InflateGraphFromConfig(ctx base.Context) *Graph {
+	rootNode, _ := ctx.GetFolder("/")
 	dag := &Graph{
-		name:  ctx.Name(),
+		name:  rootNode.Name(),
 		nodes: make(map[string]*Node),
 		edges: make(map[string]*Edge),
 	}

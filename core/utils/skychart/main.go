@@ -43,9 +43,10 @@ func main() {
 	ctx.Put("/data", mountChartList(ctx, *statePath))
 
 	if *rootChart != "" {
-		launchChart(ctx, *rootChart)
-		launchChart(ctx, "dan-chat")
-		launchChart(ctx, "dan")
+		if ok := launchChart(ctx, *rootChart); !ok {
+			log.Fatalln("Mandatory chart", *rootChart, "failed to launch")
+
+		}
 	}
 
 	root.Freeze()
@@ -62,22 +63,20 @@ func main() {
 	}
 }
 
-func launchChart(ctx base.Context, name string) {
+func launchChart(ctx base.Context, name string) (ok bool) {
 	openFunc, _ := ctx.GetFunction("/pub/open/invoke")
 	chartApi := openFunc.Invoke(ctx, inmem.NewString("", name))
 	chartDir := chartApi.(base.Folder)
-	manageEnt, _ := chartDir.Fetch("manage")
+	manageEnt, _ := chartDir.Fetch("browse")
 	manageFold := manageEnt.(base.Folder)
-	manageIvkEnt, _ := manageFold.Fetch("invoke")
-	manageFunc := manageIvkEnt.(base.Function)
-	manageApi := manageFunc.Invoke(ctx, nil)
-	manageDir := manageApi.(base.Folder)
-	compileEnt, _ := manageDir.Fetch("compile")
-	compileFold := compileEnt.(base.Folder)
-	compileIvkEnt, _ := compileFold.Fetch("invoke")
-	compileFunc := compileIvkEnt.(base.Function)
-	dagEnt := compileFunc.Invoke(ctx, nil)
+	browseIvkEnt, _ := manageFold.Fetch("invoke")
+	browseFunc := browseIvkEnt.(base.Function)
+	chartEnt := browseFunc.Invoke(ctx, nil)
 
-	log.Println("Compiled", name, "into", dagEnt)
-	ctx.Put("/pub/graphs/"+name, dagEnt)
+	if chartEnt != nil {
+		log.Println("Compiled", name, "into", chartEnt)
+		ctx.Put("/pub/charts/"+name, chartEnt)
+		return true
+	}
+	return false
 }
