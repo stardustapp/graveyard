@@ -8,6 +8,7 @@ import (
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
+	"github.com/stardustapp/core/skylink"
 	"github.com/stardustapp/core/toolbox"
 )
 
@@ -79,17 +80,11 @@ func (g *Graph) Launch(ctx base.Context) base.Entry {
 
 			case "skylink+http", "skylink+https":
 				actualUri := strings.TrimPrefix(node.deviceUri, "skylink+") + "/~~export"
-				importFunc, _ := ctx.GetFunction("/drivers/nsimport/invoke")
-				ent = importFunc.Invoke(ctx, inmem.NewFolderOf("opts",
-					inmem.NewString("endpoint-url", actualUri),
-				))
+				ent = skylink.ImportUri(actualUri)
 
 			case "skylink+ws", "skylink+wss":
 				actualUri := strings.TrimPrefix(node.deviceUri, "skylink+") + "/~~export/ws"
-				importFunc, _ := ctx.GetFunction("/drivers/nsimport/invoke")
-				ent = importFunc.Invoke(ctx, inmem.NewFolderOf("opts",
-					inmem.NewString("endpoint-url", actualUri),
-				))
+				ent = skylink.ImportUri(actualUri)
 
 			}
 
@@ -139,11 +134,7 @@ func (g *Graph) Launch(ctx base.Context) base.Entry {
 				log.Println("driver is at", driverAddr)
 
 				actualUri := fmt.Sprintf("ws://%s/~~export/ws", driverAddr)
-				importFunc, _ := ctx.GetFunction("/drivers/nsimport/invoke")
-				rawEnt := importFunc.Invoke(ctx, inmem.NewFolderOf("opts",
-					inmem.NewString("endpoint-url", actualUri),
-				))
-
+				rawEnt := skylink.ImportUri(actualUri)
 				if rawEnt, ok := rawEnt.(base.Folder); ok {
 					ent, _ = rawEnt.Fetch("pub")
 				} else {

@@ -33,6 +33,10 @@ func nsimportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 	endpointUrl, _ := extras.GetChildString(inputFolder, "endpoint-url")
 	log.Println("nsimport: requested for", endpointUrl)
 
+	return ImportUri(endpointUrl)
+}
+
+func ImportUri(endpointUrl string) (output base.Entry) {
 	uri, err := url.Parse(endpointUrl)
 	if err != nil {
 		log.Println("nsimport: given invalid url", endpointUrl, err)
