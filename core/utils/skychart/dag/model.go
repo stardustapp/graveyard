@@ -8,12 +8,12 @@ type Graph struct {
 
 type Node struct {
 	id       string
-	nodeType string
+	NodeType string
 
 	// as configured
-	mountPath  string
-	deviceType string
-	deviceUri  string
+	MountPath  string
+	DeviceType string
+	DeviceUri  string
 }
 
 type Edge struct {

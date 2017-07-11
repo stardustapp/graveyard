@@ -1,10 +1,7 @@
 package main
 
 import (
-	"log"
-
 	"github.com/stardustapp/core/base"
-	"github.com/stardustapp/core/utils/skychart/dag"
 )
 
 type chartBrowseFunc struct {
@@ -19,8 +16,5 @@ func (e *chartBrowseFunc) Name() string {
 }
 
 func (e *chartBrowseFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
-	graph := dag.InflateGraphFromConfig(e.chart.ctx)
-	graph.Compile()
-	log.Println("Launching compiled DAG for", e.chart.name)
-	return graph.Launch(ctx)
+	return engine.launchChart(e.chart)
 }

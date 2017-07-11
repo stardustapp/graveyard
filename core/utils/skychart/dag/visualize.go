@@ -42,8 +42,8 @@ func (graph *Graph) CreateVisualizationPage() *inmem.File {
 	for _, node := range graph.nodes {
 		doc.WriteString("    {\n")
 		doc.WriteString(fmt.Sprintf("      id: \"%s\",\n", node.id))
-		doc.WriteString(fmt.Sprintf("      label: \"%s\",\n", node.mountPath))
-		doc.WriteString(fmt.Sprintf("      group: \"%s\",\n", node.nodeType))
+		doc.WriteString(fmt.Sprintf("      label: \"%s\",\n", node.MountPath))
+		doc.WriteString(fmt.Sprintf("      group: \"%s\",\n", node.NodeType))
 		doc.WriteString("    },\n")
 	}
 	doc.WriteString("  ];\n\n")

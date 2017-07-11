@@ -1,18 +1,18 @@
 package dag
 
 import (
-	"fmt"
 	"log"
-	"net/url"
-	"strings"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
-	"github.com/stardustapp/core/skylink"
 	"github.com/stardustapp/core/toolbox"
 )
 
-func (g *Graph) Launch(ctx base.Context) base.Entry {
+type Provider interface {
+  InjectNode(ctx base.Context, node *Node) base.Entry
+}
+
+func (g *Graph) Launch(provider Provider) base.Entry {
 	log.Println("=== == === == === == === == === === == === == ===")
 	log.Println("Launching", g.name)
 
@@ -57,108 +57,22 @@ func (g *Graph) Launch(ctx base.Context) base.Entry {
 			break
 		}
 
-		log.Println("Next node:", node.mountPath, node.nodeType)
+		log.Println("Next node:", node.MountPath, node.NodeType)
 
-		if ok := toolbox.Mkdirp(cCtx, node.mountPath); !ok {
-			log.Println("mkdirp on", node.mountPath, "failed, aborting launch")
+		if ok := toolbox.Mkdirp(cCtx, node.MountPath); !ok {
+			log.Println("mkdirp on", node.MountPath, "failed, aborting launch")
 			return nil
 		}
 
-		uri, err := url.Parse(node.deviceUri)
-		if err != nil {
-			log.Println("deviceUri parsing failed.", node.deviceUri, err)
-			return nil
-		}
-
-		// TODO
-		var ent base.Entry
-		switch node.nodeType {
-
-		case "Import":
-			log.Println("Importing", uri.Scheme, uri.Host)
-			switch uri.Scheme {
-
-			case "skylink+http", "skylink+https":
-				actualUri := strings.TrimPrefix(node.deviceUri, "skylink+") + "/~~export"
-				ent = skylink.ImportUri(actualUri)
-
-			case "skylink+ws", "skylink+wss":
-				actualUri := strings.TrimPrefix(node.deviceUri, "skylink+") + "/~~export/ws"
-				ent = skylink.ImportUri(actualUri)
-
-			}
-
-		case "Entry":
-			log.Printf("%+v %s", node, uri.Path)
-
-			var device base.Entry
-			switch uri.Scheme {
-
-			// case "":
-
-			case "skylink+http", "skylink+https", "skylink+ws", "skylink+wss":
-				mountPath := fmt.Sprintf("/mnt/%s/%s", uri.Scheme, uri.Host)
-				var ok bool
-				device, ok = cCtx.Get(mountPath + uri.Path)
-				if !ok {
-					log.Println("mount path", mountPath, "doesn't exist")
-					return nil
-				}
-
-			case "":
-				// relative path
-				var ok bool
-				device, ok = cCtx.Get(uri.Path)
-				if !ok {
-					log.Println("relative device path", uri.Path, "doesn't exist")
-					return nil
-				}
-
-			default:
-				log.Fatalln("Unknown device scheme", uri.Scheme)
-
-			}
-
-			if device == nil {
-				log.Println("device from", uri, "wasn't found")
-				return nil
-			}
-
-			switch node.deviceType {
-
-			case "BindLink":
-				ent = device // lol
-
-			case "StarDriver":
-				driverAddr := resolveStarDriver(node.deviceUri)
-				log.Println("driver is at", driverAddr)
-
-				actualUri := fmt.Sprintf("ws://%s/~~export/ws", driverAddr)
-				rawEnt := skylink.ImportUri(actualUri)
-				if rawEnt, ok := rawEnt.(base.Folder); ok {
-					ent, _ = rawEnt.Fetch("pub")
-				} else {
-					log.Println("stardriver at", driverAddr, "didn't import")
-					return nil
-				}
-
-			default:
-				log.Fatalln("Unknown device type", node.deviceType)
-
-			}
-
-		default:
-			log.Fatalln("Unknown node type", node.nodeType)
-
-		}
+    ent := provider.InjectNode(cCtx, node)
 
 		if ent == nil {
-			log.Println("launch of", node.mountPath, "failed, aborting launch")
+			log.Println("launch of", node.MountPath, "failed, aborting launch")
 			return nil
 		}
 		nodeEnts[node.id] = ent
-		if ok := cCtx.Put(node.mountPath, ent); !ok {
-			log.Println("put on", node.mountPath, "failed, aborting launch")
+		if ok := cCtx.Put(node.MountPath, ent); !ok {
+			log.Println("put on", node.MountPath, "failed, aborting launch")
 			return nil
 		}
 	}

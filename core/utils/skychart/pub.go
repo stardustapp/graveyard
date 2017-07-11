@@ -8,6 +8,9 @@ import (
 	"github.com/stardustapp/core/inmem"
 )
 
+// TODO
+var engine *Engine
+
 var pubFolder *inmem.Folder = inmem.NewFolderOf("pub",
 	inmem.NewFolderOf("open",
 		inmem.NewFunction("invoke", openChart),
@@ -18,23 +21,15 @@ var pubFolder *inmem.Folder = inmem.NewFolderOf("pub",
 	inmem.NewFolderOf("graphs"), // TODO: rm
 )
 
-var chartCache map[string]*Chart = make(map[string]*Chart)
-
 func openChart(ctx base.Context, input base.Entry) (output base.Entry) {
 	inStr := input.(base.String)
 	chartName := inStr.Get()
 
-	if chart, ok := chartCache[chartName]; ok {
-		return chart.getEntry()
-	}
-
-	chart := chartList.openChart(chartName)
+	chart := engine.findChart(chartName)
 	if chart == nil {
 		return nil
 	}
-
-	chartCache[chartName] = chart
-	return chart.getEntry()
+	return chart.getApi()
 }
 
 func createChart(ctx base.Context, input base.Entry) (output base.Entry) {
@@ -43,10 +38,9 @@ func createChart(ctx base.Context, input base.Entry) (output base.Entry) {
 	ownerName, _ := extras.GetChildString(inputFolder, "owner-name")
 	ownerEmail, _ := extras.GetChildString(inputFolder, "owner-email")
 
-	chart := chartList.createChart(chartName, ownerName, ownerEmail)
+	chart := engine.createChart(chartName, ownerName, ownerEmail)
 	if chart == nil {
 		return nil
 	}
-
-	return openChart(ctx, inmem.NewString("chart-name", chartName))
+	return chart.getApi()
 }

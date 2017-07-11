@@ -16,7 +16,7 @@ func (g *Graph) getImportNode(scheme, host string) *Node {
 
 	// check if the import already exists
 	for _, node := range g.nodes {
-		if node.nodeType == "Import" && node.deviceUri == uri {
+		if node.NodeType == "Import" && node.DeviceUri == uri {
 			return node
 		}
 	}
@@ -24,10 +24,10 @@ func (g *Graph) getImportNode(scheme, host string) *Node {
 	// create new import node
 	node := &Node{
 		id:         extras.GenerateId(),
-		nodeType:   "Import",
-		mountPath:  fmt.Sprintf("/mnt/%s/%s", scheme, host),
-		deviceType: "ActiveMount",
-		deviceUri:  uri,
+		NodeType:   "Import",
+		MountPath:  fmt.Sprintf("/mnt/%s/%s", scheme, host),
+		DeviceType: "ActiveMount",
+		DeviceUri:  uri,
 	}
 	g.nodes[node.id] = node
 
@@ -46,37 +46,37 @@ func (g *Graph) Compile() bool {
 	// Graphs start with a virtual root node
 	g.nodes["root"] = &Node{
 		id:         "root",
-		nodeType:   "Root",
-		mountPath:  "/",
-		deviceType: "EmptyDir",
+		NodeType:   "Root",
+		MountPath:  "/",
+		DeviceType: "EmptyDir",
 	}
 
 	// Create dependencies between nodes
 	for _, node := range g.nodes {
-		if node.nodeType != "Entry" {
+		if node.NodeType != "Entry" {
 			continue
 		}
 
 		var parent *Node = g.nodes["root"]
-		if strings.Contains(node.deviceUri, "://") {
-			u, err := url.Parse(node.deviceUri)
+		if strings.Contains(node.DeviceUri, "://") {
+			u, err := url.Parse(node.DeviceUri)
 			if err != nil {
-				log.Println("deviceUri parsing failed.", err)
+				log.Println("DeviceUri parsing failed.", err)
 				continue
 			}
 			parent = g.getImportNode(u.Scheme, u.Host)
 
 		} else {
 			for _, iter := range g.nodes {
-				if len(iter.mountPath) > len(parent.mountPath) {
-					if strings.HasPrefix(node.deviceUri, iter.mountPath) {
+				if len(iter.MountPath) > len(parent.MountPath) {
+					if strings.HasPrefix(node.DeviceUri, iter.MountPath) {
 						parent = iter
 					}
 				}
 			}
 		}
 
-		//log.Println("Node", node.mountPath, "depends on", parent.mountPath)
+		//log.Println("Node", node.MountPath, "depends on", parent.MountPath)
 		edgeId := extras.GenerateId()
 		g.edges[edgeId] = &Edge{
 			id:           edgeId,

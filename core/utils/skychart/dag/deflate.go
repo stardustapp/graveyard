@@ -25,9 +25,9 @@ func (g *Graph) GetFolder() *inmem.Folder {
 func (n *Node) getFolder() *inmem.Folder {
 	// TODO: export special nodes too
 	return inmem.NewFolderOf(n.id,
-		inmem.NewString("mount-path", n.mountPath),
-		inmem.NewString("device-type", n.deviceType),
-		inmem.NewString("device-uri", n.deviceUri),
+		inmem.NewString("mount-path", n.MountPath),
+		inmem.NewString("device-type", n.DeviceType),
+		inmem.NewString("device-uri", n.DeviceUri),
 	)
 }
 

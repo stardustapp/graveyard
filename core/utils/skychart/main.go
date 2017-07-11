@@ -14,6 +14,7 @@ import (
 func main() {
 	var skyLinkUri = flag.String("skylink-uri", "wss://stardust.apt.danopia.net/~~export/ws", "Backing Skylink API root")
 	var statePath = flag.String("data-store", "/mnt/pub/n/redis-ns/data/skychart", "Location on Skylink upstream to persist data in")
+	var homeDomain = flag.String("home-domain", "devmode.cloud", "Unique constant DNS-based name for this chart server")
 	var rootChart = flag.String("root-chart", "system", "Name of a primary chart to compile and boot at startup")
 	flag.Parse()
 
@@ -40,16 +41,16 @@ func main() {
 	))
 
 	ctx.Put("/mnt", remoteFs)
-	ctx.Put("/data", mountChartList(ctx, *statePath))
+	engine = newEngine(*homeDomain, ctx, *statePath)
+	ctx.Put("/data", engine.dataRoot)
+	root.Freeze()
 
 	if *rootChart != "" {
-		if ok := launchChart(ctx, *rootChart); !ok {
+		chart := engine.findChart(*rootChart)
+		if ent := engine.launchChart(chart); ent == nil {
 			log.Fatalln("Mandatory chart", *rootChart, "failed to launch")
-
 		}
 	}
-
-	root.Freeze()
 
 	log.Println("Starting nsexport...")
 	exportFunc, _ := ctx.GetFunction("/drivers/nsexport/invoke")

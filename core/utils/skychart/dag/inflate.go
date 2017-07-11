@@ -27,18 +27,18 @@ func InflateGraphFromConfig(ctx base.Context) *Graph {
 func inflateEntryNode(folder base.Folder) *Node {
 	node := &Node{
 		id:       folder.Name(),
-		nodeType: "Entry",
+		NodeType: "Entry",
 	}
 
 	if mountPath, ok := folder.Fetch("mount-path"); ok {
-		node.mountPath = strings.TrimSuffix(mountPath.(base.String).Get(), "/")
+		node.MountPath = strings.TrimSuffix(mountPath.(base.String).Get(), "/")
 	}
 	if deviceType, ok := folder.Fetch("device-type"); ok {
 		// TODO: validate against enum? look up custom types?
-		node.deviceType = deviceType.(base.String).Get()
+		node.DeviceType = deviceType.(base.String).Get()
 	}
 	if deviceUri, ok := folder.Fetch("device-uri"); ok {
-		node.deviceUri = strings.TrimSuffix(deviceUri.(base.String).Get(), "/")
+		node.DeviceUri = strings.TrimSuffix(deviceUri.(base.String).Get(), "/")
 	}
 
 	return node
