@@ -1,4 +1,5 @@
-const skychart = new Skylink('', 'wss://skychart.stardustapp.run/~~export/ws');
+//const skychart = new Skylink('', 'wss://skychart.stardustapp.run/~~export/ws');
+const skychart = new Skylink('', 'ws://localhost:9236/~~export/ws');
 
 // seed the RNG lol.
 new Array(new Date() % 100)
@@ -8,6 +9,29 @@ new Array(new Date() % 100)
 camel = (name) => name
   .replace(/-([a-z])/g,
            (x) => x[1].toUpperCase())
+
+listDevices = (baseUri) => {
+  console.log('listing under', baseUri);
+  var basePath = '';
+
+  var linkMatch = baseUri.match(/^skylink:\/\/([a-z0-9\-]+)\.chart\.local(\/.*)?$/);
+  if (linkMatch) {
+    console.log('opening skychart', linkMatch[1], linkMatch[2]||'/');
+    const chartName = linkMatch[1];
+
+    const input = Skylink.String('chart-name', chartName);
+    const dest1 = '/tmp/autocomplete-local-chartapi-' + chartName;
+    const dest = '/tmp/autocomplete-local-chart-' + chartName;
+    return skychart.invoke('/pub/open/invoke', input, dest1)
+      .then(() => skychart.invoke(dest1 + '/browse/invoke', null, dest))
+      .then(() => skychart.enumerate(dest + linkMatch[2]));
+  }
+
+  console.log(baseUri);
+
+  return Promise.resolve([]);
+}
+
 
 Vue.component('manage-chart', {
   template: '#manage-chart',
@@ -20,6 +44,10 @@ Vue.component('manage-chart', {
       entries: [],
       editing: null,
       vis: '',
+
+      deviceOpts: [],
+      devicePrefix: '',
+      deviceSuffix: '',
     };
   },
   computed: {
@@ -54,7 +82,25 @@ Vue.component('manage-chart', {
       if (this.editing) {
         alert(`Finish your current edit before starting a new one`);
       } else {
-        this.editing = entry;
+        this.editing = JSON.parse(JSON.stringify(entry));
+
+        var prefixEnt = {mountPath: ''};
+        this.entries.forEach(entry => {
+          if (this.editing.deviceUri.startsWith(entry.mountPath)) {
+            if (entry.mountPath.length > prefixEnt.mountPath.length) {
+              prefixEnt = entry;
+            }
+          }
+        });
+
+        this.deviceOpts = [];
+        if (prefixEnt.mountPath) {
+          listDevices(prefixEnt.deviceUri)
+            .then(x => this.deviceOpts = x);
+        }
+
+        this.devicePrefix = prefixEnt.mountPath;
+        this.deviceSuffix = entry.deviceUri.slice(prefixEnt.mountPath.length);
       }
     },
 
@@ -72,12 +118,13 @@ Vue.component('manage-chart', {
 
     saveEntry(evt) {
       evt.preventDefault();
-      var name = this.editing.name || parseInt(Math.random().toString().slice(2)).toString(36);
+      const name = this.editing.name || parseInt(Math.random().toString().slice(2)).toString(36);
+      const deviceUri = this.devicePrefix + this.deviceSuffix;
 
       return skychart.store(this.path + '/entries/' + name, Skylink.Folder(name, [
         Skylink.String('mount-path', this.editing.mountPath),
         Skylink.String('device-type', this.editing.deviceType),
-        Skylink.String('device-uri', this.editing.deviceUri),
+        Skylink.String('device-uri', deviceUri),
       ])).then(x => {
         console.log('save entry response:', x);
         this.editing = null;

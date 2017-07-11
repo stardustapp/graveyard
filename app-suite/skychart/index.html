@@ -98,7 +98,23 @@
                 <option value="StarDriver">Star-driver</option>
               </select>
             </td>
-            <td><input type="text" v-model="editing.deviceUri" placeholder="/drv/..." required /></td>
+            <td>
+              <select v-model="devicePrefix" class="browser-default">
+                <option value="">no prefix</option>
+                <option v-for="entry in entries"
+                        v-if="entry.mountPath !== editing.mountPath"
+                        :key="entry.mountPath"
+                  >{{entry.mountPath}}</option>
+              </select>
+              <select v-model="deviceSuffix"
+                  class="browser-default"
+                  v-if="deviceOpts.length">
+                <option v-for="entry in deviceOpts"
+                        :key="entry.Name"
+                  :value="'/'+entry.Name">{{entry.Name}}</option>
+              </select>
+              <input type="text" v-model="deviceSuffix" placeholder="/drv/..." required />
+            </td>
             <td></td>
             <td><button type="submit">Save</button></td>
           </tr>
