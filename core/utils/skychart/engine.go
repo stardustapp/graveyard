@@ -1,24 +1,24 @@
 package main
 
 import (
-  "strings"
-  "time"
-  "log"
+	"log"
+	"strings"
+	"time"
 
 	"github.com/stardustapp/core/base"
-  "github.com/stardustapp/core/inmem"
-  "github.com/stardustapp/core/toolbox"
-  "github.com/stardustapp/core/utils/skychart/dag"
+	"github.com/stardustapp/core/inmem"
+	"github.com/stardustapp/core/toolbox"
+	"github.com/stardustapp/core/utils/skychart/dag"
 )
 
 //var engine *Engine
 
 type Engine struct {
-  homeDomain string
-  dataCtx base.Context
-  dataRoot base.Folder
+	homeDomain string
+	dataCtx    base.Context
+	dataRoot   base.Folder
 
-  launchCache map[string]base.Entry
+	launchCache map[string]base.Entry
 }
 
 func newEngine(homeDomain string, ctx base.Context, path string) *Engine {
@@ -42,16 +42,16 @@ func newEngine(homeDomain string, ctx base.Context, path string) *Engine {
 	}
 
 	return &Engine{
-    homeDomain: homeDomain,
-    dataCtx: dataCtx,
-    dataRoot: dataRoot,
+		homeDomain: homeDomain,
+		dataCtx:    dataCtx,
+		dataRoot:   dataRoot,
 
-    launchCache: make(map[string]base.Entry),
-  }
+		launchCache: make(map[string]base.Entry),
+	}
 }
 
 func (e *Engine) findChart(name string) *Chart {
-  chartRoot, ok := e.dataCtx.GetFolder("/charts/" + name)
+	chartRoot, ok := e.dataCtx.GetFolder("/charts/" + name)
 	if !ok {
 		log.Println("Chart", name, "not found")
 		return nil
@@ -59,11 +59,11 @@ func (e *Engine) findChart(name string) *Chart {
 
 	ns := base.NewNamespace("skylink://"+name+".chart.local", chartRoot)
 	return &Chart{
-		name: name,
+		name:   name,
 		engine: e,
-		ctx:  base.NewRootContext(ns),
+		ctx:    base.NewRootContext(ns),
 	}
-  //chartCache[chartName] = chart
+	//chartCache[chartName] = chart
 }
 
 func (e *Engine) createChart(name string, ownerName string, ownerEmail string) *Chart {
@@ -88,19 +88,19 @@ func (e *Engine) createChart(name string, ownerName string, ownerEmail string) *
 }
 
 func (e *Engine) launchChart(chart *Chart) base.Entry {
-  if entry, ok := e.launchCache[chart.String()]; ok {
-    return entry
-  }
+	if entry, ok := e.launchCache[chart.String()]; ok {
+		return entry
+	}
 
-  log.Println("Compiling chart", chart.String())
-  graph := dag.InflateGraphFromConfig(chart.ctx)
-  graph.Compile()
+	log.Println("Compiling chart", chart.String())
+	graph := dag.InflateGraphFromConfig(chart.ctx)
+	graph.Compile()
 
-  if entry := graph.Launch(e); entry != nil {
-    e.launchCache[chart.String()] = entry
-    log.Println("Successfully launched", chart.String())
-    return entry
-  }
-  log.Println("Failed to launch", chart.String())
-  return nil
+	if entry := graph.Launch(e); entry != nil {
+		e.launchCache[chart.String()] = entry
+		log.Println("Successfully launched", chart.String())
+		return entry
+	}
+	log.Println("Failed to launch", chart.String())
+	return nil
 }

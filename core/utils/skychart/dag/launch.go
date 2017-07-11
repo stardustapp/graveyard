@@ -9,7 +9,7 @@ import (
 )
 
 type Provider interface {
-  InjectNode(ctx base.Context, node *Node) base.Entry
+	InjectNode(ctx base.Context, node *Node) base.Entry
 }
 
 func (g *Graph) Launch(provider Provider) base.Entry {
@@ -64,7 +64,7 @@ func (g *Graph) Launch(provider Provider) base.Entry {
 			return nil
 		}
 
-    ent := provider.InjectNode(cCtx, node)
+		ent := provider.InjectNode(cCtx, node)
 
 		if ent == nil {
 			log.Println("launch of", node.MountPath, "failed, aborting launch")

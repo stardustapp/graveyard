@@ -1,14 +1,14 @@
 package main
 
 import (
-  "fmt"
-  "strings"
-  "log"
-  "net/url"
+	"fmt"
+	"log"
+	"net/url"
+	"strings"
 
 	"github.com/stardustapp/core/base"
-  "github.com/stardustapp/core/skylink"
-  "github.com/stardustapp/core/utils/skychart/dag"
+	"github.com/stardustapp/core/skylink"
+	"github.com/stardustapp/core/utils/skychart/dag"
 )
 
 func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
@@ -33,19 +33,19 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 			actualUri := strings.TrimPrefix(node.DeviceUri, "skylink+") + "/~~export/ws"
 			return skylink.ImportUri(actualUri)
 
-    case "skylink":
-      names := strings.Split(uri.Host, ".")
-      if len(names) == 3 && names[2] == "local" && names[1] == "chart" {
-        chart := e.findChart(names[0])
-        return e.launchChart(chart)
-      } else {
-  			log.Println("Unknown skylink import hostname", uri.Host)
-        return nil
-      }
+		case "skylink":
+			names := strings.Split(uri.Host, ".")
+			if len(names) == 3 && names[2] == "local" && names[1] == "chart" {
+				chart := e.findChart(names[0])
+				return e.launchChart(chart)
+			} else {
+				log.Println("Unknown skylink import hostname", uri.Host)
+				return nil
+			}
 
-    default:
+		default:
 			log.Println("Unknown import node scheme", uri.Scheme)
-      return nil
+			return nil
 		}
 
 	case "Entry":
@@ -76,7 +76,7 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 
 		default:
 			log.Println("Unknown device scheme", uri.Scheme)
-      return nil
+			return nil
 
 		}
 
@@ -98,24 +98,23 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 			rawEnt := skylink.ImportUri(actualUri)
 			if rawEnt, ok := rawEnt.(base.Folder); ok {
 				ent, _ := rawEnt.Fetch("pub")
-        return ent
+				return ent
 			} else {
 				log.Println("stardriver at", driverAddr, "didn't import")
 				return nil
 			}
 
-    //case "ActiveMount":
-
+			//case "ActiveMount":
 
 		default:
 			log.Println("Unknown device type", node.DeviceType)
-      return nil
+			return nil
 
 		}
 
 	default:
 		log.Println("Unknown node type", node.NodeType)
-    return nil
+		return nil
 
 	}
 }
