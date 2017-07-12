@@ -58,7 +58,8 @@
       </select>
       <select v-model="deviceSuffix"
           class="browser-default"
-          v-if="deviceOpts.length">
+          v-if="deviceOpts.length"
+          @change="reloadMntOpts">
         <option v-for="entry in deviceOpts"
                 :key="entry.Name"
           :value="entry.Path">{{entry.Name}}</option>
@@ -66,8 +67,16 @@
       <input type="text" v-model="deviceSuffix"
           v-if="!deviceOpts.length"
           placeholder="/drv/..." required />
+      <label v-for="opt in mountOpts" style="display: block;">
+        {{opt.name}}
+        <input type="text" :requiredtodo="!opt.optional"
+            v-model="mountOptVals[opt.path]"
+            style="width: auto;"
+            >
+      </label>
     </td>
-    <td></td>
+    <td>
+    </td>
     <td>
       <button type="submit">Save</button>
       <button type="button" @click="cancel">Cancel</button>

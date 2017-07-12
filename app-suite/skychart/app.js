@@ -10,8 +10,9 @@ camel = (name) => name
   .replace(/-([a-z])/g,
            (x) => x[1].toUpperCase())
 
-listDevices = (baseUri) => {
-  console.log('listing under', baseUri);
+enumeratePath = (baseUri, maxDepth) => {
+  if (maxDepth === undefined) maxDepth = 1;
+  console.log('listing under', baseUri, 'depth', maxDepth);
   var basePath = '';
 
   var linkMatch = baseUri.match(/^skylink:\/\/([a-z0-9\-]+)\.chart\.local(\/.*)?$/);
@@ -24,7 +25,10 @@ listDevices = (baseUri) => {
     const dest = '/tmp/autocomplete-local-chart-' + chartName;
     return skychart.invoke('/pub/open/invoke', input, dest1)
       .then(() => skychart.invoke(dest1 + '/browse/invoke', null, dest))
-      .then(() => skychart.enumerate(dest + linkMatch[2], {includeRoot: false}));
+      .then(() => skychart.enumerate(dest + linkMatch[2], {
+        maxDepth: maxDepth,
+        includeRoot: false,
+      }));
   }
 
   return Promise.resolve([]);
@@ -47,6 +51,8 @@ Vue.component('edit-entry', {
 
       deviceOpts: [],
       devicePrefix: '',
+      mountOpts: [],
+      mountOptVals: {},
       deviceSuffix: '',
     };
   },
@@ -72,7 +78,7 @@ Vue.component('edit-entry', {
 
       var prefixEnt = this.entries.find(x => x.mountPath === this.devicePrefix);
       if (prefixEnt) {
-        listDevices(prefixEnt.deviceUri)
+        enumeratePath(prefixEnt.deviceUri)
           .then(x => x.map(y => {
             y.Path = '/' + y.Name;
             if (y.Type === 'Folder') {
@@ -80,7 +86,70 @@ Vue.component('edit-entry', {
             }
             return y;
           }))
-          .then(x => this.deviceOpts = x);
+          .then(x => this.deviceOpts = x)
+          .then(() => this.reloadMntOpts());
+      }
+    },
+
+    reloadMntOpts() {
+      this.mountOpts = [];
+      if (this.deviceType != 'ActiveMount' && this.deviceType != 'PassiveMount') return;
+      var prefixEnt = this.entries.find(x => x.mountPath === this.devicePrefix);
+      if (prefixEnt) {
+        const deviceUri = prefixEnt.deviceUri + this.deviceSuffix;
+        enumeratePath(deviceUri + '/input-shape', 4)
+          .then(list => {
+            var inputType = '';
+            const propMap = new Map();
+            list.forEach(entry => {
+              const parts = entry.Name.split('/');
+              if (entry.Name == 'type') {
+                inputType = entry.StringValue;
+              } else if (parts[0] === 'props' && parts.length === 2) {
+                propMap.set(parts[1], {
+                  name: parts[1],
+                  path: '/' + parts[1],
+                });
+                if (entry.Type === 'String') {
+                  // prop shorthand
+                  propMap.get(parts[1]).type = entry.StringValue;
+                }
+              } else if (parts[0] === 'props' && parts[2] === 'type' && parts.length === 3) {
+                propMap.get(parts[1]).type = entry.StringValue;
+              } else if (parts[0] === 'props' && parts[2] === 'optional' && parts.length === 3) {
+                propMap.get(parts[1]).optional = entry.StringValue === 'yes';
+              }
+            });
+
+            if (inputType === 'String') {
+              if (this.entryName) {
+                skychart.loadString(this.path + '/entries/' + this.entryName + '/device-input')
+                .then(x => this.mountOptVals.__ = x);
+              }
+
+              return [{
+                name: 'Input',
+                path: '__',
+                type: 'String',
+              }];
+            } else if (inputType === 'Folder') {
+              if (this.entryName) {
+                skychart.enumerate(this.path + '/entries/' + this.entryName + '/device-input')
+                .then(x => x.forEach(y => {
+                  console.log(y);
+                  if (y.Name) {
+                    this.mountOptVals['/'+y.Name] = y.StringValue || '';
+                  }
+                }));
+              }
+
+              var list = [];
+              propMap.forEach(prop => list.push(prop));
+              return list;
+            }
+            return [];
+          })
+          .then(x => this.mountOpts = x)
       }
     },
 
@@ -88,11 +157,27 @@ Vue.component('edit-entry', {
       const name = this.entryName || parseInt(Math.random().toString().slice(2)).toString(36);
       const deviceUri = this.devicePrefix + this.deviceSuffix;
 
-      return skychart.store(this.path + '/entries/' + name, Skylink.Folder(name, [
+      var entry = [
         Skylink.String('mount-path', this.mountPath),
         Skylink.String('device-type', this.deviceType),
         Skylink.String('device-uri', deviceUri),
-      ])).then(x => {
+      ];
+
+      if (this.mountOpts.length) {
+        if (this.mountOpts[0].path === '__') {
+          entry.push(Skylink.String('device-input', this.mountOptVals.__));
+        } else {
+          var opts = this.mountOpts.map(opt => {
+            return Skylink.String(opt.name, this.mountOptVals[opt.path]);
+          });
+          entry.push(Skylink.Folder('device-input', opts));
+        }
+      }
+
+      return skychart.store(
+        this.path + '/entries/' + name,
+        Skylink.Folder(name, entry)
+      ).then(x => {
         console.log('save entry response:', x);
         this.$emit('saved');
       });
