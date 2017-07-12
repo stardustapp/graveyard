@@ -35,6 +35,46 @@
   </div>
 </div>
 
+<script type="text/x-template" id="edit-entry">
+  <form @submit.prevent="save">
+    <td><input type="text" v-model="mountPath" placeholder="/n/..." required /></td>
+    <td>
+      <select v-model="deviceType" required class="browser-default">
+        <option value="BindLink">Bind Link</option>
+        <option value="SymbolicLink">Symbolic Link</option>
+        <option value="ActiveMount">Active Mount</option>
+        <option value="PassiveMount">Passive Mount</option>
+        <option value="StarDriver">Star-driver</option>
+      </select>
+    </td>
+    <td>
+      <select v-model="devicePrefix" class="browser-default"
+          @change="reloadOpts">
+        <option value="">no prefix</option>
+        <option v-for="entry in entries"
+                v-if="entry.mountPath !== mountPath"
+                :key="entry.mountPath"
+          >{{entry.mountPath}}</option>
+      </select>
+      <select v-model="deviceSuffix"
+          class="browser-default"
+          v-if="deviceOpts.length">
+        <option v-for="entry in deviceOpts"
+                :key="entry.Name"
+          :value="entry.Path">{{entry.Name}}</option>
+      </select>
+      <input type="text" v-model="deviceSuffix"
+          v-if="!deviceOpts.length"
+          placeholder="/drv/..." required />
+    </td>
+    <td></td>
+    <td>
+      <button type="submit">Save</button>
+      <button type="button" @click="cancel">Cancel</button>
+    </td>
+  </form>
+</script>
+
 <script type="text/x-template" id="manage-chart">
   <div class="container">
     <div class="row">
@@ -61,7 +101,6 @@
       </div>
     </div>
 
-    <form @submit="saveEntry">
     <div class="grey lighten-4 card">
       <table class="card-content">
         <thead>
@@ -87,36 +126,13 @@
             </td>
           </tr>
 
-          <tr v-if="editing">
-            <td><input type="text" v-model="editing.mountPath" placeholder="/n/..." required /></td>
-            <td>
-              <select v-model="editing.deviceType" required class="browser-default">
-                <option value="BindLink">Bind Link</option>
-                <option value="SymbolicLink">Symbolic Link</option>
-                <option value="ActiveMount">Active Mount</option>
-                <option value="PassiveMount">Passive Mount</option>
-                <option value="StarDriver">Star-driver</option>
-              </select>
-            </td>
-            <td>
-              <select v-model="devicePrefix" class="browser-default">
-                <option value="">no prefix</option>
-                <option v-for="entry in entries"
-                        v-if="entry.mountPath !== editing.mountPath"
-                        :key="entry.mountPath"
-                  >{{entry.mountPath}}</option>
-              </select>
-              <select v-model="deviceSuffix"
-                  class="browser-default"
-                  v-if="deviceOpts.length">
-                <option v-for="entry in deviceOpts"
-                        :key="entry.Name"
-                  :value="'/'+entry.Name">{{entry.Name}}</option>
-              </select>
-              <input type="text" v-model="deviceSuffix" placeholder="/drv/..." required />
-            </td>
-            <td></td>
-            <td><button type="submit">Save</button></td>
+          <edit-entry
+              v-if="editing"
+              :path="path"
+              :entry="editing"
+              :entries="entries"
+              @saved="finishEdit"
+            />
           </tr>
         </tbody>
       </table>
@@ -124,7 +140,6 @@
         <a href="#" @click="startEdit({})">New Entry</a>
       </div>
     </div>
-    </form>
 
     <div class="grey lighten-4 card">
           <div class="card-content">

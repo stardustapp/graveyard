@@ -3,6 +3,9 @@ table th:first-child{
   padding-left: 24px;
 }
 
+tbody>* { display: table-row; }
+tbody>*>* { display: table-cell; }
+
 i {
   cursor: pointer;
 }

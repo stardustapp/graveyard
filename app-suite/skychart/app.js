@@ -24,13 +24,85 @@ listDevices = (baseUri) => {
     const dest = '/tmp/autocomplete-local-chart-' + chartName;
     return skychart.invoke('/pub/open/invoke', input, dest1)
       .then(() => skychart.invoke(dest1 + '/browse/invoke', null, dest))
-      .then(() => skychart.enumerate(dest + linkMatch[2]));
+      .then(() => skychart.enumerate(dest + linkMatch[2], {includeRoot: false}));
   }
-
-  console.log(baseUri);
 
   return Promise.resolve([]);
 }
+
+
+Vue.component('edit-entry', {
+  template: '#edit-entry',
+  props: {
+    path: String,
+    entry: Object,
+    entries: Array,
+  },
+  data() {
+    return {
+      entryName: this.entry.name,
+      mountPath: this.entry.mountPath,
+      deviceType: this.entry.deviceType,
+      deviceUri: this.entry.deviceUri,
+
+      deviceOpts: [],
+      devicePrefix: '',
+      deviceSuffix: '',
+    };
+  },
+  created() {
+    var prefixEnt = {mountPath: ''};
+    this.entries.forEach(entry => {
+      if (this.deviceUri.startsWith(entry.mountPath)) {
+        if (entry.mountPath.length > prefixEnt.mountPath.length) {
+          prefixEnt = entry;
+        }
+      }
+    });
+
+    this.devicePrefix = prefixEnt.mountPath;
+    this.deviceSuffix = this.deviceUri.slice(prefixEnt.mountPath.length);
+
+    this.reloadOpts();
+  },
+  methods: {
+
+    reloadOpts() {
+      this.deviceOpts = [];
+
+      var prefixEnt = this.entries.find(x => x.mountPath === this.devicePrefix);
+      if (prefixEnt) {
+        listDevices(prefixEnt.deviceUri)
+          .then(x => x.map(y => {
+            y.Path = '/' + y.Name;
+            if (y.Type === 'Folder') {
+              y.Path += '/open'; // TODO!
+            }
+            return y;
+          }))
+          .then(x => this.deviceOpts = x);
+      }
+    },
+
+    save() {
+      const name = this.entryName || parseInt(Math.random().toString().slice(2)).toString(36);
+      const deviceUri = this.devicePrefix + this.deviceSuffix;
+
+      return skychart.store(this.path + '/entries/' + name, Skylink.Folder(name, [
+        Skylink.String('mount-path', this.mountPath),
+        Skylink.String('device-type', this.deviceType),
+        Skylink.String('device-uri', deviceUri),
+      ])).then(x => {
+        console.log('save entry response:', x);
+        this.$emit('saved');
+      });
+    },
+    cancel() {
+      this.$emit('saved');
+    },
+
+  },
+});
 
 
 Vue.component('manage-chart', {
@@ -44,10 +116,6 @@ Vue.component('manage-chart', {
       entries: [],
       editing: null,
       vis: '',
-
-      deviceOpts: [],
-      devicePrefix: '',
-      deviceSuffix: '',
     };
   },
   computed: {
@@ -82,25 +150,7 @@ Vue.component('manage-chart', {
       if (this.editing) {
         alert(`Finish your current edit before starting a new one`);
       } else {
-        this.editing = JSON.parse(JSON.stringify(entry));
-
-        var prefixEnt = {mountPath: ''};
-        this.entries.forEach(entry => {
-          if (this.editing.deviceUri.startsWith(entry.mountPath)) {
-            if (entry.mountPath.length > prefixEnt.mountPath.length) {
-              prefixEnt = entry;
-            }
-          }
-        });
-
-        this.deviceOpts = [];
-        if (prefixEnt.mountPath) {
-          listDevices(prefixEnt.deviceUri)
-            .then(x => this.deviceOpts = x);
-        }
-
-        this.devicePrefix = prefixEnt.mountPath;
-        this.deviceSuffix = entry.deviceUri.slice(prefixEnt.mountPath.length);
+        this.editing = entry;
       }
     },
 
@@ -116,20 +166,9 @@ Vue.component('manage-chart', {
       }
     },
 
-    saveEntry(evt) {
-      evt.preventDefault();
-      const name = this.editing.name || parseInt(Math.random().toString().slice(2)).toString(36);
-      const deviceUri = this.devicePrefix + this.deviceSuffix;
-
-      return skychart.store(this.path + '/entries/' + name, Skylink.Folder(name, [
-        Skylink.String('mount-path', this.editing.mountPath),
-        Skylink.String('device-type', this.editing.deviceType),
-        Skylink.String('device-uri', deviceUri),
-      ])).then(x => {
-        console.log('save entry response:', x);
-        this.editing = null;
-        this.loadEntries();
-      });
+    finishEdit() {
+      this.editing = null;
+      this.loadEntries();
     },
 
     compile() {
