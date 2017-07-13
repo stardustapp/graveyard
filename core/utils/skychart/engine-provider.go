@@ -52,11 +52,8 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 		log.Printf("%+v %s", node, uri.Path)
 
 		var device base.Entry
-		switch uri.Scheme {
-
-		// case "":
-
-		case "skylink+http", "skylink+https", "skylink+ws", "skylink+wss", "skylink":
+		if uri.Scheme != "" {
+			// schemed devices should be properly mounted already
 			MountPath := fmt.Sprintf("/mnt/%s/%s", uri.Scheme, uri.Host)
 			var ok bool
 			device, ok = ctx.Get(MountPath + uri.Path)
@@ -64,20 +61,14 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 				log.Println("mount path", MountPath, "doesn't exist")
 				return nil
 			}
-
-		case "":
-			// relative path
+		} else {
+			// relative path, refers within the chart
 			var ok bool
 			device, ok = ctx.Get(uri.Path)
 			if !ok {
 				log.Println("relative device path", uri.Path, "doesn't exist")
 				return nil
 			}
-
-		default:
-			log.Println("Unknown device scheme", uri.Scheme)
-			return nil
-
 		}
 
 		if device == nil {
