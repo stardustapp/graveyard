@@ -174,7 +174,13 @@ func (p *golang) GenerateDriver() error {
 					}
 
 				} else {
-					//shapeWriter.write("				inmem.NewString(\"optional\", \"yes\"),\n")
+					if prop.Optional != nil {
+						optionalStr := "no"
+						if *prop.Optional == true {
+							optionalStr = "yes"
+						}
+						shapeWriter.write("				inmem.NewString(\"optional\", \"%s\"),\n", optionalStr)
+					}
 				}
 
 				shapeWriter.write("			),\n")

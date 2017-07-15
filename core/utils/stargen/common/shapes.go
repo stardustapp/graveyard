@@ -14,9 +14,10 @@ type ShapeDef struct {
 }
 
 type PropDef struct {
-	Name   string
-	Type   string
-	Target string // name of driver resource to point to
+	Name     string
+	Type     string
+	Optional *bool
+	Target   string // name of driver resource to point to
 }
 
 func (g *Stargen) ListShapes() []ShapeDef {
@@ -71,10 +72,21 @@ func (g *Stargen) readProps(shapeName string, propType string) []PropDef {
 				}
 			}
 
+			if optionalEnt, ok := child.Fetch("optional"); ok {
+				if optionalStr, ok := optionalEnt.(base.String); ok {
+					props[idx].Optional = parseBool(optionalStr.Get())
+				}
+			}
+
 		default:
 			log.Println("weird prop:", child)
 			panic("Property at " + propRoot + "/" + childName + " was a weird type")
 		}
 	}
 	return props
+}
+
+func parseBool(str string) *bool {
+	b := str == "yes"
+	return &b
 }
