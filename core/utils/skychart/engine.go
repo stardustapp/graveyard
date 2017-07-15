@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ type Engine struct {
 	dataCtx    base.Context
 	dataRoot   base.Folder
 
+	findCache   map[string]*Chart
 	launchCache map[string]base.Entry
 }
 
@@ -41,16 +43,24 @@ func newEngine(homeDomain string, ctx base.Context, path string) *Engine {
 		log.Println("Created charts/ in", path)
 	}
 
-	return &Engine{
+	engine := &Engine{
 		homeDomain: homeDomain,
 		dataCtx:    dataCtx,
 		dataRoot:   dataRoot,
 
+		findCache:   make(map[string]*Chart),
 		launchCache: make(map[string]base.Entry),
 	}
+
+	http.Handle("/", engine)
+	return engine
 }
 
 func (e *Engine) findChart(name string) *Chart {
+	if chart, ok := e.findCache[name]; ok {
+		return chart
+	}
+
 	chartRoot, ok := e.dataCtx.GetFolder("/charts/" + name)
 	if !ok {
 		log.Println("Chart", name, "not found")
@@ -58,12 +68,13 @@ func (e *Engine) findChart(name string) *Chart {
 	}
 
 	ns := base.NewNamespace("skylink://"+name+".chart.local", chartRoot)
-	return &Chart{
+	chart := &Chart{
 		name:   name,
 		engine: e,
 		ctx:    base.NewRootContext(ns),
 	}
-	//chartCache[chartName] = chart
+	e.findCache[name] = chart
+	return chart
 }
 
 func (e *Engine) createChart(name string, ownerName string, ownerEmail string) *Chart {
