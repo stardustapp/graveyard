@@ -27,14 +27,20 @@ func NewFolder(name string) *Folder {
 }
 
 func NewFolderOf(name string, children ...base.Entry) *Folder {
-	ent := &Folder{
-		name:     name,
-		writable: true,
-		children: make(map[string]base.Entry),
-	}
-
+	ent := NewFolder(name)
 	for _, child := range children {
 		ent.Put(child.Name(), child)
+	}
+	return ent
+}
+
+// Clones contents of a Folder, with a new name
+func NewFolderFrom(name string, parent base.Folder) *Folder {
+	ent := NewFolder(name)
+	for _, childName := range parent.Children() {
+		if child, ok := parent.Fetch(childName); ok {
+			ent.Put(childName, child)
+		}
 	}
 	return ent
 }

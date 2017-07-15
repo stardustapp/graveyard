@@ -138,7 +138,45 @@ func (p *golang) GenerateDriver() error {
 			for _, prop := range shape.Props {
 				shapeWriter.write("			inmem.NewFolderOf(\"%s\",\n", prop.Name)
 				shapeWriter.write("				inmem.NewString(\"type\", \"%s\"),\n", prop.Type)
-				//shapeWriter.write("				inmem.NewString(\"optional\", \"yes\"),\n")
+
+				// functions have tasty type info
+				if prop.Type == "Function" {
+
+					var funct *stargen.FunctionDef
+					for _, def := range funcDefs {
+						if def.Name == prop.Target {
+							funct = &def
+							break
+						}
+					}
+
+					if funct.InputShape != "" {
+						shapeWriter.useDep("inmem")
+						if funct.InputShape == "String" || funct.InputShape == "Channel" {
+							shapeWriter.write("    		inmem.NewShape(inmem.NewFolderOf(\"input-shape\",\n")
+							shapeWriter.write("    		  inmem.NewString(\"type\", \"%s\"),\n", funct.InputShape)
+							shapeWriter.write("    		)),\n")
+						} else {
+							shapeWriter.write("				inmem.NewShape(inmem.NewFolderFrom(\"input-shape\", %sShape)),\n",
+								extras.SnakeToCamelLower(funct.InputShape))
+						}
+					}
+					if funct.OutputShape != "" {
+						shapeWriter.useDep("inmem")
+						if funct.OutputShape == "String" || funct.OutputShape == "Channel" {
+							shapeWriter.write("   		  inmem.NewShape(inmem.NewFolderOf(\"output-shape\",\n")
+							shapeWriter.write("   		    inmem.NewString(\"type\", \"%s\"),\n", funct.OutputShape)
+							shapeWriter.write("				)),\n")
+						} else {
+							shapeWriter.write("				inmem.NewShape(inmem.NewFolderFrom(\"output-shape\", %sShape)),\n",
+								extras.SnakeToCamelLower(funct.OutputShape))
+						}
+					}
+
+				} else {
+					//shapeWriter.write("				inmem.NewString(\"optional\", \"yes\"),\n")
+				}
+
 				shapeWriter.write("			),\n")
 			}
 			shapeWriter.write("		),\n")
