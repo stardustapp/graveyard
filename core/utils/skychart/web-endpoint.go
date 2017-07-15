@@ -17,22 +17,36 @@ import (
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.RequestURI)
 
-	if strings.HasPrefix(r.RequestURI, "/~") && !strings.HasPrefix(r.RequestURI, "/~~") {
-		chartName := strings.TrimPrefix(strings.Split(r.RequestURI, "/")[1], "~")
-		log.Println("chart is", chartName)
-		chart := e.findChart(chartName)
+	var chartName, prefix string
+	if strings.HasPrefix(r.RequestURI, "/~~") {
+		// system endpoints register in the router above us,
+		// so if we got here, it doesn't exist
+		http.Error(w, "System endpoint missing", http.StatusNotFound)
+		return
 
-		chartRoot := e.launchChart(chart).(base.Folder)
+	} else if strings.HasPrefix(r.RequestURI, "/~") {
+		chartName = strings.TrimPrefix(strings.Split(r.RequestURI, "/")[1], "~")
+		prefix = "/~" + chartName
 
-		if webRoot, ok := chartRoot.Fetch("web"); ok {
-			ServeStarHTTP(webRoot, "/~"+chartName, w, r)
-		} else {
-			http.Error(w, "This chart does not have a web endpoint", 404)
-		}
+	} else {
+		chartName = "public"
+		prefix = ""
+	}
+
+	log.Println("chart is", chartName)
+	chart := e.findChart(chartName)
+	if chart == nil {
+		http.Error(w, "Chart ~"+chartName+" not found", http.StatusNotFound)
 		return
 	}
 
-	http.Error(w, "Not implemented", 400)
+	chartRoot := e.launchChart(chart).(base.Folder)
+
+	if webRoot, ok := chartRoot.Fetch("web"); ok {
+		ServeStarHTTP(webRoot, prefix, w, r)
+	} else {
+		http.Error(w, "This chart does not have a web endpoint", 404)
+	}
 }
 
 func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *http.Request) {
