@@ -10,7 +10,7 @@ camel = (name) => name
   .replace(/-([a-z])/g,
            (x) => x[1].toUpperCase())
 
-enumeratePath = (baseUri, maxDepth) => {
+enumeratePath = (chartPath, baseUri, maxDepth) => {
   if (maxDepth === undefined) maxDepth = 1;
   console.log('listing under', baseUri, 'depth', maxDepth);
   var basePath = '';
@@ -29,6 +29,8 @@ enumeratePath = (baseUri, maxDepth) => {
         maxDepth: maxDepth,
         includeRoot: false,
       }));
+  } else {
+    console.log(chartPath, baseUri);
   }
 
   return Promise.resolve([]);
@@ -78,7 +80,7 @@ Vue.component('edit-entry', {
 
       var prefixEnt = this.entries.find(x => x.mountPath === this.devicePrefix);
       if (prefixEnt) {
-        enumeratePath(prefixEnt.deviceUri)
+        enumeratePath(this.path, prefixEnt.deviceUri)
           .then(x => x.map(y => {
             y.Path = '/' + y.Name;
             if (y.Type === 'Folder') {
@@ -97,7 +99,7 @@ Vue.component('edit-entry', {
       var prefixEnt = this.entries.find(x => x.mountPath === this.devicePrefix);
       if (prefixEnt) {
         const deviceUri = prefixEnt.deviceUri + this.deviceSuffix;
-        enumeratePath(deviceUri + '/input-shape', 4)
+        enumeratePath(this.path, deviceUri + '/input-shape', 4)
           .then(list => {
             var inputType = '';
             const propMap = new Map();
@@ -135,12 +137,15 @@ Vue.component('edit-entry', {
             } else if (inputType === 'Folder') {
               if (this.entryName) {
                 skychart.enumerate(this.path + '/entries/' + this.entryName + '/device-input')
-                .then(x => x.forEach(y => {
-                  console.log(y);
-                  if (y.Name) {
-                    this.mountOptVals['/'+y.Name] = y.StringValue || '';
-                  }
-                }));
+                .then(x => {
+                  var vals = {};
+                  x.forEach(y => {
+                    if (y.Name) {
+                      vals['/'+y.Name] = y.StringValue || '';
+                    }
+                  });
+                  this.mountOptVals = vals;
+                });
               }
 
               var list = [];
