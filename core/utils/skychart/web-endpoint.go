@@ -15,6 +15,11 @@ import (
 )
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Security-Policy", "frame-ancestors 'self'")
+	w.Header().Add("X-Frame-Options", "SAMEORIGIN")
+	w.Header().Add("X-XSS-Protection", "1; mode=block")
+	w.Header().Add("X-Content-Type-Options", "nosniff")
+
 	log.Println(r.RequestURI)
 
 	var chartName, prefix string
