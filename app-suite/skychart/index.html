@@ -50,7 +50,7 @@
       <select v-model="devicePrefix" class="browser-default"
           @change="reloadOpts">
         <option value="">no prefix</option>
-        <option v-for="entry in entries"
+        <option v-for="entry in chart.entries"
                 v-if="entry.mountPath !== mountPath"
                 :key="entry.mountPath"
           >{{entry.mountPath}}</option>
@@ -136,10 +136,8 @@
 
           <edit-entry
               v-if="editing"
-              :path="path"
               :chart="chart"
               :entry="editing"
-              :entries="entries"
               @saved="finishEdit"
             />
           </tr>

@@ -126,4 +126,16 @@ class ManageChart {
       Skylink.toEntry(name, entry)
     );
   }
+
+  findClosestMount(path) {
+    var closestPath = '';
+    this.entries.forEach(entry => {
+      if (path.startsWith(entry.mountPath)) {
+        if (entry.mountPath.length > closestPath.length) {
+          closestPath = entry.mountPath;
+        }
+      }
+    });
+    return closestPath;
+  }
 }
