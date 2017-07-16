@@ -40,12 +40,22 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chartRoot := e.launchChart(chart).(base.Folder)
+	chartRoot := e.launchChart(chart)
+	if chartRoot == nil {
+		http.Error(w, "Chart ~"+chartName+" failed to launch", http.StatusServiceUnavailable)
+		return
+	}
 
-	if webRoot, ok := chartRoot.Fetch("web"); ok {
+	chartFolder, ok := chartRoot.(base.Folder)
+	if !ok {
+		http.Error(w, "Chart ~"+chartName+" did not present a Folder (somehow)", http.StatusInternalServerError)
+		return
+	}
+
+	if webRoot, ok := chartFolder.Fetch("web"); ok {
 		ServeStarHTTP(webRoot, prefix, w, r)
 	} else {
-		http.Error(w, "This chart does not have a web endpoint", 404)
+		http.Error(w, "Chart ~"+chartName+" does not have a web endpoint", http.StatusNotFound)
 	}
 }
 
