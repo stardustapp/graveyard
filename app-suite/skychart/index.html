@@ -26,8 +26,7 @@
 
   <component v-if="mode !== 'locate'"
              :is="mode + '-chart'"
-             :name="chart.name"
-             :path="openedPath"
+             :chart="chart"
              ></component>
 
   <div class="container" v-show="mode === 'locate'">
@@ -95,15 +94,15 @@
             </span>
             <p>
               Public REST endpoint:
-              <code>https://devmode.cloud/~{{name}}/</code> (routes to <code>/web</code>)
+              <code>https://devmode.cloud/~{{chart.name}}/</code> (routes to <code>/web</code>)
             </p>
             <p>
               Public browse endpoint:
-              <code>skylink+wss://devmode.cloud/chart/{{name}}/</code>
+              <code>skylink+wss://devmode.cloud/chart/{{chart.name}}/</code>
             </p>
             <p>
               Internal browse endpoint:
-              <code>skylink://{{name}}.chart.local/</code>
+              <code>skylink://{{chart.name}}.chart.local/</code>
             </p>
           </div>
         </div>
@@ -138,6 +137,7 @@
           <edit-entry
               v-if="editing"
               :path="path"
+              :chart="chart"
               :entry="editing"
               :entries="entries"
               @saved="finishEdit"
@@ -199,8 +199,12 @@
          v-for="chart in charts"
          :key="chart.name">
       <chart-card
+             :chart="chart"
              :name="chart.name"
-             :path="chart.path"
+             :ownerName="chart.ownerName"
+             :ownerEmail="chart.ownerEmail"
+             :homeDomain="chart.homeDomain"
+             :createdDate="chart.createdDate"
            />
     </div>
   </div>
@@ -215,15 +219,16 @@
       </span>
     </div>
     <div class="card-action">
-      <a href="#" @click="selectMode('browse')">Browse</a>
-      <a href="#" @click="selectMode('manage')">Manage</a>
+      <a :href="browseUrl" target="_blank">Browse</a>
+      <a :href="launchUrl" target="_blank">Launch</a>
+      <a href="#" @click="manage">Manage</a>
     </div>
     <div class="card-content grey lighten-4">
       <p>
         Owned by {{ownerName}}
       </p>
       <p v-if="createdDate">
-        Created on {{createdDate}}
+        Created on {{createdDateStr}}
       </p>
     </div>
   </div>
@@ -231,6 +236,7 @@
 
 <script src="https://unpkg.com/vue"></script>
 <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
-<script src="../lib/skylink.js"></script>
-<script src="../lib/utils.js"></script>
+<script src="/~system/lib/skylink.js"></script>
+<script src="/~system/lib/utils.js"></script>
+<script src="lib.js"></script>
 <script src="app.js"></script>
