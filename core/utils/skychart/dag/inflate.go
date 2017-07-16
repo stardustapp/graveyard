@@ -40,6 +40,9 @@ func inflateEntryNode(folder base.Folder) *Node {
 	if deviceUri, ok := folder.Fetch("device-uri"); ok {
 		node.DeviceUri = strings.TrimSuffix(deviceUri.(base.String).Get(), "/")
 	}
+	if deviceInput, ok := folder.Fetch("device-input"); ok {
+		node.DeviceInput = deviceInput
+	}
 
 	return node
 }
