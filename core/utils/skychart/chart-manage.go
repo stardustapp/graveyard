@@ -74,6 +74,8 @@ func (e *chartCompileFunc) Name() string {
 }
 
 func (e *chartCompileFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
+	e.chart.engine.expireCache(e.chart.name)
+
 	graph := dag.InflateGraphFromConfig(e.chart.ctx)
 	graph.Compile()
 	log.Println("Compiled DAG for", e.chart.name)

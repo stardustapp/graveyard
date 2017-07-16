@@ -56,6 +56,18 @@ func newEngine(homeDomain string, ctx base.Context, path string) *Engine {
 	return engine
 }
 
+func (e *Engine) expireCache(name string) {
+	if chart, ok := e.findCache[name]; ok {
+		log.Println("Expiring find cache", name)
+		delete(e.findCache, name)
+
+		if _, ok := e.launchCache[chart.String()]; ok {
+			log.Println("Expiring launch cache", name)
+			delete(e.launchCache, chart.String())
+		}
+	}
+}
+
 func (e *Engine) findChart(name string) *Chart {
 	if chart, ok := e.findCache[name]; ok {
 		return chart
