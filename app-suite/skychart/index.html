@@ -15,23 +15,7 @@
     </div>
   </nav>
 
-  <div class="container" v-if="mode !== 'locate'">
-    <h4 class="header">
-      <a href="#" @click="mode = 'locate'">
-        <i class="material-icons">arrow_back</i>
-      </a>
-      {{mode}} <code>~{{chart.name}}</code>
-    </h4>
-  </div>
-
-  <component v-if="mode !== 'locate'"
-             :is="mode + '-chart'"
-             :chart="chart"
-             ></component>
-
-  <div class="container" v-show="mode === 'locate'">
-    <locate-chart />
-  </div>
+  <router-view></router-view>
 </div>
 
 <script type="text/x-template" id="edit-entry">
@@ -85,6 +69,13 @@
 
 <script type="text/x-template" id="manage-chart">
   <div class="container">
+    <h4 class="header">
+      <router-link to="/locate">
+        <i class="material-icons">arrow_back</i>
+      </router-link>
+      Manage <code>~{{chart.name}}</code>
+    </h4>
+
     <div class="row">
       <div class="col s12 l8">
         <div class="grey lighten-4 card">
@@ -129,8 +120,8 @@
             <td>{{entry.deviceUri}}</td>
             <td></td>
             <td>
-              <a href="#" @click="startEdit(entry)"><i class="material-icons">edit</i></a>
-              <a href="#" @click="delEntry(entry)"><i class="material-icons">delete</i></a>
+              <a href="#" @click.prevent="startEdit(entry)"><i class="material-icons">edit</i></a>
+              <a href="#" @click.prevent="delEntry(entry)"><i class="material-icons">delete</i></a>
             </td>
           </tr>
 
@@ -144,7 +135,7 @@
         </tbody>
       </table>
       <div class="card-action">
-        <a href="#" @click="startEdit({})">New Entry</a>
+        <a href="#" @click.prevent="startEdit({})">New Entry</a>
       </div>
     </div>
 
@@ -168,42 +159,44 @@
 </script>
 
 <script type="text/x-template" id="locate-chart">
-  <div class="row" style="margin-top: 1em;">
-    <div class="col s12 m10 l8 offset-m1 offset-l2">
-      <div class="card horizontal grey lighten-4">
-        <!--div class="card-image">
-          <img src="https://lorempixel.com/100/170/nature/6">
-        </div-->
-        <div class="card-stacked">
-          <form class="card-content" @submit.prevent="openChart">
-            <div class="input-field col s12 m8">
-              <i class="material-icons prefix">search</i>
-              <input id="search" type="text" class="validate"
-                  v-model="chartName"
-                  placeholder="Globally or locally unique name">
-              <label for="search" class="active"
-                >Open chart</label>
-            </div>
-            <div class="col s12 m4" style="text-align: center;">
-              <button class="waves-effect waves-light btn" type="submit">Locate</button>
-              <a class="waves-effect waves-teal btn-flat" @click="createChart">Create</a>
-            </div>
-          </form>
+  <div class="container">
+    <div class="row" style="margin-top: 1em;">
+      <div class="col s12 m10 l8 offset-m1 offset-l2">
+        <div class="card horizontal grey lighten-4">
+          <!--div class="card-image">
+            <img src="https://lorempixel.com/100/170/nature/6">
+          </div-->
+          <div class="card-stacked">
+            <form class="card-content" @submit.prevent="openChart">
+              <div class="input-field col s12 m8">
+                <i class="material-icons prefix">search</i>
+                <input id="search" type="text" class="validate"
+                    v-model="chartName"
+                    placeholder="Globally or locally unique name">
+                <label for="search" class="active"
+                  >Open chart</label>
+              </div>
+              <div class="col s12 m4" style="text-align: center;">
+                <button class="waves-effect waves-light btn" type="submit">Locate</button>
+                <a class="waves-effect waves-teal btn-flat" @click="createChart">Create</a>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="col s12 m6"
-         v-for="chart in charts"
-         :key="chart.name">
-      <chart-card
-             :chart="chart"
-             :name="chart.name"
-             :ownerName="chart.ownerName"
-             :ownerEmail="chart.ownerEmail"
-             :homeDomain="chart.homeDomain"
-             :createdDate="chart.createdDate"
-           />
+      <div class="col s12 m6"
+           v-for="chart in charts"
+           :key="chart.name">
+        <chart-card
+               :chart="chart"
+               :name="chart.name"
+               :ownerName="chart.ownerName"
+               :ownerEmail="chart.ownerEmail"
+               :homeDomain="chart.homeDomain"
+               :createdDate="chart.createdDate"
+             />
+      </div>
     </div>
   </div>
 </script>
@@ -217,9 +210,9 @@
       </span>
     </div>
     <div class="card-action">
+      <router-link :to="manageTarget">Manage</router-link>
       <a :href="browseUrl" target="_blank">Browse</a>
       <a :href="launchUrl" target="_blank">Launch</a>
-      <a href="#" @click="manage">Manage</a>
     </div>
     <div class="card-content grey lighten-4">
       <p>

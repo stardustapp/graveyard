@@ -179,13 +179,13 @@ Vue.component('edit-entry', {
 });
 
 
-Vue.component('manage-chart', {
+const ManageChart = Vue.component('manage-chart', {
   template: '#manage-chart',
   props: {
-    chart: Object,
   },
   data() {
     return {
+      chart: {},
       entries: [],
       editing: null,
       vis: '',
@@ -193,12 +193,41 @@ Vue.component('manage-chart', {
   },
   computed: {
   },
+  beforeRouteEnter(to, from, next) {
+    const chartName = to.params.chartName;
+    var chart = locatedCharts
+      .find(x => x.name === chartName);
+
+    var chartPromise;
+    if (chart) {
+      chartPromise = Promise.resolve(chart);
+    } else {
+      // open the chart if needed (support deeplinks)
+      chartPromise = skychart
+        .openChart(chartName)
+        .then(x => x.loadMetadata());
+    }
+
+    chartPromise
+      .then(c => c.manage())
+      .then(c => {
+        next(vm => vm.setChart(c));
+      }, err => {
+        alert(`Failed to manage chart ${chartName}.\n\n${err}`);
+        return Promise.reject(err);
+      });
+  },
   created() {
-    this.loadEntries();
   },
   methods: {
 
+    setChart(c) {
+      this.chart = c;
+      this.loadEntries();
+    },
+
     loadEntries() {
+      console.log('chart is', this.chart);
       this.chart.loadEntries()
         .then(chart => this.entries = chart.entries);
     },
@@ -217,7 +246,7 @@ Vue.component('manage-chart', {
         if (!confirm(`Confirm deletion of mountpoint ${entry.mountpoint}`)) {
           return
         }
-        return skychart.unlink(this.path + '/entries/' + entry.name).then(x => {
+        return skychart.skylink.unlink(this.chart.path + '/entries/' + entry.name).then(x => {
           alert('Successfully deleted entry');
           this.loadEntries();
         });
@@ -251,6 +280,14 @@ Vue.component('chart-card', {
     createdDateStr() {
       return this.createdDate.toDateString();
     },
+    manageTarget() {
+      return {
+        name: 'manage',
+        params: {
+          chartName: name,
+        },
+      };
+    },
     launchUrl() {
       return `https://${this.homeDomain}/~${this.name}/`;
     },
@@ -259,34 +296,27 @@ Vue.component('chart-card', {
     },
   },
   methods: {
-    manage() {
-      this.chart.manage()
-        .then(c => {
-          app.chart = c;
-          app.mode = 'manage';
-        }, err => {
-          alert(`Failed to manage chart ${this.name}.\n\n${err}`);
-          return Promise.reject(err);
-        });
-    },
   },
 });
 
-Vue.component('locate-chart', {
+const locatedCharts = [];
+const LocateChart = Vue.component('locate-chart', {
   template: '#locate-chart',
   data() {
     return {
       chartName: '',
-      charts: [],
+      charts: locatedCharts,
     };
   },
   created() {
-    this.chartName = 'system';
-    this.openChart();
-    this.chartName = 'dan';
-    this.openChart();
-    this.chartName = 'dan-chat';
-    this.openChart();
+    if (locatedCharts.length === 0) {
+      this.chartName = 'system';
+      this.openChart();
+      this.chartName = 'dan';
+      this.openChart();
+      this.chartName = 'dan-chat';
+      this.openChart();
+    }
   },
   methods: {
 
@@ -332,11 +362,22 @@ Vue.component('locate-chart', {
   },
 });
 
+// const Post = { template: '<div>post</div>' }
+
+const router = new VueRouter({
+  mode: 'hash',
+  routes: [
+    { path: '/', redirect: '/locate' },
+    { path: '/locate', component: LocateChart },
+    { name: 'manage', path: '/charts/:chartName/manage', component: ManageChart },
+  ],
+});
+
 var app = new Vue({
+  router,
   el: '#app',
   data: {
     chart: null,
-    mode: 'locate',
   },
   methods: {
   },

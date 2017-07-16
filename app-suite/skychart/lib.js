@@ -71,12 +71,12 @@ class Chart {
     const dest = '/tmp/manage-' + this.name;
     return this.skylink
       .invoke(this.path + '/manage/invoke', null, dest)
-      .then(() => new ManageChart(this.skylink, this.name, dest));
+      .then(() => new ChartManager(this.skylink, this.name, dest));
   }
 
 }
 
-class ManageChart {
+class ChartManager {
   constructor(skylink, name, path) {
     this.skylink = skylink;
     this.name = name;
