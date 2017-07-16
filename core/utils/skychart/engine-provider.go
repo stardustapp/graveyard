@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/stardustapp/core/base"
+	"github.com/stardustapp/core/inmem"
 	"github.com/stardustapp/core/skylink"
 	"github.com/stardustapp/core/utils/skychart/dag"
 )
@@ -95,7 +96,18 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 				return nil
 			}
 
-			//case "ActiveMount":
+		case "ActiveMount":
+			if deviceFunc, ok := device.(base.Function); ok {
+				log.Printf("Device at %s is a legacy Function, please update sometime.", node.DeviceUri)
+				return deviceFunc.Invoke(ctx, node.DeviceInput)
+			} else if functionShape.Check(ctx, device) {
+				if deviceFunc, ok := device.(base.Folder).Fetch("invoke"); ok {
+					return deviceFunc.(base.Function).Invoke(ctx, node.DeviceInput)
+				}
+			}
+
+			log.Printf("Device at %s was not a Function, can't mount it.", node.DeviceUri)
+			return nil
 
 		default:
 			log.Println("Unknown device type", node.DeviceType)
@@ -109,3 +121,20 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 
 	}
 }
+
+// The Shape of devices that can be used as mounts
+var functionShape *inmem.Shape = inmem.NewShape(
+	inmem.NewFolderOf("function",
+		inmem.NewString("type", "Folder"),
+		inmem.NewFolderOf("props",
+			inmem.NewString("invoke", "Function"),
+			inmem.NewFolderOf("input-shape",
+				inmem.NewString("type", "Shape"),
+				inmem.NewString("optional", "yes"),
+			),
+			inmem.NewFolderOf("output-shape",
+				inmem.NewString("type", "Shape"),
+				inmem.NewString("optional", "yes"),
+			),
+		),
+	))
