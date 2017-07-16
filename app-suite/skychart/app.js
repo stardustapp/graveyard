@@ -10,7 +10,7 @@ camel = (name) => name
   .replace(/-([a-z])/g,
            (x) => x[1].toUpperCase())
 
-enumeratePath = (chartPath, baseUri, maxDepth) => {
+enumeratePath = (chart, baseUri, maxDepth) => {
   if (maxDepth === undefined) maxDepth = 1;
   console.log('listing under', baseUri, 'depth', maxDepth);
   var basePath = '';
@@ -29,8 +29,16 @@ enumeratePath = (chartPath, baseUri, maxDepth) => {
         maxDepth: maxDepth,
         includeRoot: false,
       }));
-  } else {
-    console.log(chartPath, baseUri);
+
+  } else if (baseUri[0] === '/') {
+    const upstream = chart.findClosestMount(baseUri);
+    if (upstream.deviceType === 'BindLink') {
+      const newPath = upstream.deviceUri + baseUri.slice(upstream.mountPath.length);
+      return enumeratePath(chart, newPath, maxDepth);
+    } else if (upstream.deviceType.endsWith('Mount')) {
+      const newPath = upstream.deviceUri + '/output-shape/props';
+      return enumeratePath(chart, newPath, maxDepth);
+    }
   }
 
   return Promise.resolve([]);
@@ -58,7 +66,7 @@ Vue.component('edit-entry', {
     };
   },
   created() {
-    this.devicePrefix = this.chart.findClosestMount(this.deviceUri);
+    this.devicePrefix = this.chart.findClosestMount(this.deviceUri).mountPath;
     this.deviceSuffix = this.deviceUri.slice(this.devicePrefix.length);
 
     this.reloadOpts();
@@ -67,29 +75,30 @@ Vue.component('edit-entry', {
 
     reloadOpts() {
       this.deviceOpts = [];
-
-      var prefixEnt = this.chart.entries.find(x => x.mountPath === this.devicePrefix);
-      if (prefixEnt) {
-        enumeratePath(this.chart.path, prefixEnt.deviceUri)
-          .then(x => x.map(y => {
-            y.Path = '/' + y.Name;
-            if (y.Type === 'Folder') {
-              y.Path += '/open'; // TODO!
-            }
-            return y;
-          }))
-          .then(x => this.deviceOpts = x)
-          .then(() => this.reloadMntOpts());
-      }
+      enumeratePath(this.chart, this.devicePrefix)
+        .then(x => x.map(y => {
+          y.Path = '/' + y.Name;
+          if (y.Type === 'Folder' && this.devicePrefix === '/drivers') {
+            y.Path += '/open'; // TODO!
+          }
+          return y;
+        }))
+        .then(x => this.deviceOpts = x)
+        .then(() => this.reloadMntOpts());
     },
 
     reloadMntOpts() {
       this.mountOpts = [];
-      if (this.deviceType != 'ActiveMount' && this.deviceType != 'PassiveMount') return;
+      if (!this.deviceType.endsWith('Mount')) return;
       var prefixEnt = this.chart.entries.find(x => x.mountPath === this.devicePrefix);
       if (prefixEnt) {
-        const deviceUri = prefixEnt.deviceUri + this.deviceSuffix;
-        enumeratePath(this.chart.path, deviceUri + '/input-shape', 4)
+        var inbetween = '';
+        if (prefixEnt.deviceType.endsWith('Mount')) {
+          inbetween = '/output-shape/props';
+        }
+
+        const deviceUri = prefixEnt.deviceUri + inbetween + this.deviceSuffix;
+        enumeratePath(this.chart, deviceUri + '/input-shape', 4)
           .then(list => {
             var inputType = '';
             const propMap = new Map();
@@ -116,7 +125,7 @@ Vue.component('edit-entry', {
             if (inputType === 'String') {
               if (this.entryName) {
                 skychart.skylink.loadString(this.chart.path + '/entries/' + this.entryName + '/device-input')
-                .then(x => this.mountOptVals.__ = x);
+                .then(x => this.mountOptVals = {__: x});
               }
 
               return [{
@@ -236,7 +245,7 @@ const ManageChart = Vue.component('manage-chart', {
 
     delEntry(entry) {
       if (entry.name) {
-        if (!confirm(`Confirm deletion of mountpoint ${entry.mountpoint}`)) {
+        if (!confirm(`Confirm deletion of mountpoint ${entry.mountPoint}`)) {
           return
         }
         return skychart.skylink.unlink(this.chart.path + '/entries/' + entry.name).then(x => {

@@ -128,14 +128,14 @@ class ChartManager {
   }
 
   findClosestMount(path) {
-    var closestPath = '';
+    var closestEntry = {mountPath: ''};
     this.entries.forEach(entry => {
       if (path.startsWith(entry.mountPath)) {
-        if (entry.mountPath.length > closestPath.length) {
-          closestPath = entry.mountPath;
+        if (entry.mountPath.length > closestEntry.mountPath.length) {
+          closestEntry = entry;
         }
       }
     });
-    return closestPath;
+    return closestEntry;
   }
 }
