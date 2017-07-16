@@ -210,24 +210,17 @@ const ManageChart = Vue.component('manage-chart', {
 
     chartPromise
       .then(c => c.manage())
-      .then(c => {
-        next(vm => vm.setChart(c));
-      }, err => {
+      .then(c => next(vm => {
+        vm.chart = c;
+        vm.loadEntries();
+      }), err => {
         alert(`Failed to manage chart ${chartName}.\n\n${err}`);
         return Promise.reject(err);
       });
   },
-  created() {
-  },
   methods: {
 
-    setChart(c) {
-      this.chart = c;
-      this.loadEntries();
-    },
-
     loadEntries() {
-      console.log('chart is', this.chart);
       this.chart.loadEntries()
         .then(chart => this.entries = chart.entries);
     },
@@ -284,7 +277,7 @@ Vue.component('chart-card', {
       return {
         name: 'manage',
         params: {
-          chartName: name,
+          chartName: this.name,
         },
       };
     },
