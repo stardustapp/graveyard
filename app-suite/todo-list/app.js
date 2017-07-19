@@ -1,6 +1,11 @@
-const orbiter = new Orbiter("/n/redis-ns/app-data/todo-list");
-orbiter.mkdirp('/records');
-orbiter.mkdirp('/todo');
+var skylink;
+const skylinkP = Skylink
+  .openChart()
+  .then(x => new Skylink('/state/app-data/todo-list', x))
+  .then(x => skylink = x)
+  .then(() => skylink.mkdirp('/records'))
+  .then(() => skylink.mkdirp('/todo'))
+  .then(() => skylink);
 
 Vue.component('todo-item', {
   template: '#todo-item',
@@ -16,15 +21,15 @@ Vue.component('todo-item', {
   },
   methods: {
     done() {
-      orbiter.putString(`/done/${this.id}`, this.id)
-        .then(() => orbiter.delete(`/todo/${this.id}`))
-        .then(() => orbiter.putString(`/records/${this.id}/completed-at`, new Date().toISOString()))
+      skylink.putString(`/done/${this.id}`, this.id)
+        .then(() => skylink.unlink(`/todo/${this.id}`))
+        .then(() => skylink.putString(`/records/${this.id}/completed-at`, new Date().toISOString()))
         .then(() => app.load());
     },
   },
   created() {
-    orbiter
-      .loadFile(`/records/${this.id}/text`)
+    skylink
+      .loadString(`/records/${this.id}/text`)
       .then(x => {
         this.text = x;
         this.loading = false;
@@ -41,13 +46,13 @@ Vue.component('add-todo', {
   },
   methods: {
     save() {
-      orbiter.putRandomFolder('/records', {
-        text: Orbiter.String(this.text),
-        'added-at': Orbiter.String(new Date().toISOString()),
-      }).then(id => {
+      skylink.storeRandom('/records', Skylink.toEntry({
+        text:       this.text,
+        'added-at': new Date().toISOString(),
+      })).then(id => {
         console.log('Created todo', id);
         this.text = '';
-        return orbiter.putString(`/todo/${id}`, id)
+        return skylink.putString(`/todo/${id}`, id)
       }).then(() => app.load());
     },
   },
@@ -60,12 +65,14 @@ var app = new Vue({
   },
   methods: {
     load() {
-      orbiter.loadMetadata('/todo').then(res => {
-        this.list = res.children.map(x => x.name);
+      skylink.enumerate('/todo', {
+        includeRoot: false,
+      }).then(children => {
+        this.list = children.map(x => x.Name);
       });
     },
   },
   created() {
-    this.load();
+    skylinkP.then(() => this.load());
   },
 });

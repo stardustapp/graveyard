@@ -1,5 +1,8 @@
-const skylink = new Skylink();
-const driverRoot = '/n/redis-ns/native-drivers';
+const skylinkP = Skylink.openChart();
+var skylink = null;
+skylinkP.then(x => skylink = x);
+
+const driverRoot = '/state/native-drivers';
 
 Vue.component('function', {
   template: '#function',
@@ -450,7 +453,9 @@ var app = new Vue({
 
   },
   created() {
-    this.loadDriverList();
-    this.loadDriver();
+    skylinkP.then(() => {
+      this.loadDriverList();
+      this.loadDriver();
+    });
   },
 });

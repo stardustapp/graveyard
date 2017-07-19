@@ -1,6 +1,10 @@
-const skylink = new Skylink();
-const sourceSkylink = new Skylink('/n/redis-ns/native-drivers');
-const kubeSkylink = new Skylink('/n/kube-apt');
+const skylinkP = Skylink.openChart('legacy');
+var skylink, sourceSkylink, kubeSkylink;
+skylinkP.then(x => {
+  skylink = x;
+  sourceSkylink = new Skylink('/state/native-drivers', x);
+  kubeSkylink = new Skylink('/kubernetes', x);
+});
 
 Vue.component('driver', {
   template: '#driver',
@@ -108,15 +112,19 @@ Vue.component('driver-list', {
     };
   },
   created() {
-    sourceSkylink.enumerate('', {
-      includeRoot: false,
-    }).then(list => {
-      this.names = list
-        .filter(x => x.Type === 'Folder')
-        .map(x => x.Name);
-    });
+    skylinkP.then(() => this.load());
   },
   methods: {
+
+    load() {
+      return sourceSkylink.enumerate('', {
+        includeRoot: false,
+      }).then(list => {
+        this.names = list
+          .filter(x => x.Type === 'Folder')
+          .map(x => x.Name);
+      });
+    },
 
     buildAll() {
       app.buildingAll = true;
