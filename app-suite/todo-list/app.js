@@ -46,10 +46,10 @@ Vue.component('add-todo', {
   },
   methods: {
     save() {
-      skylink.storeRandom('/records', Skylink.toEntry({
+      skylink.storeRandom('/records', {
         text:       this.text,
         'added-at': new Date().toISOString(),
-      })).then(id => {
+      }).then(id => {
         console.log('Created todo', id);
         this.text = '';
         return skylink.putString(`/todo/${id}`, id)
