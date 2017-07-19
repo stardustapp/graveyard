@@ -1,5 +1,17 @@
-const roots = (location.hash.slice(1) || '/').split(':');
-const skylink = new Skylink();
+var chartName = 'public';
+if (location.search) {
+  chartName = location.search
+    .slice(1)
+    .split('&')
+    .map(x => x.split('='))
+    .filter(x => x[0] === 'chart')
+    [0][1];
+}
+
+const roots = (location.hash.slice(1) || '').split(':');
+const skylinkP = Skylink.openChart(chartName);
+var skylink = null;
+skylinkP.then(x => skylink = x);
 
 // TODO
 window.require = function (names) {
@@ -32,7 +44,7 @@ Vue.component('entry-item', {
           this.stat.Shapes.indexOf('/rom/shapes/web-app') !== -1;
     },
     launchUri() {
-      return '/~~' + this.path + '/index.html';
+      return '/~' + chartName + this.path.replace(/\/^web/, '') + '/index.html';
     },
     isFolder() {
       return this.type === "Folder";
@@ -112,12 +124,12 @@ Vue.component('entry-item', {
     },
     load() {
       if (!this.loader) {
-        this.loader = skylink.enumerate(this.path, {
+        this.loader = skylinkP.then(x => x.enumerate(this.path, {
           shapes: [
-            '/rom/shapes/function',
-            '/rom/shapes/web-app',
+            //'/rom/shapes/function',
+            //'/rom/shapes/web-app',
           ],
-        }).then(x => {
+        })).then(x => {
           this.entry = x.splice(0, 1)[0];
           this.entry.Children = x.sort((a, b) => {
             var nameA = a.Name.toUpperCase();
@@ -463,6 +475,7 @@ Vue.component('edit-string', {
 var app = new Vue({
   el: '#app',
   data: {
+    chartName: chartName,
     roots: roots,
     tabList: [],
     tabKeys: {},
