@@ -23,14 +23,15 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.RequestURI)
 
 	var chartName, prefix string
-	if strings.HasPrefix(r.RequestURI, "/~~") {
+	requestUri := strings.Split(r.RequestURI, "?")[0]
+	if strings.HasPrefix(requestURI, "/~~") {
 		// system endpoints register in the router above us,
 		// so if we got here, it doesn't exist
 		http.Error(w, "System endpoint missing", http.StatusNotFound)
 		return
 
-	} else if strings.HasPrefix(r.RequestURI, "/~") {
-		chartName = strings.TrimPrefix(strings.Split(r.RequestURI, "/")[1], "~")
+	} else if strings.HasPrefix(requestURI, "/~") {
+		chartName = strings.TrimPrefix(strings.Split(requestURI, "/")[1], "~")
 		prefix = "/~" + chartName
 
 	} else {
@@ -75,7 +76,8 @@ func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *htt
 	handle := base.NewDetachedHandle(root)
 
 	// TODO: escape pieces?
-	path, _ := url.PathUnescape(strings.TrimPrefix(r.RequestURI, prefix))
+	requestUri := strings.Split(r.RequestURI, "?")[0]
+	path, _ := url.PathUnescape(strings.TrimPrefix(requestURI, prefix))
 	isDir := true
 	if len(path) == 0 {
 		isDir = false
@@ -125,7 +127,8 @@ func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *htt
 
 	case base.Folder:
 		// not in dir mode, so let's redirect
-		http.Redirect(w, r, fmt.Sprintf("%s/", r.RequestURI), http.StatusFound)
+		// TODO: preserve query string (and hash?)
+		http.Redirect(w, r, fmt.Sprintf("%s/", requestURI), http.StatusFound)
 
 	case base.File:
 		readSeeker := &fileContentReader{entry, 0}
