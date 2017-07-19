@@ -23,7 +23,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.RequestURI)
 
 	var chartName, prefix string
-	requestUri := strings.Split(r.RequestURI, "?")[0]
+	requestURI := strings.Split(r.RequestURI, "?")[0]
 	if strings.HasPrefix(requestURI, "/~~") {
 		// system endpoints register in the router above us,
 		// so if we got here, it doesn't exist
@@ -76,7 +76,7 @@ func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *htt
 	handle := base.NewDetachedHandle(root)
 
 	// TODO: escape pieces?
-	requestUri := strings.Split(r.RequestURI, "?")[0]
+	requestURI := strings.Split(r.RequestURI, "?")[0]
 	path, _ := url.PathUnescape(strings.TrimPrefix(requestURI, prefix))
 	isDir := true
 	if len(path) == 0 {
