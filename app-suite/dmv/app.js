@@ -6,6 +6,8 @@ skylinkP.then(x => {
   kubeSkylink = new Skylink('/kubernetes', x);
 });
 
+const skychart = Skychart.manageChart('system');
+
 Vue.component('driver', {
   template: '#driver',
   props: {
@@ -88,6 +90,33 @@ Vue.component('driver', {
       }
 
       this.status = 'Mounting';
+      const destPath = `/drivers/${this.name}`;
+      const destUri = 'skylink+' + this.uri.replace(/~~.+/, 'pub');
+
+      return skychart.findMount(destPath)
+        .then(x => {
+          if (!x) {
+            return skychart.addEntry({
+              'device-type': 'BindLink',
+              'device-uri': destUri,
+              'mount-path': destPath,
+            });
+          } else if (x['device-uri'] != destUri) {
+            console.log('mount:', destPath);
+            console.log('current:', x['device-uri']);
+            console.log('desired:', destUri);
+            alert('Mount already exists with different path');
+          }
+        })
+        .then(() => skychart.compile())
+        .then(() => {
+          this.status = 'Mounted';
+        }, (err) => {
+          this.status = 'Mount failed';
+          alert("~system failed to compile:\n\n" + err);
+        });
+
+      /*
       return skylink
         .invoke("/rom/drv/nsimport/invoke", Skylink.Folder('input', [
           Skylink.String('endpoint-url', this.uri),
@@ -99,6 +128,7 @@ Vue.component('driver', {
           this.status = 'Mounting crashed';
           prom && prom();
         });
+      */
     },
 
   },
