@@ -82,6 +82,10 @@ func (e *Enumerator) enumerate(depth int, path string, src base.Entry) {
 		ent.Type = "String"
 		ent.StringValue = entry.Get()
 
+	case base.Link:
+		ent.Type = "Link"
+		ent.StringValue = entry.Target()
+
 	case base.File:
 		ent.Type = "File"
 

@@ -143,6 +143,9 @@ func (svc *nsimport) getEntry(path string) (base.Entry, error) {
 	case "String":
 		return inmem.NewString(entry.Name, entry.StringValue), nil
 
+	case "Link":
+		return inmem.NewLink(entry.Name, entry.StringValue), nil
+
 	default:
 		log.Println("nsimport: unknown entry type", entry.Type)
 		return nil, errors.New("unknown entry type " + entry.Type)

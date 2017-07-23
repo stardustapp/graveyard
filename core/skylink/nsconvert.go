@@ -42,6 +42,13 @@ func convertEntryToApi(root base.Entry) *nsEntry {
 			StringValue: root.Get(),
 		}
 
+	case base.Link:
+		return &nsEntry{
+			Name:        root.Name(),
+			Type:        "Link",
+			StringValue: root.Target(),
+		}
+
 	case base.File:
 		return &nsEntry{
 			Name:     root.Name(),
@@ -73,6 +80,9 @@ func convertEntryFromApi(root *nsEntry) base.Entry {
 
 	case "String":
 		return inmem.NewString(root.Name, root.StringValue)
+
+	case "Link":
+		return inmem.NewLink(root.Name, root.StringValue)
 
 	case "File":
 		return inmem.NewFile(root.Name, root.FileData) //.Freeze()
