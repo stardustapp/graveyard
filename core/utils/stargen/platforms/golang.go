@@ -319,7 +319,7 @@ func (p *golang) GenerateDriver() error {
 
 		// first let's write out the impl
 		implWriter := newGoWriter(p.deps)
-		implWriter.write(funct.Source)
+		implWriter.write("%s", funct.Source)
 		implFileName := fmt.Sprintf("func-%s.go", funct.Name)
 		p.gen.CompileCtx.Put("/go-src/"+implFileName, inmem.NewFile(implFileName, implWriter.bytes()))
 
