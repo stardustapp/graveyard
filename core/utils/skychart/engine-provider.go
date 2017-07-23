@@ -82,20 +82,6 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 		case "BindLink":
 			return device // lol
 
-		case "StarDriver":
-			driverAddr := resolveStarDriver(node.DeviceUri)
-			log.Println("driver is at", driverAddr)
-
-			actualUri := fmt.Sprintf("ws://%s/~~export/ws", driverAddr)
-			rawEnt := skylink.ImportUri(actualUri)
-			if rawEnt, ok := rawEnt.(base.Folder); ok {
-				ent, _ := rawEnt.Fetch("pub")
-				return ent
-			} else {
-				log.Println("stardriver at", driverAddr, "didn't import")
-				return nil
-			}
-
 		case "ActiveMount":
 			if deviceFunc, ok := device.(base.Function); ok {
 				log.Printf("Device at %s is a legacy Function, please update sometime.", node.DeviceUri)
