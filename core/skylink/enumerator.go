@@ -32,7 +32,7 @@ func (e *Enumerator) AddShapeByPath(path string) bool {
 		return true
 	} else {
 		log.Println("nsapi enumeration: couldn't resolve shape", path)
-		e.ok = false
+		//e.ok = false
 		return false
 	}
 }
