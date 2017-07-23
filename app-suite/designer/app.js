@@ -312,7 +312,7 @@ var app = new Vue({
 
     exportDrivers() {
       // const driverRoot = '/n/redis-ns/native-drivers';
-      const exportSkylink = new Skylink('/n/redis-ns/native-drivers-export');
+      const exportSkylink = new Skylink(driverRoot+'-export', skylink);
       return exportSkylink.unlink('')
         .then(() => exportSkylink.store('', Skylink.Folder('native-drivers')))
         .then(() => skylink.enumerate(driverRoot, {
@@ -328,11 +328,11 @@ var app = new Vue({
           }
         }))
         .then(list => Promise.all(list))
-        .then(x => console.log('Exported all drivers', x));
+        .then(x => alert(`Exported all ${x.length} drivers!`));
     },
 
     exportDriver(driver) {
-      const exportSkylink = new Skylink('/n/redis-ns/native-drivers-export/'+driver);
+      const exportSkylink = new Skylink(driverRoot+'-export/'+driver, skylink);
       return exportSkylink
         .store('', Skylink.Folder(driver, [
           Skylink.Folder('functions'),
