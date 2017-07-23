@@ -23,14 +23,14 @@
     <td><input type="text" v-model="mountPath" placeholder="/n/..." required /></td>
     <td>
       <select v-model="deviceType" required class="browser-default">
+        <option value="EmptyDir">Empty Directory</option>
         <option value="BindLink">Bind Link</option>
         <option value="SymbolicLink">Symbolic Link</option>
         <option value="ActiveMount">Active Mount</option>
         <option value="PassiveMount">Passive Mount</option>
-        <option value="StarDriver">Star-driver</option>
       </select>
     </td>
-    <td>
+    <td v-if="deviceType !== 'EmptyDir'">
       <select v-model="devicePrefix" class="browser-default"
           @change="reloadOpts">
         <option value="">no prefix</option>
@@ -49,7 +49,7 @@
       </select>
       <input type="text" v-model="deviceSuffix"
           v-if="!deviceOpts.length"
-          placeholder="/drv/..." required />
+          placeholder="/drivers/..." required />
       <label v-for="opt in mountOpts" style="display: block;">
         {{opt.name}}
         <input type="text" :requiredtodo="!opt.optional"
@@ -57,6 +57,11 @@
             style="width: auto;"
             >
       </label>
+    </td>
+    <td v-if="deviceType === 'EmptyDir'">
+      An fresh folder will be available here.<br>
+      Any data stored to it will be persisted<br>
+      for the lifetime of the chart.
     </td>
     <td>
     </td>
