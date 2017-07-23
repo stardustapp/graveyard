@@ -11,7 +11,7 @@ type Graph struct {
 }
 
 type Node struct {
-	id       string
+	Id       string
 	NodeType string
 
 	// as configured

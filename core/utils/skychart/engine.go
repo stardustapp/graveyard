@@ -43,6 +43,13 @@ func newEngine(homeDomain string, ctx base.Context, path string) *Engine {
 		log.Println("Created charts/ in", path)
 	}
 
+	if _, ok := dataCtx.GetFolder("/directories"); !ok {
+		if ok := dataCtx.Put("/directories", inmem.NewFolder("directories")); !ok {
+			panic("Failed to create directory folder in " + path)
+		}
+		log.Println("Created directories/ in", path)
+	}
+
 	engine := &Engine{
 		homeDomain: homeDomain,
 		dataCtx:    dataCtx,

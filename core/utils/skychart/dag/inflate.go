@@ -26,7 +26,7 @@ func InflateGraphFromConfig(ctx base.Context) *Graph {
 
 func inflateEntryNode(folder base.Folder) *Node {
 	node := &Node{
-		id:       folder.Name(),
+		Id:       folder.Name(),
 		NodeType: "Entry",
 	}
 

@@ -13,6 +13,23 @@ import (
 )
 
 func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
+
+	// EmptyDirs are really like an Import to an implicit device
+	if node.NodeType == "Entry" && node.DeviceType == "EmptyDir" {
+		// TODO: can we work chart name in there??
+		statePath := "/directories/" + node.Id
+		if _, ok := e.dataCtx.GetFolder(statePath); !ok {
+			if ok := e.dataCtx.Put(statePath, inmem.NewFolder(node.Id)); !ok {
+				panic("Failed to create EmptyDir folder at " + statePath)
+			}
+			log.Println("Created EmptyDir at", statePath)
+		}
+
+		ent, _ := e.dataCtx.Get(statePath)
+		return ent
+	}
+
+	// Devices always come from somewhere. Require a valid URI.
 	uri, err := url.Parse(node.DeviceUri)
 	if err != nil {
 		log.Println("DeviceUri parsing failed.", node.DeviceUri, err)

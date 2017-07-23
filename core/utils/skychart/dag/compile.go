@@ -23,20 +23,20 @@ func (g *Graph) getImportNode(scheme, host string) *Node {
 
 	// create new import node
 	node := &Node{
-		id:         extras.GenerateId(),
+		Id:         extras.GenerateId(),
 		NodeType:   "Import",
 		MountPath:  fmt.Sprintf("/mnt/%s/%s", scheme, host),
 		DeviceType: "ActiveMount",
 		DeviceUri:  uri,
 	}
-	g.nodes[node.id] = node
+	g.nodes[node.Id] = node
 
 	// depend on the root node
 	edgeId := extras.GenerateId()
 	g.edges[edgeId] = &Edge{
 		id:           edgeId,
 		upstreamId:   "root",
-		downstreamId: node.id,
+		downstreamId: node.Id,
 	}
 
 	return node
@@ -45,7 +45,7 @@ func (g *Graph) getImportNode(scheme, host string) *Node {
 func (g *Graph) Compile() bool {
 	// Graphs start with a virtual root node
 	g.nodes["root"] = &Node{
-		id:         "root",
+		Id:         "root",
 		NodeType:   "Root",
 		MountPath:  "/",
 		DeviceType: "EmptyDir",
@@ -80,8 +80,8 @@ func (g *Graph) Compile() bool {
 		edgeId := extras.GenerateId()
 		g.edges[edgeId] = &Edge{
 			id:           edgeId,
-			upstreamId:   parent.id,
-			downstreamId: node.id,
+			upstreamId:   parent.Id,
+			downstreamId: node.Id,
 		}
 	}
 

@@ -24,11 +24,11 @@ func (g *Graph) Launch(provider Provider) base.Entry {
 	for _, node := range g.nodes {
 		var deps []string
 		for _, edge := range g.edges {
-			if edge.downstreamId == node.id {
+			if edge.downstreamId == node.Id {
 				deps = append(deps, edge.upstreamId)
 			}
 		}
-		nodeDeps[node.id] = deps
+		nodeDeps[node.Id] = deps
 	}
 
 	root := inmem.NewFolder("skylink://" + g.name + ".chart.local")
@@ -70,7 +70,7 @@ func (g *Graph) Launch(provider Provider) base.Entry {
 			log.Println("launch of", node.MountPath, "failed, aborting launch")
 			return nil
 		}
-		nodeEnts[node.id] = ent
+		nodeEnts[node.Id] = ent
 		if ok := cCtx.Put(node.MountPath, ent); !ok {
 			log.Println("put on", node.MountPath, "failed, aborting launch")
 			return nil
