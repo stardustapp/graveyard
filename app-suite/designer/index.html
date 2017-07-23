@@ -84,12 +84,23 @@
       <option>File</option>
       <option>Channel</option>
     </select>
+
+    <i class="material-icons"
+        style="font-size: 1em;"
+        @click="remove"
+      >remove_circle</i>
   </li>
 </script>
 
 <script type="text/x-template" id="shape">
   <li>
     {{shape}}
+
+    <i class="material-icons"
+        style="font-size: 1em;"
+        @click="remove"
+      >remove_circle</i>
+
     <ul>
       <shape-prop
           v-for="prop in props"
@@ -126,10 +137,10 @@
           v-for="shape in shapes"
           :key="shape"
         >{{shape}}</option>
+      <option>Folder</option>
       <option>String</option>
       <option>Function</option>
       <option>File</option>
-      <option>Map</option>
       <option>Channel</option>
     </select>
 
@@ -152,7 +163,7 @@
     </select>
 
     <select
-        v-if="type === 'Map'"
+        v-if="type === 'Folder'"
         v-model="target"
         @change="setTarget">
       <option value="">no subtype</option>

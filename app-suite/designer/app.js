@@ -65,6 +65,10 @@ Vue.component('function', {
         path: `${this.path}/${this.sourceFile}`,
       });
     },
+    remove() {
+      skylink.unlink(this.path)
+        .then(() => alert('ok'));
+    },
   },
 });
 
@@ -136,6 +140,10 @@ Vue.component('shape', {
           ])))
           .then(() => this.loadShape());
       }
+    },
+    remove() {
+      skylink.unlink(this.path)
+        .then(() => alert('ok'));
     },
   },
 });
@@ -227,7 +235,7 @@ Vue.component('shape-prop', {
 var app = new Vue({
   el: '#app',
   data: {
-    driver: 'irc-client',
+    driver: 'irc-dialer',
     platform: '',
     drivers: [],
     functions: [],

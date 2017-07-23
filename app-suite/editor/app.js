@@ -37,14 +37,14 @@ Vue.component('entry-item', {
   computed: {
     isFunction() {
       return this.stat.Shapes &&
-          this.stat.Shapes.indexOf('/rom/shapes/function') !== -1;
+          this.stat.Shapes.indexOf('/tmp/browse/rom/shapes/function') !== -1;
     },
     canLaunch() {
       return this.stat.Shapes &&
-          this.stat.Shapes.indexOf('/rom/shapes/web-app') !== -1;
+          this.stat.Shapes.indexOf('/tmp/browse/rom/shapes/web-app') !== -1;
     },
     launchUri() {
-      return '/~' + chartName + this.path.replace(/\/^web/, '') + '/index.html';
+      return '/~' + chartName + this.path.replace(/^\/web/, '') + '/';
     },
     isFolder() {
       return this.type === "Folder";
@@ -126,8 +126,8 @@ Vue.component('entry-item', {
       if (!this.loader) {
         this.loader = skylinkP.then(x => x.enumerate(this.path, {
           shapes: [
-            //'/rom/shapes/function',
-            //'/rom/shapes/web-app',
+            '/tmp/browse/rom/shapes/function',
+            '/tmp/browse/rom/shapes/web-app',
           ],
         })).then(x => {
           this.entry = x.splice(0, 1)[0];
