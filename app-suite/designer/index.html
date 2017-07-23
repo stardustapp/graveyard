@@ -129,6 +129,7 @@
       <option>String</option>
       <option>Function</option>
       <option>File</option>
+      <option>Map</option>
       <option>Channel</option>
     </select>
 
@@ -150,11 +151,31 @@
         >{{func}}</option>
     </select>
 
-    <input
-        type="checkbox"
-        v-model="optional"
-        @change="setOptional"
-      >Optional
+    <select
+        v-if="type === 'Map'"
+        v-model="target"
+        @change="setTarget">
+      <option value="">no subtype</option>
+      <option
+          v-for="s in shapes"
+          :key="s"
+        >{{s}}</option>
+    </select>
+
+    <span
+        v-if="type !== 'Function'"
+      >
+      <input
+          type="checkbox"
+          v-model="optional"
+          @change="setOptional"
+        >Optional
+    </span>
+
+    <i class="material-icons"
+        style="font-size: 1em;"
+        @click="remove"
+      >remove_circle</i>
   </li>
 </script>
 

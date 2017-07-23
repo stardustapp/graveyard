@@ -217,6 +217,10 @@ Vue.component('shape-prop', {
         skylink.putString(this.path + '/optional', this.optional ? 'yes' : 'no');
       }
     },
+    remove() {
+      skylink.unlink(this.path)
+        .then(() => alert('ok'));
+    },
   },
 });
 
