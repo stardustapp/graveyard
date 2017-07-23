@@ -66,6 +66,8 @@ func (h *handle) Stack() (stack []Entry) {
 
 func (h *handle) Get() Entry {
 	entry := h.stack[len(h.stack)-1]
+	/*
+	// TODO: who should be in charge of walking links?
 	for {
 		link, ok := entry.(Link)
 		if !ok {
@@ -80,6 +82,7 @@ func (h *handle) Get() Entry {
 
 		entry = h.Get()
 	}
+	*/
 	return entry
 }
 
