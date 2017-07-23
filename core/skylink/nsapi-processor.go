@@ -61,6 +61,10 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 			wireEnt.Type = "String"
 			wireEnt.StringValue = ent.Get()
 
+		case base.Link:
+			wireEnt.Type = "Link"
+			wireEnt.StringValue = ent.Target()
+
 		case base.Function:
 			wireEnt.Type = "Function"
 

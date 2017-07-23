@@ -67,21 +67,21 @@ func (h *handle) Stack() (stack []Entry) {
 func (h *handle) Get() Entry {
 	entry := h.stack[len(h.stack)-1]
 	/*
-	// TODO: who should be in charge of walking links?
-	for {
-		link, ok := entry.(Link)
-		if !ok {
-			break
-		}
+		// TODO: who should be in charge of walking links?
+		for {
+			link, ok := entry.(Link)
+			if !ok {
+				break
+			}
 
-		ok = h.Walk(link.Target())
-		if !ok {
-			log.Println("FAILED to walk Link", entry.Name, "to", link.Target())
-			return nil
-		}
+			ok = h.Walk(link.Target())
+			if !ok {
+				log.Println("FAILED to walk Link", entry.Name, "to", link.Target())
+				return nil
+			}
 
-		entry = h.Get()
-	}
+			entry = h.Get()
+		}
 	*/
 	return entry
 }
