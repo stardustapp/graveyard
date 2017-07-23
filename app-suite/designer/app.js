@@ -298,7 +298,8 @@ var app = new Vue({
           Skylink.Folder('shapes'),
         ]))
           .then(() => this.loadDriverList())
-          .then(() => this.driver = name);
+          .then(() => this.driver = name)
+          .then(() => this.loadDriver());
       }
     },
     openDeps() {
