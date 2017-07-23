@@ -24,8 +24,9 @@ func (e *importedFunction) Invoke(ctx base.Context, input base.Entry) (output ba
 	dest := "/tmp/output-" + extras.GenerateId()
 
 	resp, err := e.svc.transport.exec(nsRequest{
-		Op:    "invoke",
-		Path:  e.path,
+		Op:   "invoke",
+		Path: e.path,
+		// Root:  ctx.Name(),
 		Input: convertEntryToApi(input),
 		Dest:  dest,
 	})

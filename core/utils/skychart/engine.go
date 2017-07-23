@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/stardustapp/core/base"
@@ -21,6 +22,7 @@ type Engine struct {
 
 	findCache   map[string]*Chart
 	launchCache map[string]base.Entry
+	launchLocks map[string]*sync.Mutex
 }
 
 func newEngine(homeDomain string, ctx base.Context, path string) *Engine {
@@ -57,6 +59,7 @@ func newEngine(homeDomain string, ctx base.Context, path string) *Engine {
 
 		findCache:   make(map[string]*Chart),
 		launchCache: make(map[string]base.Entry),
+		launchLocks: make(map[string]*sync.Mutex),
 	}
 
 	http.Handle("/", engine)
@@ -118,6 +121,15 @@ func (e *Engine) createChart(name string, ownerName string, ownerEmail string) *
 }
 
 func (e *Engine) launchChart(chart *Chart) base.Entry {
+	lock, ok := e.launchLocks[chart.String()]
+	if !ok {
+		// TODO: this is still a bit racy
+		lock = &sync.Mutex{}
+		e.launchLocks[chart.String()] = lock
+	}
+	lock.Lock()
+	defer lock.Unlock()
+
 	if entry, ok := e.launchCache[chart.String()]; ok {
 		return entry
 	}

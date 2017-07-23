@@ -1,8 +1,9 @@
 package skylink
 
 type nsRequest struct {
-	Op    string
-	Path  string   `json:",omitempty"`
+	Op   string
+	Path string `json:",omitempty"`
+	// Root  string   `json:",omitempty"` // operating context URI base
 	Dest  string   `json:",omitempty"` // destination for output
 	Input *nsEntry `json:",omitempty"`
 
