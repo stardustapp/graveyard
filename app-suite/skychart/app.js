@@ -168,7 +168,12 @@ Vue.component('edit-entry', {
         } else {
           deviceInput = {};
           this.mountOpts.forEach(opt => {
-            deviceInput[opt.name] = this.mountOptVals[opt.path];
+            if (opt.type === 'Folder') {
+              // store a symbolic link to where the Folder comes from
+              deviceInput[opt.name] = Skylink.Link(opt.name, this.mountOptVals[opt.path]);
+            } else {
+              deviceInput[opt.name] = this.mountOptVals[opt.path];
+            }
           });
         }
       }
