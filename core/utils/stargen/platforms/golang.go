@@ -150,6 +150,10 @@ func (p *golang) GenerateDriver() error {
 						}
 					}
 
+					if funct == nil {
+						log.Fatalln("Failed to resolve Function", prop.Target, "for prop", prop.Name)
+					}
+
 					if funct.InputShape != "" {
 						shapeWriter.useDep("inmem")
 						if funct.InputShape == "String" || funct.InputShape == "Channel" {
