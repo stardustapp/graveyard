@@ -75,6 +75,10 @@ func (e *Engine) expireCache(name string) {
 			log.Println("Expiring launch cache", name)
 			delete(e.launchCache, chart.String())
 		}
+		if _, ok := e.launchLocks[chart.String()]; ok {
+			log.Println("WARN: Expiring launch lock for", name)
+			delete(e.launchLocks, chart.String())
+		}
 	}
 }
 
