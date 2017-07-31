@@ -25,6 +25,7 @@ func convertEntryToApi(root base.Entry) *nsEntry {
 		for _, name := range names {
 			if child, ok := root.Fetch(name); ok {
 				if converted := convertEntryToApi(child); converted != nil {
+					converted.Name = name
 					children = append(children, *converted)
 				}
 			}
