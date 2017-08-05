@@ -103,6 +103,17 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 			if deviceFunc, ok := device.(base.Function); ok {
 				log.Printf("Device at %s is a legacy Function, please update sometime.", node.DeviceUri)
 				return deviceFunc.Invoke(ctx, node.DeviceInput)
+
+			} else if node.MountPath == "/state" && node.DeviceType == "ActiveMount" {
+				// TODO: temporary
+				if deviceFunc, ok := device.(base.Folder).Fetch("invoke"); ok {
+					api := deviceFunc.(base.Function).Invoke(ctx, inmem.NewFolderOf("",
+						inmem.NewString("address", "sd-redis:6379"),
+					))
+					root, _ := api.(base.Folder).Fetch("root")
+					return root
+				}
+
 			} else if functionShape.Check(ctx, device) {
 				if deviceFunc, ok := device.(base.Folder).Fetch("invoke"); ok {
 					return deviceFunc.(base.Function).Invoke(ctx, node.DeviceInput)
