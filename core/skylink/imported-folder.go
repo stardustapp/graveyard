@@ -68,3 +68,29 @@ func (e *importedFolder) Put(name string, child base.Entry) (ok bool) {
 
 	return resp.Ok
 }
+
+// Support enumeration passthrough
+
+var _ Enumerable = (*importedFolder)(nil)
+
+func (e *importedFolder) Enumerate(enum *Enumerator, depth int) []nsEntry {
+	maxDepth := enum.maxDepth
+	if maxDepth != -1 {
+		maxDepth -= depth
+	}
+
+	req := nsRequest{
+		Op:    "enumerate",
+		Path:  e.prefix,
+		Depth: maxDepth,
+		// Shapes:
+	}
+
+	resp, err := e.svc.transport.exec(req)
+	if err != nil {
+		log.Println("nsimport folder enumerate err:", err)
+		return nil
+	}
+
+	return resp.Output.Children
+}

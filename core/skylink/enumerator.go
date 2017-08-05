@@ -16,6 +16,10 @@ type Enumerator struct {
 	ok       bool
 }
 
+type Enumerable interface {
+	Enumerate(e *Enumerator, depth int) []nsEntry
+}
+
 func NewEnumerator(ctx base.Context, root base.Entry, maxDepth int) *Enumerator {
 	return &Enumerator{
 		ctx:      ctx,
@@ -60,6 +64,24 @@ func (e *Enumerator) checkShapes(ent base.Entry) []string {
 }
 
 func (e *Enumerator) enumerate(depth int, path string, src base.Entry) {
+	if enumerable, ok := src.(Enumerable); ok {
+		log.Println("skylink: Asking", src.Name(), "to self-enumerate")
+		for _, ent := range enumerable.Enumerate(e, depth) {
+			if len(ent.Name) > 0 {
+				ent.Name = strings.TrimPrefix(path+"/"+ent.Name, "/")
+			} else {
+				ent.Name = path
+			}
+			e.output <- ent
+		}
+
+		// Close if we're the last thing
+		if depth == 0 {
+			close(e.output)
+		}
+		return
+	}
+
 	ent := nsEntry{
 		Name:   path,
 		Type:   "Unknown",

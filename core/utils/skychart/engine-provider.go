@@ -76,7 +76,7 @@ func (e *Engine) InjectNode(ctx base.Context, node *dag.Node) base.Entry {
 			var ok bool
 			device, ok = ctx.Get(MountPath + uri.Path)
 			if !ok {
-				log.Println("mount path", MountPath, "doesn't exist")
+				log.Println("mount path", MountPath+uri.Path, "doesn't exist")
 				return nil
 			}
 		} else {
