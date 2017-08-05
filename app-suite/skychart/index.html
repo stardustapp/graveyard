@@ -18,6 +18,9 @@
   <router-view></router-view>
 </div>
 
+<script type="text/x-template" id="build-entry">
+</script>
+
 <script type="text/x-template" id="edit-entry">
   <form @submit.prevent="save">
     <td><input type="text" v-model="mountPath" placeholder="/n/..." required /></td>
@@ -31,25 +34,43 @@
       </select>
     </td>
     <td v-if="deviceType !== 'EmptyDir'">
-      <select v-model="devicePrefix" class="browser-default"
-          @change="reloadOpts">
-        <option value="">no prefix</option>
-        <option v-for="entry in chart.entries"
-                v-if="entry.mountPath !== mountPath"
-                :key="entry.mountPath"
-          >{{entry.mountPath}}</option>
-      </select>
-      <select v-model="deviceSuffix"
-          class="browser-default"
-          v-if="deviceOpts.length"
-          @change="reloadMntOpts">
-        <option v-for="entry in deviceOpts"
-                :key="entry.Name"
-          :value="entry.Path">{{entry.Name}}</option>
-      </select>
-      <input type="text" v-model="deviceSuffix"
-          v-if="!deviceOpts.length"
-          placeholder="/drivers/..." required />
+
+      <div class="entry-builder">
+        <input type="radio" id="intDev" value="Internal" v-model="deviceSource" @click="loadSource">
+        <label for="intDev">Internal</label>
+        <input type="radio" id="extDev" value="External" v-model="deviceSource" @click="loadSource">
+        <label for="extDev">External</label>
+
+        <input type="text" v-model="externalOrigin"
+            v-if="deviceSource === 'External'"
+            @change="loadSource"
+            placeholder="skylink://..." required />
+
+        <div class="select-entry">
+          <div
+              v-for="p in parts"
+              :key="p.parent"
+            >
+            <input
+                type="text"
+                v-if="p.freetext"
+                v-model="p.selected"
+                @change="partChanged(p)"
+              />
+            <select class="browser-default"
+                v-if="!p.freetext"
+                v-model="p.selected"
+                @change="partChanged(p)">
+              <option value="">--none--</option>
+              <option
+                  v-for="c in p.choices"
+                  :key="c.name"
+                >{{c.name}}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <label v-for="opt in mountOpts" style="display: block;">
         {{opt.name}}
         <input type="text" :requiredtodo="!opt.optional"
@@ -140,7 +161,7 @@
         </tbody>
       </table>
       <div class="card-action">
-        <a href="#" @click.prevent="startEdit({})">New Entry</a>
+        <a href="#" @click.prevent="startEdit({deviceUri: ''})">New Entry</a>
       </div>
     </div>
 
