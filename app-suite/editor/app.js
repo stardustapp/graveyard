@@ -50,7 +50,7 @@ Vue.component('entry-item', {
       return this.type === "Folder";
     },
     icon() {
-      if (this.isFunction) {
+      if (this.isFunction || this.stat.Type === 'Function') {
         return "flash_on"; // lightning bolt
       }
       if (this.canLaunch) {

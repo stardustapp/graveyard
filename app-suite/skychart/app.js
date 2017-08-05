@@ -319,9 +319,13 @@ const LocateChart = Vue.component('locate-chart', {
     if (locatedCharts.length === 0) {
       this.chartName = 'system';
       this.openChart();
-      this.chartName = 'dan';
+      this.chartName = 'public';
       this.openChart();
-      this.chartName = 'dan-chat';
+      this.chartName = 'legacy';
+      this.openChart();
+      this.chartName = 'skylink';
+      this.openChart();
+      this.chartName = 'dan';
       this.openChart();
     }
   },
