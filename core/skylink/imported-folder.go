@@ -92,5 +92,9 @@ func (e *importedFolder) Enumerate(enum *Enumerator, depth int) []nsEntry {
 		return nil
 	}
 
+	if !resp.Ok || resp.Output == nil {
+		log.Println("remote skylink for", e.prefix, "failed to enumerate")
+		return nil
+	}
 	return resp.Output.Children
 }

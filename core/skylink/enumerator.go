@@ -66,20 +66,23 @@ func (e *Enumerator) checkShapes(ent base.Entry) []string {
 func (e *Enumerator) enumerate(depth int, path string, src base.Entry) {
 	if enumerable, ok := src.(Enumerable); ok {
 		log.Println("skylink: Asking", src.Name(), "to self-enumerate")
-		for _, ent := range enumerable.Enumerate(e, depth) {
-			if len(ent.Name) > 0 {
-				ent.Name = strings.TrimPrefix(path+"/"+ent.Name, "/")
-			} else {
-				ent.Name = path
+		results := enumerable.Enumerate(e, depth)
+		if results != nil {
+			for _, ent := range results {
+				if len(ent.Name) > 0 {
+					ent.Name = strings.TrimPrefix(path+"/"+ent.Name, "/")
+				} else {
+					ent.Name = path
+				}
+				e.output <- ent
 			}
-			e.output <- ent
-		}
 
-		// Close if we're the last thing
-		if depth == 0 {
-			close(e.output)
+			// Close if we're the last thing
+			if depth == 0 {
+				close(e.output)
+			}
+			return
 		}
-		return
 	}
 
 	ent := nsEntry{
