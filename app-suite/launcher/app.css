@@ -1,0 +1,265 @@
+html {
+  height: 100%;
+}
+
+body {
+  font-family: 'Roboto';
+  background-color: #111;
+  color: #fff;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.top-bar {
+  display: flex;
+}
+
+.top-bar h1 {
+  margin: 0.2em 0;
+  font-size: 1.4em;
+  font-weight: normal;
+  color: #aaa;
+}
+.top-bar h2 {
+  margin: 0.2em 0;
+  font-size: 1.4em;
+  font-weight: normal;
+}
+
+.appframe {
+  flex: 1;
+  border-width: 0;
+  background-color: #fff;
+}
+
+#run-pane {
+  border-left: 1px solid #666;
+  flex: 5;
+
+  display: flex;
+  flex-direction: column;
+  width: 0;
+}
+
+#edit-pane {
+  border-left: 1px solid #666;
+  flex: 7;
+
+  display: flex;
+  flex-direction: column;
+  width: 0;
+}
+
+.top-bar {
+  border-bottom: 1px solid #444;
+  display: flex;
+  overflow-x: auto;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0.5em 1em 0;
+}
+.tab-bar {
+  height: 2em;
+  display: flex;
+  overflow-x: auto;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0 0 0 2em;
+  line-height: 1.5em;
+}
+
+.tab-bar li {
+  background-color: #222;
+  transition: background-color 0.2s;
+  border-radius: 5px 5px 0 0;
+  border: 1px solid #222;
+  border-bottom: 0px;
+
+  padding: 0.25em 0.5em;
+  font-size: 0.9em;
+  min-width: 14em;
+  cursor: pointer;
+  margin-right: 0.5em;
+
+  display: flex;
+}
+.tab-bar li:hover {
+  background-color: #444;
+}
+.tab-bar .label {
+  flex: 1;
+  margin: 0 0.5em;
+  vertical-align: center;
+}
+
+.tab-bar .active {
+  background-color: #333;
+}
+.tab-bar li:not(.active) {
+  border-color: #333;
+}
+
+.tab-bar .close-btn {
+  color: #222;
+  transition: color 0.2s;
+}
+.tab-bar li:hover .close-btn {
+  color: #999;
+}
+.tab-bar li .close-btn:hover {
+  color: #f33;
+  background-color: #111;
+  border-radius: 5px;
+}
+
+.tab-bar .nav-btn {
+  color: #222;
+  transition: color 0.2s;
+}
+.tab-bar li:hover .nav-btn {
+  color: #999;
+}
+.tab-bar li .nav-btn:hover {
+  color: #3ff;
+  background-color: #111;
+  border-radius: 5px;
+}
+
+.tab-bar .dirty {
+  color: #9977ff;
+}
+.tab-bar .untouched {
+  font-style: italic;
+}
+
+#tool-bar {
+  display: flex;
+  margin: 0;
+  padding: 0;
+}
+#tool-bar li {
+  display: flex;
+  margin: 0.2em;
+  padding: 0.2em;
+  background-color: #333;
+  border: 1px solid transparent;
+}
+#tool-bar li:hover {
+  cursor: pointer;
+  border-color: #666;
+}
+
+
+
+
+/* launch tab */
+.launch-bg {
+  background: url('https://i.imgur.com/0MDLEN9.jpg') no-repeat center center;
+  background-size: cover;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.launch-box {
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-family: 'Slabo 27px', serif;
+  padding: 1em;
+  align-self: stretch;
+  max-width: 30em;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+@media screen and (min-device-width: 1200px) {
+  .launch-box {
+    max-height: 70%;
+    box-shadow:
+      0 4px 5px 0 rgba(0, 0, 0, 0.14),
+      0 1px 10px 0 rgba(0, 0, 0, 0.12);
+  }
+}
+
+.launch-box h2 {
+  font-size: 2em;
+  flex-shrink: 0;
+  margin-top: 0;
+  text-align: center;
+  font-weight: 400;
+  text-transform: lowercase;
+}
+.launch-box h2:before,
+.launch-box h2:after {
+  content: '-'; /* TODO: em dash */
+  margin: 0 0.5em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.launch-box h3.subh {
+  font-size: 1.2em;
+  flex-shrink: 0;
+  margin-top: 0;
+  text-align: center;
+  font-weight: 200;
+  text-transform: lowercase;
+}
+
+.launch-box .app-list {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+}
+.app-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-launcher {
+  display: block;
+  width: 96px;
+  text-align: center;
+  margin-bottom: 1em;
+
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+}
+.app-launcher:hover {
+  color: #fff;
+}
+
+.app-launcher img {
+  width: 64px;
+  height: 64px;
+}
+
+.app-launcher h3 {
+  font-weight: 400;
+  margin: 0;
+}
+
+
+
+
+#iframe-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.appframe {
+  flex: 1;
+}
