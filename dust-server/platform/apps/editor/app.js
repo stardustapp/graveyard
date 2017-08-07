@@ -37,11 +37,11 @@ Vue.component('entry-item', {
   computed: {
     isFunction() {
       return this.stat.Shapes &&
-          this.stat.Shapes.indexOf('/tmp/browse/rom/shapes/function') !== -1;
+          this.stat.Shapes.indexOf('/rom/shapes/function') !== -1;
     },
     canLaunch() {
-      return this.stat.Shapes &&
-          this.stat.Shapes.indexOf('/tmp/browse/rom/shapes/web-app') !== -1;
+      return this.path.match(/^\/web\/[a-z]+$/) || (this.stat.Shapes &&
+          this.stat.Shapes.indexOf('/rom/shapes/web-app') !== -1);
     },
     launchUri() {
       return '/~' + chartName + this.path.replace(/^\/web/, '') + '/';
@@ -126,8 +126,8 @@ Vue.component('entry-item', {
       if (!this.loader) {
         this.loader = skylinkP.then(x => x.enumerate(this.path, {
           shapes: [
-            '/tmp/browse/rom/shapes/function',
-            '/tmp/browse/rom/shapes/web-app',
+            '/rom/shapes/function',
+            '/rom/shapes/web-app',
           ],
         })).then(x => {
           this.entry = x.splice(0, 1)[0];
@@ -599,7 +599,7 @@ var app = new Vue({
         this.offsetTabIdx(tab.tab, 1);
         break;
 
-      case evt.code === 'KeyS' && evt.metaKey:
+      case evt.code === 'KeyS' && (evt.metaKey || evt.ctrlKey):
         if (tab) {
           evt.preventDefault();
           console.log('Saving tab:', tab.tab.label);
@@ -615,7 +615,7 @@ var app = new Vue({
         }
         break;
 
-      case evt.code === 'KeyN' && evt.metaKey:
+      case evt.code === 'KeyN' && (evt.metaKey || evt.ctrlKey):
         if (tab) {
           evt.preventDefault();
           const pathParts = tab.tab.path.slice(1).split('/');
@@ -629,7 +629,7 @@ var app = new Vue({
         break;
 
       default:
-        console.log('key', evt.code, evt.metaKey);
+        console.log('key', evt.code, evt.metaKey, evt.ctrlKey);
 
       }
     },
