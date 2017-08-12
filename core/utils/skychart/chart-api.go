@@ -19,6 +19,9 @@ func (a *chartApi) Children() []string {
 	return []string{
 		"manage",
 		"browse",
+		"launch",
+
+		"session-id",
 		"owner-name",
 		"owner-email",
 		"created-date",
@@ -38,6 +41,12 @@ func (a *chartApi) Fetch(name string) (child base.Entry, ok bool) {
 		entriesDir, _ := a.chart.ctx.GetFolder("/entries")
 		return inmem.NewFolderOf("browse",
 			&chartBrowseFunc{a.chart, entriesDir},
+		).Freeze(), true
+
+	case "launch":
+		entriesDir, _ := a.chart.ctx.GetFolder("/entries")
+		return inmem.NewFolderOf("launch",
+			&chartLaunchFunc{a.chart, entriesDir},
 		).Freeze(), true
 
 	case "owner-name":

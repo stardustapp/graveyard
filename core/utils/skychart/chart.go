@@ -7,9 +7,10 @@ import (
 )
 
 type Chart struct {
-	name   string
-	engine *Engine
-	ctx    base.Context
+	name      string
+	sessionId string
+	engine    *Engine
+	ctx       base.Context
 }
 
 func (c *Chart) getApi() base.Entry {

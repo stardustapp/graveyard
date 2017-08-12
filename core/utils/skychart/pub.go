@@ -11,6 +11,7 @@ import (
 // TODO
 var engine *Engine
 
+var sessFolder *inmem.Folder = inmem.NewFolderOf("sessions")
 var pubFolder *inmem.Folder = inmem.NewFolderOf("pub",
 	inmem.NewFolderOf("open",
 		inmem.NewFunction("invoke", openChart),
@@ -18,7 +19,7 @@ var pubFolder *inmem.Folder = inmem.NewFolderOf("pub",
 	inmem.NewFolderOf("create",
 		inmem.NewFunction("invoke", createChart),
 	).Freeze(),
-	inmem.NewFolderOf("graphs"), // TODO: rm
+	sessFolder,
 )
 
 func openChart(ctx base.Context, input base.Entry) (output base.Entry) {

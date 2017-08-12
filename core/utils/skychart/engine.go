@@ -71,6 +71,11 @@ func (e *Engine) expireCache(name string) {
 		log.Println("Expiring find cache", name)
 		delete(e.findCache, name)
 
+		if chart.sessionId != "" {
+			log.Println("Culling session", chart.sessionId, "of", name)
+			sessFolder.Put(chart.sessionId, nil)
+		}
+
 		if _, ok := e.launchCache[chart.String()]; ok {
 			log.Println("Expiring launch cache", name)
 			delete(e.launchCache, chart.String())
