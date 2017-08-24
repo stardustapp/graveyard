@@ -71,9 +71,12 @@ func (e *Engine) expireCache(name string) {
 		log.Println("Expiring find cache", name)
 		delete(e.findCache, name)
 
-		if chart.sessionId != "" {
-			log.Println("Culling session", chart.sessionId, "of", name)
-			sessFolder.Put(chart.sessionId, nil)
+		for sessionId, session := range chart.sessions {
+			log.Println("Breaking session", sessionId, "of", name)
+			session.state = "Expired"
+
+			// TODO: clean up on a timer
+			//sessFolder.Put(chart.sessionId, nil)
 		}
 
 		if _, ok := e.launchCache[chart.String()]; ok {
@@ -100,9 +103,10 @@ func (e *Engine) findChart(name string) *Chart {
 
 	ns := base.NewNamespace("skylink://"+name+".chart.local", chartRoot)
 	chart := &Chart{
-		name:   name,
-		engine: e,
-		ctx:    base.NewRootContext(ns),
+		name:     name,
+		sessions: make(map[string]*session),
+		engine:   e,
+		ctx:      base.NewRootContext(ns),
 	}
 	e.findCache[name] = chart
 	return chart

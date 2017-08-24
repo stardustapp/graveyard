@@ -18,10 +18,34 @@ func (e *chartLaunchFunc) Name() string {
 }
 
 func (e *chartLaunchFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
-	if e.chart.sessionId == "" {
-		e.chart.sessionId = extras.GenerateId()
-		sessFolder.Put(e.chart.sessionId, engine.launchChart(e.chart))
+	chart := engine.launchChart(e.chart)
+	sessionId := extras.GenerateId()
+
+	var secret string
+	if inStr, ok := input.(base.String); ok {
+		secret = inStr.Get()
 	}
 
-	return inmem.NewString("session-id", e.chart.sessionId)
+	if e.chart.name == "dan" {
+		if secret != "butts lol" {
+			return inmem.NewString("error", "Invalid secret for chart ~"+e.chart.name)
+		}
+	}
+
+	s := &session{
+		id:    sessionId,
+		state: "Ready",
+		root:  inmem.NewFolder(sessionId),
+	}
+	s.root.Put("mnt", chart)
+	//s.root.Put("meta", e.chart)
+	e.chart.sessions[sessionId] = s
+	sessFolder.Put(sessionId, s.root)
+
+	return inmem.NewString("session-id", sessionId)
+}
+
+type session struct {
+	id, state string
+	root      base.Folder
 }

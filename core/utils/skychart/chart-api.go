@@ -21,7 +21,6 @@ func (a *chartApi) Children() []string {
 		"browse",
 		"launch",
 
-		"session-id",
 		"owner-name",
 		"owner-email",
 		"created-date",
