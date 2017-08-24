@@ -38,7 +38,15 @@ func (e *chartLaunchFunc) Invoke(ctx base.Context, input base.Entry) (output bas
 		root:  inmem.NewFolder(sessionId),
 	}
 	s.root.Put("mnt", chart)
+
+	s.root.Put("system", inmem.NewFolderOf("system",
+		inmem.NewFolder("chart-name"),
+		inmem.NewFolder("sessions"),
+		inmem.NewFolder("sessions"),
+	))
+	s.root.Put("session", inmem.NewFolder("session"))
 	//s.root.Put("meta", e.chart)
+
 	e.chart.sessions[sessionId] = s
 	sessFolder.Put(sessionId, s.root)
 
