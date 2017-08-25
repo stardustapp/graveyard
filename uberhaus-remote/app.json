@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "description": "Uberhaus IoT Remote",
+    "slug": "snack-rywlbE6O-",
+    "privacy": "unlisted",
+    "sdkVersion": "20.0.0",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "primaryColor": "#cccccc",
+    "icon": "https://i.imgur.com/ADA6s7G.png",
+    "loading": {
+      "icon": "https://i.imgur.com/ADA6s7G.png",
+      "hideExponentText": true
+    },
+    "packagerOpts": {
+      "assetExts": [
+        "ttf",
+        "mp4",
+        "otf"
+      ]
+    },
+    "ios": {
+      "supportsTablet": true
+    }
+  }
+}
