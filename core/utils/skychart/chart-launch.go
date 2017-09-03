@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/extras"
 	"github.com/stardustapp/core/inmem"
@@ -21,13 +23,20 @@ func (e *chartLaunchFunc) Invoke(ctx base.Context, input base.Entry) (output bas
 	chart := engine.launchChart(e.chart)
 	sessionId := extras.GenerateId()
 
-	var secret string
+	// TODO: cache this
+	ns := base.NewNamespace("//"+e.chart.name+".chart.local", chart)
+	chartCtx := base.NewRootContext(ns)
+
+	var offeredSecret string
 	if inStr, ok := input.(base.String); ok {
-		secret = inStr.Get()
+		offeredSecret = inStr.Get()
 	}
 
-	if e.chart.name == "dan" {
-		if secret != "butts lol" {
+	if chartSecret, ok := chartCtx.GetString("/persist/launch-secret"); ok {
+		if offeredSecret == chartSecret.Get() {
+			log.Println("Verified correct launch secret for ~%s", e.chart.name)
+		} else {
+			log.Println("Rejecting incorrect launch secret for ~%s - %q", e.chart.name, offeredSecret)
 			return inmem.NewString("error", "Invalid secret for chart ~"+e.chart.name)
 		}
 	}
@@ -56,4 +65,5 @@ func (e *chartLaunchFunc) Invoke(ctx base.Context, input base.Entry) (output bas
 type session struct {
 	id, state string
 	root      base.Folder
+	ctx       base.Context
 }
