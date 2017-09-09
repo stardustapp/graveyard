@@ -46,7 +46,7 @@ enumeratePath = (chart, baseUri, maxDepth) => {
       const dest = '/tmp/autocomplete-local-chart-' + chartName;
       return skychart.skylink.invoke('/pub/open/invoke', input, dest1)
         .then(() => skychart.skylink.invoke(dest1 + '/browse/invoke', null, dest))
-        .then(() => skychart.skylink.enumerate(dest + linkMatch[3], {
+        .then(() => skychart.skylink.enumerate(dest + (linkMatch[3] || ''), {
           maxDepth: maxDepth,
           includeRoot: false,
         }));
