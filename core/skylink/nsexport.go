@@ -8,7 +8,7 @@ import (
 // Directory containing the clone function
 func GetNsexportDriver() base.Folder {
 	return inmem.NewFolderOf("nsexport",
-		inmem.NewFunction("invoke", nsexportFunc),
+		inmem.NewFunction("invoke", NsexportFunc),
 	).Freeze()
 }
 
@@ -20,7 +20,7 @@ type nsexport struct {
 }
 
 // Function that creates a new HTTP server when invoked
-func nsexportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
+func NsexportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 	ns := base.NewNamespace("starns://apt.danopia.net", input.(base.Folder))
 	ctx2 := base.NewRootContext(ns)
 

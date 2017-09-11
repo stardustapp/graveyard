@@ -24,7 +24,7 @@ func main() {
 
 	log.Println("Loaded", platforms.CountPlatforms(), "platforms")
 
-	orbiter := toolbox.NewOrbiter("stargen://", *skyLinkUri)
+	orbiter := toolbox.NewRemoteOrbiter("stargen://", *skyLinkUri)
 	gen := stargen.Stargen{
 		Orbiter:     orbiter,
 		DriverCtx:   orbiter.GetContextFor("/mnt/pub" + *driverPath),

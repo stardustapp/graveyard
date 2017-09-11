@@ -19,7 +19,7 @@ func main() {
 	var skyLinkPath = flag.String("skylink-path", "/pub", "Location on Skylink upstream to present on the FS")
 	flag.Parse()
 
-	orbiter := toolbox.NewOrbiter("starfs://", *skyLinkUri)
+	orbiter := toolbox.NewRemoteOrbiter("starfs://", *skyLinkUri)
 	ctx := orbiter.GetContextFor("/mnt" + *skyLinkPath)
 
 	// Try cleaning up past state
