@@ -23,3 +23,28 @@ func NewInt64Dispenser() (d *Int64Dispenser) {
 
 	return d
 }
+
+
+type IntDispenser struct {
+	lastInt int
+	C       <-chan int
+}
+
+func NewIntDispenser() (d *IntDispenser) {
+	C := make(chan int)
+
+	d = &IntDispenser{
+		lastInt: 0,
+		C:       C,
+	}
+
+	go func() {
+		for {
+			nextInt := d.lastInt + 1
+			C <- nextInt
+			d.lastInt = nextInt
+		}
+	}()
+
+	return d
+}

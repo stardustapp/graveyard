@@ -6,6 +6,7 @@ import (
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
+	"github.com/stardustapp/core/extras"
 
 	"github.com/gorilla/websocket"
 )
@@ -69,6 +70,7 @@ func (b *nsexportWsBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		conn:   conn,
 
 		remoteAddr: r.RemoteAddr,
+		chanDispenser: extras.NewIntDispenser(),
 	}
 	go client.loop()
 }
@@ -80,6 +82,7 @@ type nsexportWs struct {
 	conn   *websocket.Conn
 
 	remoteAddr string
+	chanDispenser *extras.IntDispenser
 }
 
 func (e *nsexportWs) loop() {
@@ -93,6 +96,39 @@ func (e *nsexportWs) loop() {
 
 		res := processNsRequest(e.root, req)
 		log.Println("nsexport-ws:", req.Op, "op on", req.Path, "from", e.remoteAddr, "was ok:", res.Ok)
+
+		// If there's a channel being set up, let's plumb it
+		// TODO: support failure
+		if res.Channel != nil {
+			// assign an ID
+			res.Chan = <-e.chanDispenser.C
+			// TODO: record a neat channel struct for stopping the channel upstream
+
+			// pump outbound packets
+			go func(id int, c <-chan nsResponse) {
+				log.Println("nsexport-ws: Running channel exporter on #", id)
+				defer log.Println("nsexport-ws: Stopped channel exporter on #", id)
+
+				for packet := range c {
+					packet.Chan = id
+					log.Println("nsexport-ws: Channel #", id, "passed a", packet.Status)
+					if err := e.conn.WriteJSON(&packet); err != nil {
+						log.Println("nsexport-ws: error writing outbound channel packet:", err, packet)
+						// TODO: stop the channel, also when connection is closed
+						return
+					}
+				}
+			}(res.Chan, res.Channel)
+		}
+
+		// rewrite statuses
+		if res.Status == "" {
+			if res.Ok {
+				res.Status = "Ok"
+			} else {
+				res.Status = "Failed"
+			}
+		}
 
 		if err := e.conn.WriteJSON(&res); err != nil {
 			log.Println("nsexport-ws: error writing outbound json:", err, res)

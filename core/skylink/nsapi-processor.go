@@ -102,6 +102,58 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		res.Ok = enum.IsOk()
 		res.Output = listEnt
 
+	case "subscribe":
+		var ent base.Entry
+		ent, res.Ok = root.Get(req.Path)
+		if !res.Ok {
+			log.Println("nsapi: can't find", req.Path, "to start subscription at")
+			return
+		}
+
+		res.Ok = true
+		res.Channel = make(chan nsResponse)
+
+		sub := NewSubscription(ent, req.Depth)
+		sub.Run()
+		go func(inC <-chan Notification, outC chan<- nsResponse) {
+			log.Println("starting notif pump")
+			defer log.Println("starting notif pump")
+
+			for next := range inC {
+				log.Printf("pumping %+v", next.Entry)
+				children := []nsEntry{{
+					Name: "type",
+					Type: "String",
+					StringValue: next.Type,
+				},{
+					Name: "path",
+					Type: "String",
+					StringValue: next.Path,
+				}}
+
+				pktEntry := convertEntryToApi(next.Entry)
+				if pktEntry != nil {
+					pktEntry.Name = "entry"
+					children = append(children, *pktEntry)
+				}
+
+				// TODO: make errors to errors?
+				outC <- nsResponse{
+					Status: "Next",
+					Output: &nsEntry{
+						Name: "notif",
+						Type: "Folder",
+						Children: children,
+					},
+				}
+			}
+
+			outC <- nsResponse{
+				Status: "Done",
+			}
+			close(outC)
+		}(sub.streamC, res.Channel)
+
 	case "invoke":
 		var fun base.Function
 		fun, res.Ok = root.GetFunction(req.Path)
