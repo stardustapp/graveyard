@@ -65,11 +65,12 @@ var app = new Vue({
   },
   methods: {
     load() {
-      skylink.enumerate('/todo', {
-        includeRoot: false,
-      }).then(children => {
-        this.list = children.map(x => x.Name);
-      });
+      skylink.subscribe('/todo')
+        .then(sub => sub.readyPromise)
+        .then(sub => {
+          console.log('sub is ready');
+          this.list = ['hi'];
+        });
     },
   },
   created() {
