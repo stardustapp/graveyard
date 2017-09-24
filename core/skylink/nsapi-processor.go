@@ -7,6 +7,8 @@ import (
 )
 
 func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
+	metric.Incr("op.invocation", []string{"op:" + req.Op}, 1)
+
 	switch req.Op {
 
 	case "ping":
@@ -117,17 +119,17 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		sub.Run()
 		go func(inC <-chan Notification, outC chan<- nsResponse) {
 			log.Println("starting notif pump")
-			defer log.Println("starting notif pump")
+			defer log.Println("stopping notif pump")
 
 			for next := range inC {
 				log.Printf("pumping %+v", next.Entry)
 				children := []nsEntry{{
-					Name: "type",
-					Type: "String",
+					Name:        "type",
+					Type:        "String",
 					StringValue: next.Type,
-				},{
-					Name: "path",
-					Type: "String",
+				}, {
+					Name:        "path",
+					Type:        "String",
 					StringValue: next.Path,
 				}}
 
@@ -141,8 +143,8 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 				outC <- nsResponse{
 					Status: "Next",
 					Output: &nsEntry{
-						Name: "notif",
-						Type: "Folder",
+						Name:     "notif",
+						Type:     "Folder",
 						Children: children,
 					},
 				}

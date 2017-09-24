@@ -1,8 +1,8 @@
 package skylink
 
 import (
-	"log"
 	"fmt"
+	"log"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
@@ -12,7 +12,7 @@ import (
 type Subscription struct {
 	root     base.Entry
 	maxDepth int
-	cancelC  chan struct{} // closed when the sub is terminated
+	cancelC  chan struct{}     // closed when the sub is terminated
 	streamC  chan Notification // kept open to prevent panics. TODO: close later
 }
 
@@ -24,8 +24,8 @@ type Subscribable interface {
 
 // A wire notification representing a data or state observation
 type Notification struct {
-	Type string
-	Path string
+	Type  string
+	Path  string
 	Entry base.Entry
 }
 
@@ -33,12 +33,12 @@ func NewSubscription(root base.Entry, maxDepth int) *Subscription {
 	return &Subscription{
 		root:     root,
 		maxDepth: maxDepth,
-		cancelC: make(chan struct{}),
+		cancelC:  make(chan struct{}),
 	}
 }
 
 func (s *Subscription) Run() {
-	if (s.streamC != nil ) {
+	if s.streamC != nil {
 		panic("Subscription is already running")
 	}
 	s.streamC = make(chan Notification, 5)
@@ -50,8 +50,8 @@ func (s *Subscription) SendNotification(nType, path string, node base.Entry) {
 	log.Println("nsapi: Sending", nType, "notification on", path, "w/", node)
 
 	s.streamC <- Notification{
-		Type: nType,
-		Path: path,
+		Type:  nType,
+		Path:  path,
 		Entry: node,
 	}
 }
@@ -69,19 +69,19 @@ func (s *Subscription) subscribe(depth int, path string, src base.Entry) {
 	}
 
 	/*
-	// Recurse if the thing is a Folder and we have depth
-	if depth < s.maxDepth || s.maxDepth == -1 {
-		if entry, ok := src.(base.Folder); ok {
-			for _, name := range entry.Children() {
-				child, ok := entry.Fetch(name)
-				if ok {
-					e.enumerate(depth+1, strings.TrimPrefix(path+"/"+name, "/"), child)
-				} else {
-					log.Println("enumerate: Couldn't get", name, "from", path)
+		// Recurse if the thing is a Folder and we have depth
+		if depth < s.maxDepth || s.maxDepth == -1 {
+			if entry, ok := src.(base.Folder); ok {
+				for _, name := range entry.Children() {
+					child, ok := entry.Fetch(name)
+					if ok {
+						e.enumerate(depth+1, strings.TrimPrefix(path+"/"+name, "/"), child)
+					} else {
+						log.Println("enumerate: Couldn't get", name, "from", path)
+					}
 				}
 			}
 		}
-	}
 	*/
 
 	if !handled {

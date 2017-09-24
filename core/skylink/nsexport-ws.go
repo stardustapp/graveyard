@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/stardustapp/core/base"
-	"github.com/stardustapp/core/inmem"
 	"github.com/stardustapp/core/extras"
+	"github.com/stardustapp/core/inmem"
 
 	"github.com/gorilla/websocket"
 )
@@ -69,7 +69,7 @@ func (b *nsexportWsBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		root:   base.NewRootContext(ns),
 		conn:   conn,
 
-		remoteAddr: r.RemoteAddr,
+		remoteAddr:    r.RemoteAddr,
 		chanDispenser: extras.NewIntDispenser(),
 	}
 	go client.loop()
@@ -81,7 +81,7 @@ type nsexportWs struct {
 	root   base.Context
 	conn   *websocket.Conn
 
-	remoteAddr string
+	remoteAddr    string
 	chanDispenser *extras.IntDispenser
 }
 

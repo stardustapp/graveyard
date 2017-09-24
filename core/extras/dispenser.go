@@ -24,7 +24,6 @@ func NewInt64Dispenser() (d *Int64Dispenser) {
 	return d
 }
 
-
 type IntDispenser struct {
 	lastInt int
 	C       <-chan int
