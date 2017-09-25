@@ -105,20 +105,21 @@ func (e *nsexportWs) loop() {
 			// TODO: record a neat channel struct for stopping the channel upstream
 
 			// pump outbound packets
-			go func(id int, c <-chan nsResponse) {
+			go func(op string, id int, c <-chan nsResponse) {
 				log.Println("nsexport-ws: Running channel exporter on #", id)
 				defer log.Println("nsexport-ws: Stopped channel exporter on #", id)
 
 				for packet := range c {
 					packet.Chan = id
 					log.Println("nsexport-ws: Channel #", id, "passed a", packet.Status)
+					extras.MetricIncr("skylink.channel.packet", "op:"+op, "transport:ws", "status:"+packet.Status)
 					if err := e.conn.WriteJSON(&packet); err != nil {
 						log.Println("nsexport-ws: error writing outbound channel packet:", err, packet)
 						// TODO: stop the channel, also when connection is closed
 						return
 					}
 				}
-			}(res.Chan, res.Channel)
+			}(req.Op, res.Chan, res.Channel)
 		}
 
 		// rewrite statuses

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stardustapp/core/base"
+	"github.com/stardustapp/core/extras"
 	"github.com/stardustapp/core/inmem"
 )
 
@@ -28,6 +29,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// system endpoints register in the router above us,
 		// so if we got here, it doesn't exist
 		http.Error(w, "System endpoint missing", http.StatusNotFound)
+		extras.MetricIncr("skychart.web_request", "method:"+r.Method, "ok:false", "error:system-route-missing")
 		return
 
 	} else if strings.HasPrefix(requestURI, "/~") {
@@ -43,33 +45,38 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	chart := e.findChart(chartName)
 	if chart == nil {
 		http.Error(w, "Chart ~"+chartName+" not found", http.StatusNotFound)
+		extras.MetricIncr("skychart.web_request", "method:"+r.Method, "ok:false", "error:chart-missing")
 		return
 	}
 
 	chartRoot := e.launchChart(chart)
 	if chartRoot == nil {
 		http.Error(w, "Chart ~"+chartName+" failed to launch", http.StatusServiceUnavailable)
+		extras.MetricIncr("skychart.web_request", "method:"+r.Method, "ok:false", "error:launch-failed", "chart:"+chartName)
 		return
 	}
 
 	chartFolder, ok := chartRoot.(base.Folder)
 	if !ok {
 		http.Error(w, "Chart ~"+chartName+" did not present a Folder (somehow)", http.StatusInternalServerError)
+		extras.MetricIncr("skychart.web_request", "method:"+r.Method, "ok:false", "error:root-isnt-folder", "chart:"+chartName)
 		return
 	}
 
 	if webRoot, ok := chartFolder.Fetch("web"); ok {
-		ServeStarHTTP(webRoot, prefix, w, r)
+		ServeStarHTTP(webRoot, prefix, w, r, chartName)
 	} else {
+		extras.MetricIncr("skychart.web_request", "method:"+r.Method, "ok:false", "error:missing-web", "chart:"+chartName)
 		http.Error(w, "Chart ~"+chartName+" does not have a web endpoint", http.StatusNotFound)
 	}
 }
 
-func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *http.Request) {
+func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *http.Request, chartName string) {
 	// r.Method, r.URL, r.Proto, r.Header, r.Body, r.Host, r.Form, r.RemoteAddr
 
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)
+		extras.MetricIncr("skychart.web_request", "ok:false", "error:method-not-allowed", "method:"+r.Method, "chart:"+chartName)
 		return
 	}
 
@@ -93,6 +100,7 @@ func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *htt
 
 	if ok := handle.Walk(path); !ok {
 		http.Error(w, "Name not found", http.StatusNotFound)
+		extras.MetricIncr("skychart.web_request", "ok:false", "error:name-not-found", "method:"+r.Method, "chart:"+chartName)
 		return
 	}
 
@@ -104,6 +112,7 @@ func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *htt
 		folder, ok := handle.GetFolder()
 		if !ok {
 			http.Error(w, "Folder not found", http.StatusNotFound)
+			extras.MetricIncr("skychart.web_request", "ok:false", "error:folder-not-found", "method:"+r.Method, "chart:"+chartName)
 			return
 		}
 
@@ -117,6 +126,9 @@ func ServeStarHTTP(root base.Entry, prefix string, w http.ResponseWriter, r *htt
 		// non-folders have no special logic, just attempt to render
 		entry = handle.Get()
 	}
+
+	// this might be presumptuous
+	extras.MetricIncr("skychart.web_request", "ok:true", "method:"+r.Method, "chart:"+chartName)
 
 	switch entry := entry.(type) {
 

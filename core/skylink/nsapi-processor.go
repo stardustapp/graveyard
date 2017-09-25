@@ -2,13 +2,14 @@ package skylink
 
 import (
 	"log"
+	"time"
 
 	"github.com/stardustapp/core/base"
+	"github.com/stardustapp/core/extras"
 )
 
 func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
-	metric.Incr("op.invocation", []string{"op:" + req.Op}, 1)
-
+	start := time.Now()
 	switch req.Op {
 
 	case "ping":
@@ -19,12 +20,12 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		ent, res.Ok = root.Get(req.Path)
 		//log.Println("nsexport: get on", req.Path, "was", res.Ok)
 		if !res.Ok {
-			return
+			break
 		}
 		if ent == nil {
 			//log.Println("nsexport: get on", req.Path, "was nil")
 			res.Ok = false
-			return
+			break
 		}
 
 		wireEnt := &nsEntry{
@@ -83,7 +84,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		ent, res.Ok = root.Get(req.Path)
 		if !res.Ok {
 			log.Println("nsapi: can't find", req.Path, "to start enumeration at")
-			return
+			break
 		}
 
 		listEnt := &nsEntry{
@@ -109,7 +110,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		ent, res.Ok = root.Get(req.Path)
 		if !res.Ok {
 			log.Println("nsapi: can't find", req.Path, "to start subscription at")
-			return
+			break
 		}
 
 		res.Ok = true
@@ -160,7 +161,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		var fun base.Function
 		fun, res.Ok = root.GetFunction(req.Path)
 		if !res.Ok {
-			return
+			break
 		}
 
 		log.Println("=> invoking", req.Path)
@@ -181,7 +182,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		if entry == nil {
 			// block deleting via store
 			log.Println("=> blocking nil store to", req.Dest)
-			return
+			break
 		}
 
 		log.Println("=> storing to", req.Dest, entry)
@@ -191,7 +192,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		var src base.Entry
 		src, res.Ok = root.Get(req.Path)
 		if !res.Ok {
-			return
+			break
 		}
 
 		log.Println("=> copying", req.Path, "to", req.Dest)
@@ -205,7 +206,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		var channel base.Channel
 		channel, res.Ok = root.GetChannel(req.Path)
 		if !res.Ok {
-			return
+			break
 		}
 
 		log.Println("=> reading from channel", req.Path)
@@ -218,7 +219,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 			value, res.Ok = channel.TryNext()
 		}
 		if !res.Ok {
-			return
+			break
 		}
 
 		if req.Dest != "" {
@@ -234,14 +235,14 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		var channel base.Channel
 		channel, res.Ok = root.GetChannel(req.Dest)
 		if !res.Ok {
-			return
+			break
 		}
 
 		var entry base.Entry
 		if req.Path != "" {
 			entry, res.Ok = root.Get(req.Path)
 			if !res.Ok {
-				return
+				break
 			}
 		} else {
 			entry = convertEntryFromApi(req.Input)
@@ -250,7 +251,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		if entry == nil {
 			// block deleting via store
 			log.Println("=> blocking nil write to", req.Dest)
-			return
+			break
 		}
 
 		log.Println("=> writing to channel", req.Dest)
@@ -260,7 +261,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		var channel base.Channel
 		channel, res.Ok = root.GetChannel(req.Path)
 		if !res.Ok {
-			return
+			break
 		}
 
 		log.Println("=> closing channel", req.Path)
@@ -270,5 +271,15 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 	default:
 		log.Println("nsexport op", req.Op, "not implemented")
 	}
+
+	// report operation metrics
+	okTag := "ok:false"
+	if res.Ok {
+		okTag = "ok:true"
+	}
+	elapsedMs := float64(time.Since(start) / time.Millisecond)
+	extras.MetricIncr("skylink.op.invocation", "op:"+req.Op, okTag)
+	extras.MetricGauge("skylink.op.elapsed_ms", elapsedMs, "op:"+req.Op, okTag)
+
 	return
 }
