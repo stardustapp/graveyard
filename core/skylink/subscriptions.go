@@ -1,11 +1,10 @@
 package skylink
 
 import (
-	"fmt"
+	"errors"
 	"log"
 
 	"github.com/stardustapp/core/base"
-	"github.com/stardustapp/core/inmem"
 )
 
 // Represents an individual request to receive change notifications
@@ -19,7 +18,7 @@ type Subscription struct {
 // A resource that is natively subscribable.
 // It'll take care of itself + children
 type Subscribable interface {
-	Subscribe(s *Subscription, depth int, prefix string) (ok bool)
+	Subscribe(s *Subscription) (err error)
 }
 
 // A wire notification representing a data or state observation
@@ -37,13 +36,13 @@ func NewSubscription(root base.Entry, maxDepth int) *Subscription {
 	}
 }
 
-func (s *Subscription) Run() {
+func (s *Subscription) Run() error {
 	if s.streamC != nil {
 		panic("Subscription is already running")
 	}
 	s.streamC = make(chan Notification, 5)
 
-	go s.subscribe(0, "", s.root)
+	return s.subscribe(s.root)
 }
 
 func (s *Subscription) SendNotification(nType, path string, node base.Entry) {
@@ -56,44 +55,21 @@ func (s *Subscription) SendNotification(nType, path string, node base.Entry) {
 	}
 }
 
-func (s *Subscription) subscribe(depth int, path string, src base.Entry) {
-	var prefix string
-	if path != "" {
-		prefix = path + "/"
-	}
-
-	handled := false
+func (s *Subscription) subscribe(src base.Entry) error {
 	if subscribable, ok := src.(Subscribable); ok {
-		log.Println("skylink: Asking", src.Name(), "at", path, "to self-subscribe")
-		handled = subscribable.Subscribe(s, depth, prefix)
-	}
-
-	/*
-		// Recurse if the thing is a Folder and we have depth
-		if depth < s.maxDepth || s.maxDepth == -1 {
-			if entry, ok := src.(base.Folder); ok {
-				for _, name := range entry.Children() {
-					child, ok := entry.Fetch(name)
-					if ok {
-						e.enumerate(depth+1, strings.TrimPrefix(path+"/"+name, "/"), child)
-					} else {
-						log.Println("enumerate: Couldn't get", name, "from", path)
-					}
-				}
-			}
+		log.Println("skylink: Asking", src.Name(), "to self-subscribe")
+		if err := subscribable.Subscribe(s); err == nil {
+			log.Println("skylink: Subscribable accepted the sub")
+			// TODO: subscribable should do this
+			//s.SendNotification("ready", "", nil)
+			return nil
+		} else {
+			log.Println("skylink: Subscribable rejected sub:", err)
+			close(s.cancelC)
+			return err
 		}
-	*/
-
-	if !handled {
-		s.SendNotification("error", "", inmem.NewString("nosub",
-			fmt.Sprintf("Entry at path %q isn't subscribable", path)))
-		log.Printf("nsapi: Entry at path %q isn't subscribable", path)
-		close(s.cancelC)
-		return
 	}
 
-	// Mark ready if we're the last thing
-	if depth == 0 {
-		s.SendNotification("ready", "", nil)
-	}
+	close(s.cancelC)
+	return errors.New("skylink: Entry isn't subscribable")
 }

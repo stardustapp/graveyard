@@ -113,11 +113,21 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 			break
 		}
 
-		res.Ok = true
-		res.Channel = make(chan nsResponse)
-
 		sub := NewSubscription(ent, req.Depth)
-		sub.Run()
+		if err := sub.Run(); err != nil {
+			log.Println("nsapi: refusing subscribe on", req.Path)
+			res.Ok = false
+			res.Output = &nsEntry{
+				Name:        "nosub",
+				Type:        "String",
+				StringValue: err.Error(),
+			}
+			break
+		} else {
+			res.Ok = true
+			res.Channel = make(chan nsResponse)
+		}
+
 		go func(inC <-chan Notification, outC chan<- nsResponse) {
 			log.Println("starting notif pump")
 			defer log.Println("stopping notif pump")
