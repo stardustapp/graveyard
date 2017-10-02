@@ -105,7 +105,7 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 	req := nsRequest{
 		Op:    "subscribe",
 		Path:  e.prefix,
-		Depth: s.maxDepth,
+		Depth: s.MaxDepth,
 	}
 
 	resp, err := e.svc.transport.exec(req)

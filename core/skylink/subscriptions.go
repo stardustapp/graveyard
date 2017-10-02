@@ -10,7 +10,7 @@ import (
 // Represents an individual request to receive change notifications
 type Subscription struct {
 	root     base.Entry
-	maxDepth int
+	MaxDepth int
 	cancelC  chan struct{}     // closed when the sub is terminated
 	streamC  chan Notification // kept open to prevent panics. TODO: close later
 }
@@ -31,7 +31,7 @@ type Notification struct {
 func NewSubscription(root base.Entry, maxDepth int) *Subscription {
 	return &Subscription{
 		root:     root,
-		maxDepth: maxDepth,
+		MaxDepth: maxDepth,
 		cancelC:  make(chan struct{}),
 	}
 }
