@@ -123,10 +123,11 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 				StringValue: err.Error(),
 			}
 			break
-		} else {
-			res.Ok = true
-			res.Channel = make(chan nsResponse)
 		}
+
+		respC := make(chan nsResponse)
+		res.Ok = true
+		res.Channel = respC
 
 		go func(inC <-chan Notification, outC chan<- nsResponse) {
 			log.Println("starting notif pump")
@@ -162,7 +163,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 			}
 
 			close(outC)
-		}(sub.streamC, res.Channel)
+		}(sub.streamC, respC)
 
 	case "invoke":
 		var fun base.Function

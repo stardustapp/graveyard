@@ -14,10 +14,10 @@ type nsRequest struct {
 
 type nsResponse struct {
 	Ok      bool
-	Status  string          // "Ok", "Next", "Done", "Failed", TODO: replace Ok field
-	Chan    int             `json:",omitempty"` // If starting, continuing, or ending a channel
-	Channel chan nsResponse `json:"-"`          // Mapped from Chan, not sent on the wire
-	Output  *nsEntry        `json:",omitempty"`
+	Status  string            // "Ok", "Next", "Done", "Failed", TODO: replace Ok field
+	Chan    int               `json:",omitempty"` // If starting, continuing, or ending a channel
+	Channel <-chan nsResponse `json:"-"`          // Mapped from Chan, not sent on the wire
+	Output  *nsEntry          `json:",omitempty"`
 }
 
 type nsEntry struct {
