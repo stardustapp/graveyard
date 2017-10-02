@@ -130,7 +130,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 
 		go func(inC <-chan Notification, outC chan<- nsResponse) {
 			log.Println("starting notif pump")
-			defer log.Println("stopping notif pump")
+			defer log.Println("stopped notif pump")
 
 			for next := range inC {
 				log.Printf("pumping %+v", next.Entry)
@@ -161,9 +161,6 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 				}
 			}
 
-			outC <- nsResponse{
-				Status: "Done",
-			}
 			close(outC)
 		}(sub.streamC, res.Channel)
 

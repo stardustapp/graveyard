@@ -109,6 +109,9 @@ func (e *nsexportWs) loop() {
 				log.Println("nsexport-ws: Running channel exporter on #", id)
 				defer log.Println("nsexport-ws: Stopped channel exporter on #", id)
 
+				// to prevent double-closing in the wire proto
+				stillLive := true
+
 				for packet := range c {
 					packet.Chan = id
 					log.Println("nsexport-ws: Channel #", id, "passed a", packet.Status)
@@ -118,6 +121,24 @@ func (e *nsexportWs) loop() {
 						// TODO: stop the channel, also when connection is closed
 						return
 					}
+
+					if packet.Status != "Next" {
+						stillLive = false
+						break
+					}
+				}
+
+				if stillLive {
+					packet := &nsResponse{
+						Chan:   id,
+						Status: "Done",
+					}
+					extras.MetricIncr("skylink.channel.packet", "op:"+op, "transport:ws", "status:"+packet.Status)
+					if err := e.conn.WriteJSON(&packet); err != nil {
+						log.Println("nsexport-ws: error writing outbound channel Done packet:", err, packet)
+						return
+					}
+					log.Println("nsexport-ws: Auto-closed channel #", id)
 				}
 			}(req.Op, res.Chan, res.Channel)
 		}
