@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
@@ -54,22 +55,28 @@ func main() {
 		}
 	}
 
-	if *extraCharts != "" {
-		for _, chartName := range strings.Split(*extraCharts, ",") {
-			if chart := engine.findChart(chartName); chart == nil {
-				log.Println("WARN: Extra chart", chartName, "not found, ignoring")
-			} else {
-				if ent := engine.launchChart(chart); ent == nil {
-					log.Println("WARN: Extra chart", chartName, "failed to launch, ignoring")
-				}
-			}
-		}
-	}
-
 	log.Println("Starting nsexport...")
 	exportFunc, _ := ctx.GetFunction("/drivers/nsexport/invoke")
 	exportBase, _ := ctx.Get("/pub")
 	exportFunc.Invoke(ctx, exportBase)
+
+	if *extraCharts != "" {
+		go func(chartList []string) {
+			time.Sleep(30 * time.Second)
+			log.Println("Starting", len(chartList), "extra charts")
+			defer log.Println("Done launching", len(chartList), "extra charts")
+
+			for _, chartName := range chartList {
+				if chart := engine.findChart(chartName); chart == nil {
+					log.Println("WARN: Extra chart", chartName, "not found, ignoring")
+				} else {
+					if ent := engine.launchChart(chart); ent == nil {
+						log.Println("WARN: Extra chart", chartName, "failed to launch, ignoring")
+					}
+				}
+			}
+		}(strings.Split(*extraCharts, ","))
+	}
 
 	host := fmt.Sprint("0.0.0.0:", 9236)
 	log.Printf("Listening on %s...", host)
