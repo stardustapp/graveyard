@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
@@ -16,6 +17,7 @@ func main() {
 	var statePath = flag.String("data-store", "/mnt/pub/n/redis-ns/data/skychart", "Location on Skylink upstream to persist data in")
 	var homeDomain = flag.String("home-domain", "devmode.cloud", "Unique constant DNS-based name for this chart server")
 	var rootChart = flag.String("root-chart", "system", "Name of a primary chart to compile and boot at startup")
+	var extraCharts = flag.String("extra-charts", "", "Comma-seperated names of extras charts to attempt to boot at startup. Failures will be ignored")
 	flag.Parse()
 
 	if *statePath == "" {
@@ -49,6 +51,18 @@ func main() {
 		chart := engine.findChart(*rootChart)
 		if ent := engine.launchChart(chart); ent == nil {
 			log.Fatalln("Mandatory chart", *rootChart, "failed to launch")
+		}
+	}
+
+	if *extraCharts != "" {
+		for _, chartName := range strings.Split(*extraCharts, ",") {
+			if chart := engine.findChart(chartName); chart == nil {
+				log.Println("WARN: Extra chart", chartName, "not found, ignoring")
+			} else {
+				if ent := engine.launchChart(chart); ent == nil {
+					log.Println("WARN: Extra chart", chartName, "failed to launch, ignoring")
+				}
+			}
 		}
 	}
 
