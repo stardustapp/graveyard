@@ -3,6 +3,7 @@ package skylink
 import (
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/extras"
@@ -81,6 +82,7 @@ type nsexportWs struct {
 	root   base.Context
 	conn   *websocket.Conn
 
+	mutexW        sync.Mutex
 	remoteAddr    string
 	chanDispenser *extras.IntDispenser
 }
@@ -116,11 +118,14 @@ func (e *nsexportWs) loop() {
 					packet.Chan = id
 					log.Println("nsexport-ws: Channel #", id, "passed a", packet.Status)
 					extras.MetricIncr("skylink.channel.packet", "op:"+op, "transport:ws", "status:"+packet.Status)
+					e.mutexW.Lock()
 					if err := e.conn.WriteJSON(&packet); err != nil {
 						log.Println("nsexport-ws: error writing outbound channel packet:", err, packet)
 						// TODO: stop the channel, also when connection is closed
+						e.mutexW.Unlock()
 						return
 					}
+					e.mutexW.Unlock()
 
 					if packet.Status != "Next" {
 						stillLive = false
@@ -152,10 +157,13 @@ func (e *nsexportWs) loop() {
 			}
 		}
 
+		e.mutexW.Lock()
 		if err := e.conn.WriteJSON(&res); err != nil {
 			log.Println("nsexport-ws: error writing outbound json:", err, res)
+			e.mutexW.Unlock()
 			break
 		}
+		e.mutexW.Unlock()
 	}
 
 	log.Println("nsexport-ws: completed loop for", e.remoteAddr)
