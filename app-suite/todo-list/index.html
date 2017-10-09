@@ -45,7 +45,7 @@
       :depth="1"
       :filter="{status: 'todo'}">
     <template slot="item" scope="doc">
-      <li>
+      <li :key="doc._id">
         <label class="hit-area">
           <sky-action-checkbox
               :path="doc._path+'/status'"
