@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 )
 
 func main() {
@@ -15,15 +14,10 @@ func main() {
 	flag.Parse()
 
 	if *masterBinary == "" {
-		panic("Master Executable path is required")
+		log.Fatalln("Master Executable path is required")
 	}
 
 	host := fmt.Sprint("localhost:", *systemPort)
 	myUri := fmt.Sprint("skylink+ws://localhost:", *systemPort)
-	LaunchSystem(*masterBinary, myUri)
-
-	log.Printf("Listening on %s...", host)
-	if err := http.ListenAndServe(host, nil); err != nil {
-		log.Println("ListenAndServe:", err)
-	}
+	LaunchSystem(*masterBinary, myUri, host)
 }

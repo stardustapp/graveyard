@@ -4,13 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
-	"github.com/stardustapp/core/skylink"
 	"github.com/stardustapp/core/toolbox"
 )
 
@@ -31,10 +29,6 @@ func main() {
 	ctx := toolbox.NewOrbiter("starchart://")
 	ctx.Put("/pub", pubFolder)
 	ctx.Put("/tmp", inmem.NewFolder("tmp"))
-	ctx.Put("/drivers", inmem.NewFolderOf("drivers",
-		skylink.GetNsimportDriver(),
-		skylink.GetNsexportDriver(),
-	))
 
 	upstreamUri := *skyLinkUri
 	if *redisDriver != "" {
@@ -91,11 +85,7 @@ func main() {
 		}(strings.Split(*extraCharts, ","))
 	}
 
-	host := fmt.Sprint("0.0.0.0:", 9236)
-	log.Printf("Listening on %s...", host)
-	if err := http.ListenAndServe(host, nil); err != nil {
-		log.Println("ListenAndServe:", err)
-	}
+	toolbox.ServeHTTP(fmt.Sprint("0.0.0.0:", 9236))
 }
 
 func launchChart(ctx base.Context, name string) (ok bool) {

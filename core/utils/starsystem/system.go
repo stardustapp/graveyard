@@ -6,7 +6,6 @@ import (
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
-	"github.com/stardustapp/core/skylink"
 	"github.com/stardustapp/core/toolbox"
 )
 
@@ -20,7 +19,7 @@ type System struct {
 	processes    map[string]*Process
 }
 
-func LaunchSystem(masterBinary, systemUri string) {
+func LaunchSystem(masterBinary, systemUri, listenHost string) {
 	orbiter := toolbox.NewOrbiter(systemUri)
 	orbiter.Put("/processes", inmem.NewFolder("processes"))
 
@@ -42,15 +41,15 @@ func LaunchSystem(masterBinary, systemUri string) {
 	}
 
 	// Expose the API via Skylink
-	log.Println("Starting nsexport...")
-	exportBase, _ := s.orbiter.Get("/")
-	skylink.NsexportFunc(s.orbiter, exportBase)
+	s.orbiter.ExportPath("/")
 
 	// Run the master loop
 	s.master = &Master{
 		sys: s,
 	}
 	go s.master.Run()
+
+	toolbox.ServeHTTP(listenHost)
 }
 
 // called regularly, sync from skylink endpoint to structure

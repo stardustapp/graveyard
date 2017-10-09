@@ -3,6 +3,7 @@ package toolbox
 import (
 	"errors"
 	"log"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -116,4 +117,11 @@ func (o *Orbiter) MountURI(uriString, mountPoint string) error {
 		return errors.New("Failed to put imported NS at " + mountPoint)
 	}
 	return nil
+}
+
+func ServeHTTP(host string) {
+	log.Printf("Listening on %s...", host)
+	if err := http.ListenAndServe(host, nil); err != nil {
+		log.Fatalln("ListenAndServe:", err)
+	}
 }
