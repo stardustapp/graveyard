@@ -11,11 +11,14 @@ import (
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/inmem"
 	"github.com/stardustapp/core/skylink"
+	"github.com/stardustapp/core/toolbox"
 )
 
 func main() {
-	var skyLinkUri = flag.String("skylink-uri", "wss://stardust.apt.danopia.net/~~export/ws", "Backing Skylink API root")
-	var statePath = flag.String("data-store", "/mnt/pub/n/redis-ns/data/skychart", "Location on Skylink upstream to persist data in")
+	var skyLinkUri = flag.String("skylink-uri", "skylink+wss://stardust.apt.danopia.net/pub/n/redis-ns", "Backing Skylink API root")
+	var redisDriver = flag.String("redis-driver", "", "Backing redis-ns stardriver API root")
+	var redisAddress = flag.String("redis-address", "sd-redis:6379", "Hostname of a redis instance")
+	var statePath = flag.String("data-store", "/mnt/data/skychart", "Location on Skylink upstream to persist data in")
 	var homeDomain = flag.String("home-domain", "devmode.cloud", "Unique constant DNS-based name for this chart server")
 	var rootChart = flag.String("root-chart", "system", "Name of a primary chart to compile and boot at startup")
 	var extraCharts = flag.String("extra-charts", "", "Comma-seperated names of extras charts to attempt to boot at startup. Failures will be ignored")
@@ -25,28 +28,41 @@ func main() {
 		panic("State storage path is required")
 	}
 
-	log.Println("Creating Stardust Orbiter...")
-	root := inmem.NewFolderOf("/",
-		pubFolder,
-		inmem.NewFolder("tmp"),
-		inmem.NewFolderOf("drivers",
-			skylink.GetNsimportDriver(),
-			skylink.GetNsexportDriver(),
-		),
-	)
-	ns := base.NewNamespace("starchart://", root)
-	ctx := base.NewRootContext(ns)
-
-	log.Println("Launching nsimport...")
-	importFunc, _ := ctx.GetFunction("/drivers/nsimport/invoke")
-	remoteFs := importFunc.Invoke(ctx, inmem.NewFolderOf("opts",
-		inmem.NewString("endpoint-url", *skyLinkUri),
+	ctx := toolbox.NewOrbiter("starchart://")
+	ctx.Put("/pub", pubFolder)
+	ctx.Put("/tmp", inmem.NewFolder("tmp"))
+	ctx.Put("/drivers", inmem.NewFolderOf("drivers",
+		skylink.GetNsimportDriver(),
+		skylink.GetNsexportDriver(),
 	))
 
-	ctx.Put("/mnt", remoteFs)
+	upstreamUri := *skyLinkUri
+	if *redisDriver != "" {
+		log.Println("Launching redis driver nsimport...")
+		if err := ctx.MountURI(*redisDriver, "/redis-ns"); err != nil {
+			log.Fatalln(err)
+		}
+
+		log.Println("Dialing", *redisAddress)
+		dialFunc, _ := ctx.GetFunction("/redis-ns/pub/dial/invoke")
+		upstreamUri = dialFunc.Invoke(ctx, inmem.NewFolderOf("opts",
+			inmem.NewString("address", *redisAddress),
+		)).(base.String).Get()
+		if upstreamUri == "" {
+			log.Fatalln("redis-ns driver failed to dial redis at", *redisAddress)
+		}
+
+		upstreamUri += "/root"
+		//upstreamUri = strings.Replace(upstreamUri, "10.244.0.135:9234", "apt:30022", 1)
+		log.Println("Redis is at", upstreamUri)
+	}
+
+	if err := ctx.MountURI(upstreamUri, "/mnt"); err != nil {
+		log.Fatalln(err)
+	}
+
 	engine = newEngine(*homeDomain, ctx, *statePath)
 	ctx.Put("/data", engine.dataRoot)
-	root.Freeze()
 
 	if *rootChart != "" {
 		chart := engine.findChart(*rootChart)
@@ -55,10 +71,7 @@ func main() {
 		}
 	}
 
-	log.Println("Starting nsexport...")
-	exportFunc, _ := ctx.GetFunction("/drivers/nsexport/invoke")
-	exportBase, _ := ctx.Get("/pub")
-	exportFunc.Invoke(ctx, exportBase)
+	ctx.ExportPath("/pub")
 
 	if *extraCharts != "" {
 		go func(chartList []string) {

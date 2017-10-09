@@ -69,6 +69,13 @@ func (o *Orbiter) GetContextFor(subPath string) base.Context {
 	return ctx
 }
 
+// Expose the API via Skylink
+func (o *Orbiter) ExportPath(exportRoot string) {
+	log.Println("Starting orbiter nsexport...")
+	exportBase, _ := o.Get(exportRoot)
+	skylink.NsexportFunc(o, exportBase)
+}
+
 func (o *Orbiter) MountURI(uriString, mountPoint string) error {
 	uri, err := url.Parse(uriString)
 	if err != nil {
