@@ -44,7 +44,7 @@
       path="persist/todo-list/entries"
       :depth="1"
       :filter="{status: 'todo'}">
-    <template scope="doc">
+    <template slot="item" scope="doc">
       <li>
         <label class="hit-area">
           <sky-action-checkbox
@@ -53,6 +53,11 @@
             ></sky-action-checkbox>
         </label>
         <span class="body">{{doc.body}}</span>
+      </li>
+    </template>
+    <template slot="hiddenNotice" scope="props">
+      <li class="completed-count">
+        <em>you've completed {{props.count}} items!</em>
       </li>
     </template>
   </sky-foreach>
