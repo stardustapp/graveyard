@@ -1,52 +1,64 @@
 <!doctype html>
 <title>TODONE</title>
 <link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="/~system/lib/vue-app.css" type="text/css" rel="stylesheet">
 <link href="app.css" type="text/css" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
+<meta name="x-stardust-appid" content="todo-list">
+
 <div id="app">
+  <!-- render top bar w/ connection state and current user -->
+  <sky-session></sky-session>
+
   <h2>TO-DONE!</h2>
 
-  <add-todo></add-todo>
+  <sky-form
+      action="store-child-folder"
+      path="persist/todo-list/entries">
+    <input
+        type="hidden"
+        name="status"
+        value="todo"
+      />
+    <sky-datetime-field
+        name="added-at"
+        type="current-timestamp"
+      ></sky-datetime-field>
 
-  <p>Here are your things:</p>
-  <ul>
-    <todo-item
-        v-for="id in list"
-        :key="id"
-        :id="id"
-      >
-    </todo-item>
-  </ul>
-</div>
-
-<script type="text/x-template" id="add-todo">
-  <form @submit.prevent="save">
     <input
         type="text"
+        name="body"
         placeholder="What's next?"
         autofocus
         required
-        v-model="text"
       />
     <button type="submit">
       Add the thing
     </button>
-  </form>
-</script>
+  </sky-form>
 
-<script type="text/x-template" id="todo-item">
-  <li v-if="!loading">
-    <label>
-      <input
-          type="checkbox"
-          @click="done"
-        />
-      <span>{{text}}</span>
-    </label>
-  </li>
-</script>
+  <p>Here are your things:</p>
+  <sky-foreach
+      el="ul"
+      path="persist/todo-list/entries"
+      :depth="1"
+      :filter="{status: 'todo'}">
+    <template scope="doc">
+      <li>
+        <label class="hit-area">
+          <sky-action-checkbox
+              :path="doc._path+'/status'"
+              checkedValue="done"
+            ></sky-action-checkbox>
+        </label>
+        <span class="body">{{doc.body}}</span>
+      </li>
+    </template>
+  </sky-foreach>
+</div>
 
 <script src="https://unpkg.com/vue"></script>
 <script src="/~system/lib/skylink.js"></script>
-<script src="app.js"></script>
+<script src="/~system/lib/datastore.js"></script>
+<script src="/~system/lib/vue-app.js"></script>

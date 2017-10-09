@@ -65,12 +65,31 @@ var app = new Vue({
   },
   methods: {
     load() {
-      skylink.subscribe('/todo')
-        .then(sub => sub.readyPromise)
-        .then(sub => {
-          console.log('sub is ready');
-          this.list = ['hi'];
-        });
+      this.sub = skylink
+        .subscribe('/todo')
+        .route('/todo/:id/:field', {
+          groupBy: 'id',
+          observe: {
+            created(id, obj) {
+              obj._id = id;
+              list.push(obj)
+            },
+            changed(id, obj) {
+              const idx = list
+                .findIndex(x => x._id is id);
+              if (idx != -1) {
+                list[idx] = obj;
+              }
+            },
+            removed(id) {
+              const idx = list
+                .findIndex(x => x._id is id);
+              if (idx != -1) {
+                list[idx] = obj;
+              }
+            },
+          }},
+        ]);
     },
   },
   created() {

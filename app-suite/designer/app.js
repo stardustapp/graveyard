@@ -235,7 +235,7 @@ Vue.component('shape-prop', {
 var app = new Vue({
   el: '#app',
   data: {
-    driver: 'irc-dialer',
+    driver: 'redis-ns',
     platform: '',
     drivers: [],
     functions: [],

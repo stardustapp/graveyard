@@ -46,16 +46,23 @@ p {
 
 li {
   padding-right: 1em;
-  padding-left: 2.5em;
-  text-indent: -1.5em;
+  padding-left: 0.5em;
+  display: flex;
+}
+
+li label {
+  justify-self: center;
+  padding: 0 0.5em;
+  line-height: 0;
+}
+li input {
+  width: 20px;
+  height: 20px;
+  margin: 2px;
 }
 
 li:hover {
   background-color: rgba(0, 0, 0, 0.1);
-}
-
-li label {
-  display: block;
 }
 
 form {
