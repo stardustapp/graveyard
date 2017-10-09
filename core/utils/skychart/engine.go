@@ -149,6 +149,10 @@ func (e *Engine) launchChart(chart *Chart) base.Entry {
 
 	log.Println("Compiling chart", chart.String())
 	graph := dag.InflateGraphFromConfig(chart.ctx)
+	if graph == nil {
+		log.Println("Failed to inflate", chart.String(), "from config")
+		return nil
+	}
 	graph.Compile()
 
 	if entry := graph.Launch(e); entry != nil {

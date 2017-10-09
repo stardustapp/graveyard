@@ -1,6 +1,7 @@
 package dag
 
 import (
+	"log"
 	"strings"
 
 	"github.com/stardustapp/core/base"
@@ -15,10 +16,14 @@ func InflateGraphFromConfig(ctx base.Context) *Graph {
 	}
 
 	entriesFolder, _ := ctx.GetFolder("/entries")
-	for _, id := range entriesFolder.Children() {
-		entryEnt, _ := entriesFolder.Fetch(id)
-		entryFolder := entryEnt.(base.Folder)
-		dag.nodes[id] = inflateEntryNode(entryFolder)
+	if entriesFolder == nil {
+		log.Println("WARN: graph", rootNode.Name(), "is missing any entries")
+	} else {
+		for _, id := range entriesFolder.Children() {
+			entryEnt, _ := entriesFolder.Fetch(id)
+			entryFolder := entryEnt.(base.Folder)
+			dag.nodes[id] = inflateEntryNode(entryFolder)
+		}
 	}
 
 	return dag
