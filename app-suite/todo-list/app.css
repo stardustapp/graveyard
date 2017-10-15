@@ -41,6 +41,7 @@ p, ul {
 }
 
 p {
+  margin-top: 25px;
   padding: 0 1em;
 }
 
@@ -48,6 +49,9 @@ li {
   padding-right: 1em;
   padding-left: 0.5em;
   display: flex;
+}
+li .body {
+  flex: 1;
 }
 
 li label {
@@ -74,4 +78,30 @@ form {
 .completed-count {
   margin-top: 25px;
   padding-left: 2em;
+}
+
+.sub-action {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+.sub-action .material-icons {
+  line-height: 20px;
+  color: #ccc;
+}
+
+li:hover .ice-it .material-icons {
+  color: #99f;
+}
+li .ice-it:hover .material-icons {
+  color: #44f;
+}
+
+li:hover .thaw-it .material-icons {
+  color: #f99;
+}
+li .thaw-it:hover .material-icons {
+  color: #f44;
 }

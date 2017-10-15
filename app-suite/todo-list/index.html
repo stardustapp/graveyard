@@ -53,11 +53,32 @@
             ></sky-action-checkbox>
         </label>
         <span class="body">{{doc.body}}</span>
+        <button class="ice-it sub-action"
+                @click="skyStoreString(doc._path+'/status', 'frozen')">
+          <i class="material-icons">ac_unit</i>
+        </button>
       </li>
     </template>
-    <template slot="hiddenNotice" scope="props">
+    <!--template slot="hiddenNotice" scope="props">
       <li class="completed-count">
         <em>you've completed {{props.count}} items!</em>
+      </li>
+    </template-->
+  </sky-foreach>
+
+  <p>Icebox!!!!!:</p>
+  <sky-foreach
+      el="ul"
+      path="persist/todo-list/entries"
+      :depth="1"
+      :filter="{status: 'frozen'}">
+    <template slot="item" scope="doc">
+      <li :key="doc._id">
+        <button class="thaw-it sub-action"
+                @click="skyStoreString(doc._path+'/status', 'todo')">
+          <i class="material-icons">whatshot</i>
+        </button>
+        <span class="body">{{doc.body}}</span>
       </li>
     </template>
   </sky-foreach>
