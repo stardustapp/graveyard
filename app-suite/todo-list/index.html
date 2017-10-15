@@ -42,6 +42,7 @@
   <sky-foreach
       el="ul"
       path="persist/todo-list/entries"
+      fields="body status"
       :depth="1"
       :filter="{status: 'todo'}">
     <template slot="item" scope="doc">
@@ -70,6 +71,7 @@
   <sky-foreach
       el="ul"
       path="persist/todo-list/entries"
+      fields="body status"
       :depth="1"
       :filter="{status: 'frozen'}">
     <template slot="item" scope="doc">
