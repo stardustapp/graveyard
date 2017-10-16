@@ -141,7 +141,11 @@ func (svc *nsimport) getEntry(path string) (base.Entry, error) {
 		return inmem.NewFile(entry.Name, entry.FileData), nil
 
 	case "String":
-		return inmem.NewString(entry.Name, entry.StringValue), nil
+		return &importedString{
+			svc:    svc,
+			path:   path,
+			String: inmem.NewString(entry.Name, entry.StringValue),
+		}, nil
 
 	case "Link":
 		return inmem.NewLink(entry.Name, entry.StringValue), nil
