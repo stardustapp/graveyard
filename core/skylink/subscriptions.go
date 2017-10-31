@@ -11,7 +11,7 @@ import (
 type Subscription struct {
 	root     base.Entry
 	MaxDepth int
-	cancelC  chan struct{}     // closed when the sub is terminated
+	stopC    chan struct{}     // closed when the sub should no longer by active
 	streamC  chan Notification // kept open to prevent panics. TODO: close later
 }
 
@@ -32,7 +32,7 @@ func NewSubscription(root base.Entry, maxDepth int) *Subscription {
 	return &Subscription{
 		root:     root,
 		MaxDepth: maxDepth,
-		cancelC:  make(chan struct{}),
+		stopC:    make(chan struct{}, 1),
 	}
 }
 
@@ -60,16 +60,14 @@ func (s *Subscription) subscribe(src base.Entry) error {
 		log.Println("skylink: Asking", src.Name(), "to self-subscribe")
 		if err := subscribable.Subscribe(s); err == nil {
 			log.Println("skylink: Subscribable accepted the sub")
-			// TODO: subscribable should do this
-			//s.SendNotification("ready", "", nil)
 			return nil
 		} else {
 			log.Println("skylink: Subscribable rejected sub:", err)
-			close(s.cancelC)
+			close(s.stopC)
 			return err
 		}
 	}
 
-	close(s.cancelC)
+	close(s.stopC)
 	return errors.New("skylink: Entry isn't subscribable")
 }

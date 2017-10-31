@@ -81,6 +81,7 @@ type nsexportWs struct {
 	broker *nsexportWsBroker
 	root   base.Context
 	conn   *websocket.Conn
+	stopCs [int]chan struct{}
 
 	mutexW        sync.Mutex
 	remoteAddr    string
@@ -104,14 +105,16 @@ func (e *nsexportWs) loop() {
 		if res.Channel != nil {
 			// assign an ID
 			res.Chan = <-e.chanDispenser.C
-			// TODO: record a neat channel struct for stopping the channel upstream
+			e.stopCs[res.Chan] = res.stopC
 
 			// pump outbound packets
-			go func(op string, id int, c <-chan nsResponse) {
+			extras.MetricIncr("skylink.channel.opened", "op:"+op, "transport:ws")
+			go func(op string, id int, c <-chan nsResponse, stopC chan<- struct{}) {
 				log.Println("nsexport-ws: Running channel exporter on #", id)
 				defer log.Println("nsexport-ws: Stopped channel exporter on #", id)
 
 				// to prevent double-closing in the wire proto
+				// this is true until
 				stillLive := true
 
 				for packet := range c {
@@ -121,20 +124,27 @@ func (e *nsexportWs) loop() {
 					e.mutexW.Lock()
 					if err := e.conn.WriteJSON(&packet); err != nil {
 						log.Println("nsexport-ws: error writing outbound channel packet:", err, packet)
-						// TODO: stop the channel, also when connection is closed
+						close(stopC)
+						stillLive = false
 						e.mutexW.Unlock()
+						extras.MetricIncr("skylink.channel.closed", "op:"+op, "transport:ws", "closereason:write-error", "status:"+packet.Status)
+						break
+					}
+
+					if packet.Status != "Next" {
+						close(stopC)
+						stillLive = false
+						e.mutexW.Unlock()
+						extras.MetricIncr("skylink.channel.closed", "op:"+op, "transport:ws", "closereason:manual", "status:"+packet.Status)
 						break
 					}
 					e.mutexW.Unlock()
-
-					if packet.Status != "Next" {
-						stillLive = false
-						break
-					}
 				}
 
 				if stillLive {
 					log.Println("nsexport-ws: Auto-closing channel #", id)
+					close(stopC)
+
 					packet := &nsResponse{
 						Chan:   id,
 						Status: "Done",
@@ -145,14 +155,17 @@ func (e *nsexportWs) loop() {
 						log.Println("nsexport-ws: error writing outbound channel Done packet:", err, packet)
 					}
 					e.mutexW.Unlock()
+
+					extras.MetricIncr("skylink.channel.closed", "op:"+op, "transport:ws", "closereason:auto")
 				}
 
 				// continue pumping into /dev/null to prevent buffer jams
 				// TODO: actually cascade the close upstream
 				for _ = range c {
 					log.Println("WARN: tossing packet for closed downstream channel", id)
+					extras.MetricIncr("skylink.channel.spillover", "op:"+op, "transport:ws", "closereason:auto")
 				}
-			}(req.Op, res.Chan, res.Channel)
+			}(req.Op, res.Chan, res.Channel, res.stopC)
 		}
 
 		// rewrite statuses

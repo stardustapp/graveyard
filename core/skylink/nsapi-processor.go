@@ -128,13 +128,14 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		respC := make(chan nsResponse)
 		res.Ok = true
 		res.Channel = respC
+		res.StopC = sub.stopC
 
 		go func(inC <-chan Notification, outC chan<- nsResponse) {
 			log.Println("starting notif pump")
 			defer log.Println("stopped notif pump")
 
 			for next := range inC {
-				log.Printf("pumping %+v", next.Entry)
+				//log.Printf("pumping %+v", next.Entry)
 				children := []nsEntry{{
 					Name:        "type",
 					Type:        "String",
@@ -151,7 +152,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 					children = append(children, *pktEntry)
 				}
 
-				// TODO: make errors to errors?
+				// TODO: make errors into errors?
 				outC <- nsResponse{
 					Status: "Next",
 					Output: &nsEntry{
@@ -162,6 +163,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 				}
 			}
 
+			defer log.Println("stopping notif pump")
 			close(outC)
 		}(sub.streamC, respC)
 
