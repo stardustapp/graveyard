@@ -117,7 +117,7 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 		go func(inC <-chan nsResponse, outC chan<- Notification) {
 			log.Println("imported-folder: Starting subscription pump from", e.prefix)
 			for {
-				switch {
+				select {
 				case pkt, ok := <-inC:
 					if !ok {
 						log.Println("imported-folder: Propogating sub close downstream")
