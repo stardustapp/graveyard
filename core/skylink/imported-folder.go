@@ -118,7 +118,7 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 			log.Println("imported-folder: Starting subscription pump from", e.prefix)
 			for {
 				switch {
-			  case pkt, ok := <-inC:
+				case pkt, ok := <-inC:
 					if !ok {
 						log.Println("imported-folder: Propogating sub close downstream")
 						break
