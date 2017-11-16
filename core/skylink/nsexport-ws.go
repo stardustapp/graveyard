@@ -69,6 +69,7 @@ func (b *nsexportWsBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		broker: b,
 		root:   base.NewRootContext(ns),
 		conn:   conn,
+		stopCs: make(map[int]chan struct{}),
 
 		remoteAddr:    r.RemoteAddr,
 		chanDispenser: extras.NewIntDispenser(),
@@ -81,7 +82,7 @@ type nsexportWs struct {
 	broker *nsexportWsBroker
 	root   base.Context
 	conn   *websocket.Conn
-	stopCs [int]chan struct{}
+	stopCs map[int]chan struct{}
 
 	mutexW        sync.Mutex
 	remoteAddr    string
