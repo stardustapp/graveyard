@@ -117,7 +117,8 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 	if resp.Channel != nil {
 		go func(inC <-chan nsResponse, outC chan<- Notification, stopC <-chan struct{}) {
 			log.Println("imported-folder: Starting subscription pump from", e.prefix)
-			for {
+			ok := true
+			for ok {
 				select {
 				case pkt, ok := <-inC:
 					if !ok {
@@ -168,7 +169,7 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 					} else {
 						log.Println("nsimport folder stop happened:", resp)
 					}
-					break
+					ok = false
 
 				}
 			}
