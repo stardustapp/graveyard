@@ -36,8 +36,8 @@ func (e *importedString) Subscribe(s *Subscription) (err error) {
 		go func(inC <-chan nsResponse, outC chan<- Notification) {
 			log.Println("imported-string: Starting subscription pump from", e.path)
 			for {
-				switch {
-				case pkt, ok := <-inC {
+				select {
+				case pkt, ok := <-inC:
 					if !ok {
 						log.Println("imported-folder: Propogating sub close downstream")
 						break
