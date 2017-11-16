@@ -69,7 +69,7 @@ func (b *nsexportWsBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		broker: b,
 		root:   base.NewRootContext(ns),
 		conn:   conn,
-		stopCs: make(map[int]chan struct{}),
+		stopCs: make(map[int]chan<- struct{}),
 
 		remoteAddr:    r.RemoteAddr,
 		chanDispenser: extras.NewIntDispenser(),
@@ -82,7 +82,7 @@ type nsexportWs struct {
 	broker *nsexportWsBroker
 	root   base.Context
 	conn   *websocket.Conn
-	stopCs map[int]chan struct{}
+	stopCs map[int]chan<- struct{}
 
 	mutexW        sync.Mutex
 	remoteAddr    string
@@ -106,10 +106,10 @@ func (e *nsexportWs) loop() {
 		if res.Channel != nil {
 			// assign an ID
 			res.Chan = <-e.chanDispenser.C
-			e.stopCs[res.Chan] = res.stopC
+			e.stopCs[res.Chan] = res.StopC
 
 			// pump outbound packets
-			extras.MetricIncr("skylink.channel.opened", "op:"+op, "transport:ws")
+			extras.MetricIncr("skylink.channel.opened", "op:"+req.Op, "transport:ws")
 			go func(op string, id int, c <-chan nsResponse, stopC chan<- struct{}) {
 				log.Println("nsexport-ws: Running channel exporter on #", id)
 				defer log.Println("nsexport-ws: Stopped channel exporter on #", id)
@@ -166,7 +166,7 @@ func (e *nsexportWs) loop() {
 					log.Println("WARN: tossing packet for closed downstream channel", id)
 					extras.MetricIncr("skylink.channel.spillover", "op:"+op, "transport:ws", "closereason:auto")
 				}
-			}(req.Op, res.Chan, res.Channel, res.stopC)
+			}(req.Op, res.Chan, res.Channel, res.StopC)
 		}
 
 		// rewrite statuses

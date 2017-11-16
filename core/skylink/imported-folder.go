@@ -1,6 +1,7 @@
 package skylink
 
 import (
+	"fmt"
 	"errors"
 	"log"
 
@@ -114,7 +115,7 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 	}
 
 	if resp.Channel != nil {
-		go func(inC <-chan nsResponse, outC chan<- Notification) {
+		go func(inC <-chan nsResponse, outC chan<- Notification, stopC <-chan struct{}) {
 			log.Println("imported-folder: Starting subscription pump from", e.prefix)
 			for {
 				select {
@@ -160,10 +161,12 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 					log.Println("imported-folder: Propogating sub stop upstream")
 					resp, err := e.svc.transport.exec(nsRequest{
 						Op:    "stop",
-						Path:  fmt.Sprintf("/chan/%s", res.Chan),
+						Path:  fmt.Sprintf("/chan/%s", resp.Chan),
 					})
 					if err != nil {
-						return errors.New("nsimport folder stop err:", err)
+						log.Println("nsimport folder stop err:", err)
+					} else {
+						log.Println("nsimport folder stop happened:", resp)
 					}
 					break
 

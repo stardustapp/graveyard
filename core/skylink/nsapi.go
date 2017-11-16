@@ -17,7 +17,7 @@ type nsResponse struct {
 	Status  string            // "Ok", "Next", "Done", "Failed", TODO: replace Ok field
 	Chan    int               `json:",omitempty"` // If starting, continuing, or ending a channel
 	Channel <-chan nsResponse `json:"-"`          // Mapped from Chan, not sent on the wire
-	StopC   <-chan struct{}   `json:"-"`          // Closing tells Chan to please close
+	StopC   chan<- struct{}   `json:"-"`          // Closing tells Chan to please close
 	Output  *nsEntry          `json:",omitempty"`
 }
 
