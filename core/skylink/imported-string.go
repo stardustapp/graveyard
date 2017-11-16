@@ -80,7 +80,7 @@ func (e *importedString) Subscribe(s *Subscription) (err error) {
 					log.Println("imported-string: Propogating sub stop upstream")
 					resp, err := e.svc.transport.exec(nsRequest{
 						Op:    "stop",
-						Path:  fmt.Sprintf("/chan/%s", resp.Chan),
+						Path:  fmt.Sprintf("/chan/%d", resp.Chan),
 					})
 					if err != nil {
 						log.Println("nsimport folder stop err:", err)
