@@ -3,7 +3,9 @@ package skylink
 import (
 	"log"
 	"net/http"
+	"strings"
 	"sync"
+	"strconv"
 
 	"github.com/stardustapp/core/base"
 	"github.com/stardustapp/core/extras"
@@ -98,7 +100,26 @@ func (e *nsexportWs) loop() {
 			break
 		}
 
-		res := processNsRequest(e.root, req)
+		var res nsResponse
+		if req.Op == "stop" {
+			chanId := strings.Split(req.Path, "/")[2]
+			log.Println("nsexport-ws: got stop operation on channel", chanId)
+
+			chanNum, err := strconv.Atoi(chanId)
+			stopChan, ok := e.stopCs[chanNum]
+			if err == nil && ok {
+				res.Ok = true
+				delete(e.stopCs, chanNum)
+				log.Println("nsexport-ws: closed channel", chanNum)
+				close(stopChan)
+			} else {
+				log.Println("WARN: nsexport-ws: failed to find chan", chanId, "to stop")
+			}
+
+		} else {
+			res = processNsRequest(e.root, req)
+		}
+
 		log.Println("nsexport-ws:", req.Op, "op on", req.Path, "from", e.remoteAddr, "was ok:", res.Ok)
 
 		// If there's a channel being set up, let's plumb it
@@ -186,6 +207,8 @@ func (e *nsexportWs) loop() {
 		}
 		e.mutexW.Unlock()
 	}
+
+		log.Println("nsexport-ws: completed loop for", e.remoteAddr)
 
 	log.Println("nsexport-ws: completed loop for", e.remoteAddr)
 }
