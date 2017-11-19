@@ -106,6 +106,7 @@ func (e *nsexportWs) loop() {
 			log.Println("nsexport-ws: got stop operation on channel", chanId)
 
 			chanNum, err := strconv.Atoi(chanId)
+			e.mutexW.Lock()
 			stopChan, ok := e.stopCs[chanNum]
 			if err == nil && ok {
 				res.Ok = true
@@ -115,6 +116,7 @@ func (e *nsexportWs) loop() {
 			} else {
 				log.Println("WARN: nsexport-ws: failed to find chan", chanId, "to stop")
 			}
+			e.mutexW.Unlock()
 
 		} else {
 			res = processNsRequest(e.root, req)
@@ -144,17 +146,21 @@ func (e *nsexportWs) loop() {
 					log.Println("nsexport-ws: Channel #", id, "passed a", packet.Status)
 					extras.MetricIncr("skylink.channel.packet", "op:"+op, "transport:ws", "status:"+packet.Status)
 					e.mutexW.Lock()
+
+					// Write it. If we can't, we have to ask upstreams to stop.
+					// Any remaining inflight messages have to be sunk to prevent stalls
 					if err := e.conn.WriteJSON(&packet); err != nil {
 						log.Println("nsexport-ws: error writing outbound channel packet:", err, packet)
-						close(stopC)
 						stillLive = false
 						e.mutexW.Unlock()
-						extras.MetricIncr("skylink.channel.closed", "op:"+op, "transport:ws", "closereason:write-error", "status:"+packet.Status)
+						e.stopAll("chan-write-error")
 						break
 					}
 
+					// Non-Next messages are terminal, so clean up
 					if packet.Status != "Next" {
-						close(stopC)
+						close(stopC) // TODO: should be unnecesary
+						delete(e.stopCs, id)
 						stillLive = false
 						e.mutexW.Unlock()
 						extras.MetricIncr("skylink.channel.closed", "op:"+op, "transport:ws", "closereason:manual", "status:"+packet.Status)
@@ -166,6 +172,7 @@ func (e *nsexportWs) loop() {
 				if stillLive {
 					log.Println("nsexport-ws: Auto-closing channel #", id)
 					close(stopC)
+					delete(e.stopCs, id)
 
 					packet := &nsResponse{
 						Chan:   id,
@@ -203,12 +210,34 @@ func (e *nsexportWs) loop() {
 		if err := e.conn.WriteJSON(&res); err != nil {
 			log.Println("nsexport-ws: error writing outbound json:", err, res)
 			e.mutexW.Unlock()
+			e.stopAll("write-error")
 			break
 		}
 		e.mutexW.Unlock()
 	}
 
+	// Stop everything again as a failsafe
+	// This shouldn't really hit, ever
+	e.stopAll("completed-loop")
 	log.Println("nsexport-ws: completed loop for", e.remoteAddr)
+}
 
-	log.Println("nsexport-ws: completed loop for", e.remoteAddr)
+func (e *nsexportWs) stopAll(reason string) {
+	if e.stopCs == nil {
+		// already cleaned
+		return
+	}
+
+	e.mutexW.Lock()
+	defer e.mutexW.Unlock()
+
+	log.Println("nsexport-ws: Stopping all", len(e.stopCs), "channels for", e.remoteAddr)
+
+	for id, stopC := range e.stopCs {
+		log.Println("nsexport-ws: Stopping channel", id)
+		close(stopC)
+		extras.MetricIncr("skylink.channel.closed", "transport:ws", "closereason:"+reason)
+	}
+	log.Println("nsexport-ws: Done stopping all channels for", e.remoteAddr)
+	e.stopCs = nil
 }
