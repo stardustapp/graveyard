@@ -122,7 +122,7 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 				select {
 				case pkt, ok := <-inC:
 					if !ok {
-						log.Println("imported-folder: Propogating sub close downstream")
+						log.Println("imported-folder: Propagating sub close downstream")
 						break feedLoop
 					}
 
@@ -159,17 +159,18 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 					}
 
 				case <-stopC:
-					log.Println("imported-folder: Propogating sub stop upstream")
+					log.Println("imported-folder: Propagating sub stop upstream")
 					resp, err := e.svc.transport.exec(nsRequest{
 						Op:   "stop",
 						Path: fmt.Sprintf("/chan/%d", resp.Chan),
 					})
 					if err != nil {
-						log.Println("nsimport folder stop err:", err)
+						log.Println("WARN: nsimport folder stop err:", err)
 					} else {
 						log.Println("nsimport folder stop happened:", resp)
 					}
-					break feedLoop
+					// stop checking the stop chan, just finish out the main chan
+					stopC = nil
 
 				}
 			}

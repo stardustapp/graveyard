@@ -163,7 +163,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 				}
 			}
 
-			defer log.Println("stopping notif pump")
+			log.Println("stopping notif pump")
 			close(outC)
 		}(sub.streamC, respC)
 
