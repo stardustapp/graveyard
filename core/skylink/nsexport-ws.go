@@ -138,8 +138,8 @@ func (e *nsexportWs) loop() {
 				defer log.Println("nsexport-ws: Stopped channel exporter on #", id)
 
 				// to prevent double-closing in the wire proto
-				// this is true until
-				stillLive := true
+				// this is false until a close is sent downstream
+				isTerminal := false
 
 				for packet := range c {
 					packet.Chan = id
@@ -151,8 +151,8 @@ func (e *nsexportWs) loop() {
 					// Any remaining inflight messages have to be sunk to prevent stalls
 					if err := e.conn.WriteJSON(&packet); err != nil {
 						log.Println("nsexport-ws: error writing outbound channel packet:", err, packet)
-						stillLive = false
 						e.mutexW.Unlock()
+						isTerminal = true
 						e.stopAll("chan-write-error")
 						break
 					}
@@ -161,19 +161,20 @@ func (e *nsexportWs) loop() {
 					if packet.Status != "Next" {
 						close(stopC) // TODO: should be unnecesary
 						delete(e.stopCs, id)
-						stillLive = false
 						e.mutexW.Unlock()
+						isTerminal = true
 						extras.MetricIncr("skylink.channel.closed", "op:"+op, "transport:ws", "closereason:manual", "status:"+packet.Status)
 						break
 					}
 					e.mutexW.Unlock()
 				}
 
-				if stillLive {
-					log.Println("nsexport-ws: Auto-closing channel #", id)
-					close(stopC)
-					delete(e.stopCs, id)
+				// The loop can only be exited if the channel completed pumping happily or the client is gone.
+				// The only edge case is if the channel completed without telling the downstream.
+				// Sending a non-Next is literally THE signal to the client that the channel is done.
 
+				if !isTerminal {
+					log.Println("nsexport-ws: Auto-closing wire channel #", id)
 					packet := &nsResponse{
 						Chan:   id,
 						Status: "Done",
@@ -189,7 +190,6 @@ func (e *nsexportWs) loop() {
 				}
 
 				// continue pumping into /dev/null to prevent buffer jams
-				// TODO: actually cascade the close upstream
 				for _ = range c {
 					log.Println("WARN: tossing packet for closed downstream channel", id)
 					extras.MetricIncr("skylink.channel.spillover", "op:"+op, "transport:ws", "closereason:auto")
