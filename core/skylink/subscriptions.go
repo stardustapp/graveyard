@@ -11,8 +11,8 @@ import (
 type Subscription struct {
 	root     base.Entry
 	MaxDepth int
-	stopC    chan struct{}     // closed when the sub should no longer by active
-	streamC  chan Notification // kept open to prevent panics. TODO: close later
+	StopC    chan struct{}     // closed by downstream when the sub should no longer be active
+	streamC  chan Notification // kept open to prevent panics
 }
 
 // A resource that is natively subscribable.
@@ -32,7 +32,7 @@ func NewSubscription(root base.Entry, maxDepth int) *Subscription {
 	return &Subscription{
 		root:     root,
 		MaxDepth: maxDepth,
-		stopC:    make(chan struct{}, 1),
+		StopC:    make(chan struct{}, 1),
 	}
 }
 
@@ -55,6 +55,13 @@ func (s *Subscription) SendNotification(nType, path string, node base.Entry) {
 	}
 }
 
+// Shuts down the downstream notification channel
+// Only the upstream should call this
+func (s *Subscription) Close() {
+	log.Println("nsapi: Closing subscription notification channel")
+	close(s.streamC)
+}
+
 func (s *Subscription) subscribe(src base.Entry) error {
 	if subscribable, ok := src.(Subscribable); ok {
 		log.Println("skylink: Asking", src.Name(), "to self-subscribe")
@@ -62,12 +69,13 @@ func (s *Subscription) subscribe(src base.Entry) error {
 			log.Println("skylink: Subscribable accepted the sub")
 			return nil
 		} else {
+			close(s.StopC)
 			log.Println("skylink: Subscribable rejected sub:", err)
-			close(s.stopC)
 			return err
 		}
 	}
 
-	close(s.stopC)
+	close(s.StopC)
+	log.Println("skylink: Entry isn't subscribable")
 	return errors.New("skylink: Entry isn't subscribable")
 }

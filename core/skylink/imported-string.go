@@ -95,7 +95,7 @@ func (e *importedString) Subscribe(s *Subscription) (err error) {
 			}
 			log.Println("imported-string: Completed subscription pump from", e.path)
 			close(outC)
-		}(resp.Channel, s.streamC, s.stopC)
+		}(resp.Channel, s.streamC, s.StopC)
 	}
 
 	if resp.Status == "Ok" {

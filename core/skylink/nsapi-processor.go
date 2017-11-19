@@ -128,7 +128,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 		respC := make(chan nsResponse)
 		res.Ok = true
 		res.Channel = respC
-		res.StopC = sub.stopC
+		res.StopC = sub.StopC
 
 		go func(inC <-chan Notification, outC chan<- nsResponse) {
 			log.Println("starting notif pump")
