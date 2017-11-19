@@ -45,18 +45,7 @@ func (e *importedString) Subscribe(s *Subscription) (err error) {
 						break feedLoop
 					}
 
-					if pkt.Output.Name != "notif" {
-						log.Println("imported-string WARN: sub got a non-notif packet:", pkt.Output.Name)
-						break
-					}
-
-					switch pkt.Status {
-					case "Next":
-						if pkt.Output == nil {
-							log.Println("imported-string WARN: sub got a packet without an output.", pkt)
-							break
-						}
-
+					if pkt.Output != nil && pkt.Output.Name == "notif" {
 						var notif Notification
 						for _, field := range pkt.Output.Children {
 							switch field.Name {
@@ -72,11 +61,10 @@ func (e *importedString) Subscribe(s *Subscription) (err error) {
 						}
 						log.Println("imported-string: sub notification:", notif)
 						outC <- notif
-
-						// any non-Next status is terminal
-					default:
-						log.Println("imported-string: sub got unknown packet", pkt.Status)
 					}
+
+					// the above assumes that the remote can't double-terminate,
+					// and will close immediately after any terminal event
 
 				case <-stopC:
 					log.Println("imported-string: Propagating sub stop upstream")
