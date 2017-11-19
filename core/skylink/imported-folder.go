@@ -126,10 +126,6 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 						break feedLoop
 					}
 
-					if pkt.Output == nil {
-						log.Println("imported-folder WARN: sub got a packet without an output.", pkt)
-						break
-					}
 					if pkt.Output.Name != "notif" {
 						log.Println("imported-folder WARN: sub got a non-notif packet:", pkt.Output.Name)
 						break
@@ -137,6 +133,11 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 
 					switch pkt.Status {
 					case "Next":
+						if pkt.Output == nil {
+							log.Println("imported-folder WARN: sub got a packet without an output.", pkt)
+							break
+						}
+
 						var notif Notification
 						for _, field := range pkt.Output.Children {
 							switch field.Name {
