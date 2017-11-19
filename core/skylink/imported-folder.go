@@ -1,8 +1,8 @@
 package skylink
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/stardustapp/core/base"
@@ -117,13 +117,13 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 	if resp.Channel != nil {
 		go func(inC <-chan nsResponse, outC chan<- Notification, stopC <-chan struct{}) {
 			log.Println("imported-folder: Starting subscription pump from", e.prefix)
-			ok := true
-			for ok {
+		feedLoop:
+			for {
 				select {
 				case pkt, ok := <-inC:
 					if !ok {
 						log.Println("imported-folder: Propogating sub close downstream")
-						break
+						break feedLoop
 					}
 
 					if pkt.Output == nil {
@@ -161,15 +161,15 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 				case <-stopC:
 					log.Println("imported-folder: Propogating sub stop upstream")
 					resp, err := e.svc.transport.exec(nsRequest{
-						Op:    "stop",
-						Path:  fmt.Sprintf("/chan/%d", resp.Chan),
+						Op:   "stop",
+						Path: fmt.Sprintf("/chan/%d", resp.Chan),
 					})
 					if err != nil {
 						log.Println("nsimport folder stop err:", err)
 					} else {
 						log.Println("nsimport folder stop happened:", resp)
 					}
-					ok = false
+					break feedLoop
 
 				}
 			}
