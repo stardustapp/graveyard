@@ -1,4 +1,4 @@
-const skychart = new Skychart('wss://devmode.cloud/~~export/ws');
+const skychart = new Skychart2('wss://devmode.cloud/~~export/ws');
 //const skychart = new Skychart('ws://localhost:9236/~~export/ws');
 
 // seed the RNG lol.

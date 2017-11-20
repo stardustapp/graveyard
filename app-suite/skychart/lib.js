@@ -1,4 +1,4 @@
-class Skychart {
+class Skychart2 {
   constructor(skylinkUri) {
     this.skylink = new Skylink('', skylinkUri);
   }
