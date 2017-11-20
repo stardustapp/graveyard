@@ -1,0 +1,62 @@
+<!doctype html>
+<title>Config TODONE</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="/~system/lib/vue-app.css" type="text/css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="x-stardust-appid" content="todo-list">
+
+<div id="app">
+  <!-- render top bar w/ connection state and current user -->
+  <sky-session></sky-session>
+
+  <h2>TO-CONFIG</h2>
+
+  <p>Here are your themes:</p>
+  <sky-foreach
+      el="ul"
+      path="persist/todo-list/themes"
+      fields="name color"
+      :depth="1">
+    <template slot="item" scope="doc">
+      <li :key="doc._id">
+        <span class="body">{{doc.name}}</span>
+        <!--button class="ice-it sub-action"
+                @click="skyStoreString(doc._path+'/status', 'frozen')">
+          <i class="material-icons">ac_unit</i>
+        </button-->
+      </li>
+    </template>
+  </sky-foreach>
+
+  <sky-form
+      action="store-child-folder"
+      path="persist/todo-list/themes">
+    <input
+        type="hidden"
+        name="color"
+        value="#f0f"
+      />
+    <sky-datetime-field
+        name="added-at"
+        type="current-timestamp"
+      ></sky-datetime-field>
+
+    <input
+        type="text"
+        name="name"
+        placeholder="Simple Name"
+        required
+      />
+    <button type="submit">
+      Add new theme
+    </button>
+  </sky-form>
+
+</div>
+
+<script src="https://unpkg.com/vue"></script>
+<script src="/~system/lib/skylink.js"></script>
+<script src="/~system/lib/datastore.js"></script>
+<script src="/~system/lib/vue-app.js"></script>

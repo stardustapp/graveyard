@@ -12,6 +12,7 @@
   <sky-session></sky-session>
 
   <h2>TO-DONE!</h2>
+  <a href="config.html" style="display: block; text-align: center;">Configure themes</a>
 
   <sky-form
       action="store-child-folder"
@@ -33,6 +34,21 @@
         autofocus
         required
       />
+
+      <sky-foreach
+          el="select"
+          path="persist/todo-list/themes"
+          name="theme"
+          fields="name color"
+          :depth="1">
+        <template slot="header">
+          <option selected value="">No theme</option>
+        </template>
+        <template slot="item" scope="doc">
+          <option :key="doc._id" :value="doc._id">{{doc.name}}</option>
+        </template>
+      </sky-foreach>
+
     <button type="submit">
       Add the thing
     </button>
@@ -42,7 +58,7 @@
   <sky-foreach
       el="ul"
       path="persist/todo-list/entries"
-      fields="body status"
+      fields="body status theme"
       :depth="1"
       :filter="{status: 'todo'}">
     <template slot="item" scope="doc">
