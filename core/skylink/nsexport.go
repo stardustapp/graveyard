@@ -33,5 +33,8 @@ func NsexportFunc(ctx base.Context, input base.Entry) (output base.Entry) {
 	NewWsBroker(svc, "/~~export/ws")
 	NewPingBroker(svc, "/~~export/ping")
 
+	// surely this can be in a better spot
+	go stackDumpOnSiqQuit()
+
 	return nil // svc.tmpFolder
 }
