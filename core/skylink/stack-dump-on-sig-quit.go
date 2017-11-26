@@ -1,10 +1,11 @@
 package skylink
+
 import (
-  "os"
-  "syscall"
-  "os/signal"
-  "runtime"
-  "log"
+	"log"
+	"os"
+	"os/signal"
+	"runtime"
+	"syscall"
 )
 
 func stackDumpOnSiqQuit() {

@@ -126,7 +126,8 @@ func (e *nsexportWs) loop() {
 
 		// If there's a channel being set up, let's plumb it
 		// TODO: support failure
-		if res.Channel != nil {
+		e.mutexW.Lock()
+		if res.Channel != nil && e.stopCs != nil {
 			// assign an ID
 			res.Chan = <-e.chanDispenser.C
 			e.stopCs[res.Chan] = res.StopC
@@ -196,6 +197,7 @@ func (e *nsexportWs) loop() {
 				}
 			}(req.Op, res.Chan, res.Channel, res.StopC)
 		}
+		e.mutexW.Unlock()
 
 		// rewrite statuses
 		if res.Status == "" {
