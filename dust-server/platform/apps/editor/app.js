@@ -636,3 +636,7 @@ var app = new Vue({
   },
 
 });
+
+// Block navs unless everything is clean
+window.onbeforeunload = () =>
+  app.tabList.find(x => x.dirty) || null;
