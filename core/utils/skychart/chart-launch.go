@@ -21,7 +21,7 @@ func (e *chartLaunchFunc) Name() string {
 
 func (e *chartLaunchFunc) Invoke(ctx base.Context, input base.Entry) (output base.Entry) {
 	chart := engine.launchChart(e.chart)
-	sessionId := extras.GenerateId()
+	sessionId := extras.GenerateSecret()
 
 	// TODO: cache this
 	ns := base.NewNamespace("//"+e.chart.name+".chart.local", chart)
