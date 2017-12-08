@@ -122,7 +122,7 @@ func (e *nsexportWs) loop() {
 			res = processNsRequest(e.root, req)
 		}
 
-		log.Println("nsexport-ws:", req.Op, "op on", req.Path, "from", e.remoteAddr, "was ok:", res.Ok)
+		log.Println("nsexport-ws:", req.Op, "op on", req.Path, req.Dest, "from", e.remoteAddr, "was ok:", res.Ok)
 
 		// If there's a channel being set up, let's plumb it
 		// TODO: support failure

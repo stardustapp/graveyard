@@ -49,7 +49,7 @@ func (b *nsexportHttpBroker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := processNsRequest(b.root, req)
-	log.Println("nsexport-http:", req.Op, "op on", req.Path, "from", r.RemoteAddr, "was ok:", res.Ok)
+	log.Println("nsexport-http:", req.Op, "op on", req.Path, req.Dest, "from", r.RemoteAddr, "was ok:", res.Ok)
 
 	w.Header().Add("content-type", "application/json; charset=UTF-8")
 	json.NewEncoder(w).Encode(res)
