@@ -16,7 +16,7 @@ func GenerateSecret() string {
 		return "error" // TODO
 	}
 
-	return base64.StdEncoding.EncodeToString(bytes)
+	return base64.URLEncoding.EncodeToString(bytes)
 }
 
 func GenerateId() string {
