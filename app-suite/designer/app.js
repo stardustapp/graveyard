@@ -162,6 +162,7 @@ Vue.component('shape-prop', {
       extras: [],
       target: '',
       optional: false,
+      reactive: false,
       shorthand: false,
     };
   },
@@ -195,6 +196,8 @@ Vue.component('shape-prop', {
           this.type = child.StringValue;
         } else if (child.Name === 'optional') {
           this.optional = child.StringValue === 'yes';
+        } else if (child.Name === 'reactive') {
+          this.reactive = child.StringValue === 'yes';
         } else if (child.Name === 'target') {
           this.target = child.StringValue;
         }
@@ -223,6 +226,13 @@ Vue.component('shape-prop', {
         alert(`Shorthands can't be optional`); // TODO
       } else {
         skylink.putString(this.path + '/optional', this.optional ? 'yes' : 'no');
+      }
+    },
+    setReactive() {
+      if (this.shorthand) {
+        alert(`Shorthands can't be reactive`); // TODO
+      } else {
+        skylink.putString(this.path + '/reactive', this.reactive ? 'yes' : 'no');
       }
     },
     remove() {
@@ -394,6 +404,8 @@ var app = new Vue({
               shapes.get(parts[1]).props.get(parts[3]).target = entry.StringValue;
             } else if (parts[0] === 'shapes' && parts[2] === 'props' && parts[4] === 'optional') {
               shapes.get(parts[1]).props.get(parts[3]).optional = entry.StringValue === 'yes';
+            } else if (parts[0] === 'shapes' && parts[2] === 'props' && parts[4] === 'reactive') {
+              shapes.get(parts[1]).props.get(parts[3]).reactive = entry.StringValue === 'yes';
 
             } else if (parts[0] === 'shapes' && parts[2] === 'native-props' && parts.length === 3) {
             } else if (parts[0] === 'shapes' && parts[2] === 'native-props' && parts.length === 4) {
@@ -432,6 +444,8 @@ var app = new Vue({
                 yaml += `  target: "${prop.target}"\n`;
               if (prop.optional)
                 yaml += `  optional: ${prop.optional}\n`;
+              if (prop.reactive)
+                yaml += `  reactive: ${prop.reactive}\n`;
               yaml += `\n`;
             });
 

@@ -183,6 +183,16 @@
         >Optional
     </span>
 
+    <span
+        v-if="type === 'String'"
+      >
+      <input
+          type="checkbox"
+          v-model="reactive"
+          @change="setReactive"
+        >Reactive
+    </span>
+
     <i class="material-icons"
         style="font-size: 1em;"
         @click="remove"
