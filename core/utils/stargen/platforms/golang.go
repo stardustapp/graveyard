@@ -77,6 +77,7 @@ func (p *golang) loadDeps() {
 	p.deps["inmem"] = "\"github.com/stardustapp/core/inmem\""
 	p.deps["stardust"] = "\"github.com/stardustapp/core/client\""
 	p.deps["skylink"] = "\"github.com/stardustapp/core/skylink\""
+	p.deps["toolbox"] = "\"github.com/stardustapp/core/toolbox\""
 
 	depFile, ok := p.gen.DriverCtx.GetFile("/deps.txt")
 	if !ok {
@@ -211,8 +212,13 @@ func (p *golang) GenerateDriver() error {
 			if prop.Type == "Function" {
 				continue // functions are exposed virtually
 			} else if prop.Type == "String" {
-				// let's put raw strings in
-				folderWriter.write("  %s string\n", extras.SnakeToCamel(prop.Name))
+				if prop.IsReactive() {
+					folderWriter.write("  %s *toolbox.ReactiveString\n", extras.SnakeToCamel(prop.Name))
+					folderWriter.useDep("toolbox")
+				} else {
+					// let's put raw strings in
+					folderWriter.write("  %s string\n", extras.SnakeToCamel(prop.Name))
+				}
 			} else if _, ok := shapeNames[prop.Type]; ok {
 				folderWriter.write("  %s *%s\n", extras.SnakeToCamel(prop.Name), extras.SnakeToCamel(prop.Type))
 			} else {
@@ -257,7 +263,7 @@ func (p *golang) GenerateDriver() error {
 					}
 				}
 				folderWriter.write("}, true\n\n")
-			} else if prop.Type == "String" {
+			} else if prop.Type == "String" && !prop.IsReactive() {
 				folderWriter.useDep("inmem")
 				folderWriter.write("    return inmem.NewString(\"%s\", e.%s), true\n\n", prop.Name, extras.SnakeToCamel(prop.Name))
 			} else {
@@ -296,9 +302,19 @@ func (p *golang) GenerateDriver() error {
 			folderWriter.write("  if ent, ok := folder.Fetch(\"%s\"); ok {\n", prop.Name)
 
 			if prop.Type == "String" {
-				folderWriter.write("    if stringEnt, ok := ent.(base.String); ok {\n")
-				folderWriter.write("      x.%s = stringEnt.Get()\n", extras.SnakeToCamel(prop.Name))
-				folderWriter.write("    }\n")
+				if prop.IsReactive() {
+					folderWriter.useDep("toolbox")
+					folderWriter.useDep("base")
+					folderWriter.write("    x.%s = toolbox.NewReactiveString(\"%s\", \"\")\n", extras.SnakeToCamel(prop.Name), prop.Name)
+					folderWriter.write("    if stringEnt, ok := ent.(base.String); ok {\n")
+					folderWriter.write("      x.%s.Set(stringEnt.Get())\n", extras.SnakeToCamel(prop.Name))
+					folderWriter.write("    }\n")
+				} else {
+					folderWriter.useDep("base")
+					folderWriter.write("    if stringEnt, ok := ent.(base.String); ok {\n")
+					folderWriter.write("      x.%s = stringEnt.Get()\n", extras.SnakeToCamel(prop.Name))
+					folderWriter.write("    }\n")
+				}
 			} else if _, ok := shapeNames[prop.Type]; ok {
 				folderWriter.write("    if native, ok := inflate%s(ent); ok {\n", extras.SnakeToCamel(prop.Type))
 				folderWriter.write("      x.%s = native\n", extras.SnakeToCamel(prop.Name))

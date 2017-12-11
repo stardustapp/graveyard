@@ -17,7 +17,16 @@ type PropDef struct {
 	Name     string
 	Type     string
 	Optional *bool
+	Reactive *bool
 	Target   string // name of driver resource to point to
+}
+
+func (d *PropDef) IsOptional() bool {
+	return d.Optional != nil && *d.Optional == true
+}
+
+func (d *PropDef) IsReactive() bool {
+	return d.Reactive != nil && *d.Reactive == true
 }
 
 func (g *Stargen) ListShapes() []ShapeDef {
@@ -75,6 +84,12 @@ func (g *Stargen) readProps(shapeName string, propType string) []PropDef {
 			if optionalEnt, ok := child.Fetch("optional"); ok {
 				if optionalStr, ok := optionalEnt.(base.String); ok {
 					props[idx].Optional = parseBool(optionalStr.Get())
+				}
+			}
+
+			if reactiveEnt, ok := child.Fetch("reactive"); ok {
+				if reactiveStr, ok := reactiveEnt.(base.String); ok {
+					props[idx].Reactive = parseBool(reactiveStr.Get())
 				}
 			}
 
