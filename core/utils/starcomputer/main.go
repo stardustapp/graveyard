@@ -5,10 +5,11 @@ import (
 	//"fmt"
 	"log"
 	"time"
-	//"net/http"
+	"io/ioutil"
 
-	"github.com/stardustapp/core/inmem"
+	//"github.com/stardustapp/core/inmem"
 	"github.com/stardustapp/core/toolbox"
+	"github.com/stardustapp/core/utils/starcomputer/drive"
 )
 
 func main() {
@@ -23,16 +24,26 @@ func main() {
 		panic("Skylink URI for starsystem is required")
 	}
 
-	orbiter := toolbox.NewOrbiter("starmaster://")
+	orbiter := toolbox.NewOrbiter("starcomputer://")
 	if err := orbiter.MountURI(*systemUri, "/mnt/starsystem"); err != nil {
 		log.Println(err)
 		log.Fatalln("Failed to mount starsystem from", *systemUri)
 	}
 
 	ctx := orbiter.GetContextFor("/mnt/starsystem")
-	//root, _ := ctx.GetFolder("/")
-	//log.Println(root.Children())
+	root, _ := ctx.GetFolder("/")
+	log.Println(root.Children())
 
+	coreDrive, err := drive.Start("computer-core.db")
+	log.Println("drive", coreDrive, "err", err)
+
+	dat, err := ioutil.ReadFile("irc-schema.yaml")
+	if err != nil {
+		panic(err)
+	}
+	ReadYamlSchema(dat)
+
+/*
 	ctx.Put("/processes/starfs", inmem.NewFolderOf("starfs",
 		inmem.NewString("command", "starfs"),
 		inmem.NewFolderOf("arguments",
@@ -44,11 +55,12 @@ func main() {
 			inmem.NewString("6", "/mnt/stardust"),
 		),
 	))
+*/
 
 	// TODO: sleep better
 	// probably want to host a skylink endpoint anyway?
-	log.Println("Entering idle loop")
-	for {
-		time.Sleep(time.Minute)
-	}
+	//log.Println("Entering idle loop")
+	//for {
+		time.Sleep(time.Second)
+	//}
 }
