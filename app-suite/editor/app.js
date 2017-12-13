@@ -394,6 +394,10 @@ Vue.component('edit-file', {
         }
       });
     },
+
+    focus() {
+      this.editor.focus();
+    },
   },
 
   created() {
@@ -524,6 +528,19 @@ var app = new Vue({
 
       console.log("Switching to tab", tab.label);
       this.currentTab = tab;
+
+      setTimeout(() => {
+        var tabElem;
+        if (this.currentTab && this.$refs.tabElems) {
+          tabElem = this.$refs.tabElems
+            .find(elem => (elem.tab||{}).key === this.currentTab.key);
+        }
+
+        if (tabElem && tabElem.focus) {
+          console.log('focusing new tab', tabElem.label);
+          tabElem.focus();
+        }
+      }, 1);
     },
 
     closeTab(tab) {
@@ -592,10 +609,12 @@ var app = new Vue({
       // previous/next tab
       case evt.code === 'Comma' && evt.ctrlKey:
       case evt.code === 'BracketLeft' && evt.metaKey:
+        evt.preventDefault();
         this.offsetTabIdx(tab.tab, -1);
         break;
       case evt.code === 'Period' && evt.ctrlKey:
       case evt.code === 'BracketRight' && evt.metaKey:
+        evt.preventDefault();
         this.offsetTabIdx(tab.tab, 1);
         break;
 
