@@ -534,6 +534,7 @@ var app = new Vue({
     },
 
     activateTab(tab) {
+      // TODO: delay closing untouched tabs until another is opened
       if (tab && this.currentTab && this.currentTab !== tab && this.currentTab.untouched) {
         console.log('Closing untouched blurred tab', this.currentTab.key);
         this.closeTab(this.currentTab);
@@ -557,22 +558,31 @@ var app = new Vue({
     },
 
     closeTab(tab) {
+      // confirm first
       if (tab.dirty) {
         if (!confirm(`Close dirty tab ${tab.key}?`)) {
           return;
         }
       }
 
+      // discover index of tab
       const idx = this.tabList.indexOf(tab);
       console.log("Closing tab", tab.label, "idx", idx);
       if (idx !== -1) {
+
+        // close out the tab
         this.tabList.splice(idx, 1);
         delete this.tabKeys[tab.key];
 
+        // if the tab was selected, clear it out
         if (this.currentTab === tab) {
           this.currentTab = null;
-          this.activateTab(this.tabList[0]);
-          //const idx = this.tabList.indexOf(this.currentTab);
+
+          // and select a replacement tab, if any...
+          const newIdx = Math.min(idx, this.tabList.length-1);
+          if (newIdx !== -1) {
+            this.activateTab(this.tabList[newIdx]);
+          }
         }
       }
     },

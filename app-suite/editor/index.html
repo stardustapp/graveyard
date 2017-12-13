@@ -25,6 +25,7 @@
       <li v-for="tab in tabList" class="todo-tab"
           :title="tab.key"
           @click="activateTab(tab)"
+          @click.middle="closeTab(tab)"
           :key="tab.key"
           :class="{active: currentTab === tab, dirty: tab.dirty, untouched: tab.untouched}">
         <i class="material-icons tree-icon">{{tab.icon}}</i>
