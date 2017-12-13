@@ -370,8 +370,21 @@ Vue.component('edit-file', {
       const source = input.replace(/\t/g, '  ').replace(/ +$/gm, '');
       if (input != source) {
         // TODO: transform cursor to account for replacement
+
+        // take viewport notes
         const cursor = this.editor.getCursor();
+        const scrollerEl = this.editor.getScrollerElement();
+        const { scrollTop } = scrollerEl;
+
+        // do the update
         this.editor.setValue(source);
+
+        // reset viewport
+        scrollerEl.scrollTop = scrollTop;
+        setTimeout(() => {
+          scrollerEl.scrollTop = scrollTop;
+        }, 1);
+
         this.editor.setCursor(cursor);
         console.log('Updated buffer to cleaned version of source');
       }
