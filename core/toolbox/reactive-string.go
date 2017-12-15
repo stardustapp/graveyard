@@ -24,7 +24,7 @@ func NewReactiveString(name string, initialValue string) *ReactiveString {
 	return &ReactiveString{
 		name:  name,
 		value: initialValue,
-		subs: make(map[*skylink.Subscription]struct{}),
+		subs:  make(map[*skylink.Subscription]struct{}),
 	}
 }
 
@@ -49,12 +49,12 @@ func (e *ReactiveString) Set(newValue string) {
 }
 
 func (e *ReactiveString) Subscribe(s *skylink.Subscription) (err error) {
-  log.Println("Starting inmem reactive-string sub")
+	log.Println("Starting inmem reactive-string sub")
 
 	// Wait around for the client to go away
-  go func(stopC <-chan struct{}) {
-    log.Println("setting inmem reactive-string sub pubsub closer")
-    <-stopC
+	go func(stopC <-chan struct{}) {
+		log.Println("setting inmem reactive-string sub pubsub closer")
+		<-stopC
 
 		// Lock the broadcaster for a sec
 		log.Println("closing inmem reactive-string sub")
@@ -64,7 +64,7 @@ func (e *ReactiveString) Subscribe(s *skylink.Subscription) (err error) {
 		// Clean the sub out
 		s.Close()
 		delete(e.subs, s)
-  }(s.StopC)
+	}(s.StopC)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -74,5 +74,5 @@ func (e *ReactiveString) Subscribe(s *skylink.Subscription) (err error) {
 	s.SendNotification("Added", "", inmem.NewString(e.name, e.value))
 	s.SendNotification("Ready", "", nil)
 
-  return nil
+	return nil
 }
