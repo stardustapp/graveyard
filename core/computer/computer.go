@@ -15,11 +15,14 @@ type Computer struct {
 func Run() (*Computer, error) {
   log.Println("starting to run computer")
 
-	coreDrive, err := openBoltDrive("drive-root.db")
+	/*
+  coreDrive, err := openBoltDrive("drive-root.db")
 	if err != nil {
 		panic(err)
 	}
-	log.Println("drive", coreDrive, "err", err)
+  */
+  coreDrive := newMemoryDrive()
+	log.Println("drive", coreDrive)//, "err", err)
 	defer coreDrive.Close()
 
 	specSpec, err := schema.FromSpecFile("core-schemas/specs.yaml")
@@ -31,6 +34,9 @@ func Run() (*Computer, error) {
 	hash := specSpec.HashCode()
 	log.Printf("Specification hash is %016x", hash)
 	//specSpec.Encode()
+
+  //typeSchema := coreDrive.InstallSpec("types", typeSpec)
+  coreDrive.InstallSpec("specs", specSpec)
 
 /*
   buf, err := json.Marshal(specSpec)

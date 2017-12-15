@@ -52,7 +52,7 @@ type BoltDrive struct {
   shapeMutex sync.Mutex
 }
 
-func (bd *BoltDrive) InstallSpec(name string, spec schema.SchemaSpec) (map[string]uint64, error) {
+func (bd *BoltDrive) InstallSpec(name string, spec *schema.SchemaSpec) (map[string]uint64, error) {
   bd.shapeMutex.Lock()
   defer bd.shapeMutex.Unlock()
   log.Println("bolt-drive: installing spec", spec.Origin)
@@ -73,9 +73,8 @@ func (bd *BoltDrive) InstallSpec(name string, spec schema.SchemaSpec) (map[strin
   return typeIdxs, err
 }
 
-// gob-serialized?
+// probably similar to gob's wire, maybe
 type boltShape struct {
-  idx uint64
 
 }
 
