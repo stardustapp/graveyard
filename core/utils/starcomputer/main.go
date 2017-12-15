@@ -2,14 +2,12 @@ package main
 
 import (
 	"flag"
-	//"fmt"
 	"log"
 	"time"
-	"io/ioutil"
 
 	//"github.com/stardustapp/core/inmem"
 	"github.com/stardustapp/core/toolbox"
-	"github.com/stardustapp/core/utils/starcomputer/drive"
+	"github.com/stardustapp/core/computer"
 )
 
 func main() {
@@ -34,14 +32,7 @@ func main() {
 	root, _ := ctx.GetFolder("/")
 	log.Println(root.Children())
 
-	coreDrive, err := drive.Start("computer-core.db")
-	log.Println("drive", coreDrive, "err", err)
-
-	dat, err := ioutil.ReadFile("irc-schema.yaml")
-	if err != nil {
-		panic(err)
-	}
-	ReadYamlSchema(dat)
+	computer.Run()
 
 /*
 	ctx.Put("/processes/starfs", inmem.NewFolderOf("starfs",
@@ -61,6 +52,6 @@ func main() {
 	// probably want to host a skylink endpoint anyway?
 	//log.Println("Entering idle loop")
 	//for {
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond)
 	//}
 }
