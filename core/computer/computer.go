@@ -16,10 +16,10 @@ func Run() (*Computer, error) {
 	log.Println("starting to run computer")
 
 	/*
-	  coreDrive, err := openBoltDrive("drive-root.db")
-		if err != nil {
-			panic(err)
-		}
+		  coreDrive, err := openBoltDrive("drive-root.db")
+			if err != nil {
+				panic(err)
+			}
 	*/
 	var coreDrive Drive = newMemoryDrive()
 	log.Println("drive", coreDrive) //, "err", err)

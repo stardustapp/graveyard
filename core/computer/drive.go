@@ -16,7 +16,7 @@ type Drive interface {
 
 type Bucket interface {
 	GetRoot() base.Folder
-  GetShape() Shape
+	GetShape() Shape
 
 	//UpdateShape
 	//ShapeSummary() map[Shape]int
