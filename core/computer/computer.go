@@ -21,7 +21,7 @@ func Run() (*Computer, error) {
 			panic(err)
 		}
 	*/
-	coreDrive := newMemoryDrive()
+	var coreDrive Drive = newMemoryDrive()
 	log.Println("drive", coreDrive) //, "err", err)
 	defer coreDrive.Close()
 

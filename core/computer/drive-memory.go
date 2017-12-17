@@ -4,8 +4,13 @@ import (
 	"log"
 	"sync"
 
-	"github.com/stardustapp/core/computer/schema"
+  "github.com/stardustapp/core/computer/schema"
+  "github.com/stardustapp/core/base"
 )
+
+// Memory drives are a volatile StarDrive implementation
+// They never persist anything outside of the process, like RAM disks
+// This means there's no concerns about serialization or disk migrations
 
 func newMemoryDrive() *MemoryDrive {
 	return &MemoryDrive{
@@ -20,25 +25,53 @@ type MemoryDrive struct {
 	shapeMutex sync.Mutex
 }
 
-func (bd *MemoryDrive) InstallSpec(name string, spec *schema.SchemaSpec) (map[string]*memoryShape, error) {
+var _ Drive = (*MemoryDrive)(nil)
+
+func (bd *MemoryDrive) InstallSpec(name string, spec *schema.SchemaSpec) (map[string]Shape, error) {
 	bd.shapeMutex.Lock()
 	defer bd.shapeMutex.Unlock()
 	log.Println("bolt-drive: installing spec", name, "from", spec.Origin)
 
-	typeIdxs := make(map[string]*memoryShape)
-	//hashShapes := make(map[string]uint64)
+	typeIdxs := make(map[string]Shape)
+	hashShapes := make(map[uint64]Shape)
 
 	for _, typeSpec := range spec.Types {
-		log.Println("hi", typeSpec.Name, typeSpec.HashCode())
+		hashCode := typeSpec.HashCode()
+    if _, ok := hashShapes[hashCode]; ok {
+      log.Println("memdrive already registered", typeSpec.Name, hashCode)
+    }
+
+    log.Println("registering", typeSpec, hashCode)
+    hashShapes[hashCode] = &memoryShape{
+      //spec:
+    }
 	}
 
 	return typeIdxs, nil
 }
 
-// probably similar to gob's wire, maybe
+func (bd *MemoryDrive) Close() error {
+	return nil
+}
+
+type memoryBucket struct {
+}
+
+var _ Bucket = (*memoryBucket)(nil)
+
+func (b *memoryBucket)	GetRoot() base.Folder {
+  return nil
+}
+func (b *memoryBucket)	GetShape() Shape {
+  return nil
+}
+
+
 type memoryShape struct {
 }
 
-func (bd *MemoryDrive) Close() error {
-	return nil
+var _ Shape = (*memoryShape)(nil)
+
+func (s *memoryShape) Validate(entry base.Entry) error {
+  return nil
 }

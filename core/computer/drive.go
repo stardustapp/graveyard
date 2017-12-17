@@ -9,13 +9,14 @@ import (
 
 type Drive interface {
 	InstallSpec(name string, spec *schema.SchemaSpec) (map[string]Shape, error)
-	CreateBucket(name string, rootType Shape) (Bucket, error)
-	GetBucket(name string) (Bucket, error)
+	//CreateBucket(name string, rootType Shape) (Bucket, error)
+	//GetBucket(name string) (Bucket, error)
 	Close() error
 }
 
 type Bucket interface {
 	GetRoot() base.Folder
+  GetShape() Shape
 
 	//UpdateShape
 	//ShapeSummary() map[Shape]int
