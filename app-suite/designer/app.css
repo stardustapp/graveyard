@@ -4,16 +4,6 @@ body {
   color: #fff;
 }
 
-h1 {
-  text-align: center;
-  font-weight: 400;
-  margin-bottom: 0;
-}
-
-.select-driver {
-  text-align: center;
-}
-
 table {
   display: inline-block;
   background-color: #43a047;
@@ -43,4 +33,50 @@ i {
 
 @keyframes spin {
   100% { transform: rotate(360deg); }
+}
+
+
+
+
+
+#app {
+  height: 100%;
+  font-family: 'Roboto', sans-serif;
+  display: flex;
+  flex: 1;
+}
+
+
+
+#navbar {
+  background-color: rgba(0, 0, 0, 0.9);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.main-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 0.4em;
+  flex-shrink: 0;
+}
+h1 {
+  text-align: center;
+  font-weight: 400;
+  margin: 0;
+  flex: 1;
+}
+
+.driver-summary {
+  padding: 1em;
+  overflow-y: scroll;
+}
+h2 {
+  font-weight: 400;
+  margin: 0;
 }

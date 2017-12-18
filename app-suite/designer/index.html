@@ -1,32 +1,20 @@
 <!doctype html>
 <title>Stardust App Designer</title>
 <link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
-<link href="/~legacy/osfs/fonts/fira_code.css" rel="stylesheet">
+<link href="/~system/lib/vue-app.css" type="text/css" rel="stylesheet">
 <link href="app.css" type="text/css" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<div id="app">
-  <h1>Driver Designer</h1>
-  <div class="select-driver">
-    <select v-model="driver" @change="loadDriver">
-      <option
-          v-for="driver in drivers"
-          :key="driver"
-        >{{driver}}</option>
-    </select>
-    <button @click="newDriver">new driver</button>
-    {{platform}}
-  </div>
-  <div class="select-driver">
-    <button @click="exportDrivers">export all drivers</button>
-    <button @click="importDrivers">import all drivers</button>
-  </div>
+<meta name="x-stardust-appid" content="designer">
 
+<script type="text/x-template" id="driver-summary">
+<div class="driver-summary">
+  <h2><code>{{platform}}</code> driver: <code>{{id}}</code></h2>
   <p>Functions</p>
   <ul>
     <function v-for="func in functions"
-        :key="driver+'/'+func"
-        :driver="driver"
+        :key="id+'/'+func"
+        :driver="id"
         :func="func"
       ></function>
     <li>
@@ -37,8 +25,8 @@
   <p>Shapes</p>
   <ul>
     <shape v-for="shape in shapes"
-        :key="driver+'/'+shape"
-        :driver="driver"
+        :key="id+'/'+shape"
+        :driver="id"
         :shape="shape"
       ></shape>
     <li>
@@ -46,14 +34,27 @@
     </li>
   </ul>
 
-  <button @click="openDeps">edit dependencies</button>
+  <button v-if="hasEditor" @click="openDeps">edit dependencies</button>
 </div>
+</script>
+
+<script type="text/x-template" id="app-header">
+  <header class="app-header">
+    <sky-menu-toggle />
+
+    <h1>Starsystem Designer</h1>
+
+    <button @click="newDriver">new driver</button>
+    <button @click="exportDrivers">export all</button>
+    <!--button @click="importDrivers">import all drivers</button-->
+  </header>
+</script>
 
 <script type="text/x-template" id="function">
   <li>
     {{func}}
 
-    <button @click="openSource">edit source</button>
+    <button v-if="hasEditor" @click="openSource">edit source</button>
 
     <select v-model="contextShape" @change="setShape('context')">
       <option value="">no context</option>
@@ -200,6 +201,50 @@
   </li>
 </script>
 
-<script src="https://unpkg.com/vue@v2.4.4"></script>
+<div id="app">
+  <!-- render top bar w/ connection state and current user -->
+  <sky-session></sky-session>
+
+  <sky-side-menu :fixed-width="250">
+
+    <sky-foreach
+      el="ul"
+      class="driver-list"
+      path="state/native-drivers"
+      fields="platform"
+      :depth="1"
+      :filter="{platform: 'golang'}">
+    <template slot="header">
+      <h2>golang drivers</h2>
+    </template>
+    <template slot="item" scope="driver">
+      <li><router-link
+        :to="{name: 'driver-summary', params:{ id: driver._id }}"
+        @click.native="closeNav"
+        class="driver-link">
+        {{driver._id}}
+      </router-link></li>
+    </template>
+    </sky-foreach>
+
+  </sky-side-menu>
+
+  <section class="main-view">
+    <app-header></app-header>
+    <router-view></router-view>
+  </section>
+</div>
+
+<!-- external vendor libraries -->
+<script src="https://unpkg.com/vue"></script>
+<script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+
+<!-- kernel library + components -->
 <script src="/~system/js-core/combined.js"></script>
+
+<!-- app scripts and components -->
 <script src="app.js"></script>
+
+<!-- boot the app -->
+<script src="/~system/lib/vue-toolbox.js"></script>
+<script src="/~system/lib/vue-app.js"></script>
