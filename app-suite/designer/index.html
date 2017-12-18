@@ -214,17 +214,17 @@
       fields="platform"
       :depth="1"
       :filter="{platform: 'golang'}">
-    <template slot="header">
-      <h2>golang drivers</h2>
-    </template>
-    <template slot="item" scope="driver">
-      <li><router-link
+    <h2 slot="header">
+      golang drivers
+    </h2>
+    <li slot="item" slot-scope="driver">
+      <router-link
         :to="{name: 'driver-summary', params:{ id: driver._id }}"
         @click.native="closeNav"
         class="driver-link">
         {{driver._id}}
-      </router-link></li>
-    </template>
+      </router-link>
+    </li>
     </sky-foreach>
 
   </sky-side-menu>

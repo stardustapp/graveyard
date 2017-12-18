@@ -19,15 +19,13 @@
       path="persist/todo-list/themes"
       fields="name color"
       :depth="1">
-    <template slot="item" scope="doc">
-      <li :key="doc._id">
-        <span class="body">{{doc.name}}</span>
-        <!--button class="ice-it sub-action"
-                @click="skyStoreString(doc._path+'/status', 'frozen')">
-          <i class="material-icons">ac_unit</i>
+    <li :key="doc._id" slot="item" slot-scope="doc">
+      <span class="body">{{doc.name}}</span>
+      <!--button class="ice-it sub-action"
+        @click="skyStoreString(doc._path+'/status', 'frozen')">
+        <i class="material-icons">ac_unit</i>
         </button-->
-      </li>
-    </template>
+    </li>
   </sky-foreach>
 
   <sky-form
