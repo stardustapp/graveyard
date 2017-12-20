@@ -367,10 +367,16 @@ func (p *golang) GenerateDriver() error {
 		funcWriter.write("func (e *%sInner) Invoke(ctx base.Context, input base.Entry) base.Entry {\n", properName)
 
 		// Do some input mapping
-		if funct.InputShape == "String" {
-			funcWriter.write("  inStr, ok := input.(base.String)\n")
+		if _, ok := builtinShapes[funct.InputShape]; ok {
+			funcWriter.write("  in%s, ok := input.(base.%s)\n", funct.InputShape, funct.InputShape)
 			funcWriter.write("  if !ok {\n    return nil\n  }\n\n")
-			funcWriter.write("  realInput := inStr.Get()\n")
+
+			if funct.InputShape == "String" {
+				funcWriter.write("  realInput := in%s.Get()\n", funct.InputShape)
+			} else {
+				funcWriter.write("  realInput := in%s\n", funct.InputShape)
+			}
+
 		} else if funct.InputShape != "" {
 			funcWriter.write("  realInput, ok := inflate%s(input)\n", extras.SnakeToCamel(funct.InputShape))
 			funcWriter.write("  if !ok {\n    return nil\n  }\n\n")
