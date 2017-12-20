@@ -12,6 +12,7 @@ import (
 type Folder struct {
 	name       string
 	writable   bool
+	obscured   bool // neuters Children(), for child protection
 	children   map[string]base.Entry
 	childMutex sync.RWMutex
 }
@@ -22,6 +23,17 @@ func NewFolder(name string) *Folder {
 	return &Folder{
 		name:     name,
 		writable: true,
+		children: make(map[string]base.Entry),
+	}
+}
+
+// Create a folder that doesn't advertise children
+// Useful for hiding temporary, session or private folders
+func NewObscuredFolder(name string) *Folder {
+	return &Folder{
+		name:     name,
+		writable: true,
+		obscured: true,
 		children: make(map[string]base.Entry),
 	}
 }
@@ -57,6 +69,10 @@ func (e *Folder) Name() string {
 }
 
 func (e *Folder) Children() []string {
+	if e.obscured {
+		return nil
+	}
+
 	e.childMutex.RLock()
 	defer e.childMutex.RUnlock()
 
