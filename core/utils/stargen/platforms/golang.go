@@ -101,6 +101,13 @@ func (p *golang) GenerateDriver() error {
 		panic("Unable to create go-src directory in compile path")
 	}
 
+	builtinShapes := make(map[string]bool)
+	builtinShapes["String"] = true
+	builtinShapes["Channel"] = true
+	builtinShapes["File"] = true
+	builtinShapes["Folder"] = true
+	builtinShapes["Function"] = true
+
 	shapeDefs := p.gen.ListShapes()
 	funcDefs := p.gen.ListFunctions()
 
@@ -157,7 +164,7 @@ func (p *golang) GenerateDriver() error {
 
 					if funct.InputShape != "" {
 						shapeWriter.useDep("inmem")
-						if funct.InputShape == "String" || funct.InputShape == "Channel" {
+						if _, ok := builtinShapes[funct.InputShape]; ok {
 							shapeWriter.write("    		inmem.NewShape(inmem.NewFolderOf(\"input-shape\",\n")
 							shapeWriter.write("    		  inmem.NewString(\"type\", \"%s\"),\n", funct.InputShape)
 							shapeWriter.write("    		)),\n")
@@ -168,7 +175,7 @@ func (p *golang) GenerateDriver() error {
 					}
 					if funct.OutputShape != "" {
 						shapeWriter.useDep("inmem")
-						if funct.OutputShape == "String" || funct.OutputShape == "Channel" {
+						if _, ok := builtinShapes[funct.OutputShape]; ok {
 							shapeWriter.write("   		  inmem.NewShape(inmem.NewFolderOf(\"output-shape\",\n")
 							shapeWriter.write("   		    inmem.NewString(\"type\", \"%s\"),\n", funct.OutputShape)
 							shapeWriter.write("				)),\n")
@@ -438,7 +445,7 @@ func (p *golang) GenerateDriver() error {
 		}
 		if funct.InputShape != "" {
 			funcWriter.write("  case \"input-shape\":\n")
-			if funct.InputShape == "String" || funct.InputShape == "Channel" {
+			if _, ok := builtinShapes[funct.InputShape]; ok {
 				funcWriter.useDep("inmem")
 				funcWriter.write("    return inmem.NewShape(inmem.NewFolderOf(\"input-shape\",\n")
 				funcWriter.write("      inmem.NewString(\"type\", \"%s\"),\n", funct.InputShape)
@@ -449,7 +456,7 @@ func (p *golang) GenerateDriver() error {
 		}
 		if funct.OutputShape != "" {
 			funcWriter.write("  case \"output-shape\":\n")
-			if funct.OutputShape == "String" || funct.OutputShape == "Channel" {
+			if _, ok := builtinShapes[funct.OutputShape]; ok {
 				funcWriter.useDep("inmem")
 				funcWriter.write("    return inmem.NewShape(inmem.NewFolderOf(\"output-shape\",\n")
 				funcWriter.write("      inmem.NewString(\"type\", \"%s\"),\n", funct.OutputShape)
