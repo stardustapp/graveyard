@@ -62,6 +62,10 @@ func (e *Environment) Browse(initialUri string) (*Resolver, error) {
 		return nil, err
 	}
 
+	if !u.IsAbs() {
+		return nil, errors.New("Provided URI was not absolute, cannot browse relative URIs")
+	}
+
 	log.Println("Starting to browse at", initialUri)
 	// TODO: ensure the uri exists
 

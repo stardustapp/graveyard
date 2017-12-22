@@ -14,6 +14,7 @@ import (
 
 func newMemoryDrive() *MemoryDrive {
 	return &MemoryDrive{
+		env: base.NewEnvironment(),
 		//specs: make(map[string]*schema.SchemaSpec),
 		shapes: make(map[int]*memoryShape),
 	}
@@ -21,15 +22,16 @@ func newMemoryDrive() *MemoryDrive {
 
 type MemoryDrive struct {
 	//specs map[string]*schema.SchemaSpec
+	env        *base.Environment
 	shapes     map[int]*memoryShape
 	shapeMutex sync.Mutex
 }
 
 var _ Drive = (*MemoryDrive)(nil)
 
-func (bd *MemoryDrive) InstallSpec(name string, spec *schema.SchemaSpec) (map[string]Shape, error) {
-	bd.shapeMutex.Lock()
-	defer bd.shapeMutex.Unlock()
+func (d *MemoryDrive) InstallSpec(name string, spec *schema.SchemaSpec) (map[string]Shape, error) {
+	d.shapeMutex.Lock()
+	defer d.shapeMutex.Unlock()
 	log.Println("bolt-drive: installing spec", name, "from", spec.Origin)
 
 	typeIdxs := make(map[string]Shape)
@@ -39,9 +41,20 @@ func (bd *MemoryDrive) InstallSpec(name string, spec *schema.SchemaSpec) (map[st
 		hashCode := typeSpec.HashCode()
 		if _, ok := hashShapes[hashCode]; ok {
 			log.Println("memdrive already registered", typeSpec.Name, hashCode)
+			continue
+		}
+
+		typeBrowser, err := d.env.Browse("type://" + name + ".package.local/types/" + typeSpec.Name)
+		if err != nil {
+			return nil, err
 		}
 
 		log.Println("registering", typeSpec, hashCode)
+		_, err = typeSpec.Compile(typeBrowser)
+		if err != nil {
+			return nil, err
+		}
+
 		hashShapes[hashCode] = &memoryShape{
 		//spec:
 		}
@@ -50,7 +63,7 @@ func (bd *MemoryDrive) InstallSpec(name string, spec *schema.SchemaSpec) (map[st
 	return typeIdxs, nil
 }
 
-func (bd *MemoryDrive) Close() error {
+func (d *MemoryDrive) Close() error {
 	return nil
 }
 
