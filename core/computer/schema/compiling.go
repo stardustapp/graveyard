@@ -11,7 +11,7 @@ func (ts *TypeSpec) Compile(typeBrowser *base.Resolver) (struct{}, error) {
 	log.Println("schema compiling here!", ts.Name)
 
 	if ts.Optional {
-		return nil, errors.New("Root types must not have the Optional flag set")
+		return struct{}{}, errors.New("Root types must not have the Optional flag set")
 	}
 
 	return struct{}{}, nil
