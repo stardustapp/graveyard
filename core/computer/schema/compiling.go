@@ -27,7 +27,7 @@ type TypeDef struct {
 
 type FieldDef struct {
 	SlotIdx int
-	Name string
+	Name    string
 }
 
 type SlotDef struct {
