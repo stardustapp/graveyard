@@ -37,6 +37,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		prefix = "/~" + chartName
 
 	} else {
+		// TODO: use --public-chart to configure sharing at the URL root
 		chartName = "public"
 		prefix = ""
 	}

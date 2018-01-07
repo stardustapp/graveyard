@@ -19,6 +19,7 @@ func main() {
 	var statePath = flag.String("data-store", "/mnt/data/skychart", "Location on Skylink upstream to persist data in")
 	var homeDomain = flag.String("home-domain", "devmode.cloud", "Unique constant DNS-based name for this chart server")
 	var rootChart = flag.String("root-chart", "system", "Name of a primary chart to compile and boot at startup")
+	var publicChart = flag.String("public-chart", "", "Name of a chart that should be launched and exposed at /public")
 	var extraCharts = flag.String("extra-charts", "", "Comma-seperated names of extras charts to attempt to boot at startup. Failures will be ignored")
 	flag.Parse()
 
@@ -83,6 +84,30 @@ func main() {
 				}
 			}
 		}(strings.Split(*extraCharts, ","))
+	}
+
+	// Whatever public chart is exposed without auth at / (or skylink /public)
+	if *publicChart != "" {
+		go func(chartName string) {
+			time.Sleep(35 * time.Second)
+			log.Println("Starting root-public chart", chartName)
+			defer log.Println("Done launching the root-public chart")
+
+			chart := engine.findChart(chartName)
+			if chart == nil {
+				log.Println("WARN: Public chart", chartName, "not found, ignoring")
+				return
+			}
+
+			ent := engine.launchChart(chart)
+			if ent == nil {
+				log.Println("WARN: Public chart", chartName, "failed to launch, ignoring")
+				return
+			}
+
+			// it launched, so let's mount it
+			ctx.Put("/public", ent)
+		}(*publicChart)
 	}
 
 	toolbox.ServeHTTP(fmt.Sprint("0.0.0.0:", 9236))
