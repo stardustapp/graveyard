@@ -106,27 +106,9 @@ func main() {
 			}
 
 			// it launched, so let's mount it
-			ctx.Put("/public", ent)
+			ctx.Put("/pub/public", ent)
 		}(*publicChart)
 	}
 
 	toolbox.ServeHTTP(fmt.Sprint("0.0.0.0:", 9236))
-}
-
-func launchChart(ctx base.Context, name string) (ok bool) {
-	openFunc, _ := ctx.GetFunction("/pub/open/invoke")
-	chartApi := openFunc.Invoke(ctx, inmem.NewString("", name))
-	chartDir := chartApi.(base.Folder)
-	manageEnt, _ := chartDir.Fetch("browse")
-	manageFold := manageEnt.(base.Folder)
-	browseIvkEnt, _ := manageFold.Fetch("invoke")
-	browseFunc := browseIvkEnt.(base.Function)
-	chartEnt := browseFunc.Invoke(ctx, nil)
-
-	if chartEnt != nil {
-		log.Println("Compiled", name, "into", chartEnt)
-		ctx.Put("/pub/charts/"+name, chartEnt)
-		return true
-	}
-	return false
 }
