@@ -37,7 +37,11 @@ func openChart(ctx base.Context, input base.Entry) (output base.Entry) {
 }
 
 func createChart(ctx base.Context, input base.Entry) (output base.Entry) {
-	inputFolder := input.(base.Folder)
+	var inputFolder base.Folder
+	if inputFolder, ok := input.(base.Folder); !ok {
+		return inmem.NewString("error", "Expected a Folder as the input")
+	}
+
 	chartName, _ := extras.GetChildString(inputFolder, "chart-name")
 	ownerName, _ := extras.GetChildString(inputFolder, "owner-name")
 	ownerEmail, _ := extras.GetChildString(inputFolder, "owner-email")
@@ -50,7 +54,11 @@ func createChart(ctx base.Context, input base.Entry) (output base.Entry) {
 }
 
 func startSession(ctx base.Context, input base.Entry) (output base.Entry) {
-	inputFolder := input.(base.Folder)
+	var inputFolder base.Folder
+	if inputFolder, ok := input.(base.Folder); !ok {
+		return inmem.NewString("error", "Expected a Folder as the input")
+	}
+
 	chartName, _ := extras.GetChildString(inputFolder, "profile")
 	launchSecret, _ := extras.GetChildString(inputFolder, "secret")
 
