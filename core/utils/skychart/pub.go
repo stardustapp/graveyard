@@ -37,8 +37,8 @@ func openChart(ctx base.Context, input base.Entry) (output base.Entry) {
 }
 
 func createChart(ctx base.Context, input base.Entry) (output base.Entry) {
-	var inputFolder base.Folder
-	if inputFolder, ok := input.(base.Folder); !ok {
+	inputFolder, ok := input.(base.Folder)
+	if !ok {
 		return inmem.NewString("error", "Expected a Folder as the input")
 	}
 
@@ -54,8 +54,8 @@ func createChart(ctx base.Context, input base.Entry) (output base.Entry) {
 }
 
 func startSession(ctx base.Context, input base.Entry) (output base.Entry) {
-	var inputFolder base.Folder
-	if inputFolder, ok := input.(base.Folder); !ok {
+	inputFolder, ok := input.(base.Folder)
+	if !ok {
 		return inmem.NewString("error", "Expected a Folder as the input")
 	}
 
