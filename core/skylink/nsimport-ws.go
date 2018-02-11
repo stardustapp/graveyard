@@ -90,6 +90,8 @@ func (svc *nsWebsocketClient) exec(req nsRequest) (res nsResponse, err error) {
 
 	svc.conn.WriteJSON(req)
 	res = <-svc.respC
-	log.Println("nsexport-ws:", req.Op, "op to", req.Path, "on", svc.endpoint, "was ok:", res.Ok)
+	if !res.Ok {
+		log.Println("nsimport-ws:", req.Op, "op to", req.Path, "on", svc.endpoint, "was ok:", res.Ok)
+	}
 	return
 }
