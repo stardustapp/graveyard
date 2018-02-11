@@ -8,12 +8,12 @@ import (
 	"github.com/stardustapp/core/toolbox"
 )
 
-type IrcClient struct {
+type Session struct {
 	orbiter *toolbox.Orbiter
 	ctx     base.Context
 }
 
-func NewClient(domain, profile, secret string) *IrcClient {
+func NewSession(domain, profile, secret string) *Session {
 	// Initialize a client, connected to the domain
 	orbiter := toolbox.NewRemoteOrbiter("irc-client://", "wss://"+domain+"/~~export/ws")
 
@@ -29,6 +29,8 @@ func NewClient(domain, profile, secret string) *IrcClient {
 		inmem.NewString("profile", profile),
 		inmem.NewString("secret", secret),
 	))
+
+	// Check if the login worked
 	output := sessionIdStr.(base.String).Get()
 	if sessionIdStr.Name() == "error" {
 		panic("Profile server said no: " + output)
@@ -37,5 +39,5 @@ func NewClient(domain, profile, secret string) *IrcClient {
 
 	// Store a context into the session
 	profileCtx := orbiter.GetContextFor("/mnt/pub/sessions/" + output + "/mnt")
-	return &IrcClient{orbiter, profileCtx}
+	return &Session{orbiter, profileCtx}
 }

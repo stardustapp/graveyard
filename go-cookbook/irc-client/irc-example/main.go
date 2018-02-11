@@ -20,7 +20,7 @@ func main() {
 		panic("Profile name is required")
 	}
 
-	client := ircClient.NewClient(*domain, *profile, *secret)
+	client := ircClient.NewSession(*domain, *profile, *secret)
 	log.Println("Available networks:", client.ListNetworks())
 	log.Println("Available freenode channels:", client.ListChannels("freenode"))
 	client.SendPrivmsg("freenode", "danopia", "hello world!")
