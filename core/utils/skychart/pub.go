@@ -19,6 +19,9 @@ var pubFolder *inmem.Folder = inmem.NewFolderOf("pub",
 	inmem.NewFolderOf("create",
 		inmem.NewFunction("invoke", createChart),
 	).Freeze(),
+	inmem.NewFolderOf("start-session",
+		inmem.NewFunction("invoke", startSession),
+	).Freeze(),
 	sessFolder,
 )
 
@@ -44,4 +47,23 @@ func createChart(ctx base.Context, input base.Entry) (output base.Entry) {
 		return nil
 	}
 	return chart.getApi()
+}
+
+func startSession(ctx base.Context, input base.Entry) (output base.Entry) {
+	inputFolder := input.(base.Folder)
+	chartName, _ := extras.GetChildString(inputFolder, "profile")
+	launchSecret, _ := extras.GetChildString(inputFolder, "secret")
+
+	chart := engine.findChart(chartName)
+	if chart == nil {
+		return inmem.NewString("error", "Profile not found: "+chartName)
+	}
+
+	entriesDir, ok := chart.ctx.GetFolder("/entries")
+	if !ok {
+		return inmem.NewString("error", "Internal error: /entries didn't exist")
+	}
+
+	launchFunc := &chartLaunchFunc{chart, entriesDir}
+	return launchFunc.Invoke(ctx, inmem.NewString("launch-secret", launchSecret))
 }
