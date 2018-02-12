@@ -165,7 +165,7 @@ func processNsRequest(root base.Context, req nsRequest) (res nsResponse) {
 
 			log.Println("stopping notif pump")
 			close(outC)
-		}(sub.streamC, respC)
+		}(sub.StreamC, respC)
 
 	case "invoke":
 		var fun base.Function

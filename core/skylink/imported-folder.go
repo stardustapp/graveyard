@@ -165,7 +165,7 @@ func (e *importedFolder) Subscribe(s *Subscription) (err error) {
 			}
 			log.Println("imported-folder: Completed subscription pump from", e.prefix)
 			close(outC)
-		}(resp.Channel, s.streamC, s.StopC)
+		}(resp.Channel, s.StreamC, s.StopC)
 	}
 
 	if resp.Status == "Ok" {

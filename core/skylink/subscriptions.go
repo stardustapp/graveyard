@@ -12,7 +12,7 @@ type Subscription struct {
 	root     base.Entry
 	MaxDepth int
 	StopC    chan struct{}     // closed by downstream when the sub should no longer be active
-	streamC  chan Notification // kept open to prevent panics
+	StreamC  chan Notification // kept open to prevent panics
 }
 
 // A resource that is natively subscribable.
@@ -37,10 +37,10 @@ func NewSubscription(root base.Entry, maxDepth int) *Subscription {
 }
 
 func (s *Subscription) Run() error {
-	if s.streamC != nil {
+	if s.StreamC != nil {
 		panic("Subscription is already running")
 	}
-	s.streamC = make(chan Notification, 5)
+	s.StreamC = make(chan Notification, 5)
 
 	return s.subscribe(s.root)
 }
@@ -48,7 +48,7 @@ func (s *Subscription) Run() error {
 func (s *Subscription) SendNotification(nType, path string, node base.Entry) {
 	log.Println("nsapi: Sending", nType, "notification on", path, "w/", node)
 
-	s.streamC <- Notification{
+	s.StreamC <- Notification{
 		Type:  nType,
 		Path:  path,
 		Entry: node,
@@ -59,7 +59,7 @@ func (s *Subscription) SendNotification(nType, path string, node base.Entry) {
 // Only the upstream should call this
 func (s *Subscription) Close() {
 	log.Println("nsapi: Closing subscription notification channel")
-	close(s.streamC)
+	close(s.StreamC)
 }
 
 func (s *Subscription) subscribe(src base.Entry) error {
