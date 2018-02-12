@@ -23,5 +23,6 @@ func main() {
 	client := ircClient.NewSession(*domain, *profile, *secret)
 	log.Println("Available networks:", client.ListNetworks())
 	log.Println("Available freenode channels:", client.ListChannels("freenode"))
-	client.SendPrivmsg("freenode", "danopia", "hello world!")
+
+	client.SendPrivmsg("freenode", "#stardust-test", "hello world!")
 }
