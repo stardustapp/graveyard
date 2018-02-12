@@ -147,16 +147,18 @@ func HandleConn(netConn net.Conn, homeDomain string) {
 			}
 			for pkt := range channelSub.C {
 				log.Println("log activity:", pkt.PrefixName, pkt.Command, pkt.Params)
-				ircConn.WriteMessage(&irc.Message{
-					Command: pkt.Command,
-					Params:  pkt.Params,
-					Prefix: &irc.Prefix{
-						Name: pkt.PrefixName,
-						User: pkt.PrefixUser,
-						Host: pkt.PrefixHost,
-					},
-					// TODO: tags
-				})
+				if pkt.Source == "server" {
+					ircConn.WriteMessage(&irc.Message{
+						Command: pkt.Command,
+						Params:  pkt.Params,
+						Prefix: &irc.Prefix{
+							Name: pkt.PrefixName,
+							User: pkt.PrefixUser,
+							Host: pkt.PrefixHost,
+						},
+						// TODO: tags
+					})
+				}
 			}
 		}(channel)
 	}
