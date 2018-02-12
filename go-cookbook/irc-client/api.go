@@ -2,6 +2,7 @@ package ircClient
 
 import (
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -27,9 +28,41 @@ func (s *Session) ListNetworks() []string {
 	return nil
 }
 
+// fetches the current nickname for a network
+func (s *Session) GetCurrentNick(network string) string {
+	if str, ok := s.ctx.GetString("/persist/irc/networks/" + network + "/current-nick"); ok {
+		return str.Get()
+	}
+	return ""
+}
+
+// fetches the user's current umodes for a network
+func (s *Session) GetUserModes(network string) string {
+	if str, ok := s.ctx.GetString("/persist/irc/networks/" + network + "/umodes"); ok {
+		return str.Get()
+	}
+	return ""
+}
+
 // enumerates network's channel folder
 func (s *Session) ListChannels(network string) []string {
 	if folder, ok := s.ctx.GetFolder("/persist/irc/networks/" + network + "/channels"); ok {
+		return folder.Children()
+	}
+	return nil
+}
+
+// fetches the current mode string and params for the channel
+func (s *Session) GetChannelModes(network string, channel string) (string, []string) {
+	if folder, ok := s.ctx.GetFolder("/persist/irc/networks/" + network + "/channels/" + channel + "/modes"); ok {
+		return "+" + strings.Join(folder.Children(), ""), nil
+	}
+	return "", nil
+}
+
+// enumerates network's channel folder
+func (s *Session) ListChannelMembers(network string, channel string) []string {
+	if folder, ok := s.ctx.GetFolder("/persist/irc/networks/" + network + "/channels/" + channel + "/membership"); ok {
 		return folder.Children()
 	}
 	return nil

@@ -12,6 +12,7 @@ type Client struct {
 	ircConn *irc.Conn
 
 	network    string
+	nickname   string
 	session    *ircClient.Session
 	homeDomain string
 	serverName string
@@ -38,6 +39,7 @@ func (c *Client) Close() error {
 	return c.netConn.Close()
 }
 
+// Send basic packets as the server
 func (c *Client) SendServerMessage(command string, params ...string) error {
 	return c.ircConn.WriteMessage(&irc.Message{
 		Command: command,

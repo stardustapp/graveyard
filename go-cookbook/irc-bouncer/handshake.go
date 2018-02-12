@@ -24,7 +24,6 @@ func (c *Client) Handshake() error {
 		if err != nil {
 			return err
 		}
-
 		switch message.Command {
 
 		// the basics
@@ -50,6 +49,7 @@ func (c *Client) Handshake() error {
 			log.Println("Unhandled:", message)
 		}
 
+		// break once the client sent enough
 		if nick != "" && user != "" && (!usingCap || doneCap) {
 			break
 		}
@@ -57,30 +57,32 @@ func (c *Client) Handshake() error {
 	log.Println("Received registration request:", nick, user, pass, realname, c.caps)
 
 	// parse the registration
-	var domain, profile, secret, network string
 	if pass == "" {
 		return errors.New("This server requires a password.")
 	}
-
 	query, err := url.ParseQuery(pass)
 	if err != nil {
 		return errors.New("Password couldn't be parsed")
 	}
 
+	// pull out the info we want
+	var domain, profile, secret, network string
 	domain = query.Get("domain")
 	profile = query.Get("profile")
 	secret = query.Get("secret")
 	network = query.Get("network")
 
+	// find session server
 	if domain == "" {
 		domain = c.homeDomain
 	} else {
-		c.SendServerMessage("NOTICE", "*", "*** Connecting to outside domain: "+domain)
+		c.SendServerMessage("NOTICE", "*", "*** Connecting to third-party domain: "+domain)
 	}
 
 	// start a session
 	log.Println("Starting session for", domain, profile, secret, network)
 	c.session = ircClient.NewSession(domain, profile, secret)
 	c.network = network
+	c.nickname = c.session.GetCurrentNick(network)
 	return nil
 }

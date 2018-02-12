@@ -1,24 +1,35 @@
 package main
 
 import (
-	irc "gopkg.in/irc.v1"
 	"log"
+	"strings"
+
+	irc "gopkg.in/irc.v1"
 )
 
 func (c *Client) Bounce() {
 	c.Welcome()
-	//c.netConn.Write([]byte(":danopia", "MODE", "danopia", "+i"))
+	c.ircConn.WriteMessage(&irc.Message{
+		Command: "MODE",
+		Params:  []string{c.nickname, c.session.GetUserModes(c.network)},
+		Prefix:  &irc.Prefix{c.nickname, "", ""},
+	})
 
 	for _, channel := range c.session.ListChannels(c.network) {
+		if channel == "*" {
+			continue
+		}
+
 		c.ircConn.WriteMessage(&irc.Message{
 			Command: "JOIN",
 			Params:  []string{channel},
-			Prefix:  &irc.Prefix{"danopia", "...", "..."},
+			Prefix:  &irc.Prefix{c.nickname, "...", "..."},
 		})
 
 		c.SendServerMessage("MODE", channel, "+nt")
-		c.SendServerMessage("353", "danopia", "=", channel, "@danopia")
-		c.SendServerMessage("366", "danopia", channel, "End of /NAMES list.")
+		nameList := strings.Join(c.session.ListChannelMembers(c.network, channel), " ")
+		c.SendServerMessage("353", c.nickname, "=", channel, nameList)
+		c.SendServerMessage("366", c.nickname, channel, "End of /NAMES list.")
 		//c.SendServerMessage("PRIVMSG", channel, "Hello world!")
 
 		go func(channel string) {
