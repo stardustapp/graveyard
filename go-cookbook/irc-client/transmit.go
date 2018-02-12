@@ -13,7 +13,7 @@ import (
 // This is rather low-level; make wrapper functions for your needs.
 
 // takes Command, Params, Tags and sends it to the IRC server
-func (c *IrcClient) SendPacket(network string, pkt Packet) error {
+func (s *Session) SendPacket(network string, pkt Packet) error {
 	if pkt.Command == "" {
 		return errors.New("IRC Command is required")
 	}
@@ -21,13 +21,13 @@ func (c *IrcClient) SendPacket(network string, pkt Packet) error {
 	// find the send-packet function
 	statePath := "/runtime/apps/irc/namespace/state"
 	wirePath := "/networks/" + network + "/wire"
-	sendFunc, ok := c.ctx.GetFunction(statePath + wirePath + "/send/invoke")
+	sendFunc, ok := s.ctx.GetFunction(statePath + wirePath + "/send/invoke")
 	if !ok {
 		return errors.New("IRC send function not found")
 	}
 
 	// send the packet
-	out := sendFunc.Invoke(c.ctx, inmem.NewFolderOf("input",
+	out := sendFunc.Invoke(s.ctx, inmem.NewFolderOf("input",
 		inmem.NewString("command", pkt.Command),
 		buildArrayFolder("params", pkt.Params...),
 		buildMapFolder("tags", pkt.Tags),
