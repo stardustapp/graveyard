@@ -43,7 +43,9 @@ func (e *Enumerator) AddShapeByPath(path string) bool {
 }
 
 func (e *Enumerator) Run() <-chan nsEntry {
-	log.Println("nsapi: matching entries against", len(e.shapes), "shapes")
+	if len(e.shapes) > 0 {
+		log.Println("nsapi: matching entries against", len(e.shapes), "shapes")
+	}
 
 	e.output = make(chan nsEntry, 5)
 	go e.enumerate(0, "", e.root)
@@ -66,7 +68,6 @@ func (e *Enumerator) checkShapes(ent base.Entry) []string {
 
 func (e *Enumerator) enumerate(depth int, path string, src base.Entry) {
 	if enumerable, ok := src.(Enumerable); ok {
-		log.Println("skylink: Asking", src.Name(), "to self-enumerate")
 		results := enumerable.Enumerate(e, depth)
 		if results != nil {
 			for _, ent := range results {

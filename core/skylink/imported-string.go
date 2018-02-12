@@ -59,7 +59,7 @@ func (e *importedString) Subscribe(s *Subscription) (err error) {
 								log.Println("imported-string WARN: sub got weird Next field,", field.Name)
 							}
 						}
-						log.Println("imported-string: sub notification:", notif)
+						//log.Println("imported-string: sub notification:", notif)
 						outC <- notif
 					}
 
