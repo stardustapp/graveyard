@@ -6,6 +6,7 @@ import (
 )
 
 func (c *Client) Bounce() {
+	c.Welcome()
 	//c.netConn.Write([]byte(":danopia", "MODE", "danopia", "+i"))
 
 	for _, channel := range c.session.ListChannels(c.network) {

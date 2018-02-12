@@ -11,10 +11,26 @@ type Client struct {
 	netConn net.Conn
 	ircConn *irc.Conn
 
-	session *ircClient.Session
-	network string
+	network    string
+	session    *ircClient.Session
+	homeDomain string
+	serverName string
 
 	caps []string
+}
+
+func (client *Client) Run() {
+	log.Println("Received new inbound connection")
+	defer client.Close()
+
+	// Get the user registered
+	if err := client.Handshake(); err != nil {
+		client.SendServerMessage(err.Error())
+		return
+	}
+
+	// Run the main loop
+	client.Bounce()
 }
 
 func (c *Client) Close() error {
@@ -27,7 +43,7 @@ func (c *Client) SendServerMessage(command string, params ...string) error {
 		Command: command,
 		Params:  params,
 		Prefix: &irc.Prefix{
-			Name: "irc.devmode.cloud",
+			Name: c.serverName,
 		},
 	})
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/stardustapp/go-cookbook/irc-client"
 )
 
-func (c *Client) Handshake(homeDomain string) error {
+func (c *Client) Handshake() error {
 	//c.SendServerMessage("NOTICE", "*", "*** Looking up your hostname...")
 	//c.SendServerMessage("NOTICE", "*", "*** Checking Ident")
 	//c.SendServerMessage("NOTICE", "*", "*** Got Ident response")
@@ -73,7 +73,7 @@ func (c *Client) Handshake(homeDomain string) error {
 	network = query.Get("network")
 
 	if domain == "" {
-		domain = homeDomain
+		domain = c.homeDomain
 	} else {
 		c.SendServerMessage("NOTICE", "*", "*** Connecting to outside domain: "+domain)
 	}
