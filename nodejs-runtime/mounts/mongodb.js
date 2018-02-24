@@ -13,9 +13,12 @@ exports.MongoDBMount = class MongoDBMount {
   //}
 
   getEntry(path) {
-    switch (path) {
-      case '/schemas':
+    const parts = path.slice(1).split('/');
+    switch (true) {
+      case parts[0] === 'schemas' && parts.length === 1:
         return new MongoSchemasEntry(this);
+      case parts[0] === 'schemas' && parts.length === 2:
+        return new MongoSchemaEntry(this, parts[1]);
       default:
         throw new Error(`MongoDB mount doesn't provide ${path}`);
     }
@@ -33,5 +36,17 @@ class MongoSchemasEntry {
 
   enumerate() {
     return ['todo'];
+  }
+}
+
+class MongoSchemaEntry {
+  constructor(mount, name) {
+    this.mount = mount;
+    this.name = name;
+  }
+
+  put(spec) {
+    console.log('putting spec', spec, 'to', this.name);
+    return 'no';
   }
 }

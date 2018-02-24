@@ -14,7 +14,8 @@ exports.runMain = (main) => {
       process.exit(1);
     } else {
       console.log(`==> Runtime's main thread has completed successfully.`);
-      process.exit(0);
+      console.log(`    Letting nodejs loop idle.`);
+      console.log();
     }
   });
 };
