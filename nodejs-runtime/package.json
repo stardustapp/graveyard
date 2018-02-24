@@ -19,6 +19,7 @@
   "dependencies": {
     "mongodb": "^3.0.2",
     "restify": "^6.3.4",
-    "sync": "^0.2.5"
+    "sync": "^0.2.5",
+    "watershed": "^0.4.0"
   }
 }
