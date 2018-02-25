@@ -57,7 +57,82 @@ utils.runMain(() => {
                 },
               ]
             }
-          }
+          },
+          subscribe(newChannel) { return newChannel.invoke(c => {
+            c.next({
+              Type: 'Folder',
+              Name: 'notif',
+              Children: [
+                {
+                  Name: 'path',
+                  Type: 'String',
+                  StringValue: 'asdf',
+                },
+                {
+                  Name: 'type',
+                  Type: 'String',
+                  StringValue: 'Added',
+                },
+                {
+                  Name: 'entry',
+                  Type: 'Folder',
+                },
+              ],
+            });
+            c.next({
+              Type: 'Folder',
+              Name: 'notif',
+              Children: [
+                {
+                  Name: 'path',
+                  Type: 'String',
+                  StringValue: 'asdf/body',
+                },
+                {
+                  Name: 'type',
+                  Type: 'String',
+                  StringValue: 'Added',
+                },
+                {
+                  Name: 'entry',
+                  Type: 'String',
+                  StringValue: 'yup haha',
+                },
+              ],
+            });
+            c.next({
+              Type: 'Folder',
+              Name: 'notif',
+              Children: [
+                {
+                  Name: 'path',
+                  Type: 'String',
+                  StringValue: 'asdf/status',
+                },
+                {
+                  Name: 'type',
+                  Type: 'String',
+                  StringValue: 'Added',
+                },
+                {
+                  Name: 'entry',
+                  Type: 'String',
+                  StringValue: 'todo',
+                },
+              ],
+            });
+            c.next({
+              Type: 'Folder',
+              Name: 'notif',
+              Children: [
+                {
+                  Name: 'type',
+                  Type: 'String',
+                  StringValue: 'Ready',
+                },
+              ],
+            });
+          })}
         };
       },
     },

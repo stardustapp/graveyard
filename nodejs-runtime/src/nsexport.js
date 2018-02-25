@@ -39,6 +39,20 @@ exports.NsExport = class NsExport {
           throw new Error(`Path not found: ${Path}`);
         }
 
+      case 'subscribe':
+         // get the channel constructor, we'll want it
+        const newChan = namespace.getEntry('/channels/new/invoke');
+        if (!newChan || !newChan.invoke) {
+          throw new Error(`Transport doesn't support channels, cannot subscribe`);
+        }
+
+        var entry = namespace.getEntry(Path);
+        if (entry.subscribe) {
+          return entry.subscribe(newChan);
+        } else if (entry) {
+          throw new Error(`Entry at ${Path} isn't subscribable`);
+        }
+
       case 'invoke':
         var entry = namespace.getEntry(Path);
         var output;
@@ -121,6 +135,36 @@ exports.NsExport = class NsExport {
         source: this.namespace, // TODO: prefix /api
       });
 
+      // offer async response follow-ups with channels
+      // mount in env for processing code
+      const channels = new Map();
+      var nextChan = 1;
+      localEnv.mount('/channels/new', 'function', { invoke(input) {
+        const chanId = nextChan++;
+        const channel = {
+          channelId: ''+chanId,
+          start() {
+            input(this);
+          },
+          next(value) {
+            shed.send(JSON.stringify({
+              Status: 'Next',
+              Chan: ''+chanId,
+              Output: value,
+            }));
+          },
+          stop(message) {
+            shed.send(JSON.stringify({
+              Status: 'Stop',
+              Chan: ''+chanId,
+              Output: message,
+            }));
+          },
+        }
+        channels.set(''+chanId, channel);
+        return channel;
+      }});
+
       const send = (ok, output) => {
         console.log('<-- op was', ok ? 'okay' : 'not ok');
         shed.send(JSON.stringify({
@@ -133,7 +177,17 @@ exports.NsExport = class NsExport {
         const request = JSON.parse(msg);
         try {
           const output = this.processOp(request, localEnv);
-          send(true, output);
+          if (output && output.channelId) {
+            console.log('<-- starting channel', output.channelId);
+            shed.send(JSON.stringify({
+              Ok: true,
+              Status: 'Ok',
+              Chan: output.channelId,
+            }));
+            output.start();
+          } else {
+            send(true, output);
+          }
 
         } catch (err) {
           const stackSnip = err.stack.split('\n').slice(0,4).join('\n');
