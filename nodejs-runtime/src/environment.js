@@ -18,6 +18,14 @@ exports.Environment = class Environment {
         const {MongoDBMount} = require('./mounts/mongodb');
         mount = new MongoDBMount(opts);
         break;
+      case 'tmp':
+        const {TemporaryMount} = require('./mounts/tmp');
+        mount = new TemporaryMount(opts);
+        break;
+      case 'bind':
+        // just use the specified (already existing) mount
+        mount = opts.source;
+        break;
       default:
         throw new Error(`bad mount type ${type} for ${path}`);
     }
@@ -25,7 +33,7 @@ exports.Environment = class Environment {
     this.mounts.set(path, mount);
   }
 
-  // returns the most specific mount for given path
+  // returns the least specific mount for given path
   matchPath(path) {
     var pathSoFar = '';
     const idx = path.split('/').findIndex((part, idx) => {
@@ -43,6 +51,10 @@ exports.Environment = class Environment {
 
   getEntry(path) {
     const {mount, subPath} = this.matchPath(path);
-    return mount.getEntry(subPath);
+    if (mount) {
+      return mount.getEntry(subPath);
+    } else {
+      throw new Error(`BUG: Path ${path} resulted to a null mount`);
+    }
   }
 };

@@ -1,13 +1,17 @@
 const restify = require('restify');
 const {Watershed} = require('watershed');
 
+const {Environment} = require('./environment');
+
 exports.NsExport = class NsExport {
   constructor(namespace) {
     this.namespace = namespace;
+
     this.configureServer();
+    this.ws = new Watershed();
   }
 
-  processOp(request) {
+  processOp(request, namespace=this.namespace) {
     const {Op, Path, Dest, Input} = request;
     console.log('--> inbound operation:', Op, Path, Dest);
 
@@ -16,13 +20,40 @@ exports.NsExport = class NsExport {
         return;
 
       case 'get':
-        const entry = this.namespace.getEntry(Path);
+        var entry = namespace.getEntry(Path);
         if (entry.get) {
           return entry.get();
         } else if (entry) {
           throw new Error(`Entry at ${Path} isn't gettable`);
         } else {
           throw new Error(`Path not found: ${Path}`);
+        }
+
+      case 'invoke':
+        var entry = namespace.getEntry(Path);
+        var output;
+        if (entry.invoke) {
+          output = entry.invoke(Input);
+        } else if (entry) {
+          throw new Error(`Entry at ${Path} isn't invokable`);
+        } else {
+          throw new Error(`Path not found: ${Path}`);
+        }
+
+        // if Dest, store the rich output in the tree
+        if (Dest) {
+          var outEntry = namespace.getEntry(Dest);
+          if (outEntry.put) {
+            outEntry.put(output);
+            return;
+          } else if (outEntry) {
+            throw new Error(`Dest entry at ${Dest} isn't puttable`);
+          } else {
+            throw new Error(`Dest path not found: ${Dest}`);
+          }
+        } else {
+          // otherwise just return a flattened output
+          return output;
         }
 
       default:
@@ -61,16 +92,22 @@ exports.NsExport = class NsExport {
       }
     });
 
-    var ws = new Watershed();
     this.server.get('/~~export/ws', (req, res, next) => {
-      console.log('upgrading socket')
+      console.log('==> upgrading inbound request to a websocket')
       if (!res.claimUpgrade) {
-        next(new Error('Connection Must Upgrade For WebSockets'));
+        next(new Error('Connection must upgrade for websockets'));
         return;
       }
 
       var upgrade = res.claimUpgrade();
-      var shed = ws.accept(req, upgrade.socket, upgrade.head);
+      var shed = this.ws.accept(req, upgrade.socket, upgrade.head);
+
+      // create a new environment just for this connection
+      const localEnv = new Environment();
+      localEnv.mount('/tmp', 'tmp');
+      localEnv.mount('/pub', 'bind', {
+        source: this.namespace, // TODO: prefix /api
+      });
 
       const send = (ok, output) => {
         console.log('<-- op was', ok ? 'okay' : 'not ok');
@@ -83,7 +120,7 @@ exports.NsExport = class NsExport {
       shed.on('text', (msg) => {
         const request = JSON.parse(msg);
         try {
-          const output = this.processOp(request);
+          const output = this.processOp(request, localEnv);
           send(true, output);
 
         } catch (err) {
