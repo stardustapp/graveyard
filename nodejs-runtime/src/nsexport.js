@@ -29,6 +29,16 @@ exports.NsExport = class NsExport {
           throw new Error(`Path not found: ${Path}`);
         }
 
+      case 'enumerate':
+        var entry = namespace.getEntry(Path);
+        if (entry.enumerate) {
+          return entry.enumerate(Input);
+        } else if (entry) {
+          throw new Error(`Entry at ${Path} isn't enumerable`);
+        } else {
+          throw new Error(`Path not found: ${Path}`);
+        }
+
       case 'invoke':
         var entry = namespace.getEntry(Path);
         var output;
@@ -51,9 +61,11 @@ exports.NsExport = class NsExport {
           } else {
             throw new Error(`Dest path not found: ${Dest}`);
           }
-        } else {
+        } else if (output.get) {
           // otherwise just return a flattened output
-          return output;
+          return output.get();
+        } else if (output) {
+          throw new Error(`Output of ${Path} isn't gettable, please use Dest`);
         }
 
       default:
