@@ -14,70 +14,51 @@ utils.runMain(() => {
   });
 
   // offer a skychart API endpoint
-  systemEnv.mount('/open', 'bind', {
-    source: {
-      getEntry(path) {
-        switch (path) {
-          case '/invoke':
-            return {
-              invoke(input) {
-                return {
-                  getEntry(path) {
-                    switch (path) {
-                      case '/launch/invoke':
-                        return {
-                          invoke(input) {
-                            console.log('launching with', input);
-                            return {};
-                          }
-                        };
-                      case '/owner-name':
-                        return {
-                          get() {
-                            return {
-                              Type: 'String',
-                              Name: 'owner-name',
-                              StringValue: 'Test User',
-                            };
-                          },
-                        };
-                      case '/owner-email':
-                        return {
-                          get() {
-                            return {
-                              Type: 'String',
-                              Name: 'owner-email',
-                              StringValue: 'test@example.com',
-                            };
-                          },
-                        };
-                      case '/home-domain':
-                        return {
-                          get() {
-                            return {
-                              Type: 'String',
-                              Name: 'home-domain',
-                              StringValue: 'devmode.cloud',
-                            };
-                          },
-                        };
-                    }
-                  },
-                };
-              },
-            };
-        }
-      },
-    },
-  });
+  systemEnv.mount('/open', 'function', { invoke() {
 
+    // start a new temporary metadata environment
+    const chartEnv = new Environment();
+    chartEnv.mount('/owner-name', 'literal', { string: 'Test User' });
+    chartEnv.mount('/owner-email', 'literal', { string: 'test@example.com' });
+    chartEnv.mount('/home-domain', 'literal', { string: 'devmode.cloud' });
+
+    // launch offers mounting the full environment as a session
+    chartEnv.mount('/launch', 'function', { invoke(input) {
+      console.log('launching with', input);
+      return { get() { return {
+        Type: 'String',
+        Name: 'session-id',
+        StringValue: '66666',
+      }}};
+    }});
+
+    return chartEnv;
+  }});
 
   // present the launched sessions
   systemEnv.mount('/sessions', 'bind', {
     source: {
       getEntry(path) {
         // /<sessionId>/mnt/<stuff>
-        return {};
+        return {
+          enumerate(input) {
+            return {
+              Name: 'enumeration',
+              Type: 'Folder',
+              Children: [
+                {
+                  Name: '',
+                  Type: 'Folder',
+                },
+                {
+                  Name: 'test',
+                  Type: 'String',
+                  StringValue: '123',
+                },
+              ]
+            }
+          }
+        };
       },
     },
   });

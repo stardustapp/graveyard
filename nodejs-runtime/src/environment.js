@@ -26,6 +26,31 @@ exports.Environment = class Environment {
         // just use the specified (already existing) mount
         mount = opts.source;
         break;
+      case 'function':
+        mount = { getEntry(path) {
+          switch (path) {
+            case '/invoke':
+              return { invoke: opts.invoke };
+            default:
+              throw new Error(`function mounts only have /invoke`);
+          }
+        }};
+        break;
+      case 'literal':
+        mount = { getEntry(path) {
+          if (path) {
+            throw new Error(`literal mounts have no pathing`);
+          }
+          return {
+            get() {
+              return {
+                Type: 'String',
+                StringValue: opts.string,
+              };
+            }
+          };
+        }};
+        break;
       default:
         throw new Error(`bad mount type ${type} for ${path}`);
     }
