@@ -29,6 +29,16 @@ exports.NsExport = class NsExport {
           throw new Error(`Path not found: ${Path}`);
         }
 
+      case 'store':
+        var entry = namespace.getEntry(Dest);
+        if (entry.put) {
+          return entry.put(Input);
+        } else if (entry) {
+          throw new Error(`Entry at ${Dest} isn't puttable`);
+        } else {
+          throw new Error(`Path not found: ${Dest}`);
+        }
+
       case 'enumerate':
         var entry = namespace.getEntry(Path);
         if (entry.enumerate) {
