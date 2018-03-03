@@ -1,0 +1,462 @@
+types:
+
+#########################################
+###            APPLICATION            ###
+#########################################
+
+# root type for one independent instance of the IRC app
+# this instance is stored in user profiles
+- name: application
+  struct:
+
+  # include a base application
+  - type-path: //core/app-instance
+
+  # point to our daemon script
+  - name: launch
+    type-path: /functions/launch
+
+
+  # external things that we want the system to give us
+  - name: inject
+    struct:
+
+    # a reference to the user's metadata (for username, mostly)
+    - name: profile
+      type-path: //core/profile
+
+    # session constructor for analog IRC wires
+    - name: dialer
+      type-path: /drivers/irc-modem/dial # refers to a bundled driver
+
+    # method of sending notifications to the user
+    - name: notifier
+      type-path: //core/iface/notifier
+      optional: yes # if nil, notification feature is disabled
+
+    # blob upload handler, for pastebins and photos
+    - name: uploader
+      type-path: //core/iface/uploader
+      optional: yes # if nil, upload feature is disabled
+
+
+  # data the user will build interactively, before launching
+  - name: config
+    struct:
+
+    # connection configs for each network
+    - name: networks
+      # build a key => doc mapping (enforces unique keys)
+      extend:
+        type-path: //core/dictionary
+        params:
+        - name: entry-type
+          type-path: /types/network-config
+        # the field on entries that is pulled out for keys
+        - name: key-field
+          string-literal: name
+
+    # UI toggles
+    - name: ui
+      struct:
+      - name: hide-nicklist
+        type-path: //core/bit
+      - name: classic-layout
+        type-path: //core/bit
+
+
+  # data the application will manage at runtime
+  - name: persist
+    struct:
+
+    # global history of the user being pinged
+    - name: mentions
+      type-path: /types/context
+
+    # history and persistent state for each network
+    - name: networks
+      extend:
+        type-path: //core/dictionary
+        params:
+        - name: entry-type
+          type-path: /types/network
+        - name: key-field
+          string-literal: name
+
+
+#########################################
+###          NETWORK CONFIG           ###
+#########################################
+
+# One server's connection configuration
+- name: network-config
+  struct:
+
+  # metadata
+  - name: name
+    type-path: //core/string
+  - name: disabled
+    type-path: //core/bit
+
+  # network info
+  - name: hostname
+    type-path: //core/string
+  - name: port
+    type-path: //core/integer
+  - name: use-tls
+    type-path: //core/bit
+
+  # handshake info
+  - name: nickname
+    type-path: //core/string
+  - name: username
+    type-path: //core/string
+  - name: full-name
+    type-path: //core/string
+
+  # NickServ auth opt-in
+  - name: nickserv
+    optional: yes
+    struct:
+    - name: nick
+      optional: yes
+      type-path: //core/string
+    # secrets have extra encryption via keychain
+    - name: password
+      type-path: //core/secret-string
+
+  # SASL opt-in for IRCv3
+  - name: sasl
+    optional: yes
+    struct:
+    - name: identity
+      type-path: //core/string
+    - name: password
+      type-path: //core/secret-string
+
+  # autojoin channels
+  - name: channels
+    extend:
+      type-path: //core/list
+      params:
+      - name: entry-type
+        # make a struct, to support channel keys
+        struct:
+        - name: name
+          type-path: //core/string
+        - name: disabled
+          type-path: //core/bit
+        - name: key
+          optional: yes
+          type-path: //core/secret-string
+
+
+#########################################
+###              PERSIST              ###
+#########################################
+
+#########################################
+# Accumulated state from one IRC Network
+- name: network
+  struct:
+  # matches config name
+  - name: name
+    type-path: //core/string
+
+  # cached from the ongoing connection
+  - name: is-connected
+    type-path: //core/bit
+  - name: current-nick
+    type-path: //core/string
+  - name: umodes
+    type-path: //core/string
+
+  # IRC Modem connection state
+  - name: wire-uri
+    optional: yes
+    type-path: //core/uri
+  - name: wire-checkpoint
+    optional: yes
+    type-path: //core/integer
+
+  # server-provided IRC config
+  # should probably be dropped in at 004 mark and updated w/ 005s
+  - name: server
+    optional: yes
+    struct:
+
+    # include a server log
+    - type-path: /types/context
+
+    # server identity
+    - name: hostname
+      type-path: //core/string
+    - name: software
+      type-path: //core/string
+
+    # mode chars
+    - name: avail-chan-modes
+      type-path: //core/string
+    - name: avail-user-modes
+      type-path: //core/string
+    - name: paramed-chan-modes
+      type-path: //core/string
+
+    # parse 005 numerics into a lookup table
+    - name: supported
+      extend:
+        type-path: //core/map
+        params:
+        - name: key-type
+          type-path: //core/string
+        - name: value-type
+          type-path: //core/string
+
+  # both context lists
+  - name: channels
+    extend:
+      type-path: //core/dictionary
+      params:
+      - name: value-type
+        type-path: /types/channel
+      - name: key-field
+        string-literal: name
+  - name: queries
+    extend:
+      type-path: //core/dictionary
+      params:
+      - name: value-type
+        type-path: /types/query
+      - name: key-field
+        string-literal: nick
+
+
+#########################################
+# Context for a regular IRC channel on the server
+- name: channel
+  struct:
+  - name: name
+    type-path: //core/string
+  - name: is-joined
+    type-path: //core/bit
+
+  # Anonymous field embedding a context of packets
+  - type-path: /types/context
+
+  # Collection of records placing users in the channel
+  - name: membership
+    extend:
+      type-path: //core/dictionary
+      params:
+      - name: key-field
+        string-literal: nick
+      - name: value-type
+        struct:
+        - name: nick
+          type-path: //core/string
+        # What is the usecase?
+        #- name: user
+        #  type:
+        #    path: /user
+        - name: since
+          optional: yes
+          type-path: //core/timestamp
+        # Updated with modes - the most-powerful prefix char for the user
+        - name: prefix
+          type-path: //core/string
+        - name: modes
+          type-path: //core/string
+
+  # Map of modechar => optional param
+  - name: modes
+    extend:
+      type-path: //core/map
+      params:
+      - name: key-type
+        type-path: //core/string
+      - name: value-type
+        type-path: //core/string
+
+  # The most recent topic as a subdocument.
+  # BoxedVariable keeps an ordered sequence of historical values.
+  # Basically means this will change but we still sometimes care about recent old values.
+  # Box history can be trimmed as a maintanence task
+  - name: topic
+    extend:
+      type-path: //core/boxed-variable
+      params:
+      - name: value-type
+        struct:
+        - name: text
+          type-path: //core/string
+        - name: set-at
+          type-path: //core/timestamp
+        - name: set-by
+          type-path: //core/string
+
+#########################################
+# Context for a passive query window
+- name: query
+  struct:
+  - name: nick
+    type-path: //core/string
+  - type-path: /types/context
+  - name: whois-cache
+    optional: yes
+    type-path: //core/string
+
+#########################################
+# Building block: one buffer of time-ordered backlog
+#########################################
+# Abstract representation a single history/UI window
+# Can contain large amounts of time-based ordered items.
+# Add some metadata to this to build your own contexts.
+- name: context
+  struct:
+
+  # day-partitioned sequential log of all history
+  - name: log
+    extend:
+      type-path: //core/daily-log
+      params:
+      - name: date-field
+        string-literal: timestamp
+      - name: entry-type
+        type-path: /types/log-entry
+
+  # Various position markers into the log
+  - name: latest-activity # messages, channel modifications
+    optional: yes
+    type-path: //core/string
+  - name: latest-bell # mentions, PMs, errors
+    optional: yes
+    type-path: //core/string
+  - name: latest-seen # how far user has read
+    optional: yes
+    type-path: //core/string
+
+
+#########################################
+###            LOG ENTRIES            ###
+#########################################
+
+# a base w/ time, to be accepted into logs
+- name: log-entry
+  struct:
+  - name: timestamp
+    type-path: //core/timestamp
+
+  # markers so log can report new activity
+  - name: is-activity
+    type-path: //core/bit
+  - name: is-bell
+    type-path: //core/bit
+
+#########################################
+# one real IRC protocol packet
+- name: packet
+  struct:
+  # inherit a log entry, for timestamp and logability
+  - type-path: log-entry
+
+  # metadata
+  - name: source
+    type-path: //core/string
+
+  # basic command
+  - name: command
+    type-path: //core/string
+  - name: params
+    extend:
+      type-path: //core/list
+      params:
+      - name: value-type
+        type-path: //core/string
+
+  # source info
+  - name: prefix
+    optional: yes
+    struct:
+    - name: name
+      type-path: //core/string
+    - name: user
+      type-path: //core/string
+    - name: host
+      type-path: //core/string
+
+  # IRCv3 tags
+  - name: tags
+    extend:
+      type-path: //core/map
+      params:
+      - name: key-type
+        type-path: //core/string
+      - name: value-type
+        type-path: //core/string
+
+#########################################
+# a sequence of protocol packets that belong together
+# MOTD, HELP, WHOIS, WHO, and more!
+- name: packet-batch
+  struct:
+  - type-path: log-entry
+
+  # differentiate different kinds of floods
+  - name: kind
+    type-path: //core/string
+
+  # multiline text to show in place of flood
+  - name: summary
+    type-path: //core/string
+
+  # the raw payloads
+  - name: packets
+    extend:
+      type-path: //core/list
+      params:
+      - name: value-type
+        type-path: /types/packet
+
+#########################################
+# mark network being offline
+# or leaving the channel
+- name: discontinuity
+  struct:
+  - type-path: log-entry
+  - name: reason
+    type-path: //core/string
+
+
+#########################################
+###          FUNCTIONALITY            ###
+#########################################
+functions:
+
+# timer daemon, loops for app lifecycle
+# health-checks wires and dials networks
+- name: launch
+  runtime: lua
+
+# routine, attempts to launch a connection
+# stores & kicks off mantain-wire if successful
+- name: dial-server
+  runtime: lua
+  meeseek: yes # shouldn't stay around too long
+  input:
+    struct:
+    - name: network
+      type-path: //core/string
+
+# worker daemon, loops for wire lifecycle
+# checks
+- name: maintain-wire
+  runtime: lua
+  input:
+    struct:
+    - name: network
+      type-path: //core/string
+
+#########################################
+###        DRIVER: IRC MODEM          ###
+#########################################
+# TODO: migrate the driver info from the old format
