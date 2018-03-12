@@ -1,6 +1,7 @@
 const utils = require('./utils');
 const {NsExport} = require('./nsexport');
 const {Environment} = require('./environment');
+const {StringLiteral, FolderLiteral} = require('./api-entries');
 
 utils.runMain(() => {
 
@@ -25,11 +26,9 @@ utils.runMain(() => {
     // launch offers mounting the full environment as a session
     chartEnv.mount('/launch', 'function', { invoke(input) {
       console.log('launching with', input);
-      return { get() { return {
-        Type: 'String',
-        Name: 'session-id',
-        StringValue: '66666',
-      }}};
+      return { get() {
+        return new StringLiteral('session-id', '66666');
+      }};
     }});
 
     return chartEnv;
@@ -42,96 +41,30 @@ utils.runMain(() => {
         // /<sessionId>/mnt/<stuff>
         return {
           enumerate(input) {
-            return {
-              Name: 'enumeration',
-              Type: 'Folder',
-              Children: [
-                {
-                  Name: '',
-                  Type: 'Folder',
-                },
-                {
-                  Name: 'test',
-                  Type: 'String',
-                  StringValue: '123',
-                },
-              ]
-            }
+            return new FolderLiteral('enumeration', [
+              new FolderLiteral(''),
+              new StringLiteral('test', '123'),
+            ]);
           },
           subscribe(newChannel) { return newChannel.invoke(c => {
-            c.next({
-              Type: 'Folder',
-              Name: 'notif',
-              Children: [
-                {
-                  Name: 'path',
-                  Type: 'String',
-                  StringValue: 'asdf',
-                },
-                {
-                  Name: 'type',
-                  Type: 'String',
-                  StringValue: 'Added',
-                },
-                {
-                  Name: 'entry',
-                  Type: 'Folder',
-                },
-              ],
-            });
-            c.next({
-              Type: 'Folder',
-              Name: 'notif',
-              Children: [
-                {
-                  Name: 'path',
-                  Type: 'String',
-                  StringValue: 'asdf/body',
-                },
-                {
-                  Name: 'type',
-                  Type: 'String',
-                  StringValue: 'Added',
-                },
-                {
-                  Name: 'entry',
-                  Type: 'String',
-                  StringValue: 'yup haha',
-                },
-              ],
-            });
-            c.next({
-              Type: 'Folder',
-              Name: 'notif',
-              Children: [
-                {
-                  Name: 'path',
-                  Type: 'String',
-                  StringValue: 'asdf/status',
-                },
-                {
-                  Name: 'type',
-                  Type: 'String',
-                  StringValue: 'Added',
-                },
-                {
-                  Name: 'entry',
-                  Type: 'String',
-                  StringValue: 'todo',
-                },
-              ],
-            });
-            c.next({
-              Type: 'Folder',
-              Name: 'notif',
-              Children: [
-                {
-                  Name: 'type',
-                  Type: 'String',
-                  StringValue: 'Ready',
-                },
-              ],
-            });
+            c.next(new FolderLiteral('notif', [
+              new StringLiteral('type', 'Added'),
+              new StringLiteral('path', 'asdf'),
+              new FolderLiteral('entry'),
+            ]));
+            c.next(new FolderLiteral('notif', [
+              new StringLiteral('type', 'Added'),
+              new StringLiteral('path', 'asdf/body'),
+              new StringLiteral('entry', 'yup haha'),
+            ]));
+            c.next(new FolderLiteral('notif', [
+              new StringLiteral('type', 'Added'),
+              new StringLiteral('path', 'asdf/status'),
+              new StringLiteral('entry', 'todo'),
+            ]));
+            c.next(new FolderLiteral('notif', [
+              new StringLiteral('type', 'Ready'),
+            ]));
           })}
         };
       },

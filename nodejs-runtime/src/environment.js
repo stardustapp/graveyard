@@ -1,5 +1,7 @@
 // An environment maintains one mount table, similar to a plan9 namespace
 
+const {StringLiteral, FolderLiteral} = require('./api-entries');
+
 exports.Environment = class Environment {
   constructor(baseUri) {
     this.baseUri = baseUri || 'tmp://';
@@ -43,10 +45,7 @@ exports.Environment = class Environment {
           }
           return {
             get() {
-              return {
-                Type: 'String',
-                StringValue: opts.string,
-              };
+              return new StringLiteral('literal', opts.string);
             }
           };
         }};
