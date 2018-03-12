@@ -81,6 +81,12 @@ exports.Environment = class Environment {
       return new VirtualEnvEntry(this, path);
     }
   }
+
+  inspect() {
+    const mountNames = new Array();
+    this.mounts.forEach((_, key) => mountNames.push(key));
+    return `<Environment [${mountNames.join(' ')}]>`;
+  }
 };
 
 // Returns fake container entries that lets the user find the actual content

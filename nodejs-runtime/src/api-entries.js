@@ -12,6 +12,11 @@ exports.FolderLiteral = class FolderLiteral {
       this.Children.append(child);
     }
   }
+
+  inspect() {
+    const childStr = this.Children.join(', ');
+    return `<Folder '${this.Name}' [${childStr}]>`;
+  }
 }
 
 exports.StringLiteral = class StringLiteral {
@@ -23,5 +28,9 @@ exports.StringLiteral = class StringLiteral {
 
   set(value) {
     this.StringValue = value || '';
+  }
+
+  inspect() {
+    return `<String '${this.Name}' ${JSON.stringify(this.StringValue)}>`;
   }
 }

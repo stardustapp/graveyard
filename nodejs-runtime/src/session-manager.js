@@ -1,5 +1,6 @@
 const {Environment} = require('./environment');
 const {StringLiteral, FolderLiteral} = require('./api-entries');
+const {Session} = require('./session');
 
 exports.SessionManager = class SessionManager {
 
@@ -15,59 +16,52 @@ exports.SessionManager = class SessionManager {
     // present the launched sessions
     this.env.mount('/sessions', 'bind', {
       source: {
-        getEntry(path) {
-          // /<sessionId>/mnt/<stuff>
-          return {
-            enumerate(input) {
-              return new FolderLiteral('enumeration', [
-                new FolderLiteral(''),
-                new StringLiteral('test', '123'),
-              ]);
-            },
-            subscribe(newChannel) { return newChannel.invoke(c => {
-              c.next(new FolderLiteral('notif', [
-                new StringLiteral('type', 'Added'),
-                new StringLiteral('path', 'asdf'),
-                new FolderLiteral('entry'),
-              ]));
-              c.next(new FolderLiteral('notif', [
-                new StringLiteral('type', 'Added'),
-                new StringLiteral('path', 'asdf/body'),
-                new StringLiteral('entry', 'yup haha'),
-              ]));
-              c.next(new FolderLiteral('notif', [
-                new StringLiteral('type', 'Added'),
-                new StringLiteral('path', 'asdf/status'),
-                new StringLiteral('entry', 'todo'),
-              ]));
-              c.next(new FolderLiteral('notif', [
-                new StringLiteral('type', 'Ready'),
-              ]));
-            })}
-          };
-        },
+        getEntry: this.getSessionsEntry.bind(this),
       },
     });
+  }
 
+  getSessionsEntry(path) {
+    const slashIdx = path.indexOf('/', 1);
+    if (slashIdx === -1) {
+      // TODO: implement pathing to session root
+      throw new Error(`Please blindly path into your session for now`);
+    }
+
+    const sessionId = path.slice(1, slashIdx);
+    const subPath = path.slice(slashIdx);
+
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      return session.env.getEntry(subPath);
+    } else {
+      throw new Error(`Invalid session ID. Please relaunch your profile.`);
+    }
   }
 
   ivkOpenChart(input) {
+    if (!input || input.constructor !== StringLiteral) {
+      throw new Error(`Chart name needed when opening a chart`);
+    }
+    const chartName = input.StringValue;
+
     // start a new temporary metadata environment
     const chartEnv = new Environment();
+    chartEnv.mount('/chart-name', 'literal', { string: chartName });
     chartEnv.mount('/owner-name', 'literal', { string: 'Test User' });
     chartEnv.mount('/owner-email', 'literal', { string: 'test@example.com' });
     chartEnv.mount('/home-domain', 'literal', { string: 'devmode.cloud' });
 
     // launch offers mounting the full environment as a session
     chartEnv.mount('/launch', 'function', {
-      invoke: this.ivkLaunchChart.bind(this, input),
+      invoke: this.ivkLaunchChart.bind(this, chartEnv),
     });
 
     return chartEnv;
   }
 
-  ivkLaunchChart(chart, input) {
-    console.log('launching', chart, 'with', input);
+  ivkLaunchChart(chartEnv, input) {
+    console.log('launching', chartEnv, 'with', input);
 
     const sessionId = Math.random().toString(16).slice(2);
     if (this.sessions.has(sessionId)) {
@@ -75,8 +69,7 @@ exports.SessionManager = class SessionManager {
         Please present an offering to the entropy gods and try again.`);
     }
 
-    // TODO: put a real environment in here
-    this.sessions.set(sessionId, {});
+    this.sessions.set(sessionId, new Session(this.env, chartEnv));
 
     return { get() {
       return new StringLiteral('session-id', sessionId);

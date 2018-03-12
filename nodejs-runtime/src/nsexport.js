@@ -2,6 +2,7 @@ const restify = require('restify');
 const {Watershed} = require('watershed');
 
 const {Environment} = require('./environment');
+const {StringLiteral, FolderLiteral} = require('./api-entries');
 
 exports.NsExport = class NsExport {
   constructor(namespace) {
@@ -11,8 +12,36 @@ exports.NsExport = class NsExport {
     this.ws = new Watershed();
   }
 
+  inflateInput(raw) {
+    if (!raw) {
+      return null;
+    }
+    if (raw.constructor !== Object) {
+      throw new Error(`Raw nsapi Input wasn't an Object, please read the docs`);
+    }
+    if (!raw.Type) {
+      throw new Error(`Raw nsapi Input didn't have a Type, please check your payload`);
+    }
+    switch (raw.Type) {
+
+      case 'String':
+        return new StringLiteral(raw.Name || 'input', raw.StringValue);
+
+      case 'Folder':
+        const folder = new FolderLiteral(raw.Name || 'input');
+        (raw.Children || []).forEach(child => {
+          folder.append(this.inflateInput(child))
+        });
+        return folder;
+
+      default:
+        throw new Error(`nsapi Input had unimpl Type ${raw.Type}`);
+    }
+  }
+
   processOp(request, namespace=this.namespace) {
-    const {Op, Path, Dest, Input} = request;
+    const {Op, Path, Dest} = request;
+    const Input = this.inflateInput(request.Input);
     console.log('--> inbound operation:', Op, Path, Dest);
 
     switch (Op) {
