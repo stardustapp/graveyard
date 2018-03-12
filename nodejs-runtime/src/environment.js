@@ -65,7 +65,7 @@ exports.Environment = class Environment {
       if (this.mounts.has(pathSoFar)) { return true; }
     });
     if (idx === -1) {
-      throw new Error("Mount table didn't find a match for "+path);
+      return {};
     }
     return {
       mount: this.mounts.get(pathSoFar),
@@ -78,7 +78,41 @@ exports.Environment = class Environment {
     if (mount) {
       return mount.getEntry(subPath);
     } else {
-      throw new Error(`BUG: Path ${path} resulted to a null mount`);
+      return new VirtualEnvEntry(this, path);
     }
   }
 };
+
+// Returns fake container entries that lets the user find the actual content
+class VirtualEnvEntry {
+  constructor(env, path) {
+    console.log('Constructing virtual entry for', path);
+    this.env = env;
+
+    if (path === '/') {
+      this.path = '';
+    } else {
+      this.path = path;
+    }
+  }
+
+  get() {
+    const children = new Array();
+    this.env.mounts.forEach((mount, path) => {
+      if (path.startsWith(this.path)) {
+        const subPath = path.slice(this.path.length + 1);
+        if (!subPath.includes('/')) {
+          children.push({Name: subPath});
+        }
+      }
+    });
+
+    if (children.length) {
+      const nameParts = this.path.split('/');
+      const name = this.path ? nameParts[nameParts.length - 1] : 'root';
+      return new FolderLiteral(name, children);
+    } else {
+      throw new Error("You pathed into a part of an env with no contents");
+    }
+  }
+}
