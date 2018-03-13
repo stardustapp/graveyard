@@ -20,6 +20,10 @@ exports.Environment = class Environment {
         const {MongoDBMount} = require('./mounts/mongodb');
         mount = new MongoDBMount(opts);
         break;
+      case 'fs-string-dict':
+        const {FsStringDictMount} = require('./mounts/fs-string-dict');
+        mount = new FsStringDictMount(opts);
+        break;
       case 'tmp':
         const {TemporaryMount} = require('./mounts/tmp');
         mount = new TemporaryMount(opts);
@@ -73,13 +77,24 @@ exports.Environment = class Environment {
     };
   }
 
-  getEntry(path) {
+  getEntry(path, required, apiCheck) {
+    var entry;
+
     const {mount, subPath} = this.matchPath(path);
     if (mount) {
-      return mount.getEntry(subPath);
-    } else {
-      return new VirtualEnvEntry(this, path);
+      entry = mount.getEntry(subPath);
     }
+
+    // TODO: check for children mounts, then return new VirtualEnvEntry(this, path);
+
+    if (required && !entry) {
+      throw new Error(`getEntry(${JSON.stringify(path)}) failed but was marked required`);
+    }
+    if (apiCheck && entry && !entry[apiCheck]) {
+      throw new Error(`getEntry(${JSON.stringify(path)}) found a ${entry.constructor.name} which doesn't present desired API ${apiCheck}`);
+    }
+
+    return entry;
   }
 
   inspect() {

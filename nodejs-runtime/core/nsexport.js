@@ -79,7 +79,7 @@ exports.NsExport = class NsExport {
         }
 
       case 'subscribe':
-         // get the channel constructor, we'll want it
+        // get the channel constructor, we'll want it
         const newChan = namespace.getEntry('/channels/new/invoke');
         if (!newChan || !newChan.invoke) {
           throw new Error(`Transport doesn't support channels, cannot subscribe`);
@@ -217,7 +217,6 @@ exports.NsExport = class NsExport {
         try {
           const output = this.processOp(request, localEnv);
           if (output && output.channelId) {
-            console.log('<-- starting channel', output.channelId);
             shed.send(JSON.stringify({
               Ok: true,
               Status: 'Ok',

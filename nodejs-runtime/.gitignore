@@ -7,5 +7,6 @@ yarn-error.log*
 
 # Dependency directories
 */node_modules/
+*/persisted/
 
 mongo-data/
