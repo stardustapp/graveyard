@@ -1,5 +1,6 @@
-const {Environment} = require('./environment');
-const {StringLiteral, FolderLiteral} = require('./api-entries');
+const {Environment} = require('starcore/environment');
+const {StringLiteral, FolderLiteral} = require('starcore/api-entries');
+
 const {Session} = require('./session');
 
 exports.SessionManager = class SessionManager {

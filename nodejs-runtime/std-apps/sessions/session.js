@@ -1,5 +1,5 @@
-const {Environment} = require('./environment');
-const {StringLiteral, FolderLiteral} = require('./api-entries');
+const {Environment} = require('starcore/environment');
+const {StringLiteral, FolderLiteral} = require('starcore/api-entries');
 
 exports.Session = class Session {
 
@@ -13,8 +13,8 @@ exports.Session = class Session {
     this.env.mount('/mnt/persist', 'bind', { source: { getEntry(path) {
       throw new Error(`TODO: implement /persist for ${path} on ${chartName}`);
     }}});
-    this.env.mount('/mnt/persist', 'bind', { source: { getEntry(path) {
-      throw new Error(`TODO: implement /persist for ${path} on ${chartName}`);
+    this.env.mount('/mnt/config', 'bind', { source: { getEntry(path) {
+      throw new Error(`TODO: implement /config for ${path} on ${chartName}`);
     }}});
 
     this.env.mount('/chart-name', 'literal', { string: chartName });
