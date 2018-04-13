@@ -71,6 +71,25 @@ Vue.component('entry-item', {
       console.log('Launching app', this.path);
       app.runningApp = this.launchUri;
     },
+    deleteEntry() {
+      const {path} = this;
+      if (confirm(`Are you sure you want to PERMENENTLY DELETE ${path}`)) {
+        if (confirm(`For real? ${path} should be sent to the garbage collector?`)) {
+          skylink.unlink(path).then(() => {
+            alert(`${path} is no more.`);
+            const parent = app.selectTreeNode(path.split('/').slice(0,-1).join('/'));
+            if (parent != null && parent.reload) {
+              parent.reload();
+            } else {
+              console.warn(`no parent found for ${path}`);
+            }
+          }, err => {
+            alert(`Sorry. I couldn't do it.`);
+            console.log(err);
+          });
+        }
+      }
+    },
     activate() {
       if (this.isFunction) {
         app.openEditor({

@@ -80,6 +80,9 @@
       <a v-if="canLaunch" class="material-icons launch-icon"
           :href="launchUri" @click.stop.prevent="launch"
           >launch</a>
+      <i class="material-icons ctxlist-icon delete-btn"
+         @click.stop="deleteEntry"
+         title="remove entry from this folder">delete</i>
     </div>
 
     <ul v-show="open" v-if="isFolder" class="sub-tree">

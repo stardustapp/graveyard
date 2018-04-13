@@ -61,6 +61,31 @@ ul {
   padding-right: 5px;
 }
 
+
+.folder-name .ctxlist-icon {
+  color: #034e6e;
+  opacity: 0;
+  transition: color 0.2s, opacity 0.2s;
+  float: right;
+  font-size: 20px;
+  padding: 2px;
+  margin: -2px;
+}
+.folder-name:hover .ctxlist-icon {
+  color: #999;
+  opacity: 0.8;
+}
+.folder-name .ctxlist-icon:hover {
+  color: #999;
+  opacity: 1;
+  background-color: #111;
+  border-radius: 5px;
+}
+.folder-name .delete-btn:hover {
+  color: #f33;
+}
+
+
 #root-tree {
   min-width: 5em;
   display: flex; /* shows x-scrollbar */
