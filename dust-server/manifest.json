@@ -1,0 +1,41 @@
+{
+  "name": "Stardust Profile Server",
+  "short_name": "ProfileServ",
+  "description": "Manages Stardust profiles and serves as a central data store.",
+  "version": "0.1",
+  "manifest_version": 2,
+  "offline_enabled": true,
+  "minimum_chrome_version": "45",
+  "app": {
+    "background": {
+      "scripts": [
+        "vendor/wsc-chrome.min.js", "vendor/idb.js",
+        "core/api-entries.js", "core/environment.js", "core/nsexport.js", "core/utils.js",
+        "core/mounts/fs-string-dict.js", "core/mounts/network-import.js", "core/mounts/tmp.js",
+        "app/session-manager.js", "app/session.js", "app/background.js"]
+    }
+  },
+  "permissions": [
+    "unlimitedStorage",
+    "storage",
+    "notifications",
+    "browser",
+    "power",
+    "system.network",
+    "background"
+  ],
+  "sockets": {
+     "udp": {
+       "send": [""],
+       "bind": [""],
+       "multicastMembership": ""
+     },
+     "tcp": {
+       "connect": [""]
+     },
+     "tcpServer": {
+       "listen": ["*:*"]
+     }
+  },
+  "icons": { "16": "icon.png" }
+}
