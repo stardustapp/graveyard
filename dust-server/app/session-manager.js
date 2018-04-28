@@ -92,15 +92,17 @@ class SessionManager {
 
     const profile = await idb.transaction('profiles').objectStore('profiles').get(chartName);
     if (!profile) {
-      ToastNotif(`Client tried accessing unknown chart ${input}`);
+      ToastNotif(`Client tried accessing unknown chart ${chartName}`);
       throw new Error(`Chart not found`);
     }
+    console.log('found chart:', profile);
 
     // start a new temporary metadata environment
     const chartEnv = new Environment();
+    chartEnv.chartName = chartName; // TODO
     chartEnv.mount('/chart-name', 'literal', { string: chartName });
-    chartEnv.mount('/owner-name', 'literal', { string: 'Test User' });
-    chartEnv.mount('/owner-email', 'literal', { string: 'test@example.com' });
+    chartEnv.mount('/owner-name', 'literal', { string: profile.ownerName });
+    chartEnv.mount('/owner-email', 'literal', { string: profile.ownerEmail });
     chartEnv.mount('/home-domain', 'literal', { string: 'devmode.cloud' });
 
     // launch offers mounting the full environment as a session
