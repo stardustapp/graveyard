@@ -19,7 +19,7 @@ class TemporaryMount {
     };
   }
 
-  getEntry(path, onlyIfExists=false) {
+  async getEntryAsync(path, onlyIfExists=false) {
     const {entry, subPath} = this.matchPath(path);
     if (entry) {
       if (subPath) {
@@ -28,7 +28,7 @@ class TemporaryMount {
         }
         const innerEntry = entry.getEntry(subPath);
         if (!onlyIfExists || innerEntry) {
-          return new TmpEntry(this, path, entry.getEntry(subPath));
+          return new TmpEntry(this, path, await entry.getEntry(subPath));
         }
       } else {
         return new TmpEntry(this, path, entry);
@@ -47,20 +47,25 @@ class TmpEntry {
     this.existing = existing;
   }
 
-  get() {
-    const innerEntry = this.existing || this.mount.getEntry(this.path, true);
+  async getAsync() {
+    const innerEntry = this.existing || await this.mount.getEntry(this.path, true);
     if (innerEntry) {
       return innerEntry.get();
     }
     throw new Error(`tmp-ns entry ${this.path} has no value, thus isn't gettable`);
   }
 
-  invoke(input) {
+  invokeAsync(input) {
     const innerEntry = this.existing || this.mount.getEntry(this.path, true);
-    if (innerEntry) {
-      return innerEntry.invoke(input);
+    if (!innerEntry) {
+      throw new Error(`tmp-ns entry ${this.path} has no value, thus isn't invokable`);
+    } else if (innerEntry.invokeAsync) {
+      return innerEntry.invokeAsync(input);
+    } else if (innerEntry.invoke) {      
+      return Promise.resolve(innerEntry.invoke(input));
+    } else {
+      throw new Error(`tmp-ns entry ${this.path} exists but is not invokable`);
     }
-    throw new Error(`tmp-ns entry ${this.path} has no value, thus isn't invokable`);
   }
 
   put(value) {

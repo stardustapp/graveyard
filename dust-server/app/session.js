@@ -1,20 +1,15 @@
 class Session {
 
-  constructor(systemEnv, chartEnv) {
+  constructor(systemEnv, profile) {
     this.systemEnv = systemEnv;
     this.env = new Environment();
 
-    const chartName = chartEnv.getEntry('/chart-name').get().StringValue;
+    const {chartName} = profile;
     console.log('launching session for', chartName);
 
-    this.env.mount('/mnt/persist', 'bind', { source: { getEntry(path) {
-      throw new Error(`TODO: implement /persist for ${path} on ${chartName}`);
-    }}});
-    this.env.mount('/mnt/config', 'bind', { source: { getEntry(path) {
-      throw new Error(`TODO: implement /config for ${path} on ${chartName}`);
-    }}});
-
+    this.env.mount('/mnt', 'bind', { source: profile.env });
     this.env.mount('/chart-name', 'literal', { string: chartName });
+    
   }
 
   /*

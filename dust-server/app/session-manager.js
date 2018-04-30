@@ -2,7 +2,8 @@ class SessionManager {
 
   constructor(systemEnv, idb) {
     this.env = systemEnv;
-    this.idb = window.idb = idb;
+    this.idb = window.coreIdb = idb;
+    this.profiles = new Map();
     this.sessions = new Map();
 
     // lets new users sign up for a name
@@ -18,12 +19,12 @@ class SessionManager {
     // present the launched sessions
     this.env.mount('/sessions', 'bind', {
       source: {
-        getEntry: this.getSessionsEntry.bind(this),
+        getEntryAsync: this.getSessionsEntry.bind(this),
       },
     });
   }
 
-  getSessionsEntry(path) {
+  async getSessionsEntry(path) {
     const slashIdx = path.indexOf('/', 1);
     if (slashIdx === -1) {
       // TODO: implement pathing to session root
@@ -35,7 +36,7 @@ class SessionManager {
 
     const session = this.sessions.get(sessionId);
     if (session) {
-      return session.env.getEntry(subPath);
+      return await session.env.getEntry(subPath);
     } else {
       throw new Error(`Invalid session ID. Please relaunch your profile.`);
     }
@@ -90,7 +91,7 @@ class SessionManager {
     }
     const chartName = input.StringValue;
 
-    const profile = await idb.transaction('profiles').objectStore('profiles').get(chartName);
+    const profile = await this.idb.transaction('profiles').objectStore('profiles').get(chartName);
     if (!profile) {
       ToastNotif(`Client tried accessing unknown chart ${chartName}`);
       throw new Error(`Chart not found`);
@@ -99,7 +100,6 @@ class SessionManager {
 
     // start a new temporary metadata environment
     const chartEnv = new Environment();
-    chartEnv.chartName = chartName; // TODO
     chartEnv.mount('/chart-name', 'literal', { string: chartName });
     chartEnv.mount('/owner-name', 'literal', { string: profile.ownerName });
     chartEnv.mount('/owner-email', 'literal', { string: profile.ownerEmail });
@@ -107,14 +107,22 @@ class SessionManager {
 
     // launch offers mounting the full environment as a session
     chartEnv.mount('/launch', 'function', {
-      invoke: this.ivkLaunchChart.bind(this, chartEnv),
+      invokeAsync: this.ivkLaunchChart.bind(this, chartEnv),
     });
 
     return chartEnv;
   }
 
-  ivkLaunchChart(chartEnv, input) {
-    console.log('launching', chartEnv, 'with', input);
+  async ivkLaunchChart(chartEnv, input) {
+    const chartName = (await chartEnv.getEntry('/chart-name')).get().StringValue;
+    console.log('launching', chartName, 'with', input);
+
+    if (!this.profiles.has(chartName)) {
+      const profilePromise = Profile.open(chartName);
+      this.profiles.set(chartName, profilePromise);
+    }
+    const profile = await this.profiles.get(chartName);
+    console.log('profile opened:', profile);
 
     const sessionId = Math.random().toString(16).slice(2);
     if (this.sessions.has(sessionId)) {
@@ -122,8 +130,8 @@ class SessionManager {
         Please present an offering to the entropy gods and try again.`);
     }
 
-    ToastNotif(`User ${chartEnv.chartName} successfully logged in`);
-    this.sessions.set(sessionId, new Session(this.env, chartEnv));
+    ToastNotif(`User ${chartName} successfully logged in`);
+    this.sessions.set(sessionId, new Session(this.env, profile));
 
     return { get() {
       return new StringLiteral('session-id', sessionId);

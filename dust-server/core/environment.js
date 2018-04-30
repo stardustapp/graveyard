@@ -14,8 +14,8 @@ class Environment {
     // initialize the device to be mounted
     var mount;
     switch (type) {
-      case 'mongodb':
-        mount = new MongoDBMount(opts);
+      case 'arbitrary-idb':
+        mount = new ArbitraryIdbMount(opts);
         break;
       case 'fs-string-dict':
         mount = new FsStringDictMount(opts);
@@ -80,12 +80,16 @@ class Environment {
     };
   }
 
-  getEntry(path, required, apiCheck) {
+  async getEntry(path, required, apiCheck) {
     var entry;
 
     const {mount, subPath} = this.matchPath(path);
     if (mount) {
-      entry = mount.getEntry(subPath);
+      if (mount.getEntryAsync) {
+        entry = await mount.getEntryAsync(subPath);
+      } else {
+        entry = mount.getEntry(subPath);
+      }
     }
 
     // TODO: check for children mounts, then return new VirtualEnvEntry(this, path);

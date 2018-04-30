@@ -44,9 +44,11 @@ class NsExport {
         return;
 
       case 'get':
-        var entry = namespace.getEntry(Path);
+        var entry = await namespace.getEntry(Path);
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
+        } else if (entry.getAsync) {
+          return await entry.getAsync();
         } else if (entry.get) {
           return entry.get();
         } else {
@@ -54,9 +56,11 @@ class NsExport {
         }
 
       case 'store':
-        var entry = namespace.getEntry(Dest);
+        var entry = await namespace.getEntry(Dest);
         if (!entry) {
           throw new Error(`Path not found: ${Dest}`);
+        } else if (entry.putAsync) {
+          return await entry.putAsync(Input);
         } else if (entry.put) {
           return entry.put(Input);
         } else {
@@ -64,9 +68,11 @@ class NsExport {
         }
 
       case 'enumerate':
-        var entry = namespace.getEntry(Path);
+        var entry = await namespace.getEntry(Path);
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
+        } else if (entry.enumerateAsync) {
+          return await entry.enumerateAsync(Input);
         } else if (entry.enumerate) {
           return entry.enumerate(Input);
         } else {
@@ -75,14 +81,16 @@ class NsExport {
 
       case 'subscribe':
         // get the channel constructor, we'll want it
-        const newChan = namespace.getEntry('/channels/new/invoke');
+        const newChan = await namespace.getEntry('/channels/new/invoke');
         if (!newChan || !newChan.invoke) {
           throw new Error(`Transport doesn't support channels, cannot subscribe`);
         }
 
-        var entry = namespace.getEntry(Path);
+        var entry = await namespace.getEntry(Path);
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
+        } else if (entry.subscribeAsync) {
+          return await entry.subscribeAsync(newChan);
         } else if (entry.subscribe) {
           return entry.subscribe(newChan);
         } else {
@@ -90,29 +98,34 @@ class NsExport {
         }
 
       case 'invoke':
-        var entry = namespace.getEntry(Path);
+        var entry = await namespace.getEntry(Path);
         var output;
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
-        } else if (entry.invoke) {
-          output = entry.invoke(Input);
         } else if (entry.invokeAsync) {
           output = await entry.invokeAsync(Input);
+        } else if (entry.invoke) {
+          output = entry.invoke(Input);
         } else {
           throw new Error(`Entry at ${Path} isn't invokable`);
         }
 
         // if Dest, store the rich output in the tree
         if (Dest) {
-          var outEntry = namespace.getEntry(Dest);
+          var outEntry = await namespace.getEntry(Dest);
           if (!outEntry) {
             throw new Error(`Dest path not found: ${Dest}`);
+          } else if (outEntry.putAsync) {
+            await outEntry.putAsync(output);
           } else if (outEntry.put) {
             outEntry.put(output);
-            return;
           } else if (outEntry) {
             throw new Error(`Dest entry at ${Dest} isn't puttable`);
           }
+          return;
+        } else if (output.getAsync) {
+          // otherwise just return a flattened output
+          return await output.getAsync();
         } else if (output.get) {
           // otherwise just return a flattened output
           return output.get();
