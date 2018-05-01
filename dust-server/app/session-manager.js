@@ -114,7 +114,7 @@ class SessionManager {
   }
 
   async ivkLaunchChart(chartEnv, input) {
-    const chartName = (await chartEnv.getEntry('/chart-name')).get().StringValue;
+    const chartName = (await (await chartEnv.getEntry('/chart-name')).get()).StringValue;
     console.log('launching', chartName, 'with', input);
 
     if (!this.profiles.has(chartName)) {

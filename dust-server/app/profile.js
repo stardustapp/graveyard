@@ -1,6 +1,9 @@
 class Profile {
 
   static async open(chartName) {
+    if (!chartName) {
+      throw new Error(`Profile opened with null chartName`);
+    }
     const db = await idb.open('profile:'+chartName, 1, upgradeDB => {
       upgradeDB.createObjectStore('metadata');
       upgradeDB.createObjectStore('persist', {
