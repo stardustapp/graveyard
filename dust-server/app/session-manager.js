@@ -8,18 +8,18 @@ class SessionManager {
 
     // lets new users sign up for a name
     this.env.mount('/register', 'function', {
-      invokeAsync: this.ivkRegisterChart.bind(this),
+      invoke: this.ivkRegisterChart.bind(this),
     });
 
     // offer a skychart API endpoint
     this.env.mount('/open', 'function', {
-      invokeAsync: this.ivkOpenChart.bind(this),
+      invoke: this.ivkOpenChart.bind(this),
     });
 
     // present the launched sessions
     this.env.mount('/sessions', 'bind', {
       source: {
-        getEntryAsync: this.getSessionsEntry.bind(this),
+        getEntry: this.getSessionsEntry.bind(this),
       },
     });
   }
@@ -80,7 +80,7 @@ class SessionManager {
     await tx.objectStore('profiles').put(profile);
     await tx.complete;
 
-    return { get() {
+    return { async get() {
       return new StringLiteral('success', 'yes');
     }};
   }
@@ -107,7 +107,7 @@ class SessionManager {
 
     // launch offers mounting the full environment as a session
     chartEnv.mount('/launch', 'function', {
-      invokeAsync: this.ivkLaunchChart.bind(this, chartEnv),
+      invoke: this.ivkLaunchChart.bind(this, chartEnv),
     });
 
     return chartEnv;
@@ -133,7 +133,7 @@ class SessionManager {
     ToastNotif(`User ${chartName} successfully logged in`);
     this.sessions.set(sessionId, new Session(this.env, profile));
 
-    return { get() {
+    return { async get() {
       return new StringLiteral('session-id', sessionId);
     }};
   }

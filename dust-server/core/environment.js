@@ -7,7 +7,7 @@ class Environment {
   }
 
   // creates a mount of type, with opts, and places it at path
-  mount(path, type, opts) {
+  async mount(path, type, opts) {
     opts = opts || {};
     console.log('Mounting', type, 'to', path, 'with', opts);
 
@@ -28,12 +28,11 @@ class Environment {
         mount = opts.source;
         break;
       case 'function':
-        mount = { getEntry(path) {
+        mount = { async getEntry(path) {
           switch (path) {
             case '/invoke':
               return {
                 invoke: opts.invoke,
-                invokeAsync: opts.invokeAsync,
               };
             default:
               throw new Error(`function mounts only have /invoke`);
@@ -41,12 +40,12 @@ class Environment {
         }};
         break;
       case 'literal':
-        mount = { getEntry(path) {
+        mount = { async getEntry(path) {
           if (path) {
             throw new Error(`literal mounts have no pathing`);
           }
           return {
-            get() {
+            async get() {
               return new StringLiteral('literal', opts.string);
             }
           };
@@ -85,11 +84,7 @@ class Environment {
 
     const {mount, subPath} = this.matchPath(path);
     if (mount) {
-      if (mount.getEntryAsync) {
-        entry = await mount.getEntryAsync(subPath);
-      } else {
-        entry = mount.getEntry(subPath);
-      }
+      entry = await mount.getEntry(subPath);
     }
 
     // TODO: check for children mounts, then return new VirtualEnvEntry(this, path);

@@ -19,16 +19,16 @@ class TemporaryMount {
     };
   }
 
-  async getEntryAsync(path, onlyIfExists=false) {
+  async getEntry(path, onlyIfExists=false) {
     const {entry, subPath} = this.matchPath(path);
     if (entry) {
       if (subPath) {
         if (!entry.getEntry) {
-          throw new Error(`tmp-ns path "${path}" isn't pathable`)
+          throw new Error(`tmp-ns path "${path}" isn't pathable`);
         }
-        const innerEntry = entry.getEntry(subPath);
+        const innerEntry = await entry.getEntry(subPath);
         if (!onlyIfExists || innerEntry) {
-          return new TmpEntry(this, path, await entry.getEntry(subPath));
+          return new TmpEntry(this, path, innerEntry);
         }
       } else {
         return new TmpEntry(this, path, entry);
@@ -47,7 +47,7 @@ class TmpEntry {
     this.existing = existing;
   }
 
-  async getAsync() {
+  async get() {
     const innerEntry = this.existing || await this.mount.getEntry(this.path, true);
     if (innerEntry) {
       return innerEntry.get();
@@ -55,23 +55,20 @@ class TmpEntry {
     throw new Error(`tmp-ns entry ${this.path} has no value, thus isn't gettable`);
   }
 
-  invokeAsync(input) {
+  async invoke(input) {
     const innerEntry = this.existing || this.mount.getEntry(this.path, true);
     if (!innerEntry) {
       throw new Error(`tmp-ns entry ${this.path} has no value, thus isn't invokable`);
-    } else if (innerEntry.invokeAsync) {
-      return innerEntry.invokeAsync(input);
-    } else if (innerEntry.invoke) {      
-      return Promise.resolve(innerEntry.invoke(input));
+    } else if (innerEntry.invoke) {
+      return await innerEntry.invoke(input);
     } else {
       throw new Error(`tmp-ns entry ${this.path} exists but is not invokable`);
     }
   }
 
-  put(value) {
+  async put(value) {
     console.log('putting', this.path, value);
-    return this.mount.entries.set(this.path, value);
-
     this.existing = value; // TODO: lol?
+    return this.mount.entries.set(this.path, value);
   }
 }

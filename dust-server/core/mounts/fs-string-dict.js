@@ -20,7 +20,7 @@ class FsStringDictMount {
     }
   }
 
-  getEntry(pathStr) {
+  async getEntry(pathStr) {
     if (pathStr.length < 2) {
       return new FsRootEntry(this);
     }
@@ -37,7 +37,7 @@ class FsRootEntry {
     this.mount = mount;
   }
 
-  enumerate() {
+  async enumerate() {
     return this.mount.listKeys();
   }
 }

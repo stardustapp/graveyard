@@ -7,7 +7,7 @@ class ArbitraryIdbMount {
     this.store = opts.store; // string name
   }
 
-  async getEntryAsync(path) {
+  async getEntry(path) {
     const txn = this.db.transaction(this.store, 'readwrite'); // TODO: for initing the root
     const store = txn.objectStore(this.store);
 
@@ -56,7 +56,7 @@ class IdbEntry {
     this.store = store;
   }
 
-  async getAsync() {
+  async get() {
     await this.txn.complete;
     if (!this.node) {
       throw new Error(`Path ${this.path} doesn't exist, can't be gotten`);
@@ -70,7 +70,7 @@ class IdbEntry {
     }
   }
 
-  async putAsync(obj) {
+  async put(obj) {
     console.log('putting', obj, 'to', this.path);
     const [parentRec, thisRec] = this.route.slice(-2);
 
@@ -106,7 +106,11 @@ class IdbEntry {
     return true;;
   }
 
-  enumerate() {
-    return ['todo'];
+  async enumerate() {
+    throw new Error("IDB Enumerate #todo");
+  }
+
+  async subscribe() {
+    throw new Error("IDB Subscribe #todo");
   }
 }

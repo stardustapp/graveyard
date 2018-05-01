@@ -10,7 +10,7 @@ class NetworkImportMount {
     this.url = opts.url;
   }
 
-  getEntry(path) {
+  async getEntry(path) {
     return new ImportedEntry(this, path);
   }
 }
@@ -21,23 +21,23 @@ class ImportedEntry {
     this.path = path;
   }
 
-  get() {
+  async get() {
 
   }
 
-  invoke(input) {
+  async invoke(input) {
     console.log(this, input);
   }
 
-  put(value) {
+  async put(value) {
 
   }
 
-  subscribe(newChannel) {
+  async subscribe(newChannel) {
 
   }
 
-  enumerate(input) {
+  async enumerate(input) {
 
   }
 }

@@ -1,4 +1,3 @@
-
 class NsExport {
   constructor(namespace) {
     this.namespace = namespace;
@@ -47,10 +46,8 @@ class NsExport {
         var entry = await namespace.getEntry(Path);
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
-        } else if (entry.getAsync) {
-          return await entry.getAsync();
         } else if (entry.get) {
-          return entry.get();
+          return await entry.get();
         } else {
           throw new Error(`Entry at ${Path} isn't gettable`);
         }
@@ -59,10 +56,8 @@ class NsExport {
         var entry = await namespace.getEntry(Dest);
         if (!entry) {
           throw new Error(`Path not found: ${Dest}`);
-        } else if (entry.putAsync) {
-          return await entry.putAsync(Input);
         } else if (entry.put) {
-          return entry.put(Input);
+          return await entry.put(Input);
         } else {
           throw new Error(`Entry at ${Dest} isn't puttable`);
         }
@@ -71,10 +66,8 @@ class NsExport {
         var entry = await namespace.getEntry(Path);
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
-        } else if (entry.enumerateAsync) {
-          return await entry.enumerateAsync(Input);
         } else if (entry.enumerate) {
-          return entry.enumerate(Input);
+          return await entry.enumerate(Input);
         } else {
           throw new Error(`Entry at ${Path} isn't enumerable`);
         }
@@ -89,10 +82,8 @@ class NsExport {
         var entry = await namespace.getEntry(Path);
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
-        } else if (entry.subscribeAsync) {
-          return await entry.subscribeAsync(newChan);
         } else if (entry.subscribe) {
-          return entry.subscribe(newChan);
+          return await entry.subscribe(newChan);
         } else {
           throw new Error(`Entry at ${Path} isn't subscribable`);
         }
@@ -102,10 +93,8 @@ class NsExport {
         var output;
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
-        } else if (entry.invokeAsync) {
-          output = await entry.invokeAsync(Input);
         } else if (entry.invoke) {
-          output = entry.invoke(Input);
+          output = await entry.invoke(Input);
         } else {
           throw new Error(`Entry at ${Path} isn't invokable`);
         }
@@ -115,20 +104,15 @@ class NsExport {
           var outEntry = await namespace.getEntry(Dest);
           if (!outEntry) {
             throw new Error(`Dest path not found: ${Dest}`);
-          } else if (outEntry.putAsync) {
-            await outEntry.putAsync(output);
           } else if (outEntry.put) {
-            outEntry.put(output);
+            await outEntry.put(output);
           } else if (outEntry) {
             throw new Error(`Dest entry at ${Dest} isn't puttable`);
           }
           return;
-        } else if (output.getAsync) {
-          // otherwise just return a flattened output
-          return await output.getAsync();
         } else if (output.get) {
           // otherwise just return a flattened output
-          return output.get();
+          return await output.get();
         } else if (output) {
           throw new Error(`Output of ${Path} isn't gettable, please use Dest`);
         }
@@ -188,7 +172,7 @@ class SkylinkPostHandler extends WSC.BaseHandler {
     this.nsExport.processOp(body).then(output => {
       send(true, output);
     }, (err) => {
-      console.log('!!! Operation failed with', err);
+      console.warn('!!! Operation failed with', err);
       send(false, {
         Type: 'String',
         Name: 'error-message',
@@ -220,7 +204,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
     // mount in env for processing code
     const channels = new Map();
     var nextChan = 1;
-    this.localEnv.mount('/channels/new', 'function', { invoke(input) {
+    this.localEnv.mount('/channels/new', 'function', { async invoke(input) {
       const chanId = nextChan++;
       const channel = {
         channelId: ''+chanId,
@@ -273,7 +257,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
 
     }, (err) => {
       const stackSnip = err.stack.split('\n').slice(0,4).join('\n');
-      console.log('!!! Operation failed with', stackSnip);
+      console.warn('!!! Operation failed with', stackSnip);
       this.sendOutput(false, {
         Type: 'String',
         Name: 'error-message',
