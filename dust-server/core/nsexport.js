@@ -83,7 +83,7 @@ class NsExport {
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
         } else if (entry.subscribe) {
-          return await entry.subscribe(newChan);
+          return await entry.subscribe(request.Depth||request.depth, newChan);
         } else {
           throw new Error(`Entry at ${Path} isn't subscribable`);
         }
@@ -214,14 +214,14 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
         next(value) {
           sendJson({
             Status: 'Next',
-            Chan: ''+chanId,
+            Chan: chanId,
             Output: value,
           });
         },
         stop(message) {
           sendJson({
             Status: 'Stop',
-            Chan: ''+chanId,
+            Chan: chanId,
             Output: message,
           });
         },
@@ -248,7 +248,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
         this.sendJson({
           Ok: true,
           Status: 'Ok',
-          Chan: output.channelId,
+          Chan: parseInt(output.channelId),
         });
         output.start();
       } else {

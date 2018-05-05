@@ -39,36 +39,4 @@ class Profile {
     this.db.close();
     this.db = null;
   }
-
-  /*
-  // /<sessionId>/mnt/<stuff>
-  return {
-    enumerate(input) {
-      return new FolderLiteral('enumeration', [
-        new FolderLiteral(''),
-        new StringLiteral('test', '123'),
-      ]);
-    },
-    subscribe(newChannel) { return newChannel.invoke(c => {
-      c.next(new FolderLiteral('notif', [
-        new StringLiteral('type', 'Added'),
-        new StringLiteral('path', 'asdf'),
-        new FolderLiteral('entry'),
-      ]));
-      c.next(new FolderLiteral('notif', [
-        new StringLiteral('type', 'Added'),
-        new StringLiteral('path', 'asdf/body'),
-        new StringLiteral('entry', 'yup haha'),
-      ]));
-      c.next(new FolderLiteral('notif', [
-        new StringLiteral('type', 'Added'),
-        new StringLiteral('path', 'asdf/status'),
-        new StringLiteral('entry', 'todo'),
-      ]));
-      c.next(new FolderLiteral('notif', [
-        new StringLiteral('type', 'Ready'),
-      ]));
-    })}
-  };*/
-
 };

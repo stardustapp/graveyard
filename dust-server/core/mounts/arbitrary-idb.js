@@ -4,6 +4,8 @@ class ArbitraryIdbMount {
 
     this.db = opts.db; // actual instance of opened DB
     this.store = opts.store; // string name
+
+    this.nidSubs = new Map; // of Sets
   }
 
   async init() {
@@ -12,6 +14,24 @@ class ArbitraryIdbMount {
 
   async getEntry(path) {
     return new IdbPath(this, path);
+  }
+
+  registerNidNotifs(nid, sub) {
+    if (!nid) {
+      throw new Error(`BUG: Can't register for notifications from ghosts`);
+    }
+    let subs;
+    if (this.nidSubs.has(nid)) {
+      subs = this.nidSubs.get(nid);
+    } else {
+      subs = new Set;
+      this.nidSubs.set(nid, subs);
+    }
+    subs.add(sub);
+  }
+
+  processNidEvent(nid, event) {
+    
   }
 }
 
@@ -52,12 +72,65 @@ class IdbPath {
     return true;
   }
 
-  async enumerate() {
-    throw new Error("IDB Enumerate #todo");
+  async enumerate(input) {
+    return new FolderLiteral('enumeration', [
+      new FolderLiteral(''),
+      new StringLiteral('test', '123'),
+    ]);
   }
+  async subscribe(depth, newChannel) {
+    return await newChannel.invoke(async c => {
 
-  async subscribe() {
-    throw new Error("IDB Subscribe #todo");
+      const sub = new IdbSubscription(this.mount, c);
+
+      const txn = new IdbTransaction(this.mount, 'readonly');
+      const handle = await txn.walkPath(this.path);
+
+      let exists = true;
+      for (const nid of handle.nids) {
+        if (nid) {
+          this.mount.registerNidNotifs(nid, sub);
+        } else {
+          exists = false;
+        }
+      }
+
+      async function walkEntry(handle, path, depth) {
+        const node = handle.current();
+
+        const entry = node.shallowExport();
+        entry.Name = 'entry';
+        c.next(new FolderLiteral('notif', [
+          new StringLiteral('type', 'Added'),
+          new StringLiteral('path', path),
+          entry,
+        ]));
+        
+        if (node.type === 'Folder' && depth) {
+          const pathPrefix = path + (path ? '/' : '');
+          for (const child of node.obj.children) {
+            await handle.walkName(child[0]);
+            await walkEntry(handle, pathPrefix+child[0], depth-1);
+            await handle.walkName("..");
+          }
+        }
+      }
+
+      if (exists) {
+        await walkEntry(handle, '', depth);
+        console.log('all done');
+        c.next(new FolderLiteral('notif', [
+          new StringLiteral('type', 'Ready'),
+        ]));
+      }
+    });
+  }
+}
+
+class IdbSubscription {
+  constructor(mount, channel) {
+    this.mount = mount;
+    this.channel = channel;
   }
 }
 
@@ -141,7 +214,7 @@ class IdbHandle {
   constructor(txn) {
     this.txn = txn;
     this.nids = []
-    this.nodes = [];
+    this.stack = [];
   }
   async init() {
     this.nids = ['root'];
@@ -170,6 +243,7 @@ class IdbHandle {
     // reset when given an absolute path
     if (path.startsWith('/')) {
       this.stack = [this.root()];
+      this.nids = ['root'];
       path = path.slice(1);
     }
     if (!path.length) {
@@ -193,8 +267,10 @@ class IdbHandle {
     // Do these help or hurt?
     if (name == '.') return;
     if (name == '..') {
-      if (this.stack.length > 1)
+      if (this.stack.length > 1) {
         this.stack.pop();
+        this.nids.pop();
+      }
       return;
     }
 
@@ -206,12 +282,14 @@ class IdbHandle {
       const child = current.obj.children.find(x => x[0] === name);
       if (child) {
         this.stack.push(await this.txn.getNodeByNid(child[1]));
+        this.nids.push(child[1]);
         return true;
       }
     }
 
     // no node? pathing into emptiness. don't complain tho
     this.stack.push(new IdbGhostNode(name));
+    this.nids.push('');
     return false;
   }
 
@@ -226,6 +304,7 @@ class IdbHandle {
       throw new Error(`Can't replace node, parent is not extant`);
     }
     this.stack.pop();
+    this.nids.pop();
 
     if (oldChild.constructor === IdbExtantNode) {
       console.log('IDB overwriting', this.path);
@@ -235,6 +314,11 @@ class IdbHandle {
 
     parent.obj.children.push([oldChild.name, newNid]);
     await this.txn.objectStore.put(parent.obj);
+    this.txn.mount.processNidEvent(parent.obj.nid, {
+      op: 'assign-child',
+      child: oldChild.name,
+      nid: newNid,
+    });
     await this.walkName(oldChild.name);
   }
 }
@@ -269,7 +353,7 @@ class IdbExtantNode extends IdbNode {
   shallowExport() {
     switch (this.obj.type) {
       case 'Folder':
-        return new FolderLiteral(this.obj.name, this.obj.children.map(x => {Name: x[0]}));
+        return new FolderLiteral(this.obj.name, this.obj.children.map(x => ({Name: x[0]})));
       case 'String':
         return new StringLiteral(this.obj.name, this.obj.raw);
       default:
