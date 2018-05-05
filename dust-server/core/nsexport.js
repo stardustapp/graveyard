@@ -193,62 +193,88 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
     this.localEnv.mount('/pub', 'bind', {
       source: nsExport.namespace, // TODO: prefix /api
     });
+
+    this.channels = new Map;
+    this.nextChan = 1;
+
+    this.isActive = false;
+    this.reqQueue = new Array;
   }
 
+  sendJson(body) {
+    this.write_message(JSON.stringify(body));
+  }
+
+  // Given a function that gets passed a newly-allocated channel
+  async newChannelFunc(input) {
+    const chanId = this.nextChan++;
+    const channel = {
+      channelId: chanId,
+      sendJson: this.sendJson.bind(this),
+      start() {
+        input(this);
+      },
+      next(value) {
+        this.sendJson({
+          Status: 'Next',
+          Chan: chanId,
+          Output: value,
+        });
+      },
+      stop(message) {
+        this.sendJson({
+          Status: 'Stop',
+          Chan: chanId,
+          Output: message,
+        });
+      },
+    }
+    this.channels.set(chanId, channel);
+    return channel;
+  }
+
+  sendOutput(ok, output) {
+    console.log('<-- op was', ok ? 'okay' : 'not ok');
+    this.sendJson({
+      Ok: ok,
+      Output: output,
+    });
+  }
+
+  // These functions are invoked by the websocket processor
   open() {
     console.log('ws open', this);
-    const sendJson = this.sendJson = body =>
-      this.write_message(JSON.stringify(body));
 
     // offer async response follow-ups with channels
     // mount in env for processing code
     const channels = new Map();
     var nextChan = 1;
-    this.localEnv.mount('/channels/new', 'function', { async invoke(input) {
-      const chanId = nextChan++;
-      const channel = {
-        channelId: ''+chanId,
-        start() {
-          input(this);
-        },
-        next(value) {
-          sendJson({
-            Status: 'Next',
-            Chan: chanId,
-            Output: value,
-          });
-        },
-        stop(message) {
-          sendJson({
-            Status: 'Stop',
-            Chan: chanId,
-            Output: message,
-          });
-        },
-      }
-      channels.set(''+chanId, channel);
-      return channel;
-    }});
-
-    this.sendOutput = (ok, output) => {
-      console.log('<-- op was', ok ? 'okay' : 'not ok');
-      sendJson({
-        Ok: ok,
-        Output: output,
-      });
-    };
-
+    this.localEnv.mount('/channels/new', 'function', {
+      invoke: this.newChannelFunc.bind(this),
+    });
   }
   on_message(msg) {
     var request = JSON.parse(msg);
     console.log('got ws message', request);
+    if (this.isActive) {
+      this.reqQueue.push(request);
+    } else {
+      this.isActive = true;
+      this.processRequest(request);
+    }
+  }
+  on_close() {
+    console.log('ws closed');
+    // TODO: shut down session
+  }
 
+  processRequest(request) {
     this.nsExport.processOp(request, this.localEnv).then(output => {
       if (output && output.channelId) {
         this.sendJson({
           Ok: true,
           Status: 'Ok',
-          Chan: parseInt(output.channelId),
+          Chan: output.channelId,
         });
         output.start();
       } else {
@@ -263,12 +289,16 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
         Name: 'error-message',
         StringValue: err.message,
       });
+    }).then(() => {
+      // we're done with the req, move on
+      if (this.reqQueue.length) {
+        this.processRequest(this.reqQueue.shift());
+      } else {
+        this.isActive = false;
+      }
     });
   }
-  on_close() {
-    console.log('ws closed');
-    // TODO: shut down session
-  }
+  
 }
 
 class SkylinkPingHandler extends WSC.BaseHandler {
