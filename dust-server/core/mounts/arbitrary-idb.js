@@ -86,6 +86,7 @@ class IdbPath {
       const txn = new IdbTransaction(this.mount, 'readonly');
       const handle = await txn.walkPath(this.path);
 
+      // Register the path down to us
       let exists = true;
       for (const nid of handle.nids) {
         if (nid) {
@@ -95,33 +96,14 @@ class IdbPath {
         }
       }
 
-      async function walkEntry(handle, path, depth) {
-        const node = handle.current();
-
-        const entry = node.shallowExport();
-        entry.Name = 'entry';
-        c.next(new FolderLiteral('notif', [
-          new StringLiteral('type', 'Added'),
-          new StringLiteral('path', path),
-          entry,
-        ]));
-        
-        if (node.type === 'Folder' && depth) {
-          const pathPrefix = path + (path ? '/' : '');
-          for (const child of node.obj.children) {
-            await handle.walkName(child[0]);
-            await walkEntry(handle, pathPrefix+child[0], depth-1);
-            await handle.walkName("..");
-          }
-        }
-      }
-
       if (exists) {
-        await walkEntry(handle, '', depth);
-        console.log('all done');
+        await sub.walkEntry(handle, '', depth);
+        console.log('all done initial sync');
         c.next(new FolderLiteral('notif', [
           new StringLiteral('type', 'Ready'),
         ]));
+      } else {
+        console.warn(`Subscription made to ghost entry`);
       }
     });
   }
@@ -131,6 +113,28 @@ class IdbSubscription {
   constructor(mount, channel) {
     this.mount = mount;
     this.channel = channel;
+  }
+
+  async walkEntry(handle, path, depth) {
+    const node = handle.current();
+    this.mount.registerNidNotifs(node.nid, this);
+
+    const entry = node.shallowExport();
+    entry.Name = 'entry';
+    this.channel.next(new FolderLiteral('notif', [
+      new StringLiteral('type', 'Added'),
+      new StringLiteral('path', path),
+      entry,
+    ]));
+
+    if (node.type === 'Folder' && depth) {
+      const pathPrefix = path + (path ? '/' : '');
+      for (const child of node.obj.children) {
+        await handle.walkName(child[0]);
+        await this.walkEntry(handle, pathPrefix+child[0], depth-1);
+        await handle.walkName("..");
+      }
+    }
   }
 }
 
