@@ -63,3 +63,15 @@ function ToastNotif(text) {
   //chrome.runtime.getPackageDirectoryEntry(packageDirectory => {
   //  packageDirectory.getDirectory(directory, {create: false}, webroot => {
   //    var fs = new WSC.FileSystem(webroot)
+
+// TODO: visible window required to open the firewall on ChromeOS
+/*
+chrome.app.runtime.onLaunched.addListener(function() {
+  chrome.app.window.create('window.html', {
+    'outerBounds': {
+      'width': 400,
+      'height': 500
+    }
+  });
+});
+*/
