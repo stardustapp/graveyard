@@ -30,8 +30,18 @@ class ArbitraryIdbMount {
     subs.add(sub);
   }
 
-  processNidEvent(nid, event) {
-    
+  async routeNidEvent(nid, event) {
+    if (this.nidSubs.has(nid)) {
+      const txn = new IdbTransaction(this, 'readonly');
+      const subs = this.nidSubs.get(nid);
+      subs.forEach(sub => {
+        sub.processNidEvent(nid, txn, event);
+      });
+    }
+  }
+
+  unregisterSub(sub) {
+    // TODO
   }
 }
 
@@ -80,61 +90,9 @@ class IdbPath {
   }
   async subscribe(depth, newChannel) {
     return await newChannel.invoke(async c => {
-
-      const sub = new IdbSubscription(this.mount, c);
-
-      const txn = new IdbTransaction(this.mount, 'readonly');
-      const handle = await txn.walkPath(this.path);
-
-      // Register the path down to us
-      let exists = true;
-      for (const nid of handle.nids) {
-        if (nid) {
-          this.mount.registerNidNotifs(nid, sub);
-        } else {
-          exists = false;
-        }
-      }
-
-      if (exists) {
-        await sub.walkEntry(handle, '', depth);
-        console.log('all done initial sync');
-        c.next(new FolderLiteral('notif', [
-          new StringLiteral('type', 'Ready'),
-        ]));
-      } else {
-        console.warn(`Subscription made to ghost entry`);
-      }
+      const sub = new IdbSubscription(this, depth, c);
+      await sub.start();
     });
-  }
-}
-
-class IdbSubscription {
-  constructor(mount, channel) {
-    this.mount = mount;
-    this.channel = channel;
-  }
-
-  async walkEntry(handle, path, depth) {
-    const node = handle.current();
-    this.mount.registerNidNotifs(node.nid, this);
-
-    const entry = node.shallowExport();
-    entry.Name = 'entry';
-    this.channel.next(new FolderLiteral('notif', [
-      new StringLiteral('type', 'Added'),
-      new StringLiteral('path', path),
-      entry,
-    ]));
-
-    if (node.type === 'Folder' && depth) {
-      const pathPrefix = path + (path ? '/' : '');
-      for (const child of node.obj.children) {
-        await handle.walkName(child[0]);
-        await this.walkEntry(handle, pathPrefix+child[0], depth-1);
-        await handle.walkName("..");
-      }
-    }
   }
 }
 
@@ -142,6 +100,7 @@ class IdbSubscription {
 // and knows how to do tree operations within its context.
 class IdbTransaction {
   constructor(mount, mode) {
+    this.mount = mount;
     this.innerTxn = mount.db.transaction(mount.store, mode);
     this.objectStore = this.innerTxn.objectStore(mount.store);
   }
@@ -314,15 +273,20 @@ class IdbHandle {
       console.log('IDB overwriting', this.path);
       parent.obj.children = parent.obj.children
           .filter(x => x[1] !== oldChild.nid);
+      this.txn.mount.routeNidEvent(parent.obj.nid, {
+        op: 'remove-child',
+        child: oldChild.name,
+      });
     }
 
     parent.obj.children.push([oldChild.name, newNid]);
     await this.txn.objectStore.put(parent.obj);
-    this.txn.mount.processNidEvent(parent.obj.nid, {
+    this.txn.mount.routeNidEvent(parent.obj.nid, {
       op: 'assign-child',
       child: oldChild.name,
       nid: newNid,
     });
+    // TODO: delay events until transaction is completed
     await this.walkName(oldChild.name);
   }
 }
@@ -362,6 +326,154 @@ class IdbExtantNode extends IdbNode {
         return new StringLiteral(this.obj.name, this.obj.raw);
       default:
         throw new Error(`Failed to map IDB type ${this.obj.type} for '${this.name}'.shallowExport()`);
+    }
+  }
+}
+
+
+///////////////////////////////////////////
+// Experimental subscribe() impl
+// Here be dragons!
+
+class IdbSubscription {
+  constructor(rootPath, depth, channel) {
+    this.rootPath = rootPath;
+    this.mount = rootPath.mount;
+    this.depth = depth;
+    this.channel = channel;
+
+    // If any of these change, we restart the whole sub
+    this.parentNids = new Set;
+    // When this changes, the sub basically restarts
+    // Falsy if doesn't currently exist
+    //this.currentNid = false;
+    // Name->node tree of children, events cascade
+    this.nidMap = new Map;
+  }
+
+  async start() {
+    const txn = new IdbTransaction(this.mount, 'readonly');
+    const handle = await txn.walkPath(this.rootPath.path);
+
+    // Register the path down to the sub's root node
+    let exists = true;
+    this.parentNids = new Set;
+    for (const nid of handle.nids) {
+      if (nid) {
+        this.mount.registerNidNotifs(nid, this);
+        this.parentNids.add(nid);
+      } else {
+        exists = false;
+      }
+    }
+
+    if (exists) {
+      const rootNode = new IdbSubNode(handle.current().nid, '', this.depth);
+      await rootNode.transmitEntry(this, txn, false);
+      console.log('all done initial sync');
+      this.channel.next(new FolderLiteral('notif', [
+        new StringLiteral('type', 'Ready'),
+      ]));
+    } else {
+      console.warn(`Subscription made to ghost entry`);
+    }
+  }
+
+  registerNidNotifs(nid, node) {
+    if (this.nidMap.has(nid)) {
+      throw new Error(`NID ${nid} already exists in sub, can't be re-registered`);
+    }
+    this.nidMap.set(nid, node);
+    this.mount.registerNidNotifs(nid, this);
+  }
+
+  async processNidEvent(nid, txn, event) {
+    console.log('sub processing NID event', nid, event);
+    if (this.nidMap.has(nid)) {
+      const node = this.nidMap.get(nid);
+      await node.processEvent(this, txn, event);
+    }
+  }
+}
+
+class IdbSubNode {
+  constructor(nid, path, height) {
+    this.nid = nid;
+    this.path = path;
+    this.height = height; // remaining levels beneath us
+    this.children = new Map; // nid->IdbSubNode
+    this.childPrefix = path + (path ? '/' : '');
+  }
+  
+  // given a sub and IDB transaction, recursively send shallow exports to the client
+  async transmitEntry(sub, txn, asChanged=false) {
+    const node = await txn.getNodeByNid(this.nid);
+    sub.registerNidNotifs(node.nid, this);
+
+    // transmit self
+    const notifType = asChanged ? 'Changed' : 'Added';
+    const entry = node.shallowExport();
+    entry.Name = 'entry';
+    sub.channel.next(new FolderLiteral('notif', [
+      new StringLiteral('type', notifType),
+      new StringLiteral('path', this.path),
+      entry,
+    ]));
+
+    // transmit children if we're not ground-level
+    this.children.clear();
+    if (node.type === 'Folder' && this.height > 0) {
+      for (const child of node.obj.children) {
+        const childNode = new IdbSubNode(child[1],
+            this.childPrefix+encodeURIComponent(child[0]), this.height - 1);
+        this.children.set(child[0], childNode);
+        await childNode.transmitEntry(sub, txn, false);
+      }
+    }
+  }
+
+  retractEntry(sub, andRemove) {
+    console.log('Retracting IDB node', this.nid, 'path', this.path, 'and remove:', andRemove);
+    sub.unregisterNidNotifs(this.nid);
+
+    // remove children first
+    this.children.forEach((child, name) => {
+      child.unload(state, false);
+    });
+    this.children.clear();
+
+    if (andRemove) {
+      sub.channel.next(new FolderLiteral('notif', [
+        new StringLiteral('type', 'Removed'),
+        new StringLiteral('path', this.path),
+      ]));
+    }
+  }
+
+  // Process events on this nid
+  // Currently, the only mutable aspect of a nid 
+  async processEvent(sub, txn, event) {
+    switch (event.op) {
+      case 'remove-child':
+        if (this.children.has(event.child)) {
+          const child = this.children.get(event.child);
+          child.retractEntry(sub, true);
+          this.children.remove(event.child);
+        }
+        break;
+
+      case 'assign-child':
+        // only pay attention if we aren't ground-level
+        if (this.height > 0) {
+          const childNode = new IdbSubNode(event.nid,
+              this.childPrefix+encodeURIComponent(event.child), this.height - 1);
+          this.children.set(event.child, childNode);
+          await childNode.transmitEntry(sub, txn, false);
+        }
+        break;
+      
+      default:
+        console.warn('idb subnode', this, 'got unimpl event', event);
     }
   }
 }
