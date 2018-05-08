@@ -29,6 +29,19 @@ class ArbitraryIdbMount {
     }
     subs.add(sub);
   }
+  unregisterNidNotifs(nid, sub) {
+    if (!nid) {
+      throw new Error(`BUG: Can't unregister for notifications from ghosts`);
+    }
+    if (this.nidSubs.has(nid)) {
+      const subs = this.nidSubs.get(nid);
+      subs.remove(sub);
+      if (subs.size === 0) {
+        console.log('Nothing is watching nid', nid, 'anymore, removing from nidSubs');
+        this.nidSubs.remove(nid);
+      }
+    }
+  }
 
   async routeNidEvent(nid, event) {
     if (this.nidSubs.has(nid)) {
@@ -217,7 +230,6 @@ class IdbHandle {
     const parts = path.split('/');
     for (const key in parts) {
       const part = decodeURIComponent(parts[key]);
-      console.log('Pathing', part, 'from', this.stack);
       await this.walkName(part);
     }
     
@@ -385,6 +397,10 @@ class IdbSubscription {
     }
     this.nidMap.set(nid, node);
     this.mount.registerNidNotifs(nid, this);
+  }
+  unregisterNidNotifs(nid) {
+    this.nidMap.remove(nid);
+    this.mount.unregisterNidNotifs(nid, this);
   }
 
   async processNidEvent(nid, txn, event) {

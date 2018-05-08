@@ -149,7 +149,7 @@ class SkylinkPostHandler extends WSC.BaseHandler {
     this.responseLength = payload.length;
     this.writeHeaders({
       'Content-Type': 'application/json',
-      'Server': 'Stardust-in-Chrome',
+      'Server': 'Stardust-in-Chrome/'+chrome.runtime.getManifest().version,
     });
     this.write(payload);
     this.finish();
@@ -312,7 +312,7 @@ class SkylinkPingHandler extends WSC.BaseHandler {
     this.responseLength = payload.length;
     this.writeHeaders({
       'Content-Type': 'application/json',
-      'Server': 'Stardust-in-Chrome',
+      'Server': 'Stardust-in-Chrome/'+chrome.runtime.getManifest().version,
     });
     this.write(payload);
     this.finish();

@@ -65,8 +65,12 @@ function ToastNotif(text) {
   //    var fs = new WSC.FileSystem(webroot)
 
 // TODO: visible window required to open the firewall on ChromeOS
-/*
-chrome.app.runtime.onLaunched.addListener(function() {
+
+chrome.app.runtime.onLaunched.addListener(evt => {
+  if (evt.source === 'reload') {
+    return;
+  }
+  
   chrome.app.window.create('window.html', {
     'outerBounds': {
       'width': 400,
@@ -74,4 +78,3 @@ chrome.app.runtime.onLaunched.addListener(function() {
     }
   });
 });
-*/
