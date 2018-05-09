@@ -35,7 +35,7 @@ async function boot() {
 boot().then(() => {
   chrome.notifications.create('startup', {
     type: 'basic',
-    iconUrl: 'icon.png',
+    iconUrl: 'assets/stardust-round-128.png',
     title: 'Profile Server is running',
     message: 'Listening for Skylink on HTTP port 9237',
   });
@@ -43,7 +43,7 @@ boot().then(() => {
   console.log('Server boot failed:', err);
   chrome.notifications.create('startup', {
     type: 'basic',
-    iconUrl: 'icon.png',
+    iconUrl: 'assets/stardust-round-128.png',
     title: '!!! Failed to start server :(',
     message: err.stack || err.message
   });
@@ -52,7 +52,7 @@ boot().then(() => {
 function ToastNotif(text) {
   chrome.notifications.create(null, {
     type: 'basic',
-    iconUrl: 'icon.png',
+    iconUrl: 'assets/stardust-round-128.png',
     title: 'Update',
     message: text,
   });
