@@ -16,7 +16,20 @@ class ArbitraryIdbMount {
   }
 
   async init() {
-    // TODO: ensure 'root' nid exists
+    const txn = new IdbTransaction(this, 'readwrite');
+
+    // create 'root' node if doesn't exist
+    try {
+      await txn.getNodeByNid('root');
+    } catch (err) {
+      if (err.constructor !== NidNotFoundError)
+        throw err;
+      txn.createNode(new FolderLiteral('root'), 'root');
+      console.warn('Seeded IDB mount with root node');
+    }
+
+    await txn.innerTxn.complete;
+    console.log('Done initing IDB mount', this.store);
   }
 
   async getEntry(path) {
@@ -161,11 +174,11 @@ class IdbTransaction {
   // and stores a sanitized version under an unallocated NID.
   // The transaction must be opened in 'readwrite' mode.
   // The new NID is returned.
-  async createNode(literal) {
+  async createNode(literal, forcedNid=null) {
     const newNode = {
       name: literal.Name,
       type: literal.Type,
-      nid: Math.random().toString(16).slice(2),
+      nid: forcedNid || Math.random().toString(16).slice(2),
     }
     switch (literal.Type) {
       case 'Folder':
@@ -187,7 +200,8 @@ class IdbTransaction {
       default:
         throw new Error(`Failed to map IDB type ${this.node.type} for createNode()`);
     }
-    await this.objectStore.add(newNode);
+    await this.objectStore.add(newNode); // throws if exists
+    console.log('Created IDB node:', newNode);
     return newNode.nid;
   }
 }

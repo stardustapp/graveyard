@@ -55,6 +55,9 @@ class Environment {
         throw new Error(`bad mount type ${type} for ${path}`);
     }
 
+    if (mount.init)
+      await mount.init();
+
     this.mounts.set(path, mount);
   }
 
