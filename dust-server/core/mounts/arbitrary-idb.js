@@ -1,3 +1,10 @@
+class NidNotFoundError extends ExtendableError {
+  constructor(nid) {
+    super(`getNodeByNid('${nid}') didn't find a node`);
+    this.nid = nid;
+  }
+}
+
 class ArbitraryIdbMount {
   constructor(opts) {
     console.log('arbitrary idb inited with', opts);
@@ -130,7 +137,7 @@ class IdbTransaction {
   async getNodeByNid(nid) {
     const raw = await this.objectStore.get(nid);
     if (!raw) {
-      throw new Error(`getNodeByNid(${nid}) didn't find a node`);
+      throw new NidNotFoundError(nid);
       //return new IdbGhostNode(nid, raw.name, )
     }
     return new IdbExtantNode(nid, raw.name, raw.type, raw);
