@@ -1,4 +1,34 @@
 async function boot() {
+  console.log('Booting server...');
+
+  const self = await new Promise(resolve => chrome.management.getSelf(resolve));
+  const platformInfo = await new Promise(resolve => chrome.runtime.getPlatformInfo(resolve));
+  const baseUri = `chrome-extension://${self.id}`;
+  window.bugsnagClient = bugsnag({
+    apiKey: '3f2405514c98f4af0462776673985963',
+    appVersion: self.version,
+    releaseStage: self.installType,
+    autoCaptureSessions: false,
+    beforeSend: (report) => {
+      if (report.request.url == baseUri+`/_generated_background_page.html`) {
+        report.request.url = 'background';
+      }
+      report.stacktrace.forEach(x => {
+        x.file = x.file.replace(baseUri, ''); // they become absolute paths
+      });
+    },
+  });
+  bugsnagClient.context = 'background';
+  bugsnagClient.device = {
+    extensionId: self.id,
+    extensionType: self.type,
+    isApplication: self.isApp,
+    platform: platformInfo,
+  };
+  bugsnagClient.metaData = {
+    launchType: self.launchType,
+  };
+
   const db = await idb.open('system', 3, upgradeDB => {
     const profiles = upgradeDB.createObjectStore('profiles', {
       keyPath: 'chartName',
