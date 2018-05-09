@@ -70,11 +70,24 @@ chrome.app.runtime.onLaunched.addListener(evt => {
   if (evt.source === 'reload') {
     return;
   }
-  
+
   chrome.app.window.create('window.html', {
     'outerBounds': {
       'width': 400,
       'height': 500
     }
   });
+  chrome.power.requestKeepAwake('display');
+  console.log('Started window');
+});
+
+// Restart immediately when there's new stuff
+// TODO: don't restart immediately, lol.
+chrome.runtime.onUpdateAvailable.addListener(function (details) {
+  //setState('updateAvailable', details);
+  chrome.runtime.restart();
+});
+chrome.runtime.onRestartRequired.addListener(function (reason) {
+  //setState('restartRequired', reason);
+  chrome.runtime.restart();
 });
