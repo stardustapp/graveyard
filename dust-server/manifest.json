@@ -38,5 +38,8 @@
        "listen": ["*:*"]
      }
   },
-  "icons": { "16": "icon.png" }
+  "icons": {
+    "16": "assets/stardust-16.png",
+    "128": "assets/stardust-round-128.png"
+  }
 }
