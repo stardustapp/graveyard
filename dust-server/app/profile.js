@@ -5,13 +5,16 @@ class Profile {
       throw new Error(`Profile opened with null chartName`);
     }
     const db = await idb.open('profile:'+chartName, 1, upgradeDB => {
-      upgradeDB.createObjectStore('metadata');
-      upgradeDB.createObjectStore('persist', {
-        keyPath: 'nid',
-      });
-      upgradeDB.createObjectStore('config', {
-        keyPath: 'nid',
-      });
+      switch (upgradeDB.oldVersion) {
+        case 0:
+          upgradeDB.createObjectStore('metadata');
+          upgradeDB.createObjectStore('persist', {
+            keyPath: 'nid',
+          });
+          upgradeDB.createObjectStore('config', {
+            keyPath: 'nid',
+          });
+      }
     });
     console.log('Opened database for', chartName);
 
