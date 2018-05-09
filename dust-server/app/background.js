@@ -68,17 +68,18 @@ function ToastNotif(text) {
 
 chrome.app.runtime.onLaunched.addListener(evt => {
   if (evt.source === 'reload') {
-    return;
+    //return;
   }
 
   chrome.app.window.create('window.html', {
-    'outerBounds': {
-      'width': 400,
-      'height': 500
+    id: 'server-console',
+    outerBounds: {
+      width: 800,
+      height: 480,
     }
   });
   chrome.power.requestKeepAwake('display');
-  console.log('Started window');
+  console.log('Opened server console');
 });
 
 // Restart immediately when there's new stuff
