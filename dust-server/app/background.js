@@ -62,23 +62,6 @@ async function boot() {
   console.log('Started web server');
 }
 
-boot().then(() => {
-  chrome.notifications.create('startup', {
-    type: 'basic',
-    iconUrl: 'assets/stardust-round-128.png',
-    title: 'Profile Server is running',
-    message: 'Listening for Skylink on HTTP port 9237',
-  });
-}, err => {
-  console.log('Server boot failed:', err);
-  chrome.notifications.create('startup', {
-    type: 'basic',
-    iconUrl: 'assets/stardust-round-128.png',
-    title: '!!! Failed to start server :(',
-    message: err.stack || err.message
-  });
-});
-
 function ToastNotif(text) {
   chrome.notifications.create(null, {
     type: 'basic',
@@ -106,6 +89,23 @@ chrome.app.runtime.onLaunched.addListener(evt => {
   });
   chrome.power.requestKeepAwake('display');
   console.log('Opened server console');
+
+  boot().then(() => {
+    chrome.notifications.create('startup', {
+      type: 'basic',
+      iconUrl: 'assets/stardust-round-128.png',
+      title: 'Profile Server is running',
+      message: 'Listening for Skylink on HTTP port 9237',
+    });
+  }, err => {
+    console.log('Server boot failed:', err);
+    chrome.notifications.create('startup', {
+      type: 'basic',
+      iconUrl: 'assets/stardust-round-128.png',
+      title: '!!! Failed to start server :(',
+      message: err.stack || err.message
+    });
+  });
 });
 
 // Restart immediately when there's new stuff
