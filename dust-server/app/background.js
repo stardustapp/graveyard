@@ -97,11 +97,7 @@ function ToastNotif(text) {
 // TODO: visible window required to open the firewall on ChromeOS
 
 chrome.app.runtime.onLaunched.addListener(evt => {
-  if (evt.source === 'reload') {
-    //return;
-  }
-
-  chrome.app.window.create('window.html', {
+  chrome.app.window.create('console/window.html', {
     id: 'server-console',
     outerBounds: {
       width: 800,
