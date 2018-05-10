@@ -5,10 +5,14 @@ async function boot() {
   const platformInfo = await new Promise(resolve => chrome.runtime.getPlatformInfo(resolve));
   const baseUri = `chrome-extension://${self.id}`;
   window.bugsnagClient = bugsnag({
+    // tell it about us
     apiKey: '3f2405514c98f4af0462776673985963',
     appVersion: self.version,
     releaseStage: self.installType,
+    // disable things that we don't have
+    navigationBreadcrumbsEnabled: false,
     autoCaptureSessions: false,
+    // bugsnag ignores things from extensions, take that part out
     beforeSend: (report) => {
       if (report.request.url == baseUri+`/_generated_background_page.html`) {
         report.request.url = 'background';
@@ -18,16 +22,16 @@ async function boot() {
       });
     },
   });
+  // report that we're the app BG page
   bugsnagClient.context = 'background';
   bugsnagClient.device = {
     extensionId: self.id,
     extensionType: self.type,
     isApplication: self.isApp,
+    launchType: self.launchType,
     platform: platformInfo,
   };
-  bugsnagClient.metaData = {
-    launchType: self.launchType,
-  };
+  //bugsnagClient.metaData = {};
 
   const db = await idb.open('system', 3, upgradeDB => {
     const profiles = upgradeDB.createObjectStore('profiles', {
