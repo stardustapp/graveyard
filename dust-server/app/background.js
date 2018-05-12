@@ -33,6 +33,11 @@ async function boot() {
   };
   //bugsnagClient.metaData = {};
 
+  if (self.installType != 'development') {
+    console.log('Keeping the screen on');
+    chrome.power.requestKeepAwake('display');
+  }
+
   const db = await idb.open('system', 3, upgradeDB => {
     const profiles = upgradeDB.createObjectStore('profiles', {
       keyPath: 'chartName',
@@ -91,7 +96,6 @@ chrome.app.runtime.onLaunched.addListener(evt => {
       height: 480,
     }
   });
-  chrome.power.requestKeepAwake('display');
   console.log('Opened server console');
 
   boot().then(() => {
