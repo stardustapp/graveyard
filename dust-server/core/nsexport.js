@@ -1,3 +1,5 @@
+const SERVER_HEADER = 'Chrome-'+chrome.runtime.getManifest().short_name+'/'+chrome.runtime.getManifest().version;
+
 class NsExport {
   constructor(namespace) {
     this.namespace = namespace;
@@ -147,10 +149,10 @@ class SkylinkPostHandler extends WSC.BaseHandler {
     const payload = JSON.stringify(data);
 
     this.responseLength = payload.length;
-    this.writeHeaders({
-      'Content-Type': 'application/json',
-      'Server': 'Stardust-in-Chrome/'+chrome.runtime.getManifest().version,
-    });
+    this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
+    this.setHeader('Server', SERVER_HEADER);
+    this.setHeader('Content-Type', 'application/json');
+    this.writeHeaders(200);
     this.write(payload);
     this.finish();
   }
@@ -310,10 +312,10 @@ class SkylinkPingHandler extends WSC.BaseHandler {
     const payload = JSON.stringify({Ok: true});
 
     this.responseLength = payload.length;
-    this.writeHeaders({
-      'Content-Type': 'application/json',
-      'Server': 'Stardust-in-Chrome/'+chrome.runtime.getManifest().version,
-    });
+    this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
+    this.setHeader('Server', SERVER_HEADER);
+    this.setHeader('Content-Type', 'application/json');
+    this.writeHeaders(200);
     this.write(payload);
     this.finish();
   }
