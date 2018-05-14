@@ -1,0 +1,44 @@
+<!doctype html>
+
+<title>ProfileServ Console UI</title>
+<meta charset="utf-8">
+<link rel="stylesheet" media="screen" href="ui.css">
+
+<div id="app">
+  <div id="action-col">
+    <h1>👨‍💻 star console</h1>
+
+    <section class="get-attribute">
+      <h3>Do Actions</h3>
+      <button data-query="clear-console">Clear console</button>
+      <button data-query="persist">Persist storage</button>
+      <button data-query="persisted">Check isPersisted</button>
+      <button data-query="restart">Restart runtime (!!)</button>
+    </section>
+
+    <section class="get-attribute">
+      <h3>Query System</h3>
+      <button data-query="cpu">CPU usage</button>
+      <button data-query="storage">Storage usage</button>
+      <button data-query="memory">Memory usage</button>
+      <button data-query="display">Display surfaces</button>
+      <button data-query="battery">Battery level</button>
+      <button data-query="network">Network interfaces</button>
+    </section>
+  </div>
+
+  <div id="history-col">
+    <section class="intro">
+      <img id="brand-icon" src="/assets/stardust-round-128.png">
+      <hgroup>
+        <h1>Profile Server</h1>
+        <h2>Listening on port 9237</h2>
+      </hgroup>
+      <p>Hey! I'm useful!<br>I'm serving profiles!</p>
+      <p id="app-version">no version</p>
+      <p>built by Daniel Lamando</a></p>
+    </section>
+  </div>
+</div>
+
+<script type="text/javascript" src="ui.js"></script>

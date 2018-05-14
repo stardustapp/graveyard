@@ -22,7 +22,11 @@
     "notifications",
     "browser",
     "power",
+    "system.cpu",
+    "system.display",
     "system.network",
+    "system.memory",
+    "system.storage",
     "background"
   ],
   "sockets": {
