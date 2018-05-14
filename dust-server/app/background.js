@@ -38,14 +38,23 @@ async function boot() {
     chrome.power.requestKeepAwake('display');
   }
 
-  const db = await idb.open('system', 3, upgradeDB => {
-    const profiles = upgradeDB.createObjectStore('profiles', {
-      keyPath: 'chartName',
-    });
-    //const drivers = upgradeDB.createObjectStore('drivers');
+  const db = await idb.open('system', 4, upgradeDB => {
+    switch (upgradeDB.oldVersion) {
+      case 0:
+        // Stores name[@domain] profiles
+        // Domainless profiles are 'local' users
+        // These can be for remote users eventually
+        upgradeDB.createObjectStore('profiles', {
+          keyPath: 'chartName',
+        });
+      case 3:
+        // Stores authoritative records of domains
+        upgradeDB.createObjectStore('domains', {
+          keyPath: 'domainName',
+        });
+    }
   });
   console.log('Opened database');
-
 
   // create a blank root environment
   const systemEnv = new Environment();
@@ -59,11 +68,8 @@ async function boot() {
   // create a manager (mounts itself)
   const sessionManager = new SessionManager(systemEnv, db);
 
-  // TODO: install the domain schema
-  //const schemas = systemEnv.getEntry('/db/schemas');
-  //console.log('Database schemas:', schemas.enumerate());
-  //const domainSchema = systemEnv.getEntry('/db/schemas/domain');
-  //console.log('Installing domain schema:', domainSchema.put("hello"));
+  const domainManager = new DomainManager(db);
+  window.DOMAIN_MANAGER = domainManager;
 
   // expose the entire system environment on the network
   const server = new NsExport(systemEnv);

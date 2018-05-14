@@ -142,9 +142,9 @@ class SessionManager {
 // - 1. Build a blank Environment.
 // - 2. Construct a mongodb persistance store.
 // - 3. Bind the persist store into the system env.
-// 4. Install the Domain schema into the store
+// - 4. Install the Domain schema into the store
 // 5. Construct or locate the domain.
-// 6. Expose a launch-chart API.
+// - 6. Expose a launch-chart API.
 // 7. Support storing data for IRC.
 // 8. Support executing LUA routines.
 // 9. Support launching drivers.

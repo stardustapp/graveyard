@@ -35,6 +35,9 @@ class Profile {
     this.env.mount('/config', 'arbitrary-idb', { db, store: 'config' });
     this.env.mount('/persist', 'arbitrary-idb', { db, store: 'persist' });
     this.env.mount('/chart-name', 'literal', { string: chartName });
+
+    // lets users manage their domains
+    this.env.bind('/domains', new DomainsApi(DOMAIN_MANAGER, chartName).env);
   }
 
   close() {
