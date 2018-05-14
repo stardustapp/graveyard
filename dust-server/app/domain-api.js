@@ -45,11 +45,21 @@ class MyDomainsApi {
   async getEntry(path) {
     if (path == '') {
       return {
+        get: this.getRoot.bind(this),
         subscribe: this.subscribe.bind(this),
       };
     }
     throw new Error(`MyDomainsApi getEntry ${path}`);
   }
+
+  async getRoot() {
+    const domains = await this.manager.listDomains();
+    return new FolderLiteral('mine', domains
+      .filter(d => d.hasGrantFor('~'+this.chartName))
+      .map(d => new FolderLiteral(d.name)));
+  }
+
+  // TODO: enumerate
 
   async subscribe(depth, newChannel) {
     return await newChannel.invoke(async c => {
