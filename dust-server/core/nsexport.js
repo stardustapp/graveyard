@@ -192,9 +192,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
     // create a new environment just for this connection
     this.localEnv = new Environment();
     this.localEnv.mount('/tmp', 'tmp');
-    this.localEnv.mount('/pub', 'bind', {
-      source: nsExport.namespace, // TODO: prefix /api
-    });
+    this.localEnv.bind('/pub', nsExport.namespace); // TODO: prefix /api
 
     this.channels = new Map;
     this.nextChan = 1;

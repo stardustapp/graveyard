@@ -6,6 +6,10 @@ class Environment {
     this.mounts = new Map();
   }
 
+  bind(path, source) {
+    return this.mount(path, 'bind', {source});
+  }
+
   // creates a mount of type, with opts, and places it at path
   async mount(path, type, opts) {
     opts = opts || {};
@@ -86,7 +90,7 @@ class Environment {
     var entry;
 
     const {mount, subPath} = this.matchPath(path);
-    if (mount) {
+    if (mount && mount.getEntry) {
       entry = await mount.getEntry(subPath);
     }
 

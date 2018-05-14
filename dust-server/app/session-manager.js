@@ -17,10 +17,8 @@ class SessionManager {
     });
 
     // present the launched sessions
-    this.env.mount('/sessions', 'bind', {
-      source: {
-        getEntry: this.getSessionsEntry.bind(this),
-      },
+    this.env.bind('/sessions', {
+      getEntry: this.getSessionsEntry.bind(this),
     });
   }
 

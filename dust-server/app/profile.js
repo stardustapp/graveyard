@@ -28,9 +28,9 @@ class Profile {
     console.log('starting profile for', chartName);
 
     /*
-    this.env.mount('/persist', 'bind', { source: { getEntry(path) {
+    this.env.bind('/persist', { getEntry(path) {
       throw new Error(`TODO: implement /persist for ${path} on ${chartName}`);
-    }}});
+    }});
     */
     this.env.mount('/config', 'arbitrary-idb', { db, store: 'config' });
     this.env.mount('/persist', 'arbitrary-idb', { db, store: 'persist' });

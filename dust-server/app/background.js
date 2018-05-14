@@ -80,8 +80,6 @@ function ToastNotif(text) {
   });
 }
 
-//chrome.app.runtime.onLaunched.addListener(function() {});
-
   //chrome.runtime.getPackageDirectoryEntry(packageDirectory => {
   //  packageDirectory.getDirectory(directory, {create: false}, webroot => {
   //    var fs = new WSC.FileSystem(webroot)
