@@ -69,7 +69,7 @@ class NsExport {
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
         } else if (entry.enumerate) {
-          return await entry.enumerate(Input);
+          return await entry.enumerate(request.Depth||request.depth);
         } else {
           throw new Error(`Entry at ${Path} isn't enumerable`);
         }

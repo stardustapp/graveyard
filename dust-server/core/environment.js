@@ -87,8 +87,11 @@ class Environment {
   }
 
   async getEntry(path, required, apiCheck) {
-    var entry;
+    // show our root if we have to
+    if (!path)
+      return new VirtualEnvEntry(this, path);
 
+    var entry;
     const {mount, subPath} = this.matchPath(path);
     if (mount && mount.getEntry) {
       entry = await mount.getEntry(subPath);
@@ -144,5 +147,40 @@ class VirtualEnvEntry {
     } else {
       throw new Error("You pathed into a part of an env with no contents");
     }
+  }
+
+  async enumerate(depth) {
+    const children = new Array();
+    this.env.mounts.forEach((mount, path) => {
+      if (path.startsWith(this.path)) {
+        const subPath = path.slice(this.path.length + 1);
+        if (!subPath.includes('/')) {
+          children.push({name: subPath, mount, path});
+        }
+      }
+    });
+
+    const output = new FolderLiteral('enumeration');
+    if (!children.length)
+      return output;
+    output.Children.push(new FolderLiteral(''));
+    if (depth === 0)
+      return output;
+
+    //const nameParts = this.path.split('/');
+    //const name = this.path ? nameParts[nameParts.length - 1] : 'root';
+    for (const child of children) {
+      try {
+        const rootEntry = await child.mount.getEntry('');
+        const root = await rootEntry.get();
+        root.Name = child.name;
+        output.Children.push(root);
+      } catch (err) {
+        console.warn('Enumeration had a failed node @', JSON.stringify(child.name), err);
+        output.Children.push(new StringLiteral(child.name, err.message));
+      }
+      // TODO: descend if depth > 1
+    }
+    return output;
   }
 }
