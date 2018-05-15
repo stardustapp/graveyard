@@ -37,9 +37,8 @@ class FsRootEntry {
     this.mount = mount;
   }
 
-  async enumerate() {
-    return this.mount.listKeys();
-  }
+  //async enumerate(enumer) {
+  //}
 }
 
 class FsStringEntry {

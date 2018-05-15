@@ -69,7 +69,9 @@ class NsExport {
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
         } else if (entry.enumerate) {
-          return await entry.enumerate(request.Depth||request.depth);
+          const enumer = new EnumerationWriter(request.Depth || request.depth);
+          await entry.enumerate(enumer);
+          return enumer.toOutput();
         } else {
           throw new Error(`Entry at ${Path} isn't enumerable`);
         }

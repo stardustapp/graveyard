@@ -115,12 +115,11 @@ class IdbPath {
     return true;
   }
 
-  async enumerate(input) {
-    return new FolderLiteral('enumeration', [
-      new FolderLiteral(''),
-      new StringLiteral('test', '123'),
-    ]);
-  }
+  //async enumerate(enumer) {
+  //  enumer.visit(await this.get());
+  //  // and also descend if desired
+  //}
+
   async subscribe(depth, newChannel) {
     return await newChannel.invoke(async c => {
       const sub = new IdbSubscription(this, depth, c);

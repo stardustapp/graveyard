@@ -149,7 +149,7 @@ class VirtualEnvEntry {
     }
   }
 
-  async enumerate(depth) {
+  async enumerate(enumer) {
     const children = new Array();
     this.env.mounts.forEach((mount, path) => {
       if (path.startsWith(this.path)) {
@@ -159,28 +159,26 @@ class VirtualEnvEntry {
         }
       }
     });
-
-    const output = new FolderLiteral('enumeration');
     if (!children.length)
-      return output;
-    output.Children.push(new FolderLiteral(''));
-    if (depth === 0)
-      return output;
+      return;
 
-    //const nameParts = this.path.split('/');
-    //const name = this.path ? nameParts[nameParts.length - 1] : 'root';
-    for (const child of children) {
-      try {
-        const rootEntry = await child.mount.getEntry('');
-        const root = await rootEntry.get();
-        root.Name = child.name;
-        output.Children.push(root);
-      } catch (err) {
-        console.warn('Enumeration had a failed node @', JSON.stringify(child.name), err);
-        output.Children.push(new StringLiteral(child.name, err.message));
+    enumer.visit({Type: 'Folder'});
+    if (enumer.canDescend()) {
+      for (const child of children) {
+        enumer.descend(child.name);
+        try {
+          const rootEntry = await child.mount.getEntry('');
+          if (rootEntry.enumerate) {
+            await rootEntry.enumerate(enumer);
+          } else {
+            enumer.visit(await rootEntry.get());
+          }
+        } catch (err) {
+          console.warn('Enumeration had a failed node @', JSON.stringify(child.name), err);
+          enumer.visit({Type: 'Error', StringValue: err.message});
+        }
+        enumer.ascend();
       }
-      // TODO: descend if depth > 1
     }
-    return output;
   }
 }

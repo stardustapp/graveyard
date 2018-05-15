@@ -37,7 +37,6 @@ class ImportedEntry {
 
   }
 
-  async enumerate(input) {
-
-  }
+  //async enumerate(enumer) {
+  //}
 }
