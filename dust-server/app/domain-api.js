@@ -46,6 +46,7 @@ class MyDomainsApi {
     if (path == '') {
       return {
         get: this.getRoot.bind(this),
+        enumerate: this.enumerate.bind(this),
         subscribe: this.subscribe.bind(this),
       };
     }
@@ -59,7 +60,23 @@ class MyDomainsApi {
       .map(d => new FolderLiteral(d.name)));
   }
 
-  // TODO: enumerate
+  async enumerate(enumer) {
+    enumer.visit({Type: 'Folder'});
+    if (enumer.canDescend()) {
+      for (const domain of await this.manager.listDomains()) {
+        if (domain.hasGrantFor('~'+this.chartName)) {
+          enumer.descend(domain.name);
+          enumer.visit({Type: 'Folder'});
+          if (enumer.canDescend()) {
+            enumer.descend('my-role');
+            enumer.visit(new StringLiteral('', domain.highestRoleFor('~'+this.chartName)));
+            enumer.ascend();
+          }
+          enumer.ascend();
+        }
+      }
+    }
+  }
 
   async subscribe(depth, newChannel) {
     return await newChannel.invoke(async c => {
