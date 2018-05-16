@@ -115,10 +115,11 @@ class IdbPath {
     return true;
   }
 
-  //async enumerate(enumer) {
-  //  enumer.visit(await this.get());
-  //  // and also descend if desired
-  //}
+  async enumerate(enumer) {
+    const txn = new IdbTransaction(this.mount, 'readonly');
+    const handle = await txn.walkPath(this.path);
+    await handle.current().enumerate(enumer, txn);
+  }
 
   async subscribe(depth, newChannel) {
     return await newChannel.invoke(async c => {
@@ -252,7 +253,7 @@ class IdbHandle {
       const part = decodeURIComponent(parts[key]);
       await this.walkName(part);
     }
-    
+
     return this;
   }
 
@@ -339,6 +340,10 @@ class IdbGhostNode extends IdbNode {
   shallowExport() {
     throw new Error(`Unable to export ghosts! For '${this.name}'.shallowExport()`);
   }
+
+  enumerate(enumer, txn) {
+    return; // ghosts never visit
+  }
 }
 
 // Represents a real node which actually exists in the store.
@@ -358,6 +363,24 @@ class IdbExtantNode extends IdbNode {
         return new StringLiteral(this.obj.name, this.obj.raw);
       default:
         throw new Error(`Failed to map IDB type ${this.obj.type} for '${this.name}'.shallowExport()`);
+    }
+  }
+
+  async enumerate(enumer, txn) {
+    // really more worried about seeing the structure here
+    const copy = {Type: this.obj.type};
+    if (copy.Type === 'String')
+      copy.StringValue = this.obj.raw;
+    enumer.visit(copy);
+
+    // and recurse...
+    if (this.obj.type === 'Folder' && this.obj.children.length > 0 && enumer.canDescend()) {
+      for (const [name, nid] of this.obj.children) {
+        enumer.descend(name);
+        const child = await txn.getNodeByNid(nid);
+        await child.enumerate(enumer, txn);
+        enumer.ascend();
+      }
     }
   }
 }
