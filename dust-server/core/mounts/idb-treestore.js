@@ -5,9 +5,9 @@ class NidNotFoundError extends ExtendableError {
   }
 }
 
-class ArbitraryIdbMount {
+class IdbTreestoreMount {
   constructor(opts) {
-    console.log('arbitrary idb inited with', opts);
+    console.log('idb treestore inited with', opts);
 
     this.db = opts.db; // actual instance of opened DB
     this.store = opts.store; // string name

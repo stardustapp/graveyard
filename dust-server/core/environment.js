@@ -18,8 +18,8 @@ class Environment {
     // initialize the device to be mounted
     var mount;
     switch (type) {
-      case 'arbitrary-idb':
-        mount = new ArbitraryIdbMount(opts);
+      case 'idb-treestore':
+        mount = new IdbTreestoreMount(opts);
         break;
       case 'fs-string-dict':
         mount = new FsStringDictMount(opts);

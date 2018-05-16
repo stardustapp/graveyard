@@ -32,8 +32,8 @@ class Profile {
       throw new Error(`TODO: implement /persist for ${path} on ${chartName}`);
     }});
     */
-    this.env.mount('/config', 'arbitrary-idb', { db, store: 'config' });
-    this.env.mount('/persist', 'arbitrary-idb', { db, store: 'persist' });
+    this.env.mount('/config', 'idb-treestore', { db, store: 'config' });
+    this.env.mount('/persist', 'idb-treestore', { db, store: 'persist' });
     this.env.mount('/chart-name', 'literal', { string: chartName });
 
     // lets users manage their domains
