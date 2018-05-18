@@ -84,10 +84,13 @@ class NsExport {
         }
 
         var entry = await namespace.getEntry(Path);
+        var depth = request.Depth || request.depth;
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
         } else if (entry.subscribe) {
-          return await entry.subscribe(request.Depth||request.depth, newChan);
+          return await entry.subscribe(depth, newChan);
+        } else if (entry.enumerate) {
+          return await EnumerateIntoSubscription(entry.enumerate, depth, newChan);
         } else {
           throw new Error(`Entry at ${Path} isn't subscribable`);
         }

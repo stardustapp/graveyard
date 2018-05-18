@@ -32,3 +32,28 @@ class EnumerationWriter {
     return new FolderLiteral('enumeration', this.entries);
   }
 }
+
+
+// Provides a shitty yet complete non-reactive subscription
+// Gets its data from the provided enumeration lambda
+// Shuts down the channel when it's down as a signal downstream
+function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
+  return newChannel.invoke(async c => {
+    const enumer = new EnumerationWriter(depth);
+    const enumeration = await enumHandler(enumer);
+    for (const entry of enumer.toOutput().Children) {
+      const fullName = entry.Name;
+      entry.Name = 'entry';
+      c.next(new FolderLiteral('notif', [
+        new StringLiteral('type', 'Added'),
+        new StringLiteral('path', fullName),
+        entry,
+      ]));
+    }
+    c.next(new FolderLiteral('notif', [
+      new StringLiteral('type', 'Ready'),
+    ]));
+    c.stop(new StringLiteral('nosub',
+        `This entry does not implement reactive subscriptions`));
+  });
+}
