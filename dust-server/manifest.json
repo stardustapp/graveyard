@@ -11,8 +11,8 @@
     "background": {
       "scripts": [
         "vendor/bugsnag.js", "vendor/wsc-chrome.js", "vendor/idb.js", "vendor/moment.js",
-        "core/api-entries.js", "core/enumeration.js", "core/environment.js", "core/nsexport.js", "core/utils.js",
-        "core/mounts/fs-string-dict.js", "core/mounts/idb-treestore.js", "core/mounts/network-import.js", "core/mounts/tmp.js",
+        "core/api-entries.js", "core/enumeration.js", "core/environment.js", "core/nsexport.js", "core/platform-api.js", "core/utils.js",
+        "core/mounts/idb-treestore.js", "core/mounts/fs-string-dict.js", "core/mounts/network-import.js", "core/mounts/tmp.js", "core/mounts/web-filesystem.js",
         "daemon/domain.js", "daemon/domain-manager.js", "daemon/domain-api.js",
         "daemon/profile.js", "daemon/session-manager.js", "daemon/session.js",
         "daemon/background.js"]
