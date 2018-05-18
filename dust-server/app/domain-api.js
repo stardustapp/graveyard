@@ -46,12 +46,24 @@ class MyDomainsApi {
     if (path == '') {
       return {
         get: this.getRoot.bind(this),
-        enumerate: this.enumerate.bind(this),
-        subscribe: this.subscribe.bind(this),
+        enumerate: this.enumerateRoot.bind(this),
       };
+    }
+
+    const parts = path.slice(1).split('/').map(decodeURIComponent);
+    if (parts.length == 1) {
+      const domain = decodeURIComponent(path.slice(1));
+      return {
+        get: this.getDomain.bind(this, domain),
+        enumerate: this.enumerateDomain.bind(this, domain),
+      }
+    } else if (parts.length == 2 && parts[1] == 'my-role') {
+      const domain = await this.manager.getDomain(parts[0]);
+      return new StringLiteral('my-role', domain.highestRoleFor('~'+this.chartName));
     }
     throw new Error(`MyDomainsApi getEntry ${path}`);
   }
+
 
   async getRoot() {
     const domains = await this.manager.listDomains();
@@ -60,48 +72,44 @@ class MyDomainsApi {
       .map(d => new FolderLiteral(d.name)));
   }
 
-  async enumerate(enumer) {
+  async enumerateRoot(enumer) {
     enumer.visit({Type: 'Folder'});
-    if (enumer.canDescend()) {
-      for (const domain of await this.manager.listDomains()) {
-        if (domain.hasGrantFor('~'+this.chartName)) {
-          enumer.descend(domain.name);
-          enumer.visit({Type: 'Folder'});
-          if (enumer.canDescend()) {
-            enumer.descend('my-role');
-            enumer.visit(new StringLiteral('', domain.highestRoleFor('~'+this.chartName)));
-            enumer.ascend();
-          }
+    if (!enumer.canDescend()) return;
+    for (const domain of await this.manager.listDomains()) {
+      if (domain.hasGrantFor('~'+this.chartName)) {
+        enumer.descend(domain.name);
+        enumer.visit({Type: 'Folder'});
+        if (enumer.canDescend()) {
+          enumer.descend('my-role');
+          enumer.visit(new StringLiteral('', domain.highestRoleFor('~'+this.chartName)));
           enumer.ascend();
         }
+        enumer.ascend();
       }
     }
   }
 
-  async subscribe(depth, newChannel) {
-    return await newChannel.invoke(async c => {
-      c.next(new FolderLiteral('notif', [
-        new StringLiteral('type', 'Added'),
-        new StringLiteral('path', ''),
-        new FolderLiteral('entry'),
-      ]));
-      for (const domain of await this.manager.listDomains()) {
-        if (domain.hasGrantFor('~'+this.chartName)) {
-          c.next(new FolderLiteral('notif', [
-            new StringLiteral('type', 'Added'),
-            new StringLiteral('path', domain.name),
-            new FolderLiteral('entry'),
-          ]));
-          c.next(new FolderLiteral('notif', [
-            new StringLiteral('type', 'Added'),
-            new StringLiteral('path', domain.name+'/my-role'),
-            new StringLiteral('entry', domain.highestRoleFor('~'+this.chartName)),
-          ]));
-        }
-      }
-      c.next(new FolderLiteral('notif', [
-        new StringLiteral('type', 'Ready'),
-      ]));
-    });
+
+  async getDomain(domainName) {
+    const domain = await this.manager.getDomain(domainName);
+    if (!domain.hasGrantFor('~'+this.chartName))
+      throw new Error(`domain not accessible: ${domain}`);
+
+    return new new FolderLiteral(d.name, [
+      new StringLiteral('my-role'),
+    ]);
   }
+
+  async enumerateDomain(domainName, enumer) {
+    const domain = await this.manager.getDomain(domainName);
+    if (!domain.hasGrantFor('~'+this.chartName)) return;
+
+    enumer.visit({Type: 'Folder'});
+    if (!enumer.canDescend()) return;
+
+    enumer.descend('my-role');
+    enumer.visit(new StringLiteral('', domain.highestRoleFor('~'+this.chartName)));
+    enumer.ascend();
+  }
+
 }

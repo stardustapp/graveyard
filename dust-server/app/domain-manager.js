@@ -45,4 +45,10 @@ class DomainManager {
     return tx.objectStore('domains').getAll()
       .then(x => x.map(d => new Domain(d, this)));
   }
+
+  /*async*/ getDomain(domainName) {
+    const tx = this.idb.transaction('domains', 'readonly');
+    return tx.objectStore('domains').get(domainName)
+      .then(d => new Domain(d, this));
+  }
 };
