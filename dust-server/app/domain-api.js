@@ -59,7 +59,9 @@ class MyDomainsApi {
       }
     } else if (parts.length == 2 && parts[1] == 'my-role') {
       const domain = await this.manager.getDomain(parts[0]);
-      return new StringLiteral('my-role', domain.highestRoleFor('~'+this.chartName));
+      return {
+        get: () => new StringLiteral('my-role', domain.highestRoleFor('~'+this.chartName)),
+      };
     }
     throw new Error(`MyDomainsApi getEntry ${path}`);
   }
