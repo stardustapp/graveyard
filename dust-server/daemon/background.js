@@ -71,9 +71,15 @@ async function boot() {
   const domainManager = new DomainManager(db);
   window.DOMAIN_MANAGER = domainManager;
 
+  // init the web server
+  const webServer = new HttpServer(domainManager);
+
   // expose the entire system environment on the network
-  const server = new NsExport(systemEnv);
-  server.startServer(9237);
+  const nsExport = new NsExport(systemEnv);
+  nsExport.mount(webServer);
+
+  // all good, let's listen
+  webServer.startServer(9237);
   console.log('Started web server');
 }
 

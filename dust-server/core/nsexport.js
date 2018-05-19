@@ -1,5 +1,3 @@
-const SERVER_HEADER = 'Chrome-'+chrome.runtime.getManifest().short_name+'/'+chrome.runtime.getManifest().version;
-
 class NsExport {
   constructor(namespace) {
     this.namespace = namespace;
@@ -129,18 +127,10 @@ class NsExport {
     }
   }
 
-  startServer(port=9237) {
-    this.webServer = new WSC.WebApplication({
-      host: '0.0.0.0',
-      port: port,
-      handlers: [
-        ['^/~~export$', SkylinkPostHandler.bind(null, this)],
-        ['^/~~export/ws$', SkylinkWebsocketHandler.bind(null, this)],
-        ['^/~~export/ping$', SkylinkPingHandler],
-      ],
-    });
-    this.webServer.start();
-    console.log('listening on %s', this.webServer.port);
+  mount(httpd) {
+    httpd.addRoute('^/~~export$', SkylinkPostHandler.bind(null, this));
+    httpd.addRoute('^/~~export/ws$', SkylinkWebsocketHandler.bind(null, this));
+    httpd.addRoute('^/~~export/ping$', SkylinkPingHandler);
   }
 }
 
@@ -155,7 +145,7 @@ class SkylinkPostHandler extends WSC.BaseHandler {
 
     this.responseLength = payload.length;
     this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
-    this.setHeader('Server', SERVER_HEADER);
+    this.setHeader('Server', HttpServer.SERVER_HEADER);
     this.setHeader('Content-Type', 'application/json');
     this.writeHeaders(200);
     this.write(payload);
@@ -316,7 +306,7 @@ class SkylinkPingHandler extends WSC.BaseHandler {
 
     this.responseLength = payload.length;
     this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
-    this.setHeader('Server', SERVER_HEADER);
+    this.setHeader('Server', HttpServer.SERVER_HEADER);
     this.setHeader('Content-Type', 'application/json');
     this.writeHeaders(200);
     this.write(payload);
