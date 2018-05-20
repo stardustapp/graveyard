@@ -11,7 +11,7 @@ class NsExport {
       throw new Error(`Raw nsapi Input wasn't an Object, please read the docs`);
     }
     if (!raw.Type) {
-      throw new Error(`Raw nsapi Input didn't have a Type, please check your payload`);
+      throw new Error(`Raw nsapi Input ${JSON.stringify(raw.Name||raw)} didn't have a Type, please check your payload`);
     }
     switch (raw.Type) {
 
