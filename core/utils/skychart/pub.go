@@ -100,11 +100,14 @@ func login(ctx base.Context, input base.Entry) (output base.Entry) {
 	}
 
 	launchFunc := &chartLaunchFunc{chart, entriesDir}
-	sessionId := launchFunc.Invoke(ctx, inmem.NewString("launch-secret", launchSecret))
+	launchResult := launchFunc.Invoke(ctx, inmem.NewString("launch-secret", launchSecret))
+	if launchResult.Name() == "error" {
+		return launchResult
+	}
 
 	ownerName, _ := chart.ctx.GetString("/owner-name")
 	return inmem.NewFolderOf("output",
 		inmem.NewString("profile id", chart.String()),
 		inmem.NewString("owner name", ownerName.Get()),
-		sessionId)
+		launchResult) // should be session-id
 }
