@@ -22,6 +22,9 @@ var pubFolder *inmem.Folder = inmem.NewFolderOf("pub",
 	inmem.NewFolderOf("start-session",
 		inmem.NewFunction("invoke", startSession),
 	).Freeze(),
+	inmem.NewFolderOf("login",
+		inmem.NewFunction("invoke", login),
+	).Freeze(),
 	sessFolder,
 )
 
@@ -74,4 +77,34 @@ func startSession(ctx base.Context, input base.Entry) (output base.Entry) {
 
 	launchFunc := &chartLaunchFunc{chart, entriesDir}
 	return launchFunc.Invoke(ctx, inmem.NewString("launch-secret", launchSecret))
+}
+
+func login(ctx base.Context, input base.Entry) (output base.Entry) {
+	inputFolder, ok := input.(base.Folder)
+	if !ok {
+		return inmem.NewString("error", "Expected a Folder as the input")
+	}
+
+	chartName, _ := extras.GetChildString(inputFolder, "username")
+	launchSecret, _ := extras.GetChildString(inputFolder, "password")
+	//clientSoftware, _ := extras.GetChildString(inputFolder, "client")
+
+	chart := engine.findChart(chartName)
+	if chart == nil {
+		return inmem.NewString("error", "Profile not found: "+chartName)
+	}
+
+	entriesDir, ok := chart.ctx.GetFolder("/entries")
+	if !ok {
+		return inmem.NewString("error", "Internal error: /entries didn't exist")
+	}
+
+	launchFunc := &chartLaunchFunc{chart, entriesDir}
+	sessionId := launchFunc.Invoke(ctx, inmem.NewString("launch-secret", launchSecret))
+
+	ownerName, _ := chart.ctx.GetString("/owner-name")
+	return inmem.NewFolderOf("output",
+		inmem.NewString("profile id", chart.String()),
+		inmem.NewString("owner name", ownerName.Get()),
+		sessionId)
 }

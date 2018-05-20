@@ -19,7 +19,7 @@ func (c *Chart) getApi() base.Entry {
 
 func (c *Chart) String() string {
 	if homeDomain, ok := c.ctx.GetString("/home-domain"); ok {
-		return fmt.Sprintf("%s/~%s", homeDomain.Get(), c.name)
+		return fmt.Sprintf("%s@%s", c.name, homeDomain.Get())
 	}
 	return "~" + c.name
 }
