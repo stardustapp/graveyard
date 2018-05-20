@@ -11,6 +11,24 @@ class SessionManager {
       invoke: this.ivkRegisterChart.bind(this),
     });
 
+    // easy way to create a authed session
+    this.env.mount('/login', 'function', new PlatformApiFunction(this, 'login', {
+      input: {
+        username: String,
+        password: String,
+        lifetime: 'volatile', // or 'persistent'
+        client: String,
+      },
+      output: {
+        // identifiers
+        profileId: String,
+        sessionId: String,
+        // metadata
+        ownerName: String,
+      },
+      impl: this.loginApi,
+    }));
+
     // offer a skychart API endpoint
     this.env.mount('/open', 'function', {
       invoke: this.ivkOpenChart.bind(this),
@@ -136,6 +154,36 @@ class SessionManager {
     }};
   }
 
+  async loginApi({username, password, lifetime, client}) {
+    const record = await this.idb.transaction('profiles')
+        .objectStore('profiles').get(username);
+    if (!record) {
+      ToastNotif(`Client tried logging in to unknown chart ${username}`);
+      throw new Error(`Invalid auth credentials`);
+    }
+
+    console.log('launching', record);
+
+    // strictly singleton the profiles, jumping on any existing request
+    if (!this.profiles.has(record.chartName))
+      this.profiles.set(record.chartName, Profile.open(record.chartName));
+    const profile = await this.profiles.get(record.chartName);
+
+    const sessionId = Math.random().toString(16).slice(2);
+    if (this.sessions.has(sessionId)) {
+      throw new Error(`Session ID collision!
+        Please present an offering to the entropy gods and try again.`);
+    }
+
+    ToastNotif(`User ${username} successfully logged in`);
+    this.sessions.set(sessionId, new Session(this.env, profile));
+
+    return {
+      profileId: 'mock',
+      sessionId,
+      ownerName: profile.ownerName,
+    };
+  }
 };
 
 // TODO:
