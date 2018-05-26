@@ -21,10 +21,10 @@ class SessionManager {
       },
       output: {
         // identifiers
-        profileId: String,
-        sessionId: String,
+        'profile id': String,
+        'session id': String,
         // metadata
-        ownerName: String,
+        'owner name': String,
       },
       impl: this.loginApi,
     }));
@@ -179,9 +179,9 @@ class SessionManager {
     this.sessions.set(sessionId, new Session(this.env, profile));
 
     return {
-      profileId: 'mock',
-      sessionId,
-      ownerName: profile.ownerName,
+      'profile id': 'mock',
+      'session id': sessionId,
+      'owner name': profile.ownerName,
     };
   }
 };
