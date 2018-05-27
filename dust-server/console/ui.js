@@ -99,6 +99,13 @@ function doAction (action) {
         `Data persistence is currently ${x ? 'enabled' : 'disabled'}`));
       break;
 
+    case 'update':
+      entry.title('update check');
+      entry.promise(new Promise((resolve, reject) => {
+        chrome.runtime.requestUpdateCheck(status => resolve(status));
+      }));
+      break;
+
     case 'restart':
       entry.promise(new Promise((resolve, reject) => {
         setTimeout(() => {
