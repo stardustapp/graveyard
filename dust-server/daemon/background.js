@@ -101,6 +101,7 @@ function ToastNotif(text) {
 chrome.app.runtime.onLaunched.addListener(evt => {
   chrome.app.window.create('console/ui.html', {
     id: 'server-console',
+    frame: 'none',
     outerBounds: {
       width: 800,
       height: 480,

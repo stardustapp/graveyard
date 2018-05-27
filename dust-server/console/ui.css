@@ -7,6 +7,7 @@ body {
   flex-direction: column;
   height: 100vh;
   box-sizing: border-box;
+  -webkit-app-region: drag;
 }
 body, input, select, button {
   font-family: monospace;
@@ -20,6 +21,7 @@ section {
   margin: 1em;
   padding: 1em;
   background-color: rgba(200, 200, 200, 0.3);
+  -webkit-app-region: no-drag;
 }
 input, textarea {
   box-sizing: border-box;
@@ -57,6 +59,7 @@ button {
   #app {
     display: flex;
     flex: 1;
+    -webkit-app-region: drag;
   }
   #action-col {
     flex-basis: 30em;
