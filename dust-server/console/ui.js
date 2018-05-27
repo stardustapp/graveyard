@@ -103,10 +103,8 @@ function doAction (action) {
       entry.promise(new Promise((resolve, reject) => {
         setTimeout(() => {
           reject(`Failed somehow...`);
-        }, 7500);
-        chrome.runtime.restartAfterDelay(5, () => {
-          reject(`Runtime restart was deferred`);
-        });
+        }, 6000);
+        chrome.runtime.restartAfterDelay(5);
       }));
       entry.title('restarting system in 5 seconds');
       break;
