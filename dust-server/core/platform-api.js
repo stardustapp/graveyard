@@ -2,6 +2,7 @@ class PlatformApi {
   constructor(name) {
     this.name = name;
     this.paths = new Map;
+
     // this gets filled in at .compile()
     this.structType = new PlatformApiTypeFolder(name);
   }
