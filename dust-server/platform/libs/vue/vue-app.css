@@ -1,0 +1,174 @@
+/* TIL this works. sue me */
+body {
+  position: absolute;
+  top: 2em;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto !important;
+}
+html, body { height: 100%; margin: 0; }
+
+.sky-session {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2em;
+
+  background-color: #000;
+  color: #fff;
+
+  display: flex;
+  align-items: center;
+  padding: 0 0.5em;
+}
+
+.sky-session .indicator {
+  width: 1em;
+  height: 1em;
+  border: 1px solid gray;
+  border-radius: 0.5em;
+  margin: 0 0.4em;
+  background-color: gray;
+}
+.sky-session .indicator.status-Ready {
+  background-color: green;
+}
+
+.sky-session .filler {
+  flex: 1;
+}
+
+.sky-form.status-Failed {
+  background-color: rgba(255, 0, 0, 0.2);
+}
+
+
+.new-unread-below {
+  background-color: #444;
+  padding: 0.2em 1em;
+  cursor: pointer;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+
+@media (max-width: 599px) {
+  a.menu i {
+    color: #fff;
+    font-size: 1.5em;
+    margin-right: 0.5em;
+  }
+
+  #app {
+    position: relative;
+    overflow: hidden;
+  }
+
+  aside {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 250px;
+    left: -250px;
+    z-index: 5;
+    transform: translateZ(0);
+  }
+  nav {
+    touch-action: pan-y;
+    /* some overflow for animating */
+    padding-left: 250px;
+    margin-left: -250px;
+  }
+  aside.animate {
+    transition: left 0.2s;
+  }
+  aside.open {
+    left: 0;
+  }
+
+  aside::after {
+    content: ' ';
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    left: 250px;
+    width: 15px;
+
+    background-color: rgba(0,0,0,0);
+    transition: background-color 0.5s;
+  }
+  aside.open::after {
+    width: auto;
+    right: -1000px;
+    background-color: rgba(0,0,0,0.4);
+  }
+  aside.moving::after {
+    width: auto;
+    right: -1000px;
+    background-color: rgba(0,0,0,0.25);
+  }
+  aside.animate::after {
+    width: auto;
+    right: -1000px;
+  }
+}
+@media (min-width: 600px) {
+  a.menu { display: none; }
+
+  nav {
+    overflow: auto;
+  }
+}
+
+
+#left-menu {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 12em;
+}
+#navbar { /* TODO: rename */
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  background-color: #fff;
+  min-height: 100%;
+}
+.list-bar {
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  min-height: 100%;
+}
+
+
+#navbar h2, .list-bar h2 {
+  margin: 0.8em 0.6em 0.3em;
+  font-size: 1.3em;
+  text-transform: uppercase;
+  font-weight: 300;
+}
+
+#navbar ul, .list-bar ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#navbar li a, .list-bar li a {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+  padding: 0.3em 0.8em 0.3em 0.5em;
+}
+#navbar li a:hover, .list-bar li a:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+
+i.clickable {
+  cursor: pointer;
+}
