@@ -18,26 +18,24 @@ class Profile {
     });
     console.log('Opened database for', chartName);
 
-    return new Profile(chartName, db);
+    return new Profile(chartName, db).init();
   }
 
   constructor(chartName, db) {
     this.env = new Environment();
     this.chartName = chartName;
     this.db = db;
+  }
+
+  async init() {
+    const {env, db, chartName} = this;
     console.log('starting profile for', chartName);
-
-    /*
-    this.env.bind('/persist', { getEntry(path) {
-      throw new Error(`TODO: implement /persist for ${path} on ${chartName}`);
-    }});
-    */
-    this.env.mount('/config', 'idb-treestore', { db, store: 'config' });
-    this.env.mount('/persist', 'idb-treestore', { db, store: 'persist' });
-    this.env.mount('/chart-name', 'literal', { string: chartName });
-
-    // lets users manage their domains
-    this.env.bind('/domains', new DomainsApi(DOMAIN_MANAGER, chartName).env);
+    
+    await env.mount('/config', 'idb-treestore', { db, store: 'config' });
+    await env.mount('/persist', 'idb-treestore', { db, store: 'persist' });
+    await env.mount('/chart-name', 'literal', { string: chartName });
+    await env.bind('/domains', new DomainsApi(DOMAIN_MANAGER, chartName).env);
+    return this;
   }
 
   close() {

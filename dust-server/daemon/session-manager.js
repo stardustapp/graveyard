@@ -137,8 +137,20 @@ class SessionManager {
       const profilePromise = Profile.open(chartName);
       this.profiles.set(chartName, profilePromise);
     }
+
     const profile = await this.profiles.get(chartName);
     console.log('profile opened:', profile);
+
+    const secretEnt = await profile.env.getEntry('/persist/launch-secret');
+    if (secretEnt) {
+      console.warn('Checking password');
+      const secretValue = (await secretEnt.get()).StringValue;
+      const password = input ? input.StringValue : null;
+      if (password != secretValue) {
+        ToastNotif(`Failed login attempt for ${chartName}`);
+        throw new Error(`Invalid auth credentials`);
+      }
+    }
 
     const sessionId = Math.random().toString(16).slice(2);
     if (this.sessions.has(sessionId)) {
@@ -146,8 +158,10 @@ class SessionManager {
         Please present an offering to the entropy gods and try again.`);
     }
 
+    const session = new Session(this.env, profile);
+
     ToastNotif(`User ${chartName} successfully logged in`);
-    this.sessions.set(sessionId, new Session(this.env, profile));
+    this.sessions.set(sessionId, session);
 
     return { async get() {
       return new StringLiteral('session-id', sessionId);
@@ -169,6 +183,15 @@ class SessionManager {
       this.profiles.set(record.chartName, Profile.open(record.chartName));
     const profile = await this.profiles.get(record.chartName);
 
+    const secretEnt = await profile.env.getEntry('/persist/launch-secret');
+    if (secretEnt) {
+      const secretValue = (await secretEnt.get()).StringValue;
+      if (password != secretValue) {
+        ToastNotif(`Failed login attempt for ${chartName}`);
+        throw new Error(`Invalid auth credentials`);
+      }
+    }
+
     const sessionId = Math.random().toString(16).slice(2);
     if (this.sessions.has(sessionId)) {
       throw new Error(`Session ID collision!
@@ -179,9 +202,9 @@ class SessionManager {
     this.sessions.set(sessionId, new Session(this.env, profile));
 
     return {
-      'profile id': 'mock',
+      'profile id': username+'@',
       'session id': sessionId,
-      'owner name': profile.ownerName,
+      'owner name': record.ownerName,
     };
   }
 };
