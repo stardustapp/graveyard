@@ -146,7 +146,7 @@ class PlatformApiType {
     const typeFunc = sourceIsBareFunc ? source : source.constructor;
     const givenValue = sourceIsBareFunc ? null : source;
 
-    console.log('schema', name, 'type', typeFunc, 'default', givenValue);
+    //console.log('schema', name, 'type', typeFunc, 'default', givenValue);
     switch (typeFunc) {
 
       // string-based literals
