@@ -103,6 +103,10 @@ class MyDomainsApi {
     enumer.descend('my-role');
     enumer.visit(new StringLiteral('', domain.highestRoleFor('~'+this.chartName)));
     enumer.ascend();
+    
+    enumer.descend('webroot');
+    enumer.visit(new FolderLiteral(''));
+    enumer.ascend();
   }
 
 }

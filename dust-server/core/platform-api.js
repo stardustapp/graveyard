@@ -31,6 +31,22 @@ class PlatformApi {
     this.structType.fields = fields;
   }
 
+  // flattens the API into a JavaScript-style object
+  construct(self) {
+    var obj = {};
+    this.paths.forEach((val, path) => {
+      const key = path.slice(1).replace(/ [a-z]/, x => x[1].toUpperCase(1));
+      switch (val.constructor) {
+        //case PlatformApiGetter:
+        case PlatformApiFunction:
+          obj[key] = () => false;
+          break;
+        default:
+          throw new Error(`PlatformApi had path of weird constructor ${val.constructor}`);
+      }
+    });
+  }
+
   async getEntry(path) {
     return this.paths.get(path);
   }

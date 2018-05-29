@@ -49,6 +49,6 @@ class DomainManager {
   /*async*/ getDomain(domainName) {
     const tx = this.idb.transaction('domains', 'readonly');
     return tx.objectStore('domains').get(domainName)
-      .then(d => new Domain(d, this));
+      .then(d => d ? new Domain(d, this) : null);
   }
 };

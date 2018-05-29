@@ -40,21 +40,22 @@ DirectoryEntryApi.function('/get file', {
   }
 });
 
+DirectoryEntryApi.compile();
+FileEntryApi.compile();
+
 class WebFilesystemMount {
   constructor(opts) {
     console.log('web filesystem inited with', opts);
 
     this.root = opts.root;
-    if (!root.getDirectory) {
+    if (!this.root.getDirectory) {
       throw new Error(`WebFilesystemMount given root without getDirectory()`);
     }
 
     this.api = DirectoryEntryApi.construct(this.root);
   }
 
-  getEntry(path) {
-    if (path.startsWith('/api')) {
-      return this.api.getEntry(path.slice(4));
-    }
+  /*async*/ getEntry(path) {
+    return this.api.getEntry(path);
   }
 }

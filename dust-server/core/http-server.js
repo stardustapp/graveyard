@@ -7,6 +7,9 @@ class HttpServer {
         [/^.+$/, HttpWildcardHandler.bind(null, this)],
       ],
     });
+
+    this.hostLoaders = new Map;
+    this.hostLoaders.set(null, VirtualHost.fromManifest());
   }
 
   addRoute(regex, handler) {
@@ -18,6 +21,30 @@ class HttpServer {
     this.wsc.port = port;
     this.wsc.start();
     console.log('listening on %s', this.wsc.port);
+  }
+
+  /*async*/ getVHost(hostname) {
+    if (this.hostLoaders.has(hostname)) {
+      return this.hostLoaders.set(hostname);
+    }
+  }
+
+  /*async*/ getDefaultHost() {
+    return this.hostLoaders.get(null);
+  }
+}
+
+class VirtualHost {
+  constructor(hostname, folderDevice) {
+    this.hostname = hostname;
+    this.folderDevice = folderDevice;
+  }
+
+  static /*async*/ fromManifest() {
+    return new Promise(r => 
+      chrome.runtime.getPackageDirectoryEntry(r))
+      .then(x => new WebFilesystemMount({root: x}))
+      .then(x => new VirtualHost('localhost', x));
   }
 }
 
@@ -32,26 +59,75 @@ class HttpWildcardHandler extends WSC.BaseHandler {
     this.httpServer = httpServer;
   }
 
-  sendResponse(data) {
+  sendResponse(data, status=200) {
     const payload = JSON.stringify(data, null, 2);
 
     this.responseLength = payload.length;
     this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
     this.setHeader('Server', HttpServer.SERVER_HEADER);
     this.setHeader('Content-Type', 'application/json');
-    this.writeHeaders(200);
+    this.writeHeaders(status);
     this.write(payload);
     this.finish();
   }
 
   async get() {
-    const {headers, path, method} = this.request;
-    const {localAddress, localPort, peerAddress, peerPort} =
-        await new Promise(r => chrome.sockets.tcp.getInfo(
-            this.request.connection.stream.sockId, r));
+    try {
+      const {headers, path, method} = this.request;
+      const {localAddress, localPort, peerAddress, peerPort} =
+          await new Promise(r => chrome.sockets.tcp.getInfo(
+              this.request.connection.stream.sockId, r));
 
-    //const domain = httpServer.getDomain();
+      const meta = {method, path, headers,
+        ip: {localAddress, localPort, peerAddress, peerPort}};
 
-    this.sendResponse({method, path, headers, ip: {localAddress, localPort, peerAddress, peerPort}});
+      if (!headers.host) {
+        return this.sendResponse({
+          success: false,
+          error: 'bad-request',
+          message: 'Your browser sent a request that this server could not understand.',
+          cause: 'The "Host" HTTP header is required.',
+        });
+      }
+
+      const hostMatch = headers.host.match(
+  /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z]+))(?::(\d+))?$/i);
+      if (!hostMatch) {
+        return this.sendResponse({
+          success: false,
+          error: 'bad-request',
+          message: 'Your browser sent a request that this server could not understand.',
+          cause: 'The "Host" HTTP header could not be parsed. If your request is reasonable, please file a bug.',
+        });
+      }
+      const [_, ipv4, ipv6, hostname, port] = hostMatch;
+
+      if (ipv4 || ipv6 || hostname == 'localhost') {
+        const vhost = await this.httpServer.getDefaultHost();
+        return await vhost.handleGET(meta, this.sendResponse.bind(this));
+      }
+
+      if (hostname) {
+        const vhost = await this.httpServer.getVHost(hostname);
+        if (vhost) {
+          return await vhost.handleGET(meta, this.sendResponse.bind(this));
+        } else {
+          return this.sendResponse({
+            success: false,
+            error: 'domain-not-found',
+            message: `The website you tried to access doesn't exist here`,
+            cause: `This server doesn't have a website configured for the hostname ${hostname}. If this is your domain, go ahead and claim `,
+          });
+        }
+      }
+    } catch (err) {
+      return this.sendResponse({
+        success: false,
+        error: 'internal-error',
+        message: `The server failed to response`,
+        cause: `File a bug! :D ${err.name} ${err.message}`,
+      }, 500);
+      throw err;
+    }
   }
 }
