@@ -50,3 +50,16 @@ class StringLiteral {
     return `<String ${JSON.stringify(this.Name)} ${JSON.stringify(this.StringValue)}>`;
   }
 }
+
+class BlobLiteral {
+  constructor(name, base64, mime) {
+    this.Name = name;
+    this.Type = 'Blob';
+    this.Data = base64;
+    this.Mime = mime;
+  }
+
+  inspect() {
+    return `<Blob ${JSON.stringify(this.Name)} ${JSON.stringify(this.Mime)}>`;
+  }
+}
