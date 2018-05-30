@@ -37,9 +37,11 @@ class PlatformApi {
     this.paths.forEach((val, path) => {
       const key = path.slice(1).replace(/ [a-z]/, x => x[1].toUpperCase(1));
       switch (val.constructor) {
-        //case PlatformApiGetter:
         case PlatformApiFunction:
-          obj[key] = () => false;
+          obj[key] = input => val.impl.call(self, input);
+          break;
+        case PlatformApiGetter:
+          obj[key] = () => val.impl.call(self);
           break;
         default:
           throw new Error(`PlatformApi had path of weird constructor ${val.constructor}`);
@@ -59,9 +61,9 @@ class PlatformApiGetter {
     this.impl = impl;
     this.get = this.get.bind(this);
   }
-  get() {
+  get(self=this.self) {
     return this.impl
-        .call(this.self)
+        .call(self)
         .then(x => this.outputType.serialize(x));
   }
 }
@@ -74,9 +76,9 @@ class PlatformApiFunction {
     this.impl = impl;
     this.invoke = this.invoke.bind(this);
   }
-  invoke(input) {
+  invoke(input, self=this.self) {
     return this.impl
-        .call(this.self, this.inputType.deserialize(input))
+        .call(self, this.inputType.deserialize(input))
         .then(x => ({
           get: () => this.outputType.serialize(x),
         }));
@@ -114,6 +116,22 @@ class PlatformApiTypeString {
     if (literal.Type !== 'String')
       throw new PlatformTypeError(this.name, 'String', literal.Type);
     return this.de(literal.StringValue);
+  }
+}
+
+class PlatformApiTypeNull {
+  constructor(name) {
+    this.name = name;
+  }
+  serialize(value) {
+    if (value != null)
+      throw new Error(`Null type can't serialize anything other than null`);
+    return null;
+  }
+  deserialize(literal) {
+    if (literal != null)
+      throw new Error(`Null type can't deserialize anything other than null`);
+    return null;
   }
 }
 
@@ -158,6 +176,9 @@ class PlatformApiTypeFolder {
 
 class PlatformApiType {
   static from(source, name) {
+    if (source == null)
+      return new PlatformApiTypeNull(name);
+
     // recognize a constructor vs. a literal default-value
     const sourceIsBareFunc = source.constructor === Function;
     const typeFunc = sourceIsBareFunc ? source : source.constructor;
