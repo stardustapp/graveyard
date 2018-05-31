@@ -27,7 +27,7 @@ class HttpServer {
     if (this.hostLoaders.has(hostname)) {
       return this.hostLoaders.set(hostname);
     }
-    this.hostLoaders.get(null);
+    return this.hostLoaders.get(null);
   }
 
   /*async*/ getDefaultHost() {
