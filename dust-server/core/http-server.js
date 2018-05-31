@@ -27,6 +27,7 @@ class HttpServer {
     if (this.hostLoaders.has(hostname)) {
       return this.hostLoaders.set(hostname);
     }
+    this.hostLoaders.get(null);
   }
 
   /*async*/ getDefaultHost() {
@@ -56,7 +57,7 @@ class VirtualHost {
 
   async handleGET(req, respond) {
     const reqPath = (req.uri || '/').split('?')[0];
-    
+
     const entry = await this.webEnv.getEntry(reqPath);
     if (!entry || !entry.get) {
       return respond({error: 'not-found'}, 404);
