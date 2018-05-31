@@ -55,7 +55,9 @@ class VirtualHost {
   }
 
   async handleGET(req, respond) {
-    const entry = await this.webEnv.getEntry(req.uri || '/');
+    const reqPath = (req.uri || '/').split('?')[0];
+    
+    const entry = await this.webEnv.getEntry(reqPath);
     if (!entry || !entry.get) {
       return respond({error: 'not-found'}, 404);
     }
