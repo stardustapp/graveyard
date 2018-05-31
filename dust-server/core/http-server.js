@@ -35,27 +35,33 @@ class HttpServer {
 }
 
 class VirtualHost {
-  constructor(hostname, folderDevice) {
+  constructor(hostname, webEnv) {
     this.hostname = hostname;
-    this.folderDevice = folderDevice;
+    this.webEnv = webEnv;
   }
 
   static /*async*/ fromManifest() {
     return new Promise(r => 
       chrome.runtime.getPackageDirectoryEntry(r))
-      .then(x => new WebFilesystemMount({
-        entry: x,
-        prefix: 'platform-apps/',
-      }))
+      .then(pkgRoot => {
+        const webEnv = new Environment('http://localhost');
+        webEnv.bind('', new WebFilesystemMount({
+          entry: pkgRoot,
+          prefix: 'platform-apps/',
+        }));
+        return webEnv;
+      })
       .then(x => new VirtualHost('localhost', x));
   }
 
   async handleGET(req, respond) {
-    const target = await this.folderDevice.getEntry(req.uri || '/');
-    if (!target) {
-      respond({error: 'not-found'}, 404);
+    const entry = await this.webEnv.getEntry(req.uri || '/');
+    if (!entry || !entry.get) {
+      return respond({error: 'not-found'}, 404);
+    }
+    const target = await entry.get();
 
-    } else if (target.Type === 'Blob') {
+    if (target.Type === 'Blob') {
       const decoded = atob(target.Data);
 
       // write the bytes of the string to an ArrayBuffer
@@ -164,7 +170,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
             success: false,
             error: 'domain-not-found',
             message: `The website you tried to access doesn't exist here`,
-            cause: `This server doesn't have a website configured for the hostname ${hostname}. If this is your domain, go ahead and claim `,
+            cause: `This server doesn't have a domain configured with a website for the hostname ${hostname}. If this is your domain, go ahead and claim it from within your personal dashboard.`,
           }, 506);
         }
       }

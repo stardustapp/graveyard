@@ -72,7 +72,7 @@ class Environment {
     }
     var pathSoFar = '';
     const idx = path.split('/').findIndex((part, idx) => {
-      if (idx) { 
+      if (idx) {
         pathSoFar += '/'+part;
       }
       if (this.mounts.has(pathSoFar)) { return true; }
