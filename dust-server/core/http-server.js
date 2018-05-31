@@ -64,7 +64,7 @@ class VirtualHost {
           ia[i] = decoded.charCodeAt(i);
       }
 
-      respond(decoded, 200, target.Mime);
+      respond(ab, 200, target.Mime);
 
     } else {
       respond(target);
@@ -84,9 +84,9 @@ class HttpWildcardHandler extends WSC.BaseHandler {
   }
 
   sendResponse(data, status=200, type=null) {
-    const payload = data.constructor == Object ? JSON.stringify(data, null, 2) : data;
+    const payload = data.constructor == ArrayBuffer ? data : JSON.stringify(data, null, 2);
 
-    this.responseLength = payload.length;
+    this.responseLength = payload.length || payload.byteLength;
     this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
     this.setHeader('Server', HttpServer.SERVER_HEADER);
     this.setHeader('Content-Type', type || 'application/json');
