@@ -56,10 +56,22 @@ class VirtualHost {
   }
 
   async handleGET(req, responder) {
-    const reqPath = (req.uri || '/').split('?')[0];
+    const [reqPath, queryStr] = (req.uri || '/').split('?');
 
     const entry = await this.webEnv.getEntry(reqPath);
     if (!entry || !entry.get) {
+
+      // Maybe it's a directory instead of a file?
+      if (!reqPath.endsWith('/')) {
+        const dEntry = await this.webEnv.getEntry(reqPath + '/');
+        if (dEntry && dEntry.get) {
+          let newUrl = reqPath + '/';
+          if (req.uri.includes('?'))
+            newUrl += '?' + queryStr;
+          return responder.redirectTo(newUrl);
+        }
+      }
+
       return responder.sendJson({error: 'not-found'}, 404);
     }
     const target = await entry.get();
