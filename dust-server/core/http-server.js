@@ -55,12 +55,12 @@ class VirtualHost {
       .then(x => new VirtualHost('localhost', x));
   }
 
-  async handleGET(req, respond) {
+  async handleGET(req, responder) {
     const reqPath = (req.uri || '/').split('?')[0];
 
     const entry = await this.webEnv.getEntry(reqPath);
     if (!entry || !entry.get) {
-      return respond({error: 'not-found'}, 404);
+      return responder.sendJson({error: 'not-found'}, 404);
     }
     const target = await entry.get();
 
@@ -74,7 +74,8 @@ class VirtualHost {
           ia[i] = decoded.charCodeAt(i);
       }
 
-      respond(ab, 200, target.Mime || 'application/octet-stream');
+      responder.addHeader('Content-Type', target.Mime || 'application/octet-stream')
+      responder.emitResponse(200, ab);
 
     } else if (target.Type === 'Folder') {
 
@@ -100,10 +101,10 @@ class VirtualHost {
   <p>Served as ${this.webEnv.baseUri}</p>
   <p>Powered by the Stardust platform</p>
 </footer>`;
-      respond(html, 200, 'text/html');
+      responder.sendHtml(html);
 
     } else {
-      respond(target);
+      responder.sendJson(target);
     }
   }
 }
@@ -113,25 +114,55 @@ HttpServer.SERVER_HEADER = 'Chrome-'
   +chrome.runtime.getManifest().version;
 
 
+class Responder {
+  constructor(handler) {
+    this.handler = handler;
+    this.statusCode = null;
+  }
+
+  addHeader(key, val) {
+    this.handler.setHeader(key, val);
+  }
+
+  emitResponse(statusCode, payload) {
+    if (this.statusCode != null) {
+      throw new Error(`App tried to send additional HTTP responses`);
+    }
+    const {handler} = this;
+    handler.statusCode = statusCode;
+
+    handler.responseLength = payload.length || payload.byteLength;
+    handler.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
+    handler.setHeader('Server', HttpServer.SERVER_HEADER);
+    handler.writeHeaders(statusCode);
+    handler.write(payload);
+    handler.finish();
+  }
+
+   // Helpers
+
+  sendJson(data, status=200) {
+    this.addHeader('Content-Type', 'application/json');
+    this.emitResponse(status, JSON.stringify(data, null, 2));
+  }
+
+  sendHtml(data, status=200) {
+    this.addHeader('Content-Type', 'text/html');
+    this.emitResponse(status, data);
+  }
+
+  redirectTo(target, status=303) {
+    this.addHeader('Location', target);
+    this.emitResponse(status, `<!doctype html>
+<title>Redirecting...</title>
+<p>You are being redirected to <a href="${target}">${target}</a>.</p>`);
+  }
+}
+
 class HttpWildcardHandler extends WSC.BaseHandler {
   constructor(httpServer) {
     super();
     this.httpServer = httpServer;
-  }
-
-  sendResponse(data, status=200, type=null) {
-    const isRaw =
-        data.constructor == ArrayBuffer ||
-        data.constructor == String;
-    const payload = isRaw ? data : JSON.stringify(data, null, 2);
-
-    this.responseLength = payload.length || payload.byteLength;
-    this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
-    this.setHeader('Server', HttpServer.SERVER_HEADER);
-    this.setHeader('Content-Type', type || 'application/json');
-    this.writeHeaders(status);
-    this.write(payload);
-    this.finish();
   }
 
   async get() {
@@ -142,11 +173,12 @@ class HttpWildcardHandler extends WSC.BaseHandler {
 
     const meta = {method, uri, headers,
       ip: {localAddress, localPort, peerAddress, peerPort}};
+    const responder = new Responder(this);
 
     try {
       if (!headers.host) {
         console.log(`GET //${headers.host}${uri}`, 400);
-        return this.sendResponse({
+        return responder.sendJson({
           success: false,
           error: 'bad-request',
           message: 'Your browser sent a request that this server could not understand.',
@@ -158,7 +190,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
   /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z]+))(?::(\d+))?$/i);
       if (!hostMatch) {
         console.log(`GET //${headers.host}${uri}`, 400);
-        return this.sendResponse({
+        return responder.sendJson({
           success: false,
           error: 'bad-request',
           message: 'Your browser sent a request that this server could not understand.',
@@ -169,26 +201,26 @@ class HttpWildcardHandler extends WSC.BaseHandler {
 
       if (ipv4 || ipv6 || hostname == 'localhost') {
         const vhost = await this.httpServer.getDefaultHost();
-        return await vhost.handleGET(meta, this.sendResponse.bind(this));
+        return await vhost.handleGET(meta, responder);
       }
 
       if (hostname) {
         const vhost = await this.httpServer.getVHost(hostname);
         if (vhost) {
-          return await vhost.handleGET(meta, this.sendResponse.bind(this));
+          return await vhost.handleGET(meta, responder);
         } else {
           console.log(`GET //${headers.host}${uri}`, 506);
-          return this.sendResponse({
+          return responder.sendJson({
             success: false,
             error: 'domain-not-found',
-            message: `The website you tried to access doesn't exist here`,
+            message: `Misdirected Request: The website you tried to access doesn't exist here`,
             cause: `This server doesn't have a domain configured with a website for the hostname ${hostname}. If this is your domain, go ahead and claim it from within your personal dashboard.`,
-          }, 506);
+          }, 421);
         }
       }
     } catch (err) {
       console.log(`GET //${headers.host}${uri}`, 500, err);
-      return this.sendResponse({
+      return responder.sendJson({
         success: false,
         error: 'internal-error',
         message: `The server failed to respond`,
