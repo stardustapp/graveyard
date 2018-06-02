@@ -9,10 +9,12 @@ class Launchpad {
     // Autoconfigure skychart endpoint, defaulting to TLS
     // Downgrade to insecure where real certs don't go: localhost, LAN, and IPs
     let protocol = 'wss';
+    let port = '';
     if (this.domainName.match(/^(localhost|[^.]+.(?:lan|local)|(?:\d{1,3}\.)+\d{1,3})(?::(\d+))?$/)) {
       protocol = 'ws';
+      port = ':9237';
     }
-    this.endpoint = `${protocol}://${this.domainName}/~~export/ws`;
+    this.endpoint = `${protocol}://${this.domainName}${port}/~~export/ws`;
 
     console.log('Configuring orbiter launchsite for chart', chartName, '- app', appId);
   }

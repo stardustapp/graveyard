@@ -46,21 +46,17 @@ class VirtualHost {
       chrome.runtime.getPackageDirectoryEntry(r))
       .then(pkgRoot => {
         const webEnv = new Environment('http://localhost');
-        webEnv.bind('/editor', new WebFilesystemMount({
+        webEnv.bind('/~dan/editor', new WebFilesystemMount({
           entry: pkgRoot,
           prefix: 'platform/apps/editor/',
         }));
-        webEnv.bind('/panel', new WebFilesystemMount({
+        webEnv.bind('/~dan/panel', new WebFilesystemMount({
           entry: pkgRoot,
           prefix: 'platform/apps/panel/',
         }));
-        webEnv.bind('/js-core', new WebFilesystemMount({
+        webEnv.bind('/~~libs', new WebFilesystemMount({
           entry: pkgRoot,
-          prefix: 'platform/libs/core/',
-        }));
-        webEnv.bind('/lib', new WebFilesystemMount({
-          entry: pkgRoot,
-          prefix: 'platform/libs/vue/',
+          prefix: 'platform/libs/',
         }));
         return webEnv;
       })
