@@ -58,25 +58,41 @@ class VirtualHost {
   async handleGET(req, responder) {
     const [reqPath, queryStr] = (req.uri || '/').split('?');
 
-    const entry = await this.webEnv.getEntry(reqPath);
-    if (!entry || !entry.get) {
+    let target;
 
-      // Maybe it's a directory instead of a file?
-      if (!reqPath.endsWith('/')) {
-        const dEntry = await this.webEnv.getEntry(reqPath + '/');
-        if (dEntry && dEntry.get) {
-          let newUrl = reqPath + '/';
-          if (req.uri.includes('?'))
-            newUrl += '?' + queryStr;
-          return responder.redirectTo(newUrl);
-        }
+    // If it's a directory, try filling entry with index.html
+    if (reqPath.endsWith('/')) {
+      const indexEntry = await this.webEnv.getEntry(reqPath+'index.html');
+      if (indexEntry && indexEntry.get) {
+        target = await indexEntry.get();
       }
-
-      return responder.sendJson({error: 'not-found'}, 404);
     }
-    const target = await entry.get();
 
-    if (target.Type === 'Blob') {
+    // If we don't have a target yet just get it directly
+    if (!target) {
+      const entry = await this.webEnv.getEntry(reqPath);
+      if (!entry || !entry.get) {
+
+        // Maybe it's a directory instead of a file?
+        if (!reqPath.endsWith('/')) {
+          const dEntry = await this.webEnv.getEntry(reqPath + '/');
+          if (dEntry && dEntry.get) {
+            let newUrl = reqPath + '/';
+            if (req.uri.includes('?'))
+              newUrl += '?' + queryStr;
+            return responder.redirectTo(newUrl);
+          }
+        }
+
+        return responder.sendJson({error: 'not-found'}, 404);
+      }
+      target = await entry.get();
+    }
+
+    if (!target) {
+      return responder.sendJson({error: 'null-target'}, 500);
+
+    } else if (target.Type === 'Blob') {
       const decoded = atob(target.Data);
 
       // write the bytes of the string to an ArrayBuffer
