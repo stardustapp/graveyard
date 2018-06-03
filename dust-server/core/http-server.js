@@ -110,7 +110,12 @@ class VirtualHost {
           ia[i] = decoded.charCodeAt(i);
       }
 
-      responder.addHeader('Content-Type', target.Mime || 'application/octet-stream')
+      // For text files, assume UTF-8
+      let type = target.Mime || 'application/octet-stream';
+      if (type.startsWith('text/') && !type.includes('charset=')) {
+        type += '; charset=utf-8';
+      }
+      responder.addHeader('Content-Type', type);
       responder.emitResponse(200, ab);
 
     } else if (target.Type === 'Folder') {
