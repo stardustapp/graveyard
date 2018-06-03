@@ -26,12 +26,12 @@ class DefaultSiteIndex {
   }
 
   async get() {
-    return BlobLiteral.fromString(`<!DOCTYPE html>
+    return BlobLiteral.fromString(commonTags.safeHtml`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
   <title>${this.domain}</title>
-  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500|Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
   <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
 
   <style type="text/css">
@@ -40,13 +40,15 @@ class DefaultSiteIndex {
       margin: 0;
     }
     body {
-      background-image: linear-gradient(145deg, #3e4b66 0%,#1f2533 100%);
+      background-image: linear-gradient(145deg, #3e4b66 0%, #1f2533 100%);
       color: #fff;
       font-family: Roboto, sans;
       display: flex;
       flex-direction: column;
     }
-    body > * { flex-shrink: 0; }
+    body > * {
+      flex-shrink: 0;
+    }
     header {
       text-align: center;
       margin: 5em 1em 3em;
@@ -87,6 +89,7 @@ class DefaultSiteIndex {
       border-color: #999;
     }
     .action:hover {
+      border-color: #fff;
       background-color: rgba(255, 255, 255, 0.15);
       text-decoration: underline;
     }

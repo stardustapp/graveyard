@@ -10,7 +10,7 @@
   "app": {
     "background": {
       "scripts": [
-        "vendor/bugsnag.js", "vendor/wsc-chrome.js", "vendor/idb.js", "vendor/moment.js",
+        "vendor/bugsnag.js", "vendor/wsc-chrome.js", "vendor/idb.js", "vendor/moment.js", "vendor/common-tags.js",
         "core/utils.js", "core/api-entries.js", "core/enumeration.js", "core/environment.js",
           "core/http-server.js", "core/nsexport.js", "core/platform-api.js",
         "core/mounts/idb-treestore.js", "core/mounts/fs-string-dict.js", "core/mounts/network-import.js",
