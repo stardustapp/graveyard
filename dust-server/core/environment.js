@@ -65,25 +65,22 @@ class Environment {
     this.mounts.set(path, mount);
   }
 
-  // returns the least specific mount for given path
+  // returns the MOST specific mount for given path
   matchPath(path) {
     if (!path) {
       throw new Error("matchPath() requires a path");
     }
-    var pathSoFar = '';
-    const idx = path.split('/').findIndex((part, idx) => {
-      if (idx) {
-        pathSoFar += '/'+part;
+    var pathSoFar = path;
+    while (pathSoFar.includes('/')) {
+      pathSoFar = pathSoFar.slice(0, pathSoFar.lastIndexOf('/'));
+      if (this.mounts.has(pathSoFar)) {
+        return {
+          mount: this.mounts.get(pathSoFar),
+          subPath: path.slice(pathSoFar.length),
+        };
       }
-      if (this.mounts.has(pathSoFar)) { return true; }
-    });
-    if (idx === -1) {
-      return {};
     }
-    return {
-      mount: this.mounts.get(pathSoFar),
-      subPath: path.slice(pathSoFar.length),
-    };
+    return {};
   }
 
   async getEntry(path, required, apiCheck) {
