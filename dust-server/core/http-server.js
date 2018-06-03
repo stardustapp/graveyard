@@ -46,6 +46,7 @@ class VirtualHost {
       chrome.runtime.getPackageDirectoryEntry(r))
       .then(pkgRoot => {
         const webEnv = new Environment('http://localhost');
+        webEnv.bind('', new DefaultSite('localhost'));
         webEnv.bind('/~dan/editor', new WebFilesystemMount({
           entry: pkgRoot,
           prefix: 'platform/apps/editor/',

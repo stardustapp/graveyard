@@ -59,6 +59,10 @@ class BlobLiteral {
     this.Mime = mime;
   }
 
+  static fromString(raw, mime='text/plain') {
+    return new BlobLiteral('blob', btoa(raw), mime);
+  }
+
   inspect() {
     return `<Blob ${JSON.stringify(this.Name)} ${JSON.stringify(this.Mime)}>`;
   }
