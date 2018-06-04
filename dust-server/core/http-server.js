@@ -1,5 +1,5 @@
 class HttpServer {
-  constructor(domainManager) {
+  constructor(domainManager, defaultHost) {
     this.domainManager = domainManager;
     this.wsc = new WSC.WebApplication({
       host: '0.0.0.0',
@@ -9,7 +9,7 @@ class HttpServer {
     });
 
     this.hostLoaders = new Map;
-    this.hostLoaders.set(null, VirtualHost.fromManifest());
+    this.hostLoaders.set(null, Promise.resolve(defaultHost));
   }
 
   addRoute(regex, handler) {
@@ -39,30 +39,6 @@ class VirtualHost {
   constructor(hostname, webEnv) {
     this.hostname = hostname;
     this.webEnv = webEnv;
-  }
-
-  static /*async*/ fromManifest() {
-    return new Promise(r => 
-      chrome.runtime.getPackageDirectoryEntry(r))
-      .then(pkgRoot => {
-        const webEnv = new Environment('http://localhost');
-        webEnv.bind('', new DefaultSite('localhost'));
-        webEnv.bind('/~', new GateSite('localhost', null));
-        webEnv.bind('/~dan/editor', new WebFilesystemMount({
-          entry: pkgRoot,
-          prefix: 'platform/apps/editor/',
-        }));
-        webEnv.bind('/~dan/panel', new WebFilesystemMount({
-          entry: pkgRoot,
-          prefix: 'platform/apps/panel/',
-        }));
-        webEnv.bind('/~~libs', new WebFilesystemMount({
-          entry: pkgRoot,
-          prefix: 'platform/libs/',
-        }));
-        return webEnv;
-      })
-      .then(x => new VirtualHost('localhost', x));
   }
 
   async handleGET(req, responder) {

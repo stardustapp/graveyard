@@ -71,8 +71,33 @@ async function boot() {
   const domainManager = new DomainManager(db);
   window.DOMAIN_MANAGER = domainManager;
 
+
+  // build the localhost site
+  const pkgRoot = await new Promise(r =>
+    chrome.runtime.getPackageDirectoryEntry(r));
+
+  const webEnv = new Environment('http://localhost');
+  webEnv.bind('', new DefaultSite('localhost'));
+  webEnv.bind('/~', new GateSite('localhost', sessionManager));
+  /*
+  webEnv.bind('/~dan/editor', new WebFilesystemMount({
+    entry: pkgRoot,
+    prefix: 'platform/apps/editor/',
+  }));
+  webEnv.bind('/~dan/panel', new WebFilesystemMount({
+    entry: pkgRoot,
+    prefix: 'platform/apps/panel/',
+  }));
+  webEnv.bind('/~~libs', new WebFilesystemMount({
+    entry: pkgRoot,
+    prefix: 'platform/libs/',
+  }));
+  */
+  const localVHost = new VirtualHost('localhost', webEnv);
+
+
   // init the web server
-  const webServer = new HttpServer(domainManager);
+  const webServer = new HttpServer(domainManager, localVHost);
 
   // expose the entire system environment on the network
   const nsExport = new NsExport(systemEnv);

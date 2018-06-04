@@ -34,16 +34,15 @@ class GateSite {
 }
 
 function wrapGatePage(title, inner) {
-  return BlobLiteral.fromString(commonTags.html`<!DOCTYPE html>
+  return BlobLiteral.fromString(commonTags.safeHtml`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
-  <title>${commonTags.safeHtml`${title}`}</title>
+  <title>${title}</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
   <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
 </head>
-<body>
-${inner}
+<body>`+'\n\n  '+inner.split('\n').join('\n  ')+`
 
   <div class="fill"></div>
 
@@ -77,17 +76,33 @@ class GateSiteLogin {
     const req = JSON.parse(input.StringValue);
     const {domain, username, password} = req.bodyparams;
 
-    const dest = '/';
-    const newCookie = '{}';
+    const {cookie, origin} = req.headers;
+    const allCookies = new Map;
+    cookie.split(';').map(s => s.trim().split('=')).forEach(([k,v]) => allCookies.set(k,v));
 
+    const result = await this.site.sessionManager.loginApi({
+      username: username+'@'+domain,
+      password: password,
+      lifetime: 'long-term',
+      client: 'web gate',
+    });
+
+    // 'profile id': username+'@'
+    // 'session id': sessionId
+    // 'owner name': record.ownerName
+
+    const dest = '/';
     const body = wrapGatePage('redirecting...', commonTags.safeHtml`
   <header>
     <h2>redirecting to <a href="${dest}">${dest}</a></h2>
   </header>`);
     body.Name = 'body';
 
+    const cookieName = `stardust:s:${encodeURIComponent(username)}`;
+    const newCookie = '';
     const expiresAt = moment.utc().add(1, 'month').toDate().toUTCString();
-    const setCookie = `stardust-session=${encodeURIComponent(newCookie)}; Expires=${expiresAt}`; // HttpOnly?
+    const setCookie = `${cookieName}=${encodeURIComponent(newCookie)}; Expires=${expiresAt}`; // HttpOnly?
+
     return new FolderLiteral('http response', [
       new StringLiteral('status code', '303'),
       new FolderLiteral('headers', [
@@ -263,11 +278,12 @@ footer {
   border: 3px solid #ccc;
 }
 #modal-form input:focus, #modal-form button:focus {
-  border-color: #999;
+  border-color: #666;
+  box-shadow: 0 0 5px 3px rgba(50, 50, 50, 0.3);
   outline: none;
 }
 #modal-form input:hover, #modal-form button:hover {
-  border-color: #666;
+  border-color: #999;
   outline: none;
 }
 #modal-form input {
@@ -282,6 +298,12 @@ footer {
   margin: 0.2em 1em 0.5em;
   font-weight: 300;
   color: #000;
+}
+#modal-form input {
+  letter-spacing: 1px;
+}
+#modal-form input[type=password]:not(:placeholder-shown) {
+  letter-spacing: 4px;
 }
 #modal-form h1 em {
   font-weight: 400;
