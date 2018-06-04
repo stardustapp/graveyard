@@ -1,4 +1,4 @@
-// Serves up enough HTML to nicely direct users to the account page
+// Serves up enough HTML to nicely direct users to the account pages
 
 class DefaultSite {
   constructor(domainName) {
@@ -32,8 +32,6 @@ class DefaultSiteIndex {
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
   <title>${this.domain}</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
-  <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
-
   <style type="text/css">
     html, body {
       height: 100%;
@@ -90,6 +88,7 @@ class DefaultSiteIndex {
     }
     .action:hover {
       border-color: #fff;
+      color: #fff;
       background-color: rgba(255, 255, 255, 0.15);
       text-decoration: underline;
     }
@@ -116,7 +115,7 @@ class DefaultSiteIndex {
   <div class="fill"></div>
 
   <footer>
-    powered by the  Stardust platform,
+    powered by the Stardust platform,
     built by
     <a href="http://danopia.net">danopia</a>
   </footer>
