@@ -102,22 +102,7 @@ class VirtualHost {
       return responder.sendJson({error: 'null-target'}, 500);
 
     } else if (target.Type === 'Blob') {
-      const decoded = atob(target.Data);
-
-      // write the bytes of the string to an ArrayBuffer
-      var ab = new ArrayBuffer(decoded.length);
-      var ia = new Uint8Array(ab);
-      for (var i = 0; i < decoded.length; i++) {
-          ia[i] = decoded.charCodeAt(i);
-      }
-
-      // For text files, assume UTF-8
-      let type = target.Mime || 'application/octet-stream';
-      if (type.startsWith('text/') && !type.includes('charset=')) {
-        type += '; charset=utf-8';
-      }
-      responder.addHeader('Content-Type', type);
-      responder.emitResponse(200, ab);
+      responder.sendBlob(target);
 
     } else if (target.Type === 'Folder') {
 
@@ -147,6 +132,33 @@ class VirtualHost {
 
     } else {
       responder.sendJson(target);
+    }
+  }
+
+  // Specifically for routing POST to function invocations
+  // Not very forgiving, since POSTs generally come from ourself
+  async handlePOST(req, responder) {
+    const [reqPath, queryStr] = (req.uri || '/').split('?');
+
+    const entry = await this.webEnv.getEntry(reqPath);
+    if (!entry) {
+      return responder.sendJson({error: 'not-found'}, 404);
+    }
+    if (!entry.invoke) {
+      const allowed = [];
+      if (entry.get) allowed.push('GET');
+      if (entry.get) allowed.push('HEAD');
+      responder.addHeader('Allow', allowed.join(', '));
+      return responder.sendJson({error: 'post-not-allowed'}, 405);
+    }
+    const response = await entry.invoke(new StringLiteral('request', JSON.stringify(req)));
+
+    if (!response) {
+      return responder.sendJson({error: 'null-response'}, 500);
+    } else if (response.Type === 'Blob') {
+      responder.sendBlob(response);
+    } else {
+      responder.sendJson(response);
     }
   }
 }
@@ -193,6 +205,24 @@ class Responder {
     this.emitResponse(status, data);
   }
 
+  sendBlob(blob, status=200) {
+    // For text files, assume UTF-8
+    let type = blob.Mime || 'application/octet-stream';
+    if (type.startsWith('text/') && !type.includes('charset=')) {
+      type += '; charset=utf-8';
+    }
+    this.addHeader('Content-Type', type);
+
+    // write the bytes of the string to an ArrayBuffer
+    const decoded = atob(blob.Data);
+    var ab = new ArrayBuffer(decoded.length);
+    var ia = new Uint8Array(ab);
+    for (var i = 0; i < decoded.length; i++) {
+        ia[i] = decoded.charCodeAt(i);
+    }
+    this.emitResponse(status, ab);
+  }
+
   redirectTo(target, status=303) {
     this.addHeader('Location', target);
     this.emitResponse(status, commonTags.safeHtml`<!doctype html>
@@ -207,19 +237,38 @@ class HttpWildcardHandler extends WSC.BaseHandler {
     this.httpServer = httpServer;
   }
 
+  tcpInfo() {
+    return new Promise(r => chrome.sockets.tcp.getInfo(
+            this.request.connection.stream.sockId, r));
+  }
+
   async get() {
     const {headers, uri, method} = this.request;
-    const {localAddress, localPort, peerAddress, peerPort} =
-        await new Promise(r => chrome.sockets.tcp.getInfo(
-            this.request.connection.stream.sockId, r));
+    const {localAddress, localPort, peerAddress, peerPort} = this.tcpInfo();
 
-    const meta = {method, uri, headers,
-      ip: {localAddress, localPort, peerAddress, peerPort}};
+    await this.routeRequest({
+      method, uri, headers,
+      ip: {localAddress, localPort, peerAddress, peerPort},
+    });
+  }
+
+  async post() {
+    const {headers, uri, method, body, bodyparams} = this.request;
+    const {localAddress, localPort, peerAddress, peerPort} = this.tcpInfo();
+
+    await this.routeRequest({
+      method, uri, headers, body, bodyparams,
+      ip: {localAddress, localPort, peerAddress, peerPort},
+    });
+  }
+
+  async routeRequest(meta) {
     const responder = new Responder(this);
+    const {headers, method, uri} = meta;
 
     try {
       if (!headers.host) {
-        console.log(`GET //${headers.host}${uri}`, 400);
+        console.log(`${method} //${headers.host}${uri}`, 400);
         return responder.sendJson({
           success: false,
           error: 'bad-request',
@@ -231,7 +280,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
       const hostMatch = headers.host.match(
   /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z]+))(?::(\d+))?$/i);
       if (!hostMatch) {
-        console.log(`GET //${headers.host}${uri}`, 400);
+        console.log(`${method} //${headers.host}${uri}`, 400);
         return responder.sendJson({
           success: false,
           error: 'bad-request',
@@ -243,15 +292,15 @@ class HttpWildcardHandler extends WSC.BaseHandler {
 
       if (ipv4 || ipv6 || hostname == 'localhost') {
         const vhost = await this.httpServer.getDefaultHost();
-        return await vhost.handleGET(meta, responder);
+        return await vhost[`handle${method}`](meta, responder);
       }
 
       if (hostname) {
         const vhost = await this.httpServer.getVHost(hostname);
         if (vhost) {
-          return await vhost.handleGET(meta, responder);
+          return await vhost[`handle${method}`](meta, responder);
         } else {
-          console.log(`GET //${headers.host}${uri}`, 506);
+          console.log(`${method} //${headers.host}${uri}`, 506);
           return responder.sendJson({
             success: false,
             error: 'domain-not-found',
@@ -261,7 +310,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
         }
       }
     } catch (err) {
-      console.log(`GET //${headers.host}${uri}`, 500, err);
+      console.log(`${method} //${headers.host}${uri}`, 500, err);
       return responder.sendJson({
         success: false,
         error: 'internal-error',
