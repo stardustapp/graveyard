@@ -158,6 +158,9 @@ class VirtualHost {
       return responder.sendJson({error: 'null-response'}, 500);
     } else if (response.Type === 'Blob') {
       responder.sendBlob(response);
+    } else if (response.Type === 'Folder' && response.Name === 'http response') {
+      // allows submission receivers to do things like redirect and set cookies
+      responder.sendStarResponse(response);
     } else {
       responder.sendJson(response);
     }
@@ -229,6 +232,34 @@ class Responder {
     this.emitResponse(status, commonTags.safeHtml`<!doctype html>
 <title>Redirecting...</title>
 <p>You are being redirected to <a href="${target}">${target}</a>.</p>`);
+  }
+
+  sendStarResponse(resp) {
+    let statusCode = 200;
+    let headers = [];
+    let body = null;
+    resp.Children.forEach(c => {
+      switch (c.Name) {
+        case 'status code':
+          statusCode = parseInt(c.StringValue);
+          break;
+        case 'headers':
+          headers = c.Children;
+          break;
+        case 'body':
+          body = c;
+          break;
+      }
+    });
+    if (!body) {
+      throw new Error(`sendStarResponse() didn't see a 'body' in the given response`);
+    }
+
+    // write it!
+    for (const header of headers) {
+      this.addHeader(header.Name, header.StringValue);
+    }
+    this.sendBlob(body, statusCode);
   }
 }
 
