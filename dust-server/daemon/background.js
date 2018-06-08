@@ -61,9 +61,7 @@ async function boot() {
         // uniquely IDd sessions for users
         upgradeDB.createObjectStore('sessions', {
           keyPath: 'id',
-        });
-        upgradeDB.objectStore('sessions')
-          .createIndex('accounts', ['username', 'domain']);
+        }).createIndex('accounts', ['username', 'domain']);
       case 5:
         // ugh let's just start over
         upgradeDB.deleteObjectStore('sessions');
