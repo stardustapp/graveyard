@@ -15,11 +15,19 @@ class GateSite {
   async getEntry(path) {
     switch (path) {
 
-      // dynamic pages
+      // dynamic entry points
       case '/login':
         return new GateSiteLogin(this);
       case '/register':
         return new GateSiteRegister(this);
+
+      // dynamic gated pages
+      case '/home':
+        return new GateSiteHome(this);
+      case '/ftue':
+        return new GateSiteFtue(this);
+
+      // extra pages
       case '/about':
         return new GateSiteAbout(this);
 
@@ -163,6 +171,34 @@ class GateSiteRegister {
   }
 }
 
+class GateSiteHome {
+  constructor(site) {
+    this.site = site;
+    this.domain = site.domainName;
+  }
+
+  async get() {
+    return wrapGatePage(`home | ${this.domain}`, commonTags.safeHtml`
+      <p>
+        <a href="/~/home" class="action">hello world</a>
+      </p>`);
+  }
+}
+
+class GateSiteFtue {
+  constructor(site) {
+    this.site = site;
+    this.domain = site.domainName;
+  }
+
+  async get() {
+    return wrapGatePage(`get started | ${this.domain}`, commonTags.safeHtml`
+      <p>
+        <a href="/~/home" class="action">welcome to your new account</a>
+      </p>`);
+  }
+}
+
 class GateSiteAbout {
   constructor(site) {
     this.site = site;
@@ -170,35 +206,12 @@ class GateSiteAbout {
   }
 
   async get() {
-    return BlobLiteral.fromString(commonTags.safeHtml`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
-  <title>${this.domain}</title>
-  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
-  <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
-</head>
-<body>
-  <header>
-    <h1>${this.domain}</h1>
-    <h2>a <em>Stardust</em> system</h2>
-  </header>
-
-  <nav>
-    <a href="/~/login" class="action">Login</a>
-    <a href="/~/register" class="action">Register</a>
-    <a href="/~/about" class="action alt-action">About</a>
-  </nav>
-
-  <div class="fill"></div>
-
-  <footer>
-    powered by the Stardust platform,
-    built by
-    <a href="http://danopia.net">danopia</a>
-  </footer>
-</body>
-</html>`, 'text/html');
+    return wrapGatePage(`about | ${this.domain}`, commonTags.safeHtml`
+      <nav>
+        <a href="/~/login" class="action">Login</a>
+        <a href="/~/register" class="action">Register</a>
+        <a href="/~/about" class="action alt-action">About</a>
+      </nav>`);
   }
 }
 
