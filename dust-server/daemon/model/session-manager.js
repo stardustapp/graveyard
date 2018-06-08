@@ -41,11 +41,7 @@ class SessionManager {
     if (!record)
       throw new Error(`session ID ${sessionId} is invalid`);
 
-    const account = this.accountManager
-        .getAccount(record.aid);
-
-    ToastNotif(`Resumed session for ${account.address()}`);
-
+    const account = await this.accountManager.getAccount(record.aid);
     return new Session(record, account);
   }
 
@@ -54,7 +50,7 @@ class SessionManager {
 
     const record = {
       schema: 1,
-      aid: account.aid,
+      aid: account.record.aid,
       sid: Math.random().toString(16).slice(2),
       lifetime, volatile, client,
       lastUsed: new Date(),

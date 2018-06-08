@@ -24,11 +24,16 @@ class GateApi {
     this.env.mount('/login', 'function', new PlatformApiFunction(this, 'login', {
       input: {
         username: String,
+        domain: 'localhost',
         password: String,
         lifetime: 'volatile', // or 'persistent'
         client: String,
       },
-      output: String,
+      output: {
+        'profile id': String,
+        'session id': String,
+        'owner name': String,
+      },
       impl: this.loginApi,
     }));
 
@@ -83,6 +88,12 @@ class GateApi {
       lifetime, volatile, client,
     });
     ToastNotif(`User ${username} successfully logged in`);
-    return session.uri;
+
+    return {
+      'profile id': account.record.aid,
+      'session id': session.record.sid,
+      'session url': session.uri,
+      'owner name': account.record.contact.name,
+    };
   }
 };
