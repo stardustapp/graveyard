@@ -2,7 +2,7 @@
   "name": "Stardust Profile Server",
   "short_name": "ProfileServ",
   "description": "Manages Stardust profiles and serves as a central data store.",
-  "version": "0.1.3.2",
+  "version": "0.1.4",
   "manifest_version": 2,
   "offline_enabled": true,
   "minimum_chrome_version": "45",
