@@ -17,7 +17,7 @@ class Domain {
     this.data.grants
       .filter(g => g.identity === identity)
       .forEach(g => roles.add(g.role));
-    
+
     return [
       'owner',
       'manager',

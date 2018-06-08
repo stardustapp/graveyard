@@ -92,7 +92,8 @@ class IdbPath {
     const handle = await txn.walkPath(this.path);
 
     if (!handle.exists()) {
-      throw new Error(`Path ${this.path} doesn't exist, can't be gotten`);
+      return null;
+      //throw new Error(`Path ${this.path} doesn't exist, can't be gotten`);
     }
     return handle.current().shallowExport();
   }

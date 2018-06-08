@@ -1,13 +1,14 @@
 // Serves up enough HTML to nicely direct users to the account page
 
 class GateSite {
-  constructor(domainName, sessionManager) {
+  constructor(domainName, accountManager, sessionManager) {
     if (!domainName)
       throw new Error(`GateSite requires a domain name`);
-    //if (!sessionManager)
-    //  throw new Error(`GateSite requires a session manager`);
+    if (!sessionManager)
+      throw new Error(`GateSite requires a session manager`);
 
     this.domainName = domainName;
+    this.accountManager = accountManager;
     this.sessionManager = sessionManager;
   }
 
@@ -34,25 +35,27 @@ class GateSite {
 }
 
 function wrapGatePage(title, inner) {
-  return BlobLiteral.fromString(commonTags.safeHtml`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
-  <title>${title}</title>
-  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
-  <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
-</head>
-<body>`+'\n\n  '+inner.split('\n').join('\n  ')+`
+  return BlobLiteral.fromString(commonTags.safeHtml`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
+      <title>${title}</title>
+      <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
+      <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
+    </head>
+    <body>
+      `+'\n\n  '+inner.split('\n').join('\n  ')+'\n\n  '+commonTags.safeHtml`
 
-  <div class="fill"></div>
+      <div class="fill"></div>
 
-  <footer>
-    powered by the Stardust platform,
-    built by
-    <a href="http://danopia.net">danopia</a>
-  </footer>
-</body>
-</html>`, 'text/html');
+      <footer>
+        powered by the Stardust platform,
+        built by
+        <a href="http://danopia.net">danopia</a>
+      </footer>
+    </body>
+    </html>`, 'text/html');
 }
 
 class GateSiteLogin {
@@ -63,13 +66,13 @@ class GateSiteLogin {
 
   async get() {
     return wrapGatePage(`login | ${this.domain}`, commonTags.safeHtml`
-  <form method="post" id="modal-form">
-    <h1>login to <em>${this.domain}</em></h1>
-    <input type="hidden" name="domain" value="${this.domain}">
-    <input type="text" name="username" placeholder="username" required autofocus>
-    <input type="password" name="password" placeholder="password">
-    <button type="submit">log in</button>
-  </form>`);
+      <form method="post" id="modal-form">
+        <h1>login to <em>${this.domain}</em></h1>
+        <input type="hidden" name="domain" value="${this.domain}">
+        <input type="text" name="username" placeholder="username" required autofocus>
+        <input type="password" name="password" placeholder="password">
+        <button type="submit">log in</button>
+      </form>`);
   }
 
   async invoke(input) {
@@ -80,38 +83,49 @@ class GateSiteLogin {
     const allCookies = new Map;
     cookie.split(';').map(s => s.trim().split('=')).forEach(([k,v]) => allCookies.set(k,v));
 
-    const result = await this.site.sessionManager.loginApi({
-      username: username+'@'+domain,
-      password: password,
-      lifetime: 'long-term',
+    // look up the account
+    const accountId = await this.site.accountManager.resolveAddress(username, domain);
+    if (!accountId) {
+      ToastNotif(`Client tried logging in to unknown chart ${username}@${domain}`);
+      throw new Error(`Invalid auth credentials`);
+    }
+
+    // load account and check access
+    const account = await this.site.accountManager.getAccount(accountId);
+    await account.assertPassword(password);
+    console.log('launching', account);
+
+    // vend a new session
+    const session = await this.site.sessionManager.create(account, {
+      lifetime: 'long',
       client: 'web gate',
     });
+    ToastNotif(`User ${username} successfully logged in`);
 
-    // 'profile id': username+'@'
-    // 'session id': sessionId
-    // 'owner name': record.ownerName
-
-    const dest = '/';
-    const body = wrapGatePage('redirecting...', commonTags.safeHtml`
-  <header>
-    <h2>redirecting to <a href="${dest}">${dest}</a></h2>
-  </header>`);
-    body.Name = 'body';
-
-    const cookieName = `stardust:s:${encodeURIComponent(username)}`;
-    const newCookie = '';
-    const expiresAt = moment.utc().add(1, 'month').toDate().toUTCString();
-    const setCookie = `${cookieName}=${encodeURIComponent(newCookie)}; Expires=${expiresAt}`; // HttpOnly?
-
-    return new FolderLiteral('http response', [
-      new StringLiteral('status code', '303'),
-      new FolderLiteral('headers', [
-        new StringLiteral('Location', dest),
-        new StringLiteral('Set-Cookie', setCookie),
-      ]),
-      body,
-    ]);
+    return setCookieAndBuildRedirect(accountId, session.record.sid, '/~/home');
   }
+}
+
+function setCookieAndBuildRedirect(accountId, sessionId, url='/') {
+  const body = wrapGatePage('redirecting...', commonTags.safeHtml`
+    <header>
+      <h2>redirecting to <a href="${url}">${url}</a></h2>
+    </header>`);
+  body.Name = 'body';
+
+  const cookieName = `stardust:acct:${encodeURIComponent(accountId)}`;
+  const newCookie = sessionId;
+  const expiresAt = moment.utc().add(1, 'month').toDate().toUTCString();
+  const setCookie = `${cookieName}=${encodeURIComponent(newCookie)}; Expires=${expiresAt}`; // HttpOnly?
+
+  return new FolderLiteral('http response', [
+    new StringLiteral('status code', '303'),
+    new FolderLiteral('headers', [
+      new StringLiteral('Location', url),
+      new StringLiteral('Set-Cookie', setCookie),
+    ]),
+    body,
+  ]);
 }
 
 class GateSiteRegister {
@@ -121,35 +135,31 @@ class GateSiteRegister {
   }
 
   async get() {
-    return BlobLiteral.fromString(commonTags.safeHtml`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
-  <title>${this.domain}</title>
-  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
-  <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
-</head>
-<body>
-  <header>
-    <h1>${this.domain}</h1>
-    <h2>a <em>Stardust</em> system</h2>
-  </header>
+    return wrapGatePage(`register | ${this.domain}`, commonTags.safeHtml`
+      <form method="post" id="modal-form">
+        <h1>register new account</h1>
+        <input type="hidden" name="domain" value="${this.domain}">
+        <div class="row">
+          <input type="text" name="username" placeholder="username" required autofocus style="width: 12em; text-align: right;">
+          <label for="username">@${this.domain}</label>
+        </div>
+        <input type="email" name="email" placeholder="your email (private)" required>
+        <input type="text" name="realname" placeholder="your 'real' name (shared)" required>
+        <button type="submit">submit registration</button>
+      </form>`);
+  }
 
-  <nav>
-    <a href="/~/login" class="action">Login</a>
-    <a href="/~/register" class="action">Register</a>
-    <a href="/~/about" class="action alt-action">About</a>
-  </nav>
-
-  <div class="fill"></div>
-
-  <footer>
-    powered by the Stardust platform,
-    built by
-    <a href="http://danopia.net">danopia</a>
-  </footer>
-</body>
-</html>`, 'text/html');
+  async invoke(input) {
+    const req = JSON.parse(input.StringValue);
+    const account = await this.site.accountManager.create(req.bodyparams);
+    const session = await this.site.sessionManager.create(account, {
+      lifetime: 'short',
+      client: 'gate-api',
+    });
+    return setCookieAndBuildRedirect(
+        account.record.aid,
+        session.record.sid,
+        '/~/ftue');
   }
 }
 
@@ -279,7 +289,7 @@ footer {
 }
 #modal-form input:focus, #modal-form button:focus {
   border-color: #666;
-  box-shadow: 0 0 5px 3px rgba(50, 50, 50, 0.3);
+  box-shadow: 0 0 4px 1px rgba(50, 50, 50, 0.3);
   outline: none;
 }
 #modal-form input:hover, #modal-form button:hover {
@@ -309,7 +319,16 @@ footer {
   font-weight: 400;
   font-style: normal;
 }
-
+#modal-form .row {
+  display: flex;
+}
+#modal-form .row label {
+  align-self: center;
+  color: #000;
+  font-size: 1.2em;
+  margin-right: 2em;
+  letter-spacing: 1px;
+}
 `, 'text/css');
   }
 }

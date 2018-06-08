@@ -1,3 +1,11 @@
+/*
+  const domains = upgradeDB.createObjectStore('domains', {
+    keyPath: 'did',
+  });
+  domains.createIndex('fqdn', 'fqdns', { unique: true,  multiEntry: true });
+  domains.createIndex('aid',  'aids',  { unique: false, multiEntry: true });
+*/
+
 class DomainManager {
 
   constructor(idb) {

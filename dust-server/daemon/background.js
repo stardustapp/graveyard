@@ -38,7 +38,7 @@ async function boot() {
     chrome.power.requestKeepAwake('display');
   }
 
-  const db = await idb.open('system', 4, upgradeDB => {
+  const db = await idb.open('system', 6, upgradeDB => {
     switch (upgradeDB.oldVersion) {
       case 0:
         // Stores name[@domain] profiles
@@ -52,34 +52,58 @@ async function boot() {
         upgradeDB.createObjectStore('domains', {
           keyPath: 'domainName',
         });
+      case 4:
+        upgradeDB.deleteObjectStore('profiles');
+        // name@domain accounts
+        upgradeDB.createObjectStore('accounts', {
+          keyPath: ['username', 'domain'],
+        });
+        // uniquely IDd sessions for users
+        upgradeDB.createObjectStore('sessions', {
+          keyPath: 'id',
+        });
+        upgradeDB.objectStore('sessions')
+          .createIndex('accounts', ['username', 'domain']);
+      case 5:
+        // ugh let's just start over
+        upgradeDB.deleteObjectStore('sessions');
+        upgradeDB.deleteObjectStore('accounts');
+        upgradeDB.deleteObjectStore('domains');
+
+        const accounts = upgradeDB.createObjectStore('accounts', {
+          keyPath: 'aid',
+        });
+        accounts.createIndex('address', ['username', 'domain'], { unique: true });
+
+        const sessions = upgradeDB.createObjectStore('sessions', {
+          keyPath: 'sid',
+        });
+        sessions.createIndex('aid',      'aid',      { unique: false });
+        sessions.createIndex('lastUsed', 'lastUsed', { unique: false });
+
+        const domains = upgradeDB.createObjectStore('domains', {
+          keyPath: 'did',
+        });
+        domains.createIndex('fqdn', 'fqdns', { unique: true,  multiEntry: true });
+        domains.createIndex('aid',  'aids',  { unique: false, multiEntry: true });
     }
   });
   console.log('Opened database');
 
-  // create a blank root environment
-  const systemEnv = new Environment();
-
-  // mount the local persist store
-  /*systemEnv.mount('/db', 'mongodb', {
-    url: 'mongodb://localhost:27017',
-    database: 'startest',
-  });*/
-
-  // create a manager (mounts itself)
-  const sessionManager = new SessionManager(systemEnv, db);
-
+  const accountManager = new AccountManager(db);
+  const sessionManager = new SessionManager(db, accountManager);
   const domainManager = new DomainManager(db);
-  window.DOMAIN_MANAGER = domainManager;
 
+  // create a root environment using GateApi
+  const systemEnv = new Environment();
+  const gateApi = new GateApi(systemEnv, accountManager, sessionManager);
 
   // build the localhost site
   const pkgRoot = await new Promise(r =>
     chrome.runtime.getPackageDirectoryEntry(r));
-
   const webEnv = new Environment('http://localhost');
   webEnv.bind('', new DefaultSite('localhost'));
-  webEnv.bind('/~', new GateSite('localhost', sessionManager));
-  /*
+  webEnv.bind('/~', new GateSite('localhost', accountManager, sessionManager));
   webEnv.bind('/~dan/editor', new WebFilesystemMount({
     entry: pkgRoot,
     prefix: 'platform/apps/editor/',
@@ -92,9 +116,7 @@ async function boot() {
     entry: pkgRoot,
     prefix: 'platform/libs/',
   }));
-  */
   const localVHost = new VirtualHost('localhost', webEnv);
-
 
   // init the web server
   const webServer = new HttpServer(domainManager, localVHost);
