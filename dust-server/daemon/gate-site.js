@@ -1,7 +1,7 @@
 // Serves up enough HTML to nicely direct users to the account page
 
 class GateSite {
-  constructor(domainName, accountManager, sessionManager) {
+  constructor(domainName, accountManager, sessionManager, domainManager) {
     if (!domainName)
       throw new Error(`GateSite requires a domain name`);
     if (!sessionManager)
@@ -10,6 +10,7 @@ class GateSite {
     this.domainName = domainName;
     this.accountManager = accountManager;
     this.sessionManager = sessionManager;
+    this.domainManager = domainManager;
   }
 
   async getEntry(path) {
@@ -179,9 +180,16 @@ class GateSiteHome {
 
   async get() {
     return wrapGatePage(`home | ${this.domain}`, commonTags.safeHtml`
-      <p>
-        <a href="/~/home" class="action">hello world</a>
-      </p>`);
+      <section class="account-overview">
+        <p>You are unknown!</p>
+      </section>
+      <section class="domain-list">
+        <h2>Your domains</h2>
+        <ul>
+          <li>None yet</li>
+        </ul>
+        <a href="/~/add-domain" class="action">Add new domain</a>
+      </section>`);
   }
 }
 
@@ -193,9 +201,13 @@ class GateSiteFtue {
 
   async get() {
     return wrapGatePage(`get started | ${this.domain}`, commonTags.safeHtml`
-      <p>
-        <a href="/~/home" class="action">welcome to your new account</a>
-      </p>`);
+      <section class="ftue">
+        <a href="/~/home" class="action">welcome to your new account :)</a>
+        <p>here's what you can do:</p>
+        <ul>
+          <li>nothing, yet</li>
+        </ul>
+      </section>`);
   }
 }
 

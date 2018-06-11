@@ -94,14 +94,14 @@ async function boot() {
 
   // create a root environment using GateApi
   const systemEnv = new Environment();
-  const gateApi = new GateApi(systemEnv, accountManager, sessionManager);
+  const gateApi = new GateApi(systemEnv, accountManager, sessionManager, domainManager);
 
   // build the localhost site
   const pkgRoot = await new Promise(r =>
     chrome.runtime.getPackageDirectoryEntry(r));
   const webEnv = new Environment('http://localhost');
   webEnv.bind('', new DefaultSite('localhost'));
-  webEnv.bind('/~', new GateSite('localhost', accountManager, sessionManager));
+  webEnv.bind('/~', new GateSite('localhost', accountManager, sessionManager, domainManager));
   webEnv.bind('/~dan/editor', new WebFilesystemMount({
     entry: pkgRoot,
     prefix: 'platform/apps/editor/',

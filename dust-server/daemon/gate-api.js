@@ -1,9 +1,10 @@
 class GateApi {
 
-  constructor(systemEnv, accountManager, sessionManager) {
+  constructor(systemEnv, accountManager, sessionManager, domainManager) {
     this.env = systemEnv;
     this.accountManager = accountManager;
     this.sessionManager = sessionManager;
+    this.domainManager = domainManager;
 
     this.profiles = new Map();
     this.sessions = new Map();
