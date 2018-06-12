@@ -70,14 +70,13 @@ function wrapGatePage(title, inner) {
 class GateSiteLogin {
   constructor(site) {
     this.site = site;
-    this.domain = site.domainName;
   }
 
   async get() {
-    return wrapGatePage(`login | ${this.domain}`, commonTags.safeHtml`
+    return wrapGatePage(`login | ${this.site.domainName}`, commonTags.safeHtml`
       <form method="post" id="modal-form">
-        <h1>login to <em>${this.domain}</em></h1>
-        <input type="hidden" name="domain" value="${this.domain}">
+        <h1>login to <em>${this.site.domainName}</em></h1>
+        <input type="hidden" name="domain" value="${this.site.domainName}">
         <input type="text" name="username" placeholder="username" required autofocus>
         <input type="password" name="password" placeholder="password">
         <button type="submit">log in</button>
@@ -153,17 +152,16 @@ function buildRedirect(url='/') {
 class GateSiteRegister {
   constructor(site) {
     this.site = site;
-    this.domain = site.domainName;
   }
 
   async get() {
-    return wrapGatePage(`register | ${this.domain}`, commonTags.safeHtml`
+    return wrapGatePage(`register | ${this.site.domainName}`, commonTags.safeHtml`
       <form method="post" id="modal-form">
         <h1>register new account</h1>
-        <input type="hidden" name="domain" value="${this.domain}">
+        <input type="hidden" name="domain" value="${this.site.domainName}">
         <div class="row">
           <input type="text" name="username" placeholder="username" required autofocus style="width: 12em; text-align: right;">
-          <label for="username">@${this.domain}</label>
+          <label for="username">@${this.site.domainName}</label>
         </div>
         <input type="email" name="email" placeholder="your email (private)" required>
         <input type="text" name="realname" placeholder="your 'real' name (shared)" required>
@@ -229,7 +227,7 @@ class GateSiteHome {
       return buildRedirect('/');
     }
 
-    return wrapGatePage(`home | ${this.domain}`, commonTags.safeHtml`
+    return wrapGatePage(`home | ${this.site.domainName}`, commonTags.safeHtml`
       <section class="account-overview">
         <p>You are unknown @ ${this.site.domainName}!</p>
       </section>
@@ -246,11 +244,10 @@ class GateSiteHome {
 class GateSiteFtue {
   constructor(site) {
     this.site = site;
-    this.domain = site.domainName;
   }
 
   async get() {
-    return wrapGatePage(`get started | ${this.domain}`, commonTags.safeHtml`
+    return wrapGatePage(`get started | ${this.site.domainName}`, commonTags.safeHtml`
       <section class="ftue">
         <a href="/~/home" class="action">welcome to your new account :)</a>
         <p>here's what you can do:</p>
@@ -264,11 +261,10 @@ class GateSiteFtue {
 class GateSiteAbout {
   constructor(site) {
     this.site = site;
-    this.domain = site.domainName;
   }
 
   async get() {
-    return wrapGatePage(`about | ${this.domain}`, commonTags.safeHtml`
+    return wrapGatePage(`about | ${this.site.domainName}`, commonTags.safeHtml`
       <nav>
         <a href="/~/login" class="action">Login</a>
         <a href="/~/register" class="action">Register</a>
