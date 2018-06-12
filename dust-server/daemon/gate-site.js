@@ -85,12 +85,9 @@ class GateSiteLogin {
   }
 
   async invoke(input) {
-    const req = JSON.parse(input.StringValue);
-    const {domain, username, password} = req.bodyparams;
+    const request = await new GateSiteRequest(this.site, input).loadState();
 
-    const {cookie, origin} = req.headers;
-    const allCookies = new Map;
-    cookie.split(';').map(s => s.trim().split('=')).forEach(([k,v]) => allCookies.set(k,v));
+    const {domain, username, password} = request.req.bodyparams;
 
     // look up the account
     const accountId = await this.site.accountManager.resolveAddress(username, domain);
@@ -137,6 +134,22 @@ function setCookieAndBuildRedirect(accountId, sessionId, url='/') {
   ]);
 }
 
+function buildRedirect(url='/') {
+  const body = wrapGatePage('redirecting...', commonTags.safeHtml`
+    <header>
+      <h2>redirecting to <a href="${url}">${url}</a></h2>
+    </header>`);
+  body.Name = 'body';
+
+  return new FolderLiteral('http response', [
+    new StringLiteral('status code', '303'),
+    new FolderLiteral('headers', [
+      new StringLiteral('Location', url),
+    ]),
+    body,
+  ]);
+}
+
 class GateSiteRegister {
   constructor(site) {
     this.site = site;
@@ -159,8 +172,9 @@ class GateSiteRegister {
   }
 
   async invoke(input) {
-    const req = JSON.parse(input.StringValue);
-    const account = await this.site.accountManager.create(req.bodyparams);
+    const request = await new GateSiteRequest(this.site, input).loadState();
+
+    const account = await this.site.accountManager.create(request.req.bodyparams);
     const session = await this.site.sessionManager.create(account, {
       lifetime: 'short',
       client: 'gate-api',
@@ -172,16 +186,52 @@ class GateSiteRegister {
   }
 }
 
+// Created from a user request
+// Parses cookies and such
+// What more could you want?
+class GateSiteRequest {
+  constructor(site, request) {
+    this.site = site;
+    this.req = JSON.parse(request.StringValue);
+
+    this.allCookies = new Map;
+    this.acctCookies = new Map;
+    const acctPrefix = 'stardust:acct:';
+    if ('cookie' in this.req.headers) {
+      this.req.headers.cookie.split(';')
+        .map(s => s.trim().split('='))
+        .filter(([k,v]) => {
+          this.allCookies.set(k, v);
+          return k.startsWith(acctPrefix);
+        })
+        .forEach(([k,v]) => this.acctCookies.set(k.slice(acctPrefix.length), v));
+    }
+  }
+
+  async loadState() {
+    if (this.acctCookies.size > 0) {
+      const [acctId, sessId] = this.acctCookies.entries().next().value;
+      console.log('have a cookie', acctId, sessId);
+      this.session = await this.site.sessionManager.getSession(sessId);
+    }
+    return this;
+  }
+}
+
 class GateSiteHome {
   constructor(site) {
     this.site = site;
-    this.domain = site.domainName;
   }
 
-  async get() {
+  async invoke(input) {
+    const state = await new GateSiteRequest(this.site, input).loadState();
+    if (!state.session) {
+      return buildRedirect('/');
+    }
+
     return wrapGatePage(`home | ${this.domain}`, commonTags.safeHtml`
       <section class="account-overview">
-        <p>You are unknown!</p>
+        <p>You are unknown @ ${this.site.domainName}!</p>
       </section>
       <section class="domain-list">
         <h2>Your domains</h2>
