@@ -57,7 +57,7 @@ class VirtualHost {
     // If we don't have a target yet just get it directly
     if (!target) {
       const entry = await this.webEnv.getEntry(reqPath);
-      if (!entry || !entry.get) {
+      if (!entry || (!entry.get && !entry.invoke)) {
 
         // Maybe it's a directory instead of a file?
         if (!reqPath.endsWith('/')) {
@@ -72,7 +72,12 @@ class VirtualHost {
 
         return responder.sendJson({error: 'not-found'}, 404);
       }
-      target = await entry.get();
+
+      if (entry.get) {
+        target = await entry.get();
+      } else if (entry.invoke) {
+        target = await entry.invoke(new StringLiteral('request', JSON.stringify(req)));
+      }
     }
 
     if (!target) {
@@ -80,6 +85,10 @@ class VirtualHost {
 
     } else if (target.Type === 'Blob') {
       responder.sendBlob(target);
+
+    } else if (target.Type === 'Folder' && target.Name === 'http response') {
+      // allows dynamic content to change based on the request
+      responder.sendStarResponse(target);
 
     } else if (target.Type === 'Folder') {
 
