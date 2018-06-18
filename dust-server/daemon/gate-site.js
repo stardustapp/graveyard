@@ -229,7 +229,7 @@ class GateSiteHome {
 
     return wrapGatePage(`home | ${this.site.domainName}`, commonTags.safeHtml`
       <section class="account-overview">
-        <p>You are unknown @ ${this.site.domainName}!</p>
+        <p>You are ${state.session.account.address()}!</p>
       </section>
       <section class="domain-list">
         <h2>Your domains</h2>
