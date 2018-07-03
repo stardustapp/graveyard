@@ -80,7 +80,10 @@ class GateSiteLogin {
         <input type="text" name="username" placeholder="username" required autofocus>
         <input type="password" name="password" placeholder="password">
         <button type="submit">log in</button>
-      </form>`);
+      </form>
+      <div style="align-self: center;">
+        <a href="register">or register a new account</a>
+      </div>`);
   }
 
   async invoke(input) {
@@ -224,7 +227,7 @@ class GateSiteHome {
   async invoke(input) {
     const state = await new GateSiteRequest(this.site, input).loadState();
     if (!state.session) {
-      return buildRedirect('/');
+      return buildRedirect('/~/login');
     }
 
     return wrapGatePage(`home | ${this.site.domainName}`, commonTags.safeHtml`
