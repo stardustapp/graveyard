@@ -66,6 +66,13 @@ class DomainManager {
       .then(d => d ? new Domain(d) : null);
   }
 
+  /*async*/ findDomain(fqdn) {
+    const tx = this.idb.transaction('domains', 'readonly');
+    return tx.objectStore('domains')
+      .index('fqdn').get(fqdn)
+      .then(d => d ? new Domain(d) : null);
+  }
+
   /*async*/ getMembershipsFor(account) {
     return this.listDomains().then(list => list
       .filter(d => d.hasGrantFor(account))

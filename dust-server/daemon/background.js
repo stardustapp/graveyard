@@ -117,7 +117,17 @@ async function boot() {
   const localVHost = new VirtualHost('localhost', webEnv);
 
   // init the web server
-  const webServer = new HttpServer(domainManager, localVHost);
+  const webServer = new HttpServer(domainManager, localVHost, async function (hostname) {
+    const domain = await domainManager.findDomain(hostname);
+    if (!domain) return null;
+    console.log('loading host', hostname, domain);
+
+    const webEnv = new Environment('http://'+hostname);
+    webEnv.bind('', new DefaultSite(hostname));
+    webEnv.bind('/~', new GateSite(hostname, accountManager, sessionManager, domainManager));
+    const vHost = new VirtualHost(hostname, webEnv);
+    return vHost;
+  });
 
   // expose the entire system environment on the network
   const nsExport = new NsExport(systemEnv);

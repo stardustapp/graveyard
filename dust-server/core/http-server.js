@@ -1,5 +1,5 @@
 class HttpServer {
-  constructor(domainManager, defaultHost) {
+  constructor(domainManager, defaultHost, hostLoader) {
     this.domainManager = domainManager;
     this.wsc = new WSC.WebApplication({
       host: '0.0.0.0',
@@ -10,6 +10,7 @@ class HttpServer {
 
     this.hostLoaders = new Map;
     this.hostLoaders.set(null, Promise.resolve(defaultHost));
+    this.hostLoaderFactory = hostLoader;
   }
 
   addRoute(regex, handler) {
@@ -25,9 +26,15 @@ class HttpServer {
 
   /*async*/ getVHost(hostname) {
     if (this.hostLoaders.has(hostname)) {
-      return this.hostLoaders.set(hostname);
+      return this.hostLoaders.get(hostname);
     }
-    return this.hostLoaders.get(null);
+    const loader = this.hostLoaderFactory(hostname).catch(err => {
+      console.log('Failed to load vhost', hostname, err);
+      this.hostLoaders.delete(hostname);
+      return null;
+    });;
+    this.hostLoaders.set(hostname, loader);
+    return loader;
   }
 
   /*async*/ getDefaultHost() {
