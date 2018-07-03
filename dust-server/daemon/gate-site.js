@@ -14,28 +14,32 @@ class GateSite {
   }
 
   async getEntry(path) {
-    switch (path) {
+    const parts = path.slice(1).split('/');
+    switch (true) {
 
       // dynamic entry points
-      case '/login':
+      case path === '/login':
         return new GateSiteLogin(this);
-      case '/register':
+      case path === '/register':
         return new GateSiteRegister(this);
 
       // dynamic gated pages
-      case '/home':
+      case path === '/home':
         return new GateSiteHome(this);
-      case '/ftue':
+      case path === '/ftue':
         return new GateSiteFtue(this);
-      case '/add-domain':
+      case path === '/add-domain':
         return new GateSiteAddDomain(this);
 
+      case parts.length === 2 && parts[0] === 'my-domains' && parts[1].length > 0:
+        return new GateSiteManageDomain(this, parts[1]);
+
       // extra pages
-      case '/about':
+      case path === '/about':
         return new GateSiteAbout(this);
 
       // assets
-      case '/style.css':
+      case path === '/style.css':
         return new GateSiteStyle();
 
       default:
@@ -53,7 +57,7 @@ function wrapGatePage(title, inner) {
       <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
       <title>${title}</title>
       <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
-      <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
+      <link href="/~/style.css" type="text/css" rel="stylesheet" media="screen,projection" />
     </head>
     <body>
       `+'\n\n  '+inner.split('\n').join('\n  ')+'\n\n  '+commonTags.safeHtml`
@@ -229,8 +233,45 @@ class GateSiteAddDomain {
       const domain = await this.site.domainManager
           .registerDomain(domainName, request.session.account);
       
-      return buildRedirect('/~/home');
-      //return buildRedirect('/~/domains/'+domain.record.did);
+      return buildRedirect('/~/my-domains/'+domain.record.did);
+    }
+  }
+}
+
+class GateSiteManageDomain {
+  constructor(site, domainId) {
+    this.site = site;
+    this.domainId = domainId;
+  }
+
+  async invoke(input) {
+    const request = await new GateSiteRequest(this.site, input).loadState();
+    if (!request.session) {
+      return buildRedirect('/~/login');
+    }
+    const domain = await this.site.domainManager.getDomain(this.domainId);
+    if (!domain) {
+      throw new Error(`Domain not found`);
+    }
+    const role = domain.highestRoleFor(request.session.account);
+    if (role !== 'owner') {
+      throw new Error(`Only domain owners can manage the domain`);
+    }
+    
+    if (request.req.method === 'GET') {
+      return wrapGatePage(`manage domain`, commonTags.safeHtml`
+        <section id="modal-form">
+          <h1>domain: <em>${domain.record.primaryFqdn}</em></h1>
+          <div style="text-align: left;">
+            <p>Identity: ${domain.record.did}</p>
+            <p>Status: ${domain.record.status}</p>
+            <p>FQDNs: ${domain.record.fqdns}</p>
+            <p>Grants: ${domain.record.grants.map(g => commonTags.safeHtml`${g.aid}=${g.role}`)}</p>
+          </div>
+        </section>
+        <div style="align-self: center;">
+          <a href="../home">return home</a>
+        </div>`);
     }
   }
 }
@@ -282,7 +323,7 @@ class GateSiteHome {
     const memberships = await this.site.domainManager.getMembershipsFor(account);
     let domainListing = memberships.map(m => commonTags.safeHtml`
       <li>
-        <a href="domains/${m.domain.record.did}">${m.domain.record.primaryFqdn}</a>
+        <a href="my-domains/${m.domain.record.did}">${m.domain.record.primaryFqdn}</a>
         (${m.role})
       </li>
     `).join('\n');
@@ -413,6 +454,7 @@ footer {
   padding: 2em 1em;
   background-color: #eee;
   text-align: center;
+  color: #000;
 }
 #modal-form input, #modal-form button {
   font-size: 1.3em;
@@ -438,7 +480,7 @@ footer {
   cursor: 666;
   color: #333;
 }
-#modal-form h1 {
+#modal-form h1, #modal-form h2 {
   margin: 0.2em 1em 0.5em;
   font-weight: 300;
   color: #000;
