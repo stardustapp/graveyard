@@ -27,6 +27,8 @@ class GateSite {
         return new GateSiteHome(this);
       case '/ftue':
         return new GateSiteFtue(this);
+      case '/add-domain':
+        return new GateSiteAddDomain(this);
 
       // extra pages
       case '/about':
@@ -187,6 +189,52 @@ class GateSiteRegister {
   }
 }
 
+class GateSiteAddDomain {
+  constructor(site) {
+    this.site = site;
+  }
+
+  renderForm(request) {
+    if (!request.session) {
+      return buildRedirect('/~/login');
+    }
+
+    return wrapGatePage(`add domain | ${this.site.domainName}`, commonTags.safeHtml`
+      <form method="post" id="modal-form">
+        <h1>add new domain</h1>
+        <div class="row">
+          <label for="owner" style="margin: 0 0 0 2em;">owner</label>
+          <input type="text" name="owner" disabled value="${request.session.account.address()}"
+              style="width: 12em;">
+        </div>
+        <input type="text" name="fqdn" placeholder="domain name (as in DNS)" required autofocus>
+        <button type="submit">add domain to profile</button>
+      </form>`);
+  }
+
+  async invoke(input) {
+    const request = await new GateSiteRequest(this.site, input).loadState();
+    console.log('add domain', input, request);
+    
+    if (request.req.method === 'GET') {
+      return this.renderForm(request);
+    }
+
+    if (request.req.method === 'POST') {
+      const domainName = request.req.bodyparams.fqdn;
+      if (!domainName) {
+        return this.renderForm(request);
+      }
+
+      const domain = await this.site.domainManager
+          .registerDomain(domainName, request.session.account);
+      
+      return buildRedirect('/~/home');
+      //return buildRedirect('/~/domains/'+domain.record.did);
+    }
+  }
+}
+
 // Created from a user request
 // Parses cookies and such
 // What more could you want?
@@ -230,14 +278,26 @@ class GateSiteHome {
       return buildRedirect('/~/login');
     }
 
-    return wrapGatePage(`home | ${this.site.domainName}`, commonTags.safeHtml`
+    const {account} = state.session;
+    const memberships = await this.site.domainManager.getMembershipsFor(account);
+    let domainListing = memberships.map(m => commonTags.safeHtml`
+      <li>
+        <a href="domains/${m.domain.record.did}">${m.domain.record.primaryFqdn}</a>
+        (${m.role})
+      </li>
+    `).join('\n');
+    if (!memberships.length) {
+      domainListing = commonTags.safeHtml`<li>None yet</li>`;
+    }
+
+    return wrapGatePage(`home | ${this.site.domainName}`, commonTags.html`
       <section class="account-overview">
-        <p>You are ${state.session.account.address()}!</p>
+        <p>${commonTags.safeHtml`You are ${account.address()}!`}</p>
       </section>
       <section class="domain-list">
         <h2>Your domains</h2>
         <ul>
-          <li>None yet</li>
+          ${domainListing}
         </ul>
         <a href="/~/add-domain" class="action">Add new domain</a>
       </section>`);

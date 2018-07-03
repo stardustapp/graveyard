@@ -14,7 +14,7 @@ class DomainManager {
     this.domains = new Map();
   }
 
-  async registerDomain(domainName, ownerAddress) {
+  async registerDomain(domainName, owner) {
     if (!domainName.match(/(?=^.{1,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.?)+(?:[a-zA-Z]{2,})$)/)) {
       throw new Error(`Domain name ${JSON.stringify(domainName)} is not a valid FQDN`);
     }
@@ -28,35 +28,52 @@ class DomainManager {
           TODO: support multiple domain owners :)`);
     }
 
+
     const domain = {
-      domainName,
-      status: 'pending',
-      ownershipToken: Math.random().toString(16).slice(2),
-      createdBy: ownerAddress,
+      // idb indexes
+      did: Math.random().toString(16).slice(2), // for DNS validation too
+      fqdns: [domainName],
+      aids: [owner.record.aid],
+
+      primaryFqdn: domainName,
+      status: 'initial',
+      createdBy: owner.address(),
       createdAt: moment().toISOString(),
       grants: [{
-        grantId: Math.random().toString(16).slice(2),
-        identity: ownerAddress,
+        gid: Math.random().toString(16).slice(2),
+        aid: owner.record.aid,
+        //identity: owner.address(),
         role: 'owner',
       }],
     };
-    ToastNotif(`New domain registration: ${domainName} by ${ownerAddress}`);
+    ToastNotif(`New domain registration: ${domainName} by ${owner.address()}`);
 
     await tx.objectStore('domains').add(domain);
     await tx.complete;
 
-    return domain;
+    return new Domain(domain);
   }
 
   /*async*/ listDomains() {
     const tx = this.idb.transaction('domains', 'readonly');
     return tx.objectStore('domains').getAll()
-      .then(x => x.map(d => new Domain(d, this)));
+      .then(x => x.map(d => new Domain(d)));
   }
 
-  /*async*/ getDomain(domainName) {
+  /*async*/ getDomain(domainId) {
     const tx = this.idb.transaction('domains', 'readonly');
-    return tx.objectStore('domains').get(domainName)
-      .then(d => d ? new Domain(d, this) : null);
+    return tx.objectStore('domains').get(domainId)
+      .then(d => d ? new Domain(d) : null);
+  }
+
+  /*async*/ getMembershipsFor(account) {
+    return this.listDomains().then(list => list
+      .filter(d => d.hasGrantFor(account))
+      .map(d => {
+        return {
+          domain: d,
+          role: d.highestRoleFor(account),
+        };
+      }));
   }
 };

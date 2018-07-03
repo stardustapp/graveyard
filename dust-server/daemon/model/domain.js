@@ -1,21 +1,18 @@
 // meeseeks class for working with domain snapshots
 class Domain {
-  constructor(data, manager=null) {
-    this.data = data;
-    this.manager = manager;
-
-    this.name = data.domainName;
+  constructor(data) {
+    this.record = data;
   }
 
-  hasGrantFor(identity) {
-    return this.data.grants
-        .some(g => g.identity === identity);
+  hasGrantFor(account) {
+    return this.record.grants
+        .some(g => g.aid === account.record.aid);
   }
 
-  highestRoleFor(identity) {
+  highestRoleFor(account) {
     const roles = new Set;
-    this.data.grants
-      .filter(g => g.identity === identity)
+    this.record.grants
+      .filter(g => g.aid === account.record.aid)
       .forEach(g => roles.add(g.role));
 
     return [
