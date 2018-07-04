@@ -1,10 +1,3 @@
-/*
-  const accounts = upgradeDB.createObjectStore('accounts', {
-    keyPath: 'aid',
-  });
-  accounts.createIndex('address', ['username', 'domain'], { unique: true });
-*/
-
 class AccountManager {
   constructor(idb) {
     this.idb = idb;

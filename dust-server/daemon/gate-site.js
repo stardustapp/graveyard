@@ -259,7 +259,7 @@ class GateSiteSetPassword {
       rows.push(commonTags.safeHtml`
         <div class="row">
           <label for="current" style="margin: 0 0 0 2em; width: 5em;">current</label>
-          <input type="password" name="current" required autofocus style="flex: 1;" placeholder="(none)">
+          <input type="password" name="current" required autofocus style="flex: 1;">
         </div>`);
     }
     rows.push(commonTags.safeHtml`
@@ -407,25 +407,26 @@ class GateSiteHome {
     }
 
     return wrapGatePage(`home | ${this.site.domainName}`, commonTags.html`
+    <div style="display: flex;">
       <section class="compact modal-form">
         <p>${commonTags.safeHtml`You are ${account.address()}!`}</p>
         ${state.session.account.hasPassword() ? commonTags.html`
-          <a href="/~/set-password" class="action">Change account password</a>
+          <a href="set-password" class="action">Change account password</a>
         ` : commonTags.html`
           <p>You don't have a password!</p>
-          <a href="/~/set-password" class="action">Create password</a>
+          <a href="set-password" class="action">Create password</a>
         `}
+        <a href="logout" class="action">log out</a>
       </section>
+
       <section class="compact modal-form">
         <h2>Your domains</h2>
         <ul style="text-align: left;">
           ${domainListing}
         </ul>
-        <a href="/~/add-domain" class="action">Add new domain</a>
+        <a href="add-domain" class="action">Add new domain</a>
       </section>
-      <form class="compact modal-form" method="post" action="logout">
-        <button class="action" type="submit">log out</button>
-      </form>`);
+    </div>`);
   }
 }
 
@@ -457,7 +458,9 @@ class GateSiteLogout {
     if (request.req.method !== 'POST') {
       return wrapGatePage(`logout | ${this.site.domainName}`, commonTags.html`
         <form class="modal-form" method="post">
-          <button class="action" type="submit">log out</button>
+          <h2>Push the button.</h2>
+          <button type="submit">log out</button>
+          <p><a href="home">wait nvm</a></p>
         </form>`);
     }
 
