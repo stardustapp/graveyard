@@ -25,12 +25,11 @@ class SessionManager {
   /*async*/ getSession(sessionId) {
     if (this.sessionPromises.has(sessionId))
       return this.sessionPromises.get(sessionId);
-    const promise = this.loadSession(sessionId);
-    this.sessionPromises.set(sessionId, promise);
-    promise.catch(err => {
+    const promise = this.loadSession(sessionId).catch(err => {
       this.sessionPromises.delete(sessionId);
       console.log(`Session ${sessionId} failed to load:`, err);
     });
+    this.sessionPromises.set(sessionId, promise);
     return promise;
   }
 
