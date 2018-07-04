@@ -119,14 +119,18 @@ async function boot() {
   // init the web server
   const webServer = new HttpServer(domainManager, localVHost, async function (hostname) {
     const domain = await domainManager.findDomain(hostname);
-    if (!domain) return null;
+    if (!domain) throw new Error('Domain does not exist');
     console.log('loading host', hostname, domain);
 
     const webEnv = new Environment('http://'+hostname);
     webEnv.bind('', new DefaultSite(hostname));
     webEnv.bind('/~', new GateSite(hostname, accountManager, sessionManager, domainManager));
-    const vHost = new VirtualHost(hostname, webEnv);
-    return vHost;
+    webEnv.bind('/~~libs', new WebFilesystemMount({
+      entry: pkgRoot,
+      prefix: 'platform/libs/',
+    }));
+
+    return new VirtualHost(hostname, webEnv);
   });
 
   // expose the entire system environment on the network
