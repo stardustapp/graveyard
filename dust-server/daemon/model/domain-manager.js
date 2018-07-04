@@ -11,7 +11,7 @@ class DomainManager {
   constructor(idb) {
     this.env = new Environment();
     this.idb = idb;
-    this.domains = new Map();
+    this.webEnvs = new Map(); // did => env
   }
 
   async registerDomain(domainName, owner) {
@@ -84,8 +84,25 @@ class DomainManager {
       }));
   }
 
+  async getWebEnvironment(domain) {
+    const {did} = domain.record;
+    if (this.webEnvs.has(did)) {
+      return this.webEnvs.get(did);
+    }
+
+    // register the environment
+    const env = new Environment('http://'+domain.record.primaryFqdn);
+    this.webEnvs.set(did, env);
+
+    // fill it in and return
+    env.bind('', await domain.getWebrootMount());
+    return env;
+  }
+
   async attachStaticWebRoot(domain) {
-    const volumeId = `domain:${domain.record.did}`;
+    const {did} = domain.record;
+
+    const volumeId = `domain:${did}`;
     const webroot = await new Promise((resolve, reject) => {
       chrome.fileSystem.requestFileSystem({
         volumeId, writable: true,
@@ -128,13 +145,21 @@ class DomainManager {
     const store = tx.objectStore('domains');
 
     // make the new version
-    const record = await store.get(domain.record.did);
+    const record = await store.get(did);
     record.webroot = webroot;
+    domain.record.webroot = webroot;
 
     // persist it
     await store.put(record);
     await tx.complete;
-    ToastNotif(`Webroot changed for ${record.primaryFqdn}`);
+    ToastNotif(`Web root changed for ${record.primaryFqdn}`);
+
+    // remound the webenv's root if it's already loaded
+    if (this.webEnvs.has(did)) {
+      console.log('hotswapping web env for domain', did);
+      const webEnv = this.webEnvs.get(did);
+      webEnv.bind('', await domain.getWebrootMount());
+    }
 
     return webroot;
   }

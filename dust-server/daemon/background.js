@@ -122,42 +122,12 @@ async function boot() {
     if (!domain) throw new Error('Domain does not exist');
     console.log('loading host', hostname, domain);
 
-    const webEnv = new Environment('http://'+hostname);
+    const webEnv = await domainManager.getWebEnvironment(domain);
     webEnv.bind('/~', new GateSite(hostname, accountManager, sessionManager, domainManager));
     webEnv.bind('/~~libs', new WebFilesystemMount({
       entry: pkgRoot,
       prefix: 'platform/libs/',
     }));
-
-    if (domain.record.webroot) {
-      const entry = await new Promise((resolve, reject) => {
-        switch (domain.record.webroot.type) {
-          case 'retained entry':
-            chrome.fileSystem.restoreEntry(domain.record.webroot.id, entry => {
-              if (chrome.runtime.lastError)
-                reject(chrome.runtime.lastError);
-              else
-                resolve(entry);
-            });
-            break;
-          case 'filesystem':
-            chrome.fileSystem.requestFileSystem({
-              volumeId, writable: true,
-            }, fs => {
-              if (chrome.runtime.lastError)
-                reject(chrome.runtime.lastError);
-              else
-                resolve(fs)
-            });
-          default:
-            reject(new Error(`Domain had unrecognized webroot type ${domain.record.webroot}`));
-        }
-      });
-      webEnv.bind('', new WebFilesystemMount({entry}));
-    } else {
-      webEnv.bind('', new DefaultSite(hostname));
-    }
-
     return new VirtualHost(hostname, webEnv);
   });
 

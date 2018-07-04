@@ -22,4 +22,35 @@ class Domain {
       'guest',
     ].find(x => roles.has(x));
   }
+
+  async getWebrootMount() {
+    if (this.record.webroot) {
+      return await new Promise((resolve, reject) => {
+        switch (this.record.webroot.type) {
+          case 'retained entry':
+            chrome.fileSystem.restoreEntry(this.record.webroot.id, entry => {
+              if (chrome.runtime.lastError)
+                reject(chrome.runtime.lastError);
+              else
+                resolve(new WebFilesystemMount({entry}));
+            });
+            break;
+          case 'filesystem':
+            chrome.fileSystem.requestFileSystem({
+              volumeId, writable: true,
+            }, entry => {
+              if (chrome.runtime.lastError)
+                reject(chrome.runtime.lastError);
+              else
+                resolve(new WebFilesystemMount({entry}));
+            });
+            break;
+          default:
+            reject(new Error(`Domain had unrecognized webroot type ${this.record.webroot}`));
+        }
+      });
+    } else {
+      return new DefaultSite(this.record.primaryFqdn);
+    }
+  }
 }
