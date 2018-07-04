@@ -6493,7 +6493,10 @@ WSC.Buffer = Buffer
                     this.stream.readBytes(clen, this.onRequestBody.bind(this))
                     return
                 } else {
-                    this.curRequest.body = null
+                    console.log('request had an empty body');
+                    this.curRequest.body = new Uint8Array(0);
+                    this.onRequestBody(this.curRequest.body);
+                    return;
                 }
             }
 

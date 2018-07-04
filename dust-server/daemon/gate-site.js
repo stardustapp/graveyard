@@ -32,6 +32,8 @@ class GateSite {
         return new GateSiteAddDomain(this);
       case path === '/set-password':
         return new GateSiteSetPassword(this);
+      case path === '/logout':
+        return new GateSiteLogout(this);
 
       case parts.length === 2 && parts[0] === 'my-domains' && parts[1].length > 0:
         return new GateSiteManageDomain(this, parts[1]);
@@ -122,7 +124,7 @@ class GateSiteLogin {
   }
 }
 
-function setCookieAndBuildRedirect(accountId, sessionId, url='/') {
+function setCookieAndBuildRedirect(accountId, sessionId, url, expiresMonths=1) {
   const body = wrapGatePage('redirecting...', commonTags.safeHtml`
     <header>
       <h2>redirecting to <a href="${url}">${url}</a></h2>
@@ -131,7 +133,7 @@ function setCookieAndBuildRedirect(accountId, sessionId, url='/') {
 
   const cookieName = `stardust:acct:${encodeURIComponent(accountId)}`;
   const newCookie = sessionId;
-  const expiresAt = moment.utc().add(1, 'month').toDate().toUTCString();
+  const expiresAt = moment.utc().add(expiresMonths, 'month').toDate().toUTCString();
   const setCookie = `${cookieName}=${encodeURIComponent(newCookie)}; Expires=${expiresAt}`; // HttpOnly?
 
   return new FolderLiteral('http response', [
@@ -410,7 +412,10 @@ class GateSiteHome {
           ${domainListing}
         </ul>
         <a href="/~/add-domain" class="action">Add new domain</a>
-      </section>`);
+      </section>
+      <form class="compact modal-form" method="post" action="logout">
+        <button class="action" type="submit">log out</button>
+      </form>`);
   }
 }
 
@@ -428,6 +433,30 @@ class GateSiteFtue {
           <li>nothing, yet</li>
         </ul>
       </section>`);
+  }
+}
+
+
+class GateSiteLogout {
+  constructor(site) {
+    this.site = site;
+  }
+
+  async invoke(input) {
+    const request = await new GateSiteRequest(this.site, input).loadState();
+    if (request.req.method !== 'POST') {
+      return wrapGatePage(`logout | ${this.site.domainName}`, commonTags.html`
+        <form class="modal-form" method="post">
+          <button class="action" type="submit">log out</button>
+        </form>`);
+    }
+
+    await this.site.sessionManager.purge(request.session);
+
+    return setCookieAndBuildRedirect(
+        request.session.account.record.aid,
+        request.session.record.sid,
+        '/', -100); // expire 100 months ago
   }
 }
 

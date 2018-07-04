@@ -74,6 +74,14 @@ class SessionManager {
     this.sessionPromises.set(record.aid, Promise.resolve(session));
     return session;
   }
+
+  async purge(session) {
+    const tx = this.idb.transaction('sessions', 'readwrite');
+    await tx.objectStore('sessions').delete(session.record.sid);
+    await tx.complete;
+
+    this.sessionPromises.delete(session.record.sid);
+  }
 };
 
 // TODO:
