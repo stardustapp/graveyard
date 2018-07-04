@@ -283,11 +283,17 @@ chrome.runtime.onMessage.addListener(function (msg, sender, reply) {
         promise.then(id => {
           reply({ok: true, id});
         }, err => {
-          reply({ok: false, error: err});
+          reply({ok: false, error: err.message});
         });
       });
+      entry.action('cancel', () => {
+        entry.promise(Promise.resolve('User cancelled'));
+        reply({ok: false, error: 'User cancelled'});
+      })
+
       // bring to front
       chrome.app.window.current().focus();
+      // allow a response
       return true;
   }
 });
