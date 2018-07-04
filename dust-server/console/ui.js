@@ -261,9 +261,11 @@ chrome.runtime.onMessage.addListener(function (msg, sender, reply) {
 
   switch (msg.type) {
     case 'select-folder':
+      // prompt the user to start selection
       const entry = addEntry('select-folder');
       entry.title('select folder: '+msg.prompt);
       entry.action('choose read/write directory', () => {
+        // get the entry as a promise
         const promise = new Promise((resolve, reject) => {
           chrome.fileSystem.chooseEntry({type: 'openDirectory'}, entry => {
             if (chrome.runtime.lastError)
@@ -276,7 +278,8 @@ chrome.runtime.onMessage.addListener(function (msg, sender, reply) {
         });
         entry.promise(promise.then(id =>
           `Selected and retained folder entry ${id} :)`));
-        console.log('reply', reply);
+
+        // send the result back
         promise.then(id => {
           reply({ok: true, id});
         }, err => {

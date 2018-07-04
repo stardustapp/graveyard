@@ -83,4 +83,59 @@ class DomainManager {
         };
       }));
   }
+
+  async attachStaticWebRoot(domain) {
+    const volumeId = `domain:${domain.record.did}`;
+    const webroot = await new Promise((resolve, reject) => {
+      chrome.fileSystem.requestFileSystem({
+        volumeId, writable: true,
+      }, fs => {
+        if (chrome.runtime.lastError)
+          reject(chrome.runtime.lastError);
+        else
+          resolve(fs)
+      });
+    }).then(fs => {
+      return {
+        type: 'volume',
+        id: volumeId,
+      };
+    }, err => {
+      if (!err.message.startsWith("Operation only supported for kiosk apps"))
+        throw err;
+
+      // fallback to selectEntry for development
+      return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'select-folder',
+          prompt: `webroot for ${domain.record.primaryFqdn}`,
+        }, ({ok, id, error}) => {
+          if (ok) {
+            resolve({
+              type: 'retained entry',
+              id: id,
+            });
+          } else {
+            reject(new Error(error));
+          }
+        });
+      });
+    });
+
+    console.log('got new webroot', webroot);
+
+    const tx = this.idb.transaction('domains', 'readwrite');
+    const store = tx.objectStore('domains');
+
+    // make the new version
+    const record = await store.get(domain.record.did);
+    record.webroot = webroot;
+
+    // persist it
+    await store.put(record);
+    await tx.complete;
+    ToastNotif(`Webroot changed for ${record.primaryFqdn}`);
+
+    return webroot;
+  }
 };

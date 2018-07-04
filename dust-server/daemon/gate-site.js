@@ -333,10 +333,19 @@ class GateSiteManageDomain {
             <p>FQDNs: ${domain.record.fqdns}</p>
             <p>Grants: ${domain.record.grants.map(g => commonTags.safeHtml`${g.aid}=${g.role}`)}</p>
           </div>
+          <form method="post">
+            <input type="hidden" name="action" value="attach webroot">
+            <button type="submit" class="action">attach static website</button>
+          </form>
         </section>
         <div style="align-self: center;">
           <a href="../home">return home</a>
         </div>`);
+    }
+
+    if (request.req.method === 'POST' && request.req.bodyparams.action === 'attach webroot') {
+      await this.site.domainManager.attachStaticWebRoot(domain);
+      return buildRedirect(domain.record.did);
     }
   }
 }
