@@ -332,6 +332,7 @@ class GateSiteManageDomain {
             <p>Status: ${domain.record.status}</p>
             <p>FQDNs: ${domain.record.fqdns}</p>
             <p>Grants: ${domain.record.grants.map(g => commonTags.safeHtml`${g.aid}=${g.role}`)}</p>
+            <p>Web root: ${domain.record.webroot ? domain.record.webroot.type : 'none'}</p>
           </div>
           <form method="post">
             <input type="hidden" name="action" value="attach webroot">
