@@ -1,7 +1,7 @@
 // Serves up enough HTML to nicely direct users to the account page
 
 class GateSite {
-  constructor(domainName, accountManager, sessionManager, domainManager) {
+  constructor(domainName, accountManager, sessionManager, domainManager, appManager) {
     if (!domainName)
       throw new Error(`GateSite requires a domain name`);
     if (!sessionManager)
@@ -11,6 +11,7 @@ class GateSite {
     this.accountManager = accountManager;
     this.sessionManager = sessionManager;
     this.domainManager = domainManager;
+    this.appManager = appManager;
   }
 
   async getEntry(path) {
@@ -406,6 +407,16 @@ class GateSiteHome {
       domainListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
+    const apps = await this.site.appManager.getAppInstallsFor(account);
+    let appListing = apps.map(a => commonTags.safeHtml`
+      <li>
+        <a href="my-apps/${a.app.record.appid}">${a.app.record.name}</a>
+      </li>
+    `).join('\n');
+    if (!apps.length) {
+      appListing = commonTags.safeHtml`<li>None yet</li>`;
+    }
+
     return wrapGatePage(`home | ${this.site.domainName}`, commonTags.html`
     <div style="display: flex;">
       <section class="compact modal-form">
@@ -417,6 +428,14 @@ class GateSiteHome {
           <a href="set-password" class="action">Create password</a>
         `}
         <a href="logout" class="action">log out</a>
+      </section>
+
+      <section class="compact modal-form">
+        <h2>Your apps</h2>
+        <ul style="text-align: left;">
+          ${appListing}
+        </ul>
+        <a href="add-app" class="action">Install application</a>
       </section>
 
       <section class="compact modal-form">

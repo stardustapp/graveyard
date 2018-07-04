@@ -38,7 +38,7 @@ async function boot() {
     chrome.power.requestKeepAwake('display');
   }
 
-  const db = await idb.open('system', 6, upgradeDB => {
+  const db = await idb.open('system', 7, upgradeDB => {
     switch (upgradeDB.oldVersion) {
       case 0:
         // Stores name[@domain] profiles
@@ -84,6 +84,13 @@ async function boot() {
         });
         domains.createIndex('fqdn', 'fqdns', { unique: true,  multiEntry: true });
         domains.createIndex('aid',  'aids',  { unique: false, multiEntry: true });
+
+      case 6:
+        const apps = upgradeDB.createObjectStore('apps', {
+          keyPath: 'appid',
+        });
+        upgradeDB.transaction.objectStore('accounts')
+            .createIndex('app',  'apps',  { unique: false, multiEntry: true });
     }
   });
   console.log('Opened database');
@@ -91,17 +98,18 @@ async function boot() {
   const accountManager = new AccountManager(db);
   const sessionManager = new SessionManager(db, accountManager);
   const domainManager = new DomainManager(db);
+  const appManager = new AppManager(db);
 
   // create a root environment using GateApi
   const systemEnv = new Environment();
-  const gateApi = new GateApi(systemEnv, accountManager, sessionManager, domainManager);
+  const gateApi = new GateApi(systemEnv, accountManager, sessionManager, domainManager, appManager);
 
   // build the localhost site
   const pkgRoot = await new Promise(r =>
     chrome.runtime.getPackageDirectoryEntry(r));
   const webEnv = new Environment('http://localhost');
   webEnv.bind('', new DefaultSite('localhost'));
-  webEnv.bind('/~', new GateSite('localhost', accountManager, sessionManager, domainManager));
+  webEnv.bind('/~', new GateSite('localhost', accountManager, sessionManager, domainManager, appManager));
   webEnv.bind('/~dan/editor', new WebFilesystemMount({
     entry: pkgRoot,
     prefix: 'platform/apps/editor/',
@@ -123,7 +131,7 @@ async function boot() {
     console.log('loading host', hostname, domain);
 
     const webEnv = await domainManager.getWebEnvironment(domain);
-    webEnv.bind('/~', new GateSite(hostname, accountManager, sessionManager, domainManager));
+    webEnv.bind('/~', new GateSite(hostname, accountManager, sessionManager, domainManager, appManager));
     webEnv.bind('/~~libs', new WebFilesystemMount({
       entry: pkgRoot,
       prefix: 'platform/libs/',
