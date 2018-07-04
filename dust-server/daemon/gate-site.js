@@ -30,6 +30,8 @@ class GateSite {
         return new GateSiteFtue(this);
       case path === '/add-domain':
         return new GateSiteAddDomain(this);
+      case path === '/set-password':
+        return new GateSiteSetPassword(this);
 
       case parts.length === 2 && parts[0] === 'my-domains' && parts[1].length > 0:
         return new GateSiteManageDomain(this, parts[1]);
@@ -80,7 +82,7 @@ class GateSiteLogin {
 
   async get() {
     return wrapGatePage(`login | ${this.site.domainName}`, commonTags.safeHtml`
-      <form method="post" id="modal-form">
+      <form method="post" class="modal-form">
         <h1>login to <em>${this.site.domainName}</em></h1>
         <input type="hidden" name="domain" value="${this.site.domainName}">
         <input type="text" name="username" placeholder="username" required autofocus>
@@ -165,7 +167,7 @@ class GateSiteRegister {
 
   async get() {
     return wrapGatePage(`register | ${this.site.domainName}`, commonTags.safeHtml`
-      <form method="post" id="modal-form">
+      <form method="post" class="modal-form">
         <h1>register new account</h1>
         <input type="hidden" name="domain" value="${this.site.domainName}">
         <div class="row">
@@ -204,7 +206,7 @@ class GateSiteAddDomain {
     }
 
     return wrapGatePage(`add domain | ${this.site.domainName}`, commonTags.safeHtml`
-      <form method="post" id="modal-form">
+      <form method="post" class="modal-form">
         <h1>add new domain</h1>
         <div class="row">
           <label for="owner" style="margin: 0 0 0 2em;">owner</label>
@@ -238,6 +240,67 @@ class GateSiteAddDomain {
   }
 }
 
+class GateSiteSetPassword {
+  constructor(site) {
+    this.site = site;
+  }
+
+  renderForm(request) {
+    const rows = [commonTags.safeHtml`
+      <div class="row">
+        <label for="owner" style="margin: 0 0 0 2em; width: 5em;">account</label>
+        <input type="text" name="owner" disabled value="${request.session.account.address()}"
+            style="flex: 1;">
+      </div>`
+    ];
+    if (request.session.account.hasPassword()) {
+      rows.push(commonTags.safeHtml`
+        <div class="row">
+          <label for="current" style="margin: 0 0 0 2em; width: 5em;">current</label>
+          <input type="password" name="current" required autofocus style="flex: 1;" placeholder="(none)">
+        </div>`);
+    }
+    rows.push(commonTags.safeHtml`
+        <div class="row">
+          <label for="desired" style="margin: 0 0 0 2em; width: 5em;">new</label>
+          <input type="password" name="desired" required style="flex: 1;">
+        </div>`);
+
+    return wrapGatePage(`set password | ${request.session.account.address()}`, commonTags.html`
+      <form method="post" class="modal-form">
+        <h1>set account password</h1>
+        ${rows.join('\n')}
+        <button type="submit">submit</button>
+      </form>`);
+  }
+
+  async invoke(input) {
+    const request = await new GateSiteRequest(this.site, input).loadState();
+    if (!request.session) {
+      return buildRedirect('/~/login');
+    }
+    
+    if (request.req.method === 'GET') {
+      return this.renderForm(request);
+    }
+
+    if (request.req.method === 'POST') {
+      const {current, desired} = request.req.bodyparams;
+      if (!desired) {
+        return this.renderForm(request);
+      }
+
+      if (request.session.account.hasPassword()) {
+        await request.session.account.assertPassword(current);
+      }
+
+      await this.site.accountManager
+          .setPassword(request.session.account, desired);
+      return buildRedirect('/~/home');
+    }
+  }
+}
+
 class GateSiteManageDomain {
   constructor(site, domainId) {
     this.site = site;
@@ -260,7 +323,7 @@ class GateSiteManageDomain {
     
     if (request.req.method === 'GET') {
       return wrapGatePage(`manage domain`, commonTags.safeHtml`
-        <section id="modal-form">
+        <section class="modal-form">
           <h1>domain: <em>${domain.record.primaryFqdn}</em></h1>
           <div style="text-align: left;">
             <p>Identity: ${domain.record.did}</p>
@@ -332,12 +395,18 @@ class GateSiteHome {
     }
 
     return wrapGatePage(`home | ${this.site.domainName}`, commonTags.html`
-      <section class="account-overview">
+      <section class="compact modal-form">
         <p>${commonTags.safeHtml`You are ${account.address()}!`}</p>
+        ${state.session.account.hasPassword() ? commonTags.html`
+          <a href="/~/set-password" class="action">Change account password</a>
+        ` : commonTags.html`
+          <p>You don't have a password!</p>
+          <a href="/~/set-password" class="action">Create password</a>
+        `}
       </section>
-      <section class="domain-list">
+      <section class="compact modal-form">
         <h2>Your domains</h2>
-        <ul>
+        <ul style="text-align: left;">
           ${domainListing}
         </ul>
         <a href="/~/add-domain" class="action">Add new domain</a>
@@ -386,6 +455,7 @@ html, body {
 }
 body {
   background-image: linear-gradient(145deg, #3e4b66 0%, #1f2533 100%);
+  background-attachment: fixed;
   color: #fff;
   font-family: Roboto, sans;
   display: flex;
@@ -446,59 +516,78 @@ footer {
   color: #999;
 }
 
-#modal-form {
+.modal-form a {
+  color: #333;
+}
+.modal-form .action {
+  border-color: #666;
+}
+.modal-form .action:hover {
+  border-color: #000;
+  color: #000;
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+.modal-form {
   display: flex;
   flex-direction: column;
   max-width: 40em;
-  margin: 5em auto 3em;
-  padding: 2em 1em;
   background-color: #eee;
   text-align: center;
   color: #000;
+  margin: 5em auto 3em;
+  padding: 2em 1em;
 }
-#modal-form input, #modal-form button {
+.modal-form.compact {
+  margin: 1em auto;
+  padding: 1em 1em;
+}
+.modal-form input, .modal-form button {
   font-size: 1.3em;
   margin: 0.25em 1em;
   padding: 0.5em 1em;
   display: block;
   border: 3px solid #ccc;
 }
-#modal-form input:focus, #modal-form button:focus {
+.modal-form input:focus, .modal-form button:focus {
   border-color: #666;
   box-shadow: 0 0 4px 1px rgba(50, 50, 50, 0.3);
   outline: none;
 }
-#modal-form input:hover, #modal-form button:hover {
+.modal-form input:hover, .modal-form button:hover {
   border-color: #999;
   outline: none;
 }
-#modal-form input {
+.modal-form input {
   background-color: #fff;
 }
-#modal-form button {
+.modal-form button {
   background-color: rgba(0, 0, 0, 0.15);
   cursor: 666;
   color: #333;
 }
-#modal-form h1, #modal-form h2 {
+.modal-form h1, .modal-form h2 {
   margin: 0.2em 1em 0.5em;
   font-weight: 300;
   color: #000;
 }
-#modal-form input {
+.modal-form input {
   letter-spacing: 1px;
 }
-#modal-form input[type=password]:not(:placeholder-shown) {
+.modal-form input[type=password]:not(:placeholder-shown) {
   letter-spacing: 4px;
 }
-#modal-form h1 em {
+.modal-form input[disabled] {
+  background-color: #f3f3f3;
+}
+.modal-form h1 em {
   font-weight: 400;
   font-style: normal;
 }
-#modal-form .row {
+.modal-form .row {
   display: flex;
 }
-#modal-form .row label {
+.modal-form .row label {
   align-self: center;
   color: #000;
   font-size: 1.2em;
