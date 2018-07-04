@@ -28,16 +28,30 @@ class Account {
     return this.record.username + '@' + this.record.domain;
   }
 
+  hasPassword() {
+    return !!this.record.secretHash;
+  }
+
   async assertPassword(password) {
-    const secretEnt = await this.env.getEntry('/config/password');
-    const secretVal = await secretEnt.get();
-    if (secretVal) {
-      if (password != secretVal.StringValue) {
-        ToastNotif(`Failed login attempt for ${username}${domain}`);
+    //const secretEnt = await this.env.getEntry('/config/password');
+    //const secretVal = await secretEnt.get();
+    
+    const {secretHash} = this.record;
+    if (!secretHash) {
+      throw new Error(`This account doesn't have a password and cannot be logged into`);
+    }
+
+    if (secretHash.startsWith('$2a$')) {
+      // bcrypt
+      const ok = await dcodeIO.bcrypt.compare(password, secretHash);
+      if (!ok) {
+        ToastNotif(`Failed login attempt for ${this.address()}`);
         throw new Error(`Invalid auth credentials`);
       }
+      return ok;
     }
-    return true;
+    
+    throw new Error(`BUG: Account has an unrecognized hashing strategy. Find your system administrator`);
   }
 
   close() {

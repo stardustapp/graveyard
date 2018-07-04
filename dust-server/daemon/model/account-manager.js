@@ -87,4 +87,27 @@ class AccountManager {
     ToastNotif(`New account registration: ${account.address()} by ${email} - ${realname}`);
     return account;
   }
+
+  async setPassword(account, newPassword) {
+    const newHash = await dcodeIO.bcrypt.hash(newPassword, 10);
+
+    const tx = this.idb.transaction('accounts', 'readwrite');
+    const store = tx.objectStore('accounts');
+
+    // make the new version
+    const record = await store.get(account.record.aid);
+    if (newPassword.length > 0) {
+      record.secretHash = newHash;
+    } else {
+      delete record.secretHash;
+    }
+
+    // persist it
+    await store.put(record);
+    await tx.complete;
+    ToastNotif(`Password changed for ${account.address()}`);
+
+    // update the inmemory version
+    account.record.secretHash = record.secretHash;
+  }
 };
