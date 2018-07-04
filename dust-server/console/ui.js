@@ -19,17 +19,19 @@ function addEntry (action) {
   historyCol.insertBefore(box, historyCol.children[0]);
 
   let boxState = 'init';
-  const progressTimer = setTimeout(() => {
-    if (boxState === 'init') {
-      box.appendChild(progress);
-      boxState = 'progress';
-    }
-  }, 50);
+  let progressTimer = false;
+  const startProgressTimer = () =>
+    progressTimer = setTimeout(() => {
+      if (boxState === 'init') {
+        box.appendChild(progress);
+        boxState = 'progress';
+      }
+    }, 50);
 
   const finalizeBox = () => {
     if (boxState === 'progress')
       box.removeChild(progress);
-    else
+    else if (progressTimer !== false)
       clearTimeout(progressTimer);
     boxState = 'final';
 
@@ -40,9 +42,29 @@ function addEntry (action) {
     }, 0);
   }
 
+  let actions = null;
   return {
     title(text) { title.innerText = text; },
+    action(title, cb) {
+      if (!actions) {
+        actions = document.createElement('ul');
+        actions.classList.add('actions');
+        box.appendChild(actions);
+      }
+
+      const action = document.createElement('button');
+      action.addEventListener('click', evt => {
+        box.removeChild(actions);
+        cb(evt);
+      });
+      action.innerText = title;
+
+      const li = document.createElement('li');
+      li.appendChild(action);
+      actions.appendChild(li);
+    },
     promise(p) {
+      startProgressTimer();
       p.then(text => {
         output.value = text.trim();
         finalizeBox();
@@ -227,3 +249,42 @@ document.addEventListener("click", event => {
     element = element.parentNode;
   }
 }, false);
+
+chrome.runtime.onMessage.addListener(function (msg, sender, reply) {
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('Dropping message from other source', sender);
+    return;
+  }
+  if (!sender.url.endsWith('background_page.html')) {
+    return; // ignore messages not from the background
+  }
+
+  switch (msg.type) {
+    case 'select-folder':
+      const entry = addEntry('select-folder');
+      entry.title('select folder: '+msg.prompt);
+      entry.action('choose read/write directory', () => {
+        const promise = new Promise((resolve, reject) => {
+          chrome.fileSystem.chooseEntry({type: 'openDirectory'}, entry => {
+            if (chrome.runtime.lastError)
+              reject(chrome.runtime.lastError);
+            else
+              resolve(entry);
+          });
+        }).then(fEntry => {
+          return chrome.fileSystem.retainEntry(fEntry);
+        });
+        entry.promise(promise.then(id =>
+          `Selected and retained folder entry ${id} :)`));
+        console.log('reply', reply);
+        promise.then(id => {
+          reply({ok: true, id});
+        }, err => {
+          reply({ok: false, error: err});
+        });
+      });
+      // bring to front
+      chrome.app.window.current().focus();
+      return true;
+  }
+});
