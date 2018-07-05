@@ -26,7 +26,7 @@ class AccountManager {
       .objectStore('accounts')
       .getAll();
     return await Promise.all(all
-      .filter(r => r.domain == domain.record.primaryFqdn)
+      .filter(r => r.did == domain.record.did)
       .map(r => this.getAccount(r.aid)));
   }
 
@@ -63,17 +63,15 @@ class AccountManager {
     return null;
   }
 
-  async create({username, domain, realname, email}) {
-    if (!domain.match(/(?=^.{1,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.?)+(?:[a-zA-Z]{2,})$)/)) {
-      throw new Error(`Domain name ${JSON.stringify(domainName)} is not a valid FQDN`);
-    }
-
+  async create({username, domainName, domainId, realname, email}) {
     const record = {
       schema: 1,
       aid: Math.random().toString(16).slice(2),
+      did: domainId,
       pids: [], // all pids which are referenced
       apps: {}, // slug -> pid
-      username, domain,
+      username,
+      domain: domainName,
       status: (username == 'dan') ? 'admin' : 'active',
       contact: {
         name: realname,
@@ -89,7 +87,7 @@ class AccountManager {
 
     } catch (err) {
       if (err.name === 'ConstraintError') {
-        throw new Error(commonTags.oneLine`Account ${username} is already registered on ${domain}.
+        throw new Error(commonTags.oneLine`Account ${username} is already registered on ${domainName}.
             Try logging in if you should have access, or choose another username or domain.`);
       }
       throw err;

@@ -91,6 +91,8 @@ async function boot() {
         });
         upgradeDB.transaction.objectStore('accounts')
             .createIndex('pid',  'pids',  { unique: false, multiEntry: true });
+        upgradeDB.transaction.objectStore('accounts')
+            .createIndex('did',  'did',   { unique: false });
     }
   });
   console.log('Opened database');
@@ -114,7 +116,8 @@ async function boot() {
     console.log('loading host', hostname, domain);
 
     const webEnv = await domainManager.getWebEnvironment(domain);
-    webEnv.bind('/~', new GateSite(hostname, accountManager, sessionManager, domainManager, packageManager));
+    webEnv.bind('/~', new GateSite(hostname, domain.record.did,
+        accountManager, sessionManager, domainManager, packageManager));
     webEnv.bind('/~~libs', new WebFilesystemMount({
       entry: pkgRoot,
       prefix: 'platform/libs/',

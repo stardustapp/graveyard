@@ -1,13 +1,14 @@
 // Serves up enough HTML to nicely direct users to the account page
 
 class GateSite {
-  constructor(domainName, accountManager, sessionManager, domainManager, packageManager) {
-    if (!domainName)
+  constructor(domainName, domainId, accountManager, sessionManager, domainManager, packageManager) {
+    if (!domainName || !domainId)
       throw new Error(`GateSite requires a domain name`);
     if (!sessionManager)
       throw new Error(`GateSite requires a session manager`);
 
     this.domainName = domainName;
+    this.domainId = domainId;
     this.accountManager = accountManager;
     this.sessionManager = sessionManager;
     this.domainManager = domainManager;
@@ -174,7 +175,8 @@ class GateSiteRegister {
     return wrapGatePage(`register | ${this.site.domainName}`, commonTags.safeHtml`
       <form method="post" class="modal-form">
         <h1>register new account</h1>
-        <input type="hidden" name="domain" value="${this.site.domainName}">
+        <input type="hidden" name="domainName" value="${this.site.domainName}">
+        <input type="hidden" name="domainId" value="${this.site.domainId}">
         <div class="row">
           <input type="text" name="username" placeholder="username" required autofocus style="width: 12em; text-align: right;">
           <label for="username">@${this.site.domainName}</label>
