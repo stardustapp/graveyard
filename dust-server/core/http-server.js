@@ -273,6 +273,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
 
     await this.routeRequest({
       method, uri, headers,
+      queryParams: this.request.arguments || {},
       ip: {localAddress, localPort, peerAddress, peerPort},
     });
   }
@@ -283,6 +284,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
 
     await this.routeRequest({
       method, uri, headers, body, bodyparams,
+      queryParams: this.request.arguments || {},
       ip: {localAddress, localPort, peerAddress, peerPort},
     });
   }
