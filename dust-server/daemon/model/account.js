@@ -1,6 +1,7 @@
 class Account {
   constructor(record) {
     this.env = new Environment();
+    this.webEnv = new Environment();
     this.record = record;
   }
 
@@ -52,6 +53,10 @@ class Account {
     }
     
     throw new Error(`BUG: Account has an unrecognized hashing strategy. Find your system administrator`);
+  }
+
+  mountApp(appKey, pkg, appRec) {
+    this.webEnv.bind('/'+appKey, pkg.webroot);
   }
 
   close() {

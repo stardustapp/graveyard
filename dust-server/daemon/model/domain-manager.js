@@ -8,9 +8,9 @@
 
 class DomainManager {
 
-  constructor(idb) {
-    this.env = new Environment();
+  constructor(idb, accountManager) {
     this.idb = idb;
+    this.accountManager = accountManager;
     this.webEnvs = new Map(); // did => env
   }
 
@@ -94,8 +94,13 @@ class DomainManager {
     const env = new Environment('http://'+domain.record.primaryFqdn);
     this.webEnvs.set(did, env);
 
-    // fill it in and return
+    // fill it in
     env.bind('', await domain.getWebrootMount());
+    const accounts = await this.accountManager.getAllForDomain(domain);
+    accounts.forEach(account => {
+      env.bind('/~'+account.record.username, account.webEnv);
+    })
+
     return env;
   }
 

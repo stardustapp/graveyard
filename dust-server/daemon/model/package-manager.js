@@ -9,42 +9,45 @@ const DEFAULT_PACKAGES = [
 class PackageManager {
   constructor(idb) {
     this.idb = idb;
+    this.all = new Map();
 
-    this.getAll().then(list => {
+    const tx = this.idb.transaction('packages', 'readonly');
+    tx.objectStore('packages').getAll().then(list => {
       DEFAULT_PACKAGES.forEach(spec => {
-        if (!list.find(pkg => pkg.record.sourceUri === spec.sourceUri)) {
+        if (!list.find(pkg => pkg.sourceUri === spec.sourceUri)) {
           console.log('Installing default', spec.defaultKey, 'package');
-          this.install(spec);
+          const pkg = this.install(spec);
+          list.push(pkg.record);
         } // TODO: update existing package
+      });
+      // load them all
+      const packages = list.map(r => new Package(r));
+      Promise.all(packages.map(p => p.ready)).then(() => {
+        packages.forEach(pkg => {
+          this.all.set(pkg.record.pid, pkg);
+        });
+        console.log('Loaded', list.length, 'packages');
       });
     });
   }
 
-  async getAll() {
-    const tx = this.idb.transaction('packages', 'readonly');
-    const allRecs = await tx.objectStore('packages').getAll();
-    return allRecs.map(record => {
-      return new Package(record);
-    });
+  getAll() {
+    return Array.from(this.all.values());
   }
 
-  async getOne(pid) {
-    const tx = this.idb.transaction('packages', 'readonly');
-    const store = tx.objectStore('packages');
-    return new Package(await store.get(pid));
+  getOne(pid) {
+    return this.all.get(pid);
   }
 
   async getInstalledApps(account) {
-    const tx = this.idb.transaction('packages', 'readonly');
-    const store = tx.objectStore('packages');
-    return Promise.all(Object.keys(account.record.apps).map(appKey => {
+    return Object.keys(account.record.apps).map(appKey => {
       const app = account.record.apps[appKey];
       app.appKey = appKey;
-      return store.get(app.pid).then(record => {
-        app.package = new Package(record);
-        return app;
-      });
-    }));
+      return {
+        package: this.getOne(app.pid),
+        appRec: app,
+      };
+    });
   }
 
   async install({sourceUri, defaultKey, displayName}) {

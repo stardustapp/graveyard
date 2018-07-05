@@ -95,10 +95,10 @@ async function boot() {
   });
   console.log('Opened database');
 
-  const accountManager = new AccountManager(db);
-  const sessionManager = new SessionManager(db, accountManager);
-  const domainManager = new DomainManager(db);
   const packageManager = new PackageManager(db);
+  const accountManager = new AccountManager(db, packageManager);
+  const sessionManager = new SessionManager(db, accountManager);
+  const domainManager = new DomainManager(db, accountManager);
 
   // create a root environment using GateApi
   const systemEnv = new Environment();
@@ -110,14 +110,6 @@ async function boot() {
   const webEnv = new Environment('http://localhost');
   webEnv.bind('', new DefaultSite('localhost'));
   webEnv.bind('/~', new GateSite('localhost', accountManager, sessionManager, domainManager, packageManager));
-  webEnv.bind('/~dan/editor', new WebFilesystemMount({
-    entry: pkgRoot,
-    prefix: 'platform/apps/editor/',
-  }));
-  webEnv.bind('/~dan/panel', new WebFilesystemMount({
-    entry: pkgRoot,
-    prefix: 'platform/apps/panel/',
-  }));
   webEnv.bind('/~~libs', new WebFilesystemMount({
     entry: pkgRoot,
     prefix: 'platform/libs/',

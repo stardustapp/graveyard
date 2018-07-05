@@ -1,6 +1,7 @@
 class AccountManager {
-  constructor(idb) {
+  constructor(idb, packageManager) {
     this.idb = idb;
+    this.packageManager = packageManager;
     this.promises = new Map;
   }
 
@@ -18,6 +19,17 @@ class AccountManager {
     return promise;
   }
 
+  async getAllForDomain(domain) {
+    // TODO: refactor once did is present and indexed
+    const all = await this.idb
+      .transaction('accounts')
+      .objectStore('accounts')
+      .getAll();
+    return await Promise.all(all
+      .filter(r => r.domain == domain.record.primaryFqdn)
+      .map(r => this.getAccount(r.aid)));
+  }
+
   async loadAccount(accountId) {
     const record = await this.idb
         .transaction('accounts')
@@ -29,6 +41,12 @@ class AccountManager {
     const account = new Account(record);
     await account.open();
     ToastNotif(`Resumed session for ${account.address()}`);
+
+    const apps = await this.packageManager.getInstalledApps(account);
+    apps.forEach(app => {
+      account.mountApp(app.appRec.appKey, app.package, app.appRec);
+    });
+
     return account;
   }
 
@@ -116,14 +134,21 @@ class AccountManager {
     }
     if (!record.pids.includes(pkg.record.pid)) {
       record.pids.push(pkg.record.pid);
+      account.record.pids.push(pkg.record.pid);
     }
-    record.apps[appKey] = {
+
+    const appRec = {
       pid: pkg.record.pid,
     };
+    record.apps[appKey] = appRec
+    account.record.apps[appKey] = appRec;
 
     // persist it
     await store.put(record);
     await tx.complete;
     ToastNotif(`Installed package ${pkg.record.displayName} into ${account.address()} as ${appKey}`);
+
+    // hot-install
+    account.mountApp(appKey, pkg, appRec);
   }
 };

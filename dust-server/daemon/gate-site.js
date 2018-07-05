@@ -487,7 +487,7 @@ class GateSiteHome {
     const apps = await this.site.packageManager.getInstalledApps(account);
     let appListing = apps.map(app => commonTags.safeHtml`
       <li>
-        <a href="/~${account.record.username}/${app.appKey}/">${app.package.record.displayName}</a>
+        <a href="/~${account.record.username}/${app.appRec.appKey}/">${app.package.record.displayName}</a>
       </li>
     `).join('\n');
     if (!apps.length) {

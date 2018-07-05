@@ -27,7 +27,8 @@ class SessionManager {
       return this.sessionPromises.get(sessionId);
     const promise = this.loadSession(sessionId).catch(err => {
       this.sessionPromises.delete(sessionId);
-      console.log(`Session ${sessionId} failed to load:`, err);
+      //console.log(`Session ${sessionId} failed to load:`, err);
+      throw err;
     });
     this.sessionPromises.set(sessionId, promise);
     return promise;
