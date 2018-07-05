@@ -53,6 +53,8 @@ class AccountManager {
     const record = {
       schema: 1,
       aid: Math.random().toString(16).slice(2),
+      pids: [], // all pids which are referenced
+      apps: {}, // slug -> pid
       username, domain,
       status: (username == 'dan') ? 'admin' : 'active',
       contact: {
@@ -60,7 +62,6 @@ class AccountManager {
         email: email,
       },
       createdAt: moment().toISOString(),
-      apps: [],
     };
 
     try {

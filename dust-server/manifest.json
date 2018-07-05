@@ -16,9 +16,9 @@
           "core/http-server.js", "core/nsexport.js", "core/platform-api.js",
         "core/mounts/idb-treestore.js", "core/mounts/fs-string-dict.js", "core/mounts/network-import.js",
           "core/mounts/tmp.js", "core/mounts/web-filesystem.js",
-        "daemon/model/app-install.js", "daemon/model/app.js", "daemon/model/app-manager.js",
+        "daemon/model/account-manager.js", "daemon/model/account.js",
           "daemon/model/domain-manager.js", "daemon/model/domain.js",
-          "daemon/model/account-manager.js", "daemon/model/account.js",
+          "daemon/model/package-manager.js", "daemon/model/package.js",
           "daemon/model/session-manager.js", "daemon/model/session.js",
         "daemon/default-site.js", "daemon/gate-site.js", "daemon/gate-api.js", "daemon/domain-api.js",
         "daemon/background.js"]

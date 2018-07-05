@@ -1,4 +1,4 @@
-class App {
+class Package {
   constructor(record) {
     this.record = record;
   }
