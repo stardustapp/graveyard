@@ -104,4 +104,26 @@ class AccountManager {
     // update the inmemory version
     account.record.secretHash = record.secretHash;
   }
+
+  async installApp(account, pkg, appKey) {
+    const tx = this.idb.transaction('accounts', 'readwrite');
+    const store = tx.objectStore('accounts');
+
+    // make the new version
+    const record = await store.get(account.record.aid);
+    if (appKey in record.apps) {
+      throw new Error(`Account already has "${appKey}" application`);
+    }
+    if (!record.pids.includes(pkg.record.pid)) {
+      record.pids.push(pkg.record.pid);
+    }
+    record.apps[appKey] = {
+      pid: pkg.record.pid,
+    };
+
+    // persist it
+    await store.put(record);
+    await tx.complete;
+    ToastNotif(`Installed package ${pkg.record.displayName} into ${account.address()} as ${appKey}`);
+  }
 };

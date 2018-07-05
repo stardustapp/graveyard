@@ -31,6 +31,8 @@ class GateSite {
         return new GateSiteFtue(this);
       case path === '/add-domain':
         return new GateSiteAddDomain(this);
+      case path === '/install-app':
+        return new GateSiteInstallApp(this);
       case path === '/set-password':
         return new GateSiteSetPassword(this);
       case path === '/logout':
@@ -352,6 +354,81 @@ class GateSiteManageDomain {
   }
 }
 
+class GateSiteInstallApp {
+  constructor(site) {
+    this.site = site;
+  }
+
+  async renderForm(request) {
+    if (!request.session) {
+      return buildRedirect('/~/login');
+    }
+
+    const packages = await this.site.packageManager.getAll();
+
+    let installUI = '';
+    if (request.req.queryParams.pid) {
+      const pkg = await this.site.packageManager.getOne(request.req.queryParams.pid);
+      installUI = commonTags.html`
+        <form method="post" class="modal-form" style="border-left: 4px solid #ccc;">
+          <h1>install as app</h1>
+          <div class="row">
+            <label for="account" style="margin: 0 0 0 2em; width: 5em;">account</label>
+            <input type="text" name="account" disabled value="${request.session.account.address()}"
+                style="width: 12em;">
+          </div>
+          <div class="row">
+            <label for="sourceUri" style="margin: 0 0 0 2em; width: 5em;">source uri</label>
+            <input type="text" name="sourceUri" disabled value="${pkg.record.sourceUri}"
+                style="width: 12em;">
+          </div>
+          <div class="row">
+            <label for="appKey" style="margin: 0 0 0 2em; width: 5em;">app key</label>
+            <input type="text" name="appKey" value="${pkg.record.defaultKey}"
+                style="width: 12em;">
+          </div>
+          <button type="submit">install application</button>
+        </form>`;
+    }
+
+    return wrapGatePage(`install app | ${this.site.domainName}`, commonTags.html`
+      <div style="display: flex; align-self: center;">
+        <div class="modal-form" style="justify-content: flex-start;">
+          <h1>select a package</h1>
+          ${packages.map(pkg => commonTags.safeHtml`
+            <form method="get" style="display: flex;">
+              <input type="hidden" name="pid" value="${pkg.record.pid}">
+              <button type="submit" style="flex: 1;"${
+                request.req.queryParams.pid === pkg.record.pid ? ' class=action' : ''
+                }>${pkg.record.displayName}</button>
+            </form>
+          `)}
+        </div>
+        ${installUI}
+      </div>`);
+  }
+
+  async invoke(input) {
+    const request = await new GateSiteRequest(this.site, input).loadState();
+    if (request.req.method === 'GET') {
+      return await this.renderForm(request);
+    }
+
+    if (request.req.method === 'POST') {
+      const {pid} = request.req.queryParams;
+      const {appKey} = request.req.bodyparams;
+      if (!pid || !appKey) {
+        return await this.renderForm(request);
+      }
+
+      const pkg = await this.site.packageManager.getOne(pid);
+      await this.site.accountManager.installApp(request.session.account, pkg, appKey);
+      
+      return buildRedirect('/~/home');
+    }
+  }
+}
+
 // Created from a user request
 // Parses cookies and such
 // What more could you want?
@@ -407,14 +484,14 @@ class GateSiteHome {
       domainListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
-    const packages = await this.site.packageManager.getAddedPackages(account);
-    let packageListing = packages.map(pkg => commonTags.safeHtml`
+    const apps = await this.site.packageManager.getInstalledApps(account);
+    let appListing = apps.map(app => commonTags.safeHtml`
       <li>
-        <a href="my-packages/${4}">${JSON.stringify(pkg)}</a>
+        <a href="/~${account.record.username}/${app.appKey}/">${app.package.record.displayName}</a>
       </li>
     `).join('\n');
-    if (!packages.length) {
-      packageListing = commonTags.safeHtml`<li>None yet</li>`;
+    if (!apps.length) {
+      appListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
     return wrapGatePage(`home | ${this.site.domainName}`, commonTags.html`
@@ -433,9 +510,9 @@ class GateSiteHome {
       <section class="compact modal-form">
         <h2>Your apps</h2>
         <ul style="text-align: left;">
-          ${packageListing}
+          ${appListing}
         </ul>
-        <a href="add-package" class="action">Install application</a>
+        <a href="install-app" class="action">Install application</a>
       </section>
 
       <section class="compact modal-form">

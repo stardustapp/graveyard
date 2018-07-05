@@ -34,11 +34,16 @@ class PackageManager {
     return new Package(await store.get(pid));
   }
 
-  async getAddedPackages(account) {
+  async getInstalledApps(account) {
     const tx = this.idb.transaction('packages', 'readonly');
     const store = tx.objectStore('packages');
-    return Promise.all(account.record.pids.map(pid => {
-      return store.get(pid).then(record => new Package(record));
+    return Promise.all(Object.keys(account.record.apps).map(appKey => {
+      const app = account.record.apps[appKey];
+      app.appKey = appKey;
+      return store.get(app.pid).then(record => {
+        app.package = new Package(record);
+        return app;
+      });
     }));
   }
 
