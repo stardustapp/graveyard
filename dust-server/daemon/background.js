@@ -104,20 +104,11 @@ async function boot() {
   const systemEnv = new Environment();
   const gateApi = new GateApi(systemEnv, accountManager, sessionManager, domainManager, packageManager);
 
-  // build the localhost site
   const pkgRoot = await new Promise(r =>
     chrome.runtime.getPackageDirectoryEntry(r));
-  const webEnv = new Environment('http://localhost');
-  webEnv.bind('', new DefaultSite('localhost'));
-  webEnv.bind('/~', new GateSite('localhost', accountManager, sessionManager, domainManager, packageManager));
-  webEnv.bind('/~~libs', new WebFilesystemMount({
-    entry: pkgRoot,
-    prefix: 'platform/libs/',
-  }));
-  const localVHost = new VirtualHost('localhost', webEnv);
 
   // init the web server
-  const webServer = new HttpServer(domainManager, localVHost, async function (hostname) {
+  const webServer = new HttpServer(domainManager, async function (hostname) {
     const domain = await domainManager.findDomain(hostname);
     if (!domain) throw new Error('Domain does not exist');
     console.log('loading host', hostname, domain);

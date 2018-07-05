@@ -1,5 +1,5 @@
 class HttpServer {
-  constructor(domainManager, defaultHost, hostLoader) {
+  constructor(domainManager, hostLoader) {
     this.domainManager = domainManager;
     this.wsc = new WSC.WebApplication({
       host: '0.0.0.0',
@@ -9,7 +9,6 @@ class HttpServer {
     });
 
     this.hostLoaders = new Map;
-    this.hostLoaders.set(null, Promise.resolve(defaultHost));
     this.hostLoaderFactory = hostLoader;
   }
 
@@ -35,10 +34,6 @@ class HttpServer {
     });;
     this.hostLoaders.set(hostname, loader);
     return loader;
-  }
-
-  /*async*/ getDefaultHost() {
-    return this.hostLoaders.get(null);
   }
 }
 
@@ -317,10 +312,9 @@ class HttpWildcardHandler extends WSC.BaseHandler {
       }
       const [_, ipv4, ipv6, hostname, port] = hostMatch;
 
-      if (ipv4 || ipv6 || hostname == 'localhost') {
-        const vhost = await this.httpServer.getDefaultHost();
-        return await vhost[`handle${method}`](meta, responder);
-      }
+      // Treat raw IPs as localhost
+      if (ipv4 || ipv6)
+        hostname = 'localhost';
 
       if (hostname) {
         const vhost = await this.httpServer.getVHost(hostname);

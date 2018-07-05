@@ -12,6 +12,27 @@ class DomainManager {
     this.idb = idb;
     this.accountManager = accountManager;
     this.webEnvs = new Map(); // did => env
+
+    this.getDomain('localhost').then(d => {
+      if (d) return;
+      console.log('Creating initial "localhost" domain');
+
+      const domain = {
+        did: 'localhost',
+        fqdns: ['localhost'],
+        aids: [],
+
+        primaryFqdn: 'localhost',
+        status: 'active',
+        createdBy: 'god@local',
+        createdAt: moment().toISOString(),
+        grants: [],
+      };
+
+      const tx = this.idb.transaction('domains', 'readwrite');
+      return tx.objectStore('domains').add(domain)
+          .then(() => tx.complete);
+    })
   }
 
   async registerDomain(domainName, owner) {
