@@ -24,24 +24,13 @@ class Orbiter {
     this.launcher = launcher;
     this.status = 'Launching';
 
-    const {chartName, domainName, appId} = this.launcher;
-    const baseUri = `skylink://${chartName}@${domainName}/~${appId}`;
-    this.mountTable = new MountTable(baseUri, x => this.status = x);
+    const {chartName, domainName} = this.launcher;
+    this.mountTable = new MountTable('skylink://', x => this.status = x);
 
-    return this.launcher.discover()
-      .then(data => {
-        this.metadata = data;
-        return this.launcher.launch(this.launcher.storedSecret);
-      })
-      .catch(err => {
-        this.status = 'Failed: ' + err;
-        var pass = prompt(`${err}\n\nInput a secret:`);
-        if (pass) {
-          return this.launcher.launch(pass);
-        }
-        throw err;
-      })
+    return this.launcher.launch()
       .then(path => {
+        this.metadata = this.launcher.metadata;
+
         // TODO: mount to /srv
         this.mountTable.mount('', 'skylink', {
           endpoint: this.launcher.endpoint,
@@ -56,22 +45,6 @@ class Orbiter {
         //return this.launch(this.launcher.endpoint, path);
       });
   }
-
-  /*
-  launch(endpoint, path) {
-    console.log('Orbiter launched, at', path);
-    this.status = 'Ready';
-    this.mounttable.mount({path: '/srv', skylink: this.skylink});
-
-    this.skylink = new Skylink(path, endpoint);
-    this.skylink.stats = this.stats;
-    this.skylink.transport.donePromise.then(() => {
-      this.status = 'Offline';
-    }, (err) => {
-      this.status = 'Crashed';
-      throw err;
-    });
-  }*/
 }
 
 if (typeof module !== "undefined" && module !== null) {
