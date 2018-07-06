@@ -46,7 +46,7 @@ class SessionManager {
   }
 
   async create(account, {lifetime, volatile, client}) {
-    console.log('creating session for', account.address(), '-', account.aid);
+    console.log('creating session for', account.address(), '-', account.record.aid);
 
     const record = {
       schema: 1,
@@ -71,7 +71,7 @@ class SessionManager {
     }
 
     const session = new Session(record, account);
-    this.sessionPromises.set(record.aid, Promise.resolve(session));
+    this.sessionPromises.set(record.sid, Promise.resolve(session));
     return session;
   }
 
@@ -89,8 +89,8 @@ class SessionManager {
 // - 2. Construct a mongodb persistance store.
 // - 3. Bind the persist store into the system env.
 // - 4. Install the Domain schema into the store
-// 5. Construct or locate the domain.
-// - 6. Expose a launch-chart API.
+// - 5. Construct or locate the domain.
+// 6. Expose a launch-chart API.
 // 7. Support storing data for IRC.
 // 8. Support executing LUA routines.
 // 9. Support launching drivers.

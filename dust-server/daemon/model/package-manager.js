@@ -5,7 +5,9 @@ const DEFAULT_PACKAGES = [
     displayName: 'Editor',
     mounts: {
       '/config': { type: 'scoped', flavor: 'config' },
-      '/data': { type: 'bind', suggestion: 'account' },
+      '/data': { type: 'bind',
+        suggestion: '/',
+        hint: 'Path to what you want to edit' },
     },
   },
   {
@@ -16,7 +18,9 @@ const DEFAULT_PACKAGES = [
       '/config': { type: 'scoped', flavor: 'config' },
       '/persist': { type: 'scoped', flavor: 'persist' },
       //'/secret': { type: 'scoped', flavor: 'secret' },
-      '/dialer': { type: 'remote', sourceUri: 'ws://modem2.devmode.cloud:29234/pub' },
+      '/dialer': { type: 'bind',
+        suggestion: 'ws://modem2.devmode.cloud:29234/pub',
+        hint: 'An IRC modem, used to connect to IRC networks' },
     },
   },
 ];
@@ -57,6 +61,9 @@ class PackageManager {
   }
 
   getOne(pid) {
+    if (!this.all.has(pid)) {
+      throw new Error(`BUG: Package ID ${pid} not present in starsystem`);
+    }
     return this.all.get(pid);
   }
 

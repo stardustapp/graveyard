@@ -121,7 +121,8 @@ class AccountManager {
     account.record.secretHash = record.secretHash;
   }
 
-  async installApp(account, pkg, appKey) {
+  async installApp(account, appRec) {
+    const {appKey, pid} = appRec;
     const tx = this.idb.transaction('accounts', 'readwrite');
     const store = tx.objectStore('accounts');
 
@@ -130,23 +131,21 @@ class AccountManager {
     if (appKey in record.apps) {
       throw new Error(`Account already has "${appKey}" application`);
     }
-    if (!record.pids.includes(pkg.record.pid)) {
-      record.pids.push(pkg.record.pid);
-      account.record.pids.push(pkg.record.pid);
+    if (!record.pids.includes(pid)) {
+      record.pids.push(pid);
+      account.record.pids.push(pid);
     }
 
-    const appRec = {
-      pid: pkg.record.pid,
-    };
-    record.apps[appKey] = appRec
+    record.apps[appKey] = appRec;
     account.record.apps[appKey] = appRec;
 
     // persist it
     await store.put(record);
     await tx.complete;
-    ToastNotif(`Installed package ${pkg.record.displayName} into ${account.address()} as ${appKey}`);
 
     // hot-install
+    const pkg = await this.packageManager.getOne(pid);
     account.mountApp(appKey, pkg, appRec);
+    ToastNotif(`Installed package ${pkg.record.displayName} into ${account.address()} as ${appKey}`);
   }
 };

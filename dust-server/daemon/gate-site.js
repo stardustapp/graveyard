@@ -371,6 +371,31 @@ class GateSiteInstallApp {
     let installUI = '';
     if (request.req.queryParams.pid) {
       const pkg = await this.site.packageManager.getOne(request.req.queryParams.pid);
+
+      const extraRows = [];
+      Object.keys(pkg.record.mounts).forEach(mountPoint => {
+        const mountDef = pkg.record.mounts[mountPoint];
+        const fieldKey = `mount-${encodeURIComponent(mountPoint)}`;
+        switch (mountDef.type) {
+          case 'bind':
+            extraRows.push(commonTags.safeHtml`
+              <div class="row">
+                <label for="${fieldKey}" style="margin: 0 0 0 2em; width: 5em;">${mountPoint}</label>
+                <input type="text" name="${fieldKey}" value="${mountDef.suggestion}"
+                    style="width: 12em;">
+              </div>
+              <p class="hint">${mountDef.hint}</p>
+            `);
+            break;
+        }
+      });
+      if (extraRows.length) {
+        extraRows.unshift(commonTags.html`
+          <hr>
+          <h2>mount points</h2>
+        `);
+      }
+
       installUI = commonTags.html`
         <form method="post" class="modal-form" style="border-left: 4px solid #ccc;">
           <h1>install as app</h1>
@@ -389,6 +414,7 @@ class GateSiteInstallApp {
             <input type="text" name="appKey" value="${pkg.record.defaultKey}"
                 style="width: 12em;">
           </div>
+          ${extraRows}
           <button type="submit">install application</button>
         </form>`;
     }
@@ -424,7 +450,8 @@ class GateSiteInstallApp {
       }
 
       const pkg = await this.site.packageManager.getOne(pid);
-      await this.site.accountManager.installApp(request.session.account, pkg, appKey);
+      const installation = pkg.createAppInstall(appKey, request.req.bodyparams);
+      await this.site.accountManager.installApp(request.session.account, installation);
       
       return buildRedirect('/~/home');
     }
@@ -733,6 +760,9 @@ footer {
   font-size: 1.2em;
   margin-right: 2em;
   letter-spacing: 1px;
+}
+.modal-form .hint {
+  margin-top: 0;
 }
 `, 'text/css');
   }
