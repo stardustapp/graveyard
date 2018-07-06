@@ -3,73 +3,84 @@
 <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
 <link href="/~~libs/vendor/material-icons.css" type="text/css" rel="stylesheet">
 <link href="fonts/fira_code.css" rel="stylesheet">
+<link href="/~~libs/vue/vue-app.css" type="text/css" rel="stylesheet">
 <link href="app.css" type="text/css" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
+<meta name="x-stardust-appid" content="editor">
+
 <div id="app">
-  <ul id="root-tree" class="tree">
-    <entry-item
-      v-for="root in roots"
-      :key="root"
-      class="entry-item"
-      :name="'//' + chartName + '.chart.local' + root"
-      ref="trees"
-      :path="root"
-      :stat="{}"
-      :type="'Folder'"
-      :start-open="true">
-    </entry-item>
-  </ul>
-
-  <div id="edit-pane">
-    <ul id="tab-bar">
-      <li v-for="tab in tabList" class="todo-tab"
-          :title="tab.key"
-          @click="activateTab(tab)"
-          @click.middle="closeTab(tab)"
-          :key="tab.key"
-          :class="{active: currentTab === tab, dirty: tab.dirty, untouched: tab.untouched}">
-        <i class="material-icons tree-icon">{{tab.icon}}</i>
-        <span class="label">{{tab.label}}</span>
-        <i class="material-icons tree-icon close-btn"
-           @click.stop="closeTab(tab)"
-           title="close tab">close</i>
-      </li>
-    </ul>
-
-    <component
-        v-for="tab in tabList"
-        v-show="tab === currentTab"
-        :key="tab.key"
-        :is="tab.type"
-        :tab="tab"
-        ref="tabElems">
-    </component>
-  </div>
-
-  <div v-if="runningApp" id="run-pane">
-    <ul id="tool-bar">
-      <li @click="reloadApp">
-        <i class="material-icons">refresh</i>
-        <span class="label">refresh</span>
-      </li>
-      <li @click="navigateBack">
-        <i class="material-icons">arrow_back</i>
-        <span class="label">back</span>
-      </li>
-      <li @click="navigateFwd">
-        <i class="material-icons">arrow_forward</i>
-        <span class="label">fwd</span>
-      </li>
-      <li @click="closeApp">
-        <i class="material-icons">close</i>
-        <span class="label">close</span>
-      </li>
-    </ul>
-
-    <iframe class="appframe" :src="runningApp" ref="appframe"></iframe>
-  </div>
+  <!-- render top bar w/ connection state and current user -->
+  <sky-session></sky-session>
+  <stardust-editor></stardust-editor>
 </div>
+
+<script type="text/x-template" id="stardust-editor">
+  <div id="editor">
+    <ul id="root-tree" class="tree">
+      <entry-item
+        v-for="root in roots"
+        :key="root"
+        class="entry-item"
+        :name="'//' + chartName + '.chart.local' + root"
+        ref="trees"
+        :path="root"
+        :stat="{}"
+        :type="'Folder'"
+        :start-open="true">
+      </entry-item>
+    </ul>
+
+    <div id="edit-pane">
+      <ul id="tab-bar">
+        <li v-for="tab in tabList" class="todo-tab"
+            :title="tab.key"
+            @click="activateTab(tab)"
+            @click.middle="closeTab(tab)"
+            :key="tab.key"
+            :class="{active: currentTab === tab, dirty: tab.dirty, untouched: tab.untouched}">
+          <i class="material-icons tree-icon">{{tab.icon}}</i>
+          <span class="label">{{tab.label}}</span>
+          <i class="material-icons tree-icon close-btn"
+             @click.stop="closeTab(tab)"
+             title="close tab">close</i>
+        </li>
+      </ul>
+
+      <component
+          v-for="tab in tabList"
+          v-show="tab === currentTab"
+          :key="tab.key"
+          :is="tab.type"
+          :tab="tab"
+          ref="tabElems">
+      </component>
+    </div>
+
+    <div v-if="runningApp" id="run-pane">
+      <ul id="tool-bar">
+        <li @click="reloadApp">
+          <i class="material-icons">refresh</i>
+          <span class="label">refresh</span>
+        </li>
+        <li @click="navigateBack">
+          <i class="material-icons">arrow_back</i>
+          <span class="label">back</span>
+        </li>
+        <li @click="navigateFwd">
+          <i class="material-icons">arrow_forward</i>
+          <span class="label">fwd</span>
+        </li>
+        <li @click="closeApp">
+          <i class="material-icons">close</i>
+          <span class="label">close</span>
+        </li>
+      </ul>
+
+      <iframe class="appframe" :src="runningApp" ref="appframe"></iframe>
+    </div>
+  </div>
+</script>
 
 <script type="text/x-template" id="entry-item">
   <li class="entry-item">
@@ -243,3 +254,4 @@
 <script src="/~~libs/core/combined.js"></script>
 <script src="vendor/vue-codemirror.js"></script>
 <script src="app.js"></script>
+<script src="/~~libs/vue/vue-app.js"></script>

@@ -15,6 +15,11 @@ body {
 
 #app {
   display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+#editor {
+  display: flex;
   flex: 1;
   overflow-y: hidden;
 }

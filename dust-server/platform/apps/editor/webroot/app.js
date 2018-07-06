@@ -1,17 +1,8 @@
-var chartName = 'public';
-if (location.search) {
-  chartName = location.search
-    .slice(1)
-    .split('&')
-    .map(x => x.split('='))
-    .filter(x => x[0] === 'chart')
-    [0][1];
-}
-
 const roots = (location.hash.slice(1) || '').split(':');
-const skylinkP = Skylink.openChart(chartName);
 var skylink = null;
-skylinkP.then(x => skylink = x);
+setTimeout(() => {
+  skylinkP.then(x => skylink = x);
+}, 1);
 
 // TODO
 window.require = function (names) {
@@ -44,7 +35,7 @@ Vue.component('entry-item', {
           this.stat.Shapes.indexOf('/rom/shapes/web-app') !== -1);
     },
     launchUri() {
-      return '/~' + chartName + this.path.replace(/^\/web/, '') + '/';
+      return '/~' + orbiter.launcher.chartName + this.path.replace(/^\/web/, '') + '/';
     },
     isFolder() {
       return this.type === "Folder";
@@ -69,7 +60,7 @@ Vue.component('entry-item', {
   methods: {
     launch() {
       console.log('Launching app', this.path);
-      app.runningApp = this.launchUri;
+      editorApp.runningApp = this.launchUri;
     },
     deleteEntry() {
       const {path} = this;
@@ -77,7 +68,7 @@ Vue.component('entry-item', {
         if (confirm(`For real? ${path} should be sent to the garbage collector?`)) {
           skylink.unlink(path).then(() => {
             alert(`${path} is no more.`);
-            const parent = app.selectTreeNode(path.split('/').slice(0,-1).join('/'));
+            const parent = editorApp.selectTreeNode(path.split('/').slice(0,-1).join('/'));
             if (parent != null && parent.reload) {
               parent.reload();
             } else {
@@ -92,7 +83,7 @@ Vue.component('entry-item', {
     },
     activate() {
       if (this.isFunction) {
-        app.openEditor({
+        editorApp.openEditor({
           type: 'invoke-function',
           label: this.name,
           icon: 'flash_on',
@@ -109,7 +100,7 @@ Vue.component('entry-item', {
           break;
 
         case 'File':
-          app.openEditor({
+          editorApp.openEditor({
             type: 'edit-file',
             label: this.name,
             icon: 'edit',
@@ -120,7 +111,7 @@ Vue.component('entry-item', {
           break;
 
         case 'String':
-          app.openEditor({
+          editorApp.openEditor({
             type: 'edit-string',
             label: this.name,
             icon: 'edit',
@@ -131,7 +122,7 @@ Vue.component('entry-item', {
           break;
 
         case 'Function':
-          app.openEditor({
+          editorApp.openEditor({
             type: 'invoke-function',
             label: this.name,
             icon: 'flash_on',
@@ -176,7 +167,7 @@ Vue.component('create-entry-item', {
   },
   methods: {
     activate() {
-      app.openEditor({
+      editorApp.openEditor({
         type: 'create-name',
         label: 'create (' + this.parentName + ')',
         icon: 'add',
@@ -210,7 +201,7 @@ Vue.component('create-name', {
       switch (this.type) {
       case "File":
         // Don't actually create yet, just open a buffer
-        app.openEditor({
+        editorApp.openEditor({
           type: "edit-file",
           icon: "edit",
           label: this.name,
@@ -218,12 +209,12 @@ Vue.component('create-name', {
           isNew: true,
           dirty: true,
         });
-        app.closeTab(this.tab);
+        editorApp.closeTab(this.tab);
         break;
 
       case "String":
         // Don't actually create yet, just open a buffer
-        app.openEditor({
+        editorApp.openEditor({
           type: "edit-string",
           icon: "edit",
           label: this.name,
@@ -231,18 +222,18 @@ Vue.component('create-name', {
           isNew: true,
           dirty: true,
         });
-        app.closeTab(this.tab);
+        editorApp.closeTab(this.tab);
         break;
 
       case "Folder":
         skylink.store(fullPath, Skylink.Folder(this.name)).then(x => {
           alert('Created');
-          const parent = app.selectTreeNode(this.tab.path);
+          const parent = editorApp.selectTreeNode(this.tab.path);
           if (parent != null && parent.reload) {
             parent.reload();
             // TODO: ensure child is already open
           }
-          app.closeTab(this.tab);
+          editorApp.closeTab(this.tab);
         });
         break;
 
@@ -419,7 +410,7 @@ Vue.component('edit-file', {
         if (this.tab.isNew === true) {
           this.tab.isNew = false;
 
-          const parent = app.selectTreeNode(this.parentPath);
+          const parent = editorApp.selectTreeNode(this.parentPath);
           if (parent != null && parent.reload) {
             parent.reload();
           }
@@ -484,7 +475,7 @@ Vue.component('edit-string', {
         if (this.tab.isNew === true) {
           this.tab.isNew = false;
 
-          const parent = app.selectTreeNode(this.parentPath);
+          const parent = editorApp.selectTreeNode(this.parentPath);
           if (parent != null && parent.reload) {
             parent.reload();
           }
@@ -508,18 +499,20 @@ Vue.component('edit-string', {
 });
 
 
-var app = new Vue({
-  el: '#app',
-  data: {
-    chartName: chartName,
+Vue.component('stardust-editor', {
+  template: '#stardust-editor',
+  data: () => ({
+    chartName: null,
     roots: roots,
     tabList: [],
     tabKeys: {},
     currentTab: null,
     runningApp: null,
-  },
+  }),
   created() {
+    window.editorApp = this;
     window.addEventListener('keydown', this.handleKeyDown);
+    this.chartName = orbiter.launcher.chartName;
   },
   destroyed() {
     window.removeEventListener('keydown', this.handleKeyDown);
@@ -700,4 +693,4 @@ var app = new Vue({
 
 // Block navs unless everything is clean
 window.onbeforeunload = () =>
-  app.tabList.find(x => x.dirty) || null;
+  editorApp.tabList.find(x => x.dirty) || null;
