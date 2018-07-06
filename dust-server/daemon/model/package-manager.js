@@ -3,6 +3,21 @@ const DEFAULT_PACKAGES = [
     sourceUri: 'platform://editor',
     defaultKey: 'editor',
     displayName: 'Editor',
+    mounts: {
+      '/config': { type: 'scoped', flavor: 'config' },
+      '/data': { type: 'bind', suggestion: 'account' },
+    },
+  },
+  {
+    sourceUri: 'platform://irc-client',
+    defaultKey: 'irc',
+    displayName: 'IRC Client',
+    mounts: {
+      '/config': { type: 'scoped', flavor: 'config' },
+      '/persist': { type: 'scoped', flavor: 'persist' },
+      //'/secret': { type: 'scoped', flavor: 'secret' },
+      '/dialer': { type: 'remote', sourceUri: 'ws://modem2.devmode.cloud:29234/pub' },
+    },
   },
 ];
 
@@ -12,22 +27,28 @@ class PackageManager {
     this.all = new Map();
 
     const tx = this.idb.transaction('packages', 'readonly');
-    tx.objectStore('packages').getAll().then(list => {
-      DEFAULT_PACKAGES.forEach(spec => {
-        if (!list.find(pkg => pkg.sourceUri === spec.sourceUri)) {
+    tx.objectStore('packages').getAll().then(async list => {
+      await Promise.all(DEFAULT_PACKAGES.map(async spec => {
+        const idx = list.findIndex(pkg => pkg.sourceUri === spec.sourceUri);
+        if (idx === -1) {
           console.log('Installing default', spec.defaultKey, 'package');
-          const pkg = this.install(spec);
-          list.push(pkg.record);
-        } // TODO: update existing package
+          const pkg = await this.install(spec);
+          list.push(pkg);
+        } else {
+          console.log('Updating default', spec.defaultKey, 'package');
+          const pkg = await this.replace(list[idx].pid, spec);
+          list[idx] = pkg;
+        }
+      }));
+      // load whatever isn't loaded yet
+      const packages = list.map(r =>
+          r.constructor === Package ? r : new Package(r));
+      await Promise.all(packages.map(p => p.ready))
+      // store everything into 
+      packages.forEach(pkg => {
+        this.all.set(pkg.record.pid, pkg);
       });
-      // load them all
-      const packages = list.map(r => new Package(r));
-      Promise.all(packages.map(p => p.ready)).then(() => {
-        packages.forEach(pkg => {
-          this.all.set(pkg.record.pid, pkg);
-        });
-        console.log('Loaded', list.length, 'packages');
-      });
+      console.log('Loaded', list.length, 'packages');
     });
   }
 
@@ -50,12 +71,13 @@ class PackageManager {
     });
   }
 
-  async install({sourceUri, defaultKey, displayName}) {
+  async install({sourceUri, defaultKey, displayName, mounts}) {
     const record = {
       schema: 1,
       pid: Math.random().toString(16).slice(2),
       sourceUri, defaultKey, displayName,
       createdAt: new Date(),
+      mounts: mounts || {},
     };
 
     try {
@@ -69,6 +91,32 @@ class PackageManager {
       throw err;
     }
 
-    return new Package(record);
+    const pkg = new Package(record);
+    this.all.set(record.pid, pkg);
+    return pkg;
+  }
+
+  async replace(pid, {sourceUri, defaultKey, displayName, mounts}) {
+    const tx = this.idb.transaction('packages', 'readwrite');
+    const store = tx.objectStore('packages');
+
+    const existing = store.get(pid);
+    if (!existing) {
+      throw new Error(`BUG: Can't replace app which isn't installed`);
+    }
+    const record = {
+      schema: 1,
+      pid,
+      sourceUri, defaultKey, displayName,
+      createdAt: existing.createdAt,
+      mounts: mounts || {},
+    };
+
+    await store.put(record);
+    await tx.complete;
+
+    const pkg = new Package(record);
+    this.all.set(record.pid, pkg);
+    return pkg;
   }
 }
