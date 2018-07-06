@@ -190,7 +190,8 @@ class GateSiteRegister {
   async invoke(input) {
     const request = await new GateSiteRequest(this.site, input).loadState();
 
-    const account = await this.site.accountManager.create(request.req.bodyparams);
+    const domain = await this.site.domainManager.getDomain(this.site.domainId);
+    const account = await this.site.accountManager.create(request.req.bodyparams, domain);
     const session = await this.site.sessionManager.create(account, {
       lifetime: 'short',
       client: 'gate-api',

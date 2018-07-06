@@ -63,7 +63,7 @@ class AccountManager {
     return null;
   }
 
-  async create({username, domainName, domainId, realname, email}) {
+  async create({username, domainName, domainId, realname, email}, domain) {
     const record = {
       schema: 1,
       aid: Math.random().toString(16).slice(2),
@@ -95,6 +95,12 @@ class AccountManager {
 
     const account = new Account(record);
     ToastNotif(`New account registration: ${account.address()} by ${email} - ${realname}`);
+
+    if (domain.webEnv) {
+      console.log('Hot-mounting new account', username, 'into domain', domain.record.primaryFqdn);
+      domain.webEnv.bind('/~'+username, account.webEnv);
+    }
+    
     return account;
   }
 

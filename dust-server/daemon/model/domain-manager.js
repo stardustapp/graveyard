@@ -12,6 +12,7 @@ class DomainManager {
     this.idb = idb;
     this.accountManager = accountManager;
     this.webEnvs = new Map(); // did => env
+    this.objects = new Map(); // did => Domain
 
     this.getDomain('localhost').then(d => {
       if (d) return;
@@ -72,26 +73,35 @@ class DomainManager {
     await tx.objectStore('domains').add(domain);
     await tx.complete;
 
-    return new Domain(domain);
+    return this.getDomainObj(domain);
+  }
+
+  getDomainObj(record) {
+    if (this.objects.has(record.did))
+      return this.objects.get(record.did);
+
+    const obj = new Domain(record);
+    this.objects.set(record.did, obj);
+    return obj;
   }
 
   /*async*/ listDomains() {
     const tx = this.idb.transaction('domains', 'readonly');
     return tx.objectStore('domains').getAll()
-      .then(x => x.map(d => new Domain(d)));
+      .then(x => x.map(this.getDomainObj.bind(this)));
   }
 
   /*async*/ getDomain(domainId) {
     const tx = this.idb.transaction('domains', 'readonly');
     return tx.objectStore('domains').get(domainId)
-      .then(d => d ? new Domain(d) : null);
+      .then(d => d ? this.getDomainObj(d) : null);
   }
 
   /*async*/ findDomain(fqdn) {
     const tx = this.idb.transaction('domains', 'readonly');
     return tx.objectStore('domains')
       .index('fqdn').get(fqdn)
-      .then(d => d ? new Domain(d) : null);
+      .then(d => d ? this.getDomainObj(d) : null);
   }
 
   /*async*/ getMembershipsFor(account) {
@@ -120,8 +130,9 @@ class DomainManager {
     const accounts = await this.accountManager.getAllForDomain(domain);
     accounts.forEach(account => {
       env.bind('/~'+account.record.username, account.webEnv);
-    })
+    });
 
+    domain.webEnv = env;
     return env;
   }
 
