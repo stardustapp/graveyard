@@ -52,6 +52,8 @@ Vue.component('entry-item', {
           return this.open ? "folder_open" : "folder";
         case undefined: // TODO: unugly
           return this.open ? "expand_less" : "chevron_right";
+        case "Error":
+          return "error";
         default:
           return "insert_drive_file";
       }
