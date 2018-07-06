@@ -40,7 +40,7 @@ class AccountManager {
 
     const account = new Account(record);
     await account.open();
-    ToastNotif(`Resumed session for ${account.address()}`);
+    ToastNotif(`Loaded account: ${account.address()}`);
 
     const apps = await this.packageManager.getInstalledApps(account);
     apps.forEach(app => {

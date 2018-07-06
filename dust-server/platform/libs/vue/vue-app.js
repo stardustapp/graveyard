@@ -322,7 +322,7 @@ var app = new Vue({
     style.appendChild(document.createTextNode(''));
     document.head.appendChild(style);
     promise.then(() => {
-      skylink.loadFile(`/config/${orbiter.launcher.appId}/prefs/userstyle.css`)
+      skylink.loadFile(`/config/prefs/userstyle.css`)
         .then(x => style.childNodes[0].textContent = x);
     });
   },
@@ -331,7 +331,7 @@ var app = new Vue({
     window.app = this;
 
     promise.then(() => {
-      skylink.subscribe(`/config/${orbiter.launcher.appId}/prefs`, {
+      skylink.subscribe(`/config/prefs`, {
         maxDepth: 1,
       }).then(chan => {
         const prefChan = chan.channel.map(ent => {

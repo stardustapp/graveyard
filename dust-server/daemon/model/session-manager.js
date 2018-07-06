@@ -45,8 +45,8 @@ class SessionManager {
     return new Session(record, account);
   }
 
-  async create(account, {lifetime, volatile, client}) {
-    console.log('creating session for', account.address(), '-', account.record.aid);
+  async create(account, {lifetime, volatile, client, appKey}) {
+    console.log('creating session for', account.address(), '-', account.record.aid, appKey);
 
     const record = {
       schema: 1,
@@ -57,7 +57,14 @@ class SessionManager {
       createdAt: new Date(),
     };
 
-    //if (!volatile)
+    // Application sessions have a restricted environment
+    if (appKey) {
+      record.appKey = appKey;
+      const {pid, mounts} = account.record.apps[appKey];
+      record.pid = pid;
+      record.environment = mounts;
+    }
+
     try {
       const tx = this.idb.transaction('sessions', 'readwrite');
       await tx.objectStore('sessions').add(record);

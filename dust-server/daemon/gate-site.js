@@ -42,6 +42,10 @@ class GateSite {
       case parts.length === 2 && parts[0] === 'my-domains' && parts[1].length > 0:
         return new GateSiteManageDomain(this, parts[1]);
 
+      // api for the vue sdk (and other in-browser sdks)
+      case path === '/app-session':
+        return new GateSiteAppSessionApi(this);
+
       // extra pages
       case path === '/about':
         return new GateSiteAbout(this);
@@ -488,6 +492,50 @@ class GateSiteRequest {
       this.session = await this.site.sessionManager.getSession(sessId);
     }
     return this;
+  }
+}
+
+class GateSiteAppSessionApi {
+  constructor(site) {
+    this.site = site;
+  }
+
+  async invoke(input) {
+    const state = await new GateSiteRequest(this.site, input).loadState();
+    if (!state.session) {
+      throw new Error(`user is not logged in`);
+    }
+    if (state.req.method !== 'POST') {
+      throw new Error(`must be a POST`);
+    }
+
+    const {referer} = state.req.headers;
+    const parts = referer.split('/~')[1].split('/');
+    const appKey = parts[1];
+    if (!appKey) {
+      throw new Error('app-session needs an appKey (did you block Referer?)');
+    }
+
+    const domain = await this.site.domainManager.getDomain(this.site.domainId);
+    const {account} = state.session;
+    const session = await this.site.sessionManager.create(account, {
+      lifetime: 'short',
+      volatile: true,
+      client: 'gate app-session - for '+referer,
+      appKey: appKey,
+    });
+
+    const result = {
+      metadata: {
+        chartName: account.record.username,
+        homeDomain: domain.record.primaryFqdn,
+        ownerName: account.record.contact.name,
+        ownerEmail: account.record.contact.email,
+      },
+      sessionPath: '/pub/sessions/' + session.record.sid + '/mnt',
+    };
+    const json = JSON.stringify(result, null, 2);
+    return BlobLiteral.fromString(json, 'application/json');
   }
 }
 

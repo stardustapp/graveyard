@@ -83,6 +83,26 @@ class Environment {
     return {};
   }
 
+  getSubPathEnv(path) {
+    if (!path || path === '/')
+      return this;
+
+    const subEnv = new Environment(this.baseUri + path);
+    Array.from(this.mounts.entries()).forEach(([mount, device]) => {
+      if (mount.startsWith(path)) {
+        console.log('device is CHILD OR MATCH of desired path');
+      } else if (path.startsWith(mount)) {
+        console.log('device is PARENT of desired path');
+        const subPath = path.slice(mount.length);
+        subEnv.bind('', { getEntry: (p) => {
+          return device.getEntry(subPath + p);
+        }});
+        // TODO: what if there's multiple parents? need the most accurate
+      }
+    });
+    return subEnv;
+  }
+
   async getEntry(path, required, apiCheck) {
     // show our root if we have to
     if (!path)

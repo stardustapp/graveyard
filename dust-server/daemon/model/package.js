@@ -27,7 +27,15 @@ class Package {
     }
     console.log('creating app', appKey, 'from package', this.record.displayName);
 
-    const mounts = [];
+    // Start with literally just the source code
+    const mounts = [
+      {
+        type: 'bind',
+        target: '/source',
+        source: this.record.sourceUri,
+      },
+    ];
+
     for (const mountPoint in this.record.mounts) {
       const mountDef = this.record.mounts[mountPoint];
       console.log(mountPoint, mountDef);
