@@ -312,24 +312,26 @@ class HttpWildcardHandler extends WSC.BaseHandler {
       }
       const [_, ipv4, ipv6, hostname, port] = hostMatch;
 
+      let domain = hostname;
       // Treat raw IPs as localhost
       if (ipv4 || ipv6)
-        hostname = 'localhost';
+        domain = 'localhost';
 
-      if (hostname) {
-        const vhost = await this.httpServer.getVHost(hostname);
+      if (domain) {
+        const vhost = await this.httpServer.getVHost(domain);
         if (vhost) {
           return await vhost[`handle${method}`](meta, responder);
-        } else {
-          console.log(`${method} //${headers.host}${uri}`, 506);
-          return responder.sendJson({
-            success: false,
-            error: 'domain-not-found',
-            message: `Misdirected Request: The website you tried to access doesn't exist here`,
-            cause: `This server doesn't have a domain configured with a website for the hostname ${hostname}. If this is your domain, go ahead and claim it from within your personal dashboard.`,
-          }, 421);
         }
       }
+
+      console.log(`${method} //${headers.host}${uri}`, 421);
+      return responder.sendJson({
+        success: false,
+        error: 'domain-not-found',
+        message: `Misdirected Request: The website you tried to access doesn't exist here`,
+        cause: `This server doesn't have a domain configured with a website for the hostname ${domain}. If this is your domain, go ahead and claim it from within your personal dashboard.`,
+      }, 421);
+
     } catch (err) {
       console.log(`${method} //${headers.host}${uri}`, 500, err);
       return responder.sendJson({
