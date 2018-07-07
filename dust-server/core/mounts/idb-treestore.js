@@ -55,10 +55,10 @@ class IdbTreestoreMount {
     }
     if (this.nidSubs.has(nid)) {
       const subs = this.nidSubs.get(nid);
-      subs.remove(sub);
+      subs.delete(sub);
       if (subs.size === 0) {
         console.log('Nothing is watching nid', nid, 'anymore, removing from nidSubs');
-        this.nidSubs.remove(nid);
+        this.nidSubs.delete(nid);
       }
     }
   }
@@ -126,6 +126,9 @@ class IdbPath {
     return await newChannel.invoke(async c => {
       const sub = new IdbSubscription(this, depth, c);
       await sub.start();
+      c.next(new FolderLiteral('notif', [
+        new StringLiteral('type', 'Ready'),
+      ]));
     });
   }
 }
@@ -400,9 +403,10 @@ class IdbSubscription {
 
     // If any of these change, we restart the whole sub
     this.parentNids = new Set;
-    // When this changes, the sub basically restarts
-    // Falsy if doesn't currently exist
-    //this.currentNid = false;
+    // IDB-side root node - when this changes, the sub basically restarts
+    this.currentNode = null;
+    // A copy of the root IdbSubNode sent to the client
+    this.rootNode = null;
     // Name->node tree of children, events cascade
     this.nidMap = new Map;
   }
@@ -411,28 +415,42 @@ class IdbSubscription {
     const txn = new IdbTransaction(this.mount, 'readonly');
     const handle = await txn.walkPath(this.rootPath.path);
 
+    this.currentNode = handle.current();
+
     // Register the path down to the sub's root node
-    let exists = true;
     this.parentNids = new Set;
-    for (const nid of handle.nids) {
-      if (nid) {
+    handle.nids
+      .filter(nid => nid)
+      .forEach(nid => {
         this.mount.registerNidNotifs(nid, this);
         this.parentNids.add(nid);
-      } else {
-        exists = false;
-      }
+      });
+
+    if (this.currentNode.constructor === IdbExtantNode) {
+      this.rootNode = new IdbSubNode(this.currentNode.nid, '', this.depth);
+      await this.rootNode.transmitEntry(this, txn, false);
+      console.log('all done initial sync');
+    } else {
+      console.warn(`Subscription made to ghost entry`, this.rootPath.path);
+    }
+  }
+
+  reset() {
+    // delete everything from the client & clean up
+    if (this.rootNode) {
+      this.rootNode.retractEntry(this, true);
     }
 
-    if (exists) {
-      const rootNode = new IdbSubNode(handle.current().nid, '', this.depth);
-      await rootNode.transmitEntry(this, txn, false);
-      console.log('all done initial sync');
-      this.channel.next(new FolderLiteral('notif', [
-        new StringLiteral('type', 'Ready'),
-      ]));
-    } else {
-      console.warn(`Subscription made to ghost entry`);
-    }
+    // also clean up the path we followed to get there
+    this.parentNids.forEach(nid => {
+      this.mount.unregisterNidNotifs(nid, this);
+    });
+
+    // structure reset
+    this.parentNids.clear();
+    this.currentNode = null;
+    this.rootNode = null;
+    this.nidMap.clear();
   }
 
   registerNidNotifs(nid, node) {
@@ -443,13 +461,17 @@ class IdbSubscription {
     this.mount.registerNidNotifs(nid, this);
   }
   unregisterNidNotifs(nid) {
-    this.nidMap.remove(nid);
+    this.nidMap.delete(nid);
     this.mount.unregisterNidNotifs(nid, this);
   }
 
   async processNidEvent(nid, txn, event) {
     console.log('sub processing NID event', nid, event);
-    if (this.nidMap.has(nid)) {
+    if (this.parentNids.has(nid)) {
+      console.log(`one of sub's parent NIDs changed, resetting`);
+      this.reset();
+      await this.start();
+    } else if (this.nidMap.has(nid)) {
       const node = this.nidMap.get(nid);
       await node.processEvent(this, txn, event);
     }
@@ -518,7 +540,7 @@ class IdbSubNode {
         if (this.children.has(event.child)) {
           const child = this.children.get(event.child);
           child.retractEntry(sub, true);
-          this.children.remove(event.child);
+          this.children.delete(event.child);
         }
         break;
 
