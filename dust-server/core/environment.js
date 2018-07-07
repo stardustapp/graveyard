@@ -1,4 +1,6 @@
 // An environment maintains one mount table, similar to a plan9 namespace
+// Generally one Environment is equivilent to one HTTP Origin
+// (that is, it doesn't handle differing hostnames or protocols)
 
 class Environment {
   constructor(baseUri) {
@@ -71,15 +73,16 @@ class Environment {
       throw new Error("matchPath() requires a path");
     }
     var pathSoFar = path;
-    while (pathSoFar.includes('/')) {
-      pathSoFar = pathSoFar.slice(0, pathSoFar.lastIndexOf('/'));
+    while (true) {
       if (this.mounts.has(pathSoFar)) {
         return {
           mount: this.mounts.get(pathSoFar),
           subPath: path.slice(pathSoFar.length),
         };
       }
-    }
+      if (pathSoFar.length === 0) break;
+      pathSoFar = pathSoFar.slice(0, pathSoFar.lastIndexOf('/'));
+    };
     return {};
   }
 
@@ -105,7 +108,10 @@ class Environment {
 
   async getEntry(path, required, apiCheck) {
     // show our root if we have to
+    // TODO: support a mount to / while adding mounted children, if any?
     if (!path)
+      return new VirtualEnvEntry(this, path);
+    if (path === '/' && !this.mounts.has(''))
       return new VirtualEnvEntry(this, path);
 
     var entry;
