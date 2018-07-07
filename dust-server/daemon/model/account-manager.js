@@ -128,11 +128,44 @@ class AccountManager {
   }
 
   async installApp(account, appRec) {
-    const {appKey, pid} = appRec;
-    const tx = this.idb.transaction('accounts', 'readwrite');
-    const store = tx.objectStore('accounts');
+    const {appKey, pid, mounts} = appRec;
+
+    // verify all the mounts
+    for (const mount of mounts) {
+      if (mount.type === 'bind' && mount.source.startsWith('/')) { // TODO: verify remotes too
+        const entry = await account.env.getEntry(mount.source);
+        const literal = entry && await entry.get();
+        if (literal) continue;
+
+        if (mount.createIfMissing) {
+          console.log('creating', mount.source, 'for', account.address(), '-', appRec.appKey);
+
+          const allParts = mount.source.slice(1).split('/');
+          const curParts = [];
+          for (const part of allParts) {
+            curParts.push(part);
+            const curPath = '/'+curParts.join('/');
+
+            const curEntry = await account.env.getEntry(curPath);
+            const literal = curEntry && await curEntry.get();
+            if (literal) continue; // exists!
+
+            if (!curEntry || !curEntry.put)
+              throw new Error('Failed to auto-create folder', curPath, `because it wasn't writable`);
+            console.warn('Creating folder', curPath, 'for', account.address());
+            const ok = await curEntry.put(new FolderLiteral(decodeURIComponent(part)));
+            if (!ok)
+              throw new Error('Failed to auto-create folder', curPath, `- just didn't work`);
+          }
+        } else {
+          throw new Error(`App install lists "${mount.source}" but that path wasn't found`);
+        }
+      }
+    }
 
     // make the new version
+    const tx = this.idb.transaction('accounts', 'readwrite');
+    const store = tx.objectStore('accounts');
     const record = await store.get(account.record.aid);
     if (appKey in record.apps) {
       throw new Error(`Account already has "${appKey}" application`);

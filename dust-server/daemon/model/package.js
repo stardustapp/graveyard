@@ -50,6 +50,7 @@ class Package {
             type: 'bind',
             target: mountPoint,
             source: `/${mountDef.flavor}/${appKey}`,
+            createIfMissing: true, // don't fail if it doesn't exist already
           });
           break;
         case 'bind':
