@@ -562,6 +562,7 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
 
     return fetch('/~/app-session', {
       method: 'POST',
+      credentials: 'same-origin',
     })
       .then(x => x.json())
       .then(data => {

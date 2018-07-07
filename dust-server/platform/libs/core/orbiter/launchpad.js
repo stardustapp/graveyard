@@ -41,6 +41,7 @@ class Launchpad {
 
     return fetch('/~/app-session', {
       method: 'POST',
+      credentials: 'same-origin',
     })
       .then(x => x.json())
       .then(data => {
