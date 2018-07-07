@@ -47,7 +47,9 @@ class NsExport {
         if (!entry) {
           throw new Error(`Path not found: ${Path}`);
         } else if (entry.get) {
-          return await entry.get();
+          const value = await entry.get();
+          if (value) return value;
+          throw new Error(`Path doesn't exist: ${Path}`);
         } else {
           throw new Error(`Entry at ${Path} isn't gettable`);
         }
