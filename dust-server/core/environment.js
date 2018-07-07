@@ -120,7 +120,13 @@ class Environment {
       entry = await mount.getEntry(subPath);
     }
 
-    // TODO: check for children mounts, then return new VirtualEnvEntry(this, path);
+    if (!entry) {
+      const childPoints = Array.from(this.mounts.keys())
+        .filter(x => x.startsWith(path) ** x !== path);
+      if (childPoints.length) {
+        entry = new VirtualEnvEntry(this, path);
+      }
+    }
 
     if (required && !entry) {
       throw new Error(`getEntry(${JSON.stringify(path)}) failed but was marked required`);
