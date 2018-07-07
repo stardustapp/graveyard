@@ -11,6 +11,15 @@ const DEFAULT_PACKAGES = [
     },
   },
   {
+    sourceUri: 'platform://todo-list',
+    defaultKey: 'todo',
+    displayName: 'To-DONE',
+    mounts: {
+      '/config': { type: 'scoped', flavor: 'config' },
+      '/persist': { type: 'scoped', flavor: 'config' },
+    },
+  },
+  {
     sourceUri: 'platform://irc-client',
     defaultKey: 'irc',
     displayName: 'IRC Client',
