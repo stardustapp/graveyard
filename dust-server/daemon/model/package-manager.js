@@ -16,7 +16,7 @@ const DEFAULT_PACKAGES = [
     displayName: 'To-DONE',
     mounts: {
       '/config': { type: 'scoped', flavor: 'config' },
-      '/persist': { type: 'scoped', flavor: 'config' },
+      '/persist': { type: 'scoped', flavor: 'persist' },
     },
   },
   {
