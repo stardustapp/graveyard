@@ -28,9 +28,16 @@ const DEFAULT_PACKAGES = [
       '/persist': { type: 'scoped', flavor: 'persist' },
       //'/secret': { type: 'scoped', flavor: 'secret' },
       '/dialer': { type: 'bind',
-        suggestion: 'ws://modem2.devmode.cloud:29234/pub',
+        suggestion: 'skylink+ws://modem2.devmode.cloud:29234/pub',
         hint: 'An IRC modem, used to connect to IRC networks' },
     },
+    processes: [{
+      type: 'daemon',
+      displayName: 'Primary loop',
+      runtime: 'lua',
+      workingPath: 'routines/',
+      entryPath: 'launch.lua',
+    }],
   },
 ];
 
