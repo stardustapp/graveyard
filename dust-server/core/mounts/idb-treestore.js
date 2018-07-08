@@ -431,15 +431,16 @@ class IdbSubscription {
       await this.rootNode.transmitEntry(this, txn, false);
       console.log('all done initial sync');
     } else {
-      console.warn(`Subscription made to ghost entry`, this.rootPath.path);
+      console.log(`Subscription made to ghost entry`, this.rootPath.path);
     }
   }
 
   reset() {
     // delete everything from the client & clean up
     if (this.rootNode) {
-      this.rootNode.retractEntry(this, true);
+      this.rootNode.retractEntry(this);
     }
+    this.rootNode = null;
 
     // also clean up the path we followed to get there
     this.parentNids.forEach(nid => {
@@ -449,7 +450,6 @@ class IdbSubscription {
     // structure reset
     this.parentNids.clear();
     this.currentNode = null;
-    this.rootNode = null;
     this.nidMap.clear();
   }
 
@@ -514,13 +514,13 @@ class IdbSubNode {
     }
   }
 
-  retractEntry(sub, andRemove) {
+  retractEntry(sub, andRemove=true) {
     console.log('Retracting IDB node', this.nid, 'path', this.path, 'and remove:', andRemove);
     sub.unregisterNidNotifs(this.nid);
 
     // remove children first
     this.children.forEach((child, name) => {
-      child.unload(state, false);
+      child.retractEntry(sub, false);
     });
     this.children.clear();
 
@@ -539,7 +539,7 @@ class IdbSubNode {
       case 'remove-child':
         if (this.children.has(event.child)) {
           const child = this.children.get(event.child);
-          child.retractEntry(sub, true);
+          child.retractEntry(sub);
           this.children.delete(event.child);
         }
         break;

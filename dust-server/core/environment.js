@@ -110,9 +110,9 @@ class Environment {
     // show our root if we have to
     // TODO: support a mount to / while adding mounted children, if any?
     if (!path)
-      return new VirtualEnvEntry(this, path);
+      return new VirtualEnvEntry(this, '');
     if (path === '/' && !this.mounts.has(''))
-      return new VirtualEnvEntry(this, path);
+      return new VirtualEnvEntry(this, '');
 
     var entry;
     const {mount, subPath} = this.matchPath(path);
@@ -122,7 +122,7 @@ class Environment {
 
     if (!entry) {
       const childPoints = Array.from(this.mounts.keys())
-        .filter(x => x.startsWith(path) ** x !== path);
+        .filter(x => x.startsWith(path) && x !== path);
       if (childPoints.length) {
         entry = new VirtualEnvEntry(this, path);
       }
@@ -174,7 +174,7 @@ class VirtualEnvEntry {
       const name = this.path ? nameParts[nameParts.length - 1] : 'root';
       return new FolderLiteral(name, children);
     } else {
-      throw new Error("You pathed into a part of an env with no contents");
+      throw new Error("BUG: You pathed into a part of an env with no contents");
     }
   }
 
