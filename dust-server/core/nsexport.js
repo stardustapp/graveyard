@@ -279,7 +279,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
       }
 
     }, (err) => {
-      const stackSnip = err.stack.split('\n').slice(0,4).join('\n');
+      const stackSnip = (err.stack || new String(err)).split('\n').slice(0,4).join('\n');
       console.warn('!!! Operation failed with', stackSnip);
       this.sendOutput(false, {
         Type: 'String',
