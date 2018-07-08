@@ -467,11 +467,14 @@ class IdbSubscription {
 
   async processNidEvent(nid, txn, event) {
     console.log('sub processing NID event', nid, event);
-    if (this.parentNids.has(nid)) {
+    
+    if (this.parentNids.has(event.nid)) {
       console.log(`one of sub's parent NIDs changed, resetting`);
       this.reset();
       await this.start();
-    } else if (this.nidMap.has(nid)) {
+    }
+
+    if (this.nidMap.has(nid)) {
       const node = this.nidMap.get(nid);
       await node.processEvent(this, txn, event);
     }
