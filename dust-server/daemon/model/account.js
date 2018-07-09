@@ -59,6 +59,10 @@ class Account {
     this.webEnv.bind('/'+appKey, pkg.webroot);
   }
 
+  unmountApp(appKey, pkg, appRec) {
+    this.webEnv.mounts.delete('/'+appKey);
+  }
+
   close() {
     console.log('Closing IDB for', this.address());
     this.db.close();

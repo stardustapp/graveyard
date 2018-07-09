@@ -34,6 +34,8 @@ class GateSite {
         return new GateSiteAddDomain(this);
       case path === '/install-app':
         return new GateSiteInstallApp(this);
+      case path === '/remove-app':
+        return new GateSiteRemoveApp(this);
       case path === '/set-password':
         return new GateSiteSetPassword(this);
       case path === '/logout':
@@ -68,7 +70,7 @@ function wrapGatePage(title, inner) {
     <head>
       <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
       <title>${title}</title>
-      <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500|Material+Icons" rel="stylesheet">
       <link href="/~/style.css" type="text/css" rel="stylesheet" media="screen,projection" />
     </head>
     <body>
@@ -420,7 +422,9 @@ class GateSiteInstallApp {
                 style="width: 12em;">
           </div>
           ${extraRows}
-          <button type="submit">install application</button>
+          <button type="submit">
+            install application
+          </button>
         </form>`;
     }
 
@@ -460,6 +464,33 @@ class GateSiteInstallApp {
       
       return buildRedirect('/~/home');
     }
+  }
+}
+
+class GateSiteRemoveApp {
+  constructor(site) {
+    this.site = site;
+  }
+
+  async invoke(input) {
+    const request = await new GateSiteRequest(this.site, input).loadState();
+    const {appKey} = request.req.queryParams;
+    if (!request.session) {
+      return buildRedirect('/~/login');
+    }
+
+    if (request.req.method !== 'POST' || !appKey) {
+      return wrapGatePage(`remove app | ${this.site.domainName}`, commonTags.html`
+        <form class="modal-form" method="post">
+          <h2>Remove app ${request.req.queryParams.appKey}</h2>
+          <p>The application will be stopped and removed from your account, but no stored data will be cleaned up.</p>
+          <button type="submit">uninstall</button>
+          <p><a href="home">wait nvm</a></p>
+        </form>`);
+    }
+
+    await this.site.accountManager.removeApp(request.session.account, appKey);
+    return buildRedirect('/~/home');
   }
 }
 
@@ -564,8 +595,13 @@ class GateSiteHome {
 
     const apps = await this.site.packageManager.getInstalledApps(account);
     let appListing = apps.map(app => commonTags.safeHtml`
-      <li>
-        <a href="/~${account.record.username}/${app.appRec.appKey}/">${app.package.record.displayName}</a>
+      <li style="display: flex;">
+        <a href="/~${account.record.username}/${app.appRec.appKey}/" style="flex: 1;">
+          ${app.package.record.displayName}
+        </a>
+        <a href="remove-app?appKey=${app.appRec.appKey}">
+          <i class="material-icons">delete</i>
+        </a>
       </li>
     `).join('\n');
     if (!apps.length) {
@@ -587,10 +623,12 @@ class GateSiteHome {
 
       <section class="compact modal-form">
         <h2>Your apps</h2>
-        <ul style="text-align: left;">
+        <ul style="text-align: left; margin: 0; padding: 0 0.5em;">
           ${appListing}
         </ul>
-        <a href="install-app" class="action">Install application</a>
+        <a href="install-app" class="action">
+          Install application
+        </a>
       </section>
 
       <section class="compact modal-form">

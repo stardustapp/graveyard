@@ -187,4 +187,28 @@ class AccountManager {
     account.mountApp(appKey, pkg, appRec);
     ToastNotif(`Installed package ${pkg.record.displayName} into ${account.address()} as ${appKey}`);
   }
+
+  async removeApp(account, appKey) {
+    // make the new version
+    const tx = this.idb.transaction('accounts', 'readwrite');
+    const store = tx.objectStore('accounts');
+    const record = await store.get(account.record.aid);
+
+    const appRec = record.apps[appKey];
+    if (!appRec) {
+      throw new Error(`Account doesn't have "${appKey}" application`);
+    }
+
+    delete record.apps[appKey];
+    delete account.record.apps[appKey];
+
+    // persist it
+    await store.put(record);
+    await tx.complete;
+
+    // hot-install
+    const pkg = await this.packageManager.getOne(appRec.pid);
+    account.unmountApp(appKey, pkg, appRec);
+    ToastNotif(`Removed package ${pkg.record.displayName} from ${account.address()} as ${appKey}`);
+  }
 };
