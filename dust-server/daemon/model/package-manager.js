@@ -34,8 +34,14 @@ const DEFAULT_PACKAGES = [
     workloads: {
       primary: {
         displayName: 'Primary loop',
-        type: 'persistant daemon',
+        type: 'daemon',
         sourceUri: 'routines/launch.lua',
+        runtime: 'lua',
+      },
+      sendMessage: {
+        displayName: 'IRC Message sender',
+        type: 'function',
+        sourceUri: 'routines/send-message.lua',
         runtime: 'lua',
       },
     },

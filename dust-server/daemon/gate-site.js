@@ -481,7 +481,7 @@ class GateSiteInstallApp {
       }
 
       const pkg = await this.site.packageManager.getOne(pid);
-      const installation = pkg.createAppInstall(appKey, request.req.bodyparams);
+      const installation = pkg.createAppInstall(request.session.account, appKey, request.req.bodyparams);
       await this.site.accountManager.installApp(request.session.account, installation);
       
       return buildRedirect('/~/home');

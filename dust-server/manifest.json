@@ -20,6 +20,7 @@
           "daemon/model/domain-manager.js", "daemon/model/domain.js",
           "daemon/model/package-manager.js", "daemon/model/package.js",
           "daemon/model/session-manager.js", "daemon/model/session.js",
+          "daemon/drivers/workloads-api.js",
         "daemon/default-site.js", "daemon/gate-site.js", "daemon/gate-api.js", "daemon/domain-api.js",
         "daemon/background.js"]
     }

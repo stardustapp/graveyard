@@ -21,11 +21,11 @@ class Package {
     }
   }
 
-  createAppInstall(appKey, opts) {
+  createAppInstall(account, appKey, opts) {
     if (!appKey.match(/^[a-z][a-z0-9]+$/i)) {
       throw new Error(`App keys must be alphanumeric`);
     }
-    console.log('creating app', appKey, 'from package', this.record.displayName);
+    console.log('creating app', appKey, 'from package', this.record.displayName, 'for', account.address());
 
     // Start with literally just the source code
     const mounts = [
@@ -36,9 +36,21 @@ class Package {
       },
     ];
 
+    if (Object.keys(this.record.workloads).length) {
+      mounts.push({
+        type: 'device',
+        target: '/workloads',
+        driver: 'WorkloadsApi',
+        input: {
+          pid: this.record.pid,
+          aid: account.record.aid,
+          appKey: appKey,
+        },
+      })
+    }
+
     for (const mountPoint in this.record.mounts) {
       const mountDef = this.record.mounts[mountPoint];
-      console.log(mountPoint, mountDef);
       switch (mountDef.type) {
         case 'scoped':
           // Scoped is supposed to be private to the specific application, by appKey
@@ -77,8 +89,8 @@ class Package {
 
     return {
       appKey,
-      mounts,
       pid: this.record.pid,
+      mounts,
     };
   }
 }

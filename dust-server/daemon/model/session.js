@@ -35,7 +35,18 @@ class Session {
               throw new Error(`BUG: Session has unsupported bind source ${mount.source}`);
             }
             break;
-            
+
+          case 'device':
+            const driver = window[mount.driver+'Driver'];
+            if (!driver)
+              throw new Error(`Session device called for unregistered class ${mount.driver}Driver`);
+
+            console.log('Building', mount.driver, 'device for', this.account.address());
+            const device = new driver(this, mount.input);
+            device.ready && await device.ready;
+            this.env.bind('/mnt'+mount.target, device);
+            break;
+
           default:
             throw new Error(`BUG: Session has weird mount type ${mount.type}`);
         }
