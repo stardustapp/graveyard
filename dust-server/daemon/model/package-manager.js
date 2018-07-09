@@ -31,13 +31,14 @@ const DEFAULT_PACKAGES = [
         suggestion: 'skylink+ws://modem2.devmode.cloud:29234/pub',
         hint: 'An IRC modem, used to connect to IRC networks' },
     },
-    processes: [{
-      type: 'daemon',
-      displayName: 'Primary loop',
-      runtime: 'lua',
-      workingPath: 'routines/',
-      entryPath: 'launch.lua',
-    }],
+    workloads: {
+      primary: {
+        displayName: 'Primary loop',
+        type: 'persistant daemon',
+        sourceUri: 'routines/launch.lua',
+        runtime: 'lua',
+      },
+    },
   },
 ];
 
@@ -94,13 +95,14 @@ class PackageManager {
     });
   }
 
-  async install({sourceUri, defaultKey, displayName, mounts}) {
+  async install({sourceUri, defaultKey, displayName, mounts, workloads}) {
     const record = {
       schema: 1,
       pid: Math.random().toString(16).slice(2),
       sourceUri, defaultKey, displayName,
       createdAt: new Date(),
       mounts: mounts || {},
+      workloads: workloads || [],
     };
 
     try {
@@ -119,7 +121,7 @@ class PackageManager {
     return pkg;
   }
 
-  async replace(pid, {sourceUri, defaultKey, displayName, mounts}) {
+  async replace(pid, {sourceUri, defaultKey, displayName, mounts, workloads}) {
     const tx = this.idb.transaction('packages', 'readwrite');
     const store = tx.objectStore('packages');
 
@@ -133,6 +135,7 @@ class PackageManager {
       sourceUri, defaultKey, displayName,
       createdAt: existing.createdAt,
       mounts: mounts || {},
+      workloads: workloads || [],
     };
 
     await store.put(record);

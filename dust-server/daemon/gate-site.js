@@ -379,13 +379,13 @@ class GateSiteInstallApp {
     if (request.req.queryParams.pid) {
       const pkg = await this.site.packageManager.getOne(request.req.queryParams.pid);
 
-      const extraRows = [];
+      const mountRows = [];
       Object.keys(pkg.record.mounts).forEach(mountPoint => {
         const mountDef = pkg.record.mounts[mountPoint];
         const fieldKey = `mount-${encodeURIComponent(mountPoint)}`;
         switch (mountDef.type) {
           case 'bind':
-            extraRows.push(commonTags.safeHtml`
+            mountRows.push(commonTags.safeHtml`
               <div class="row">
                 <label for="${fieldKey}" style="margin: 0 0 0 2em; width: 5em;">${mountPoint}</label>
                 <input type="text" name="${fieldKey}" value="${mountDef.suggestion}"
@@ -396,10 +396,31 @@ class GateSiteInstallApp {
             break;
         }
       });
-      if (extraRows.length) {
-        extraRows.unshift(commonTags.html`
+      if (mountRows.length) {
+        mountRows.unshift(commonTags.html`
           <hr>
           <h2>mount points</h2>
+        `);
+      }
+
+      const workloadRows = [];
+      Object.keys(pkg.record.workloads).forEach(wlId => {
+        const workload = pkg.record.workloads[wlId];
+        const fieldKey = `workload-${encodeURIComponent(wlId)}`;
+
+        workloadRows.push(commonTags.safeHtml`
+          <div class="row">
+            <label for="${fieldKey}" style="margin: 0 0 0 2em; width: 5em;">${wlId}</label>
+            <input type="text" name="${fieldKey}" value="${workload.sourceUri}" readonly
+                style="width: 12em;">
+          </div>
+          <p class="hint">type: ${workload.type} / runtime: ${workload.runtime}</p>
+        `);
+      });
+      if (workloadRows.length) {
+        workloadRows.unshift(commonTags.html`
+          <hr>
+          <h2>workloads</h2>
         `);
       }
 
@@ -421,7 +442,8 @@ class GateSiteInstallApp {
             <input type="text" name="appKey" value="${pkg.record.defaultKey}"
                 style="width: 12em;">
           </div>
-          ${extraRows}
+          ${mountRows}
+          ${workloadRows}
           <button type="submit">
             install application
           </button>
