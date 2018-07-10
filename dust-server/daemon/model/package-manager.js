@@ -28,7 +28,7 @@ const DEFAULT_PACKAGES = [
       '/persist': { type: 'scoped', flavor: 'persist' },
       //'/secret': { type: 'scoped', flavor: 'secret' },
       '/dialer': { type: 'bind',
-        suggestion: 'skylink+ws://modem2.devmode.cloud:29234/pub',
+        suggestion: 'skylink+ws://52.36.135.46:29234/pub',
         hint: 'An IRC modem, used to connect to IRC networks' },
     },
     workloads: {

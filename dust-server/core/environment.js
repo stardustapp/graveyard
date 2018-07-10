@@ -29,6 +29,9 @@ class Environment {
       case 'tmp':
         mount = new TemporaryMount(opts);
         break;
+      case 'network-import':
+        mount = new NetworkImportMount(opts);
+        break;
       case 'bind':
         // just use the specified (already existing) mount
         mount = opts.source;

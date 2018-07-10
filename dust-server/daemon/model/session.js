@@ -31,9 +31,17 @@ class Session {
               });
               this.env.bind('/mnt'+mount.target, device);
 
-            } else {// else if (mount.source.includes('://'))
+            } else if (mount.source.startsWith('skylink+') && mount.source.includes('://')) {
+              const parts = mount.source.slice('skylink+'.length).split('/');
+              this.env.mount('/mnt'+mount.target, 'network-import', {
+                url: parts.slice(0,3).join('/') + '/~~export' + (parts[0].startsWith('ws') ? '/ws' : ''),
+                prefix: ('/' + parts.slice(3).join('/')).replace(/\/+$/, ''),
+              });
+
+            } else {
               throw new Error(`BUG: Session has unsupported bind source ${mount.source}`);
             }
+            // else if (mount.source.includes('://'))
             break;
 
           case 'device':
