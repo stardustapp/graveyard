@@ -36,7 +36,9 @@ class Package {
       },
     ];
 
-    if (Object.keys(this.record.workloads).length) {
+    let alwaysOn = false;
+    const workKeys = Object.keys(this.record.workloads);
+    if (workKeys.length) {
       mounts.push({
         type: 'device',
         target: '/workloads',
@@ -46,7 +48,12 @@ class Package {
           aid: account.record.aid,
           appKey: appKey,
         },
-      })
+      });
+
+      // Some workloads want to autostart on system boot
+      if (workKeys.some(w => this.record.workloads[w].type === 'daemon')) {
+        alwaysOn = true;
+      }
     }
 
     for (const mountPoint in this.record.mounts) {
@@ -91,6 +98,7 @@ class Package {
       appKey,
       pid: this.record.pid,
       mounts,
+      alwaysOn,
     };
   }
 }
