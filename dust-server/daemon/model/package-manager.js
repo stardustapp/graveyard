@@ -61,8 +61,8 @@ class PackageManager {
           console.log('Installing default', spec.defaultKey, 'package');
           const pkg = await this.install(spec);
           list.push(pkg);
-        } else {
-          console.log('Updating default', spec.defaultKey, 'package');
+        } else { // TODO: only replace if different
+          //console.log('Updating default', spec.defaultKey, 'package');
           const pkg = await this.replace(list[idx].pid, spec);
           list[idx] = pkg;
         }

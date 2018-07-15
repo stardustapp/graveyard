@@ -20,7 +20,7 @@ class HttpServer {
   startServer(port=9237) {
     this.wsc.port = port;
     this.wsc.start();
-    console.log('listening on %s', this.wsc.port);
+    console.log('http server listening on %s', this.wsc.port);
   }
 
   /*async*/ getVHost(hostname) {

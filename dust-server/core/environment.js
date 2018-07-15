@@ -15,7 +15,7 @@ class Environment {
   // creates a mount of type, with opts, and places it at path
   async mount(path, type, opts) {
     opts = opts || {};
-    console.log('Mounting', type, 'to', path, 'with', opts);
+    //console.log('Mounting', type, 'to', path, 'with', opts);
 
     // initialize the device to be mounted
     var mount;

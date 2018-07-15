@@ -6,8 +6,6 @@ class Package {
   }
 
   async load() {
-    console.log('Loading package', this.record);
-
     if (this.record.sourceUri.startsWith('platform://')) {
       const parts = this.record.sourceUri.split('://');
       const pkgRoot = await new Promise(r =>

@@ -131,7 +131,6 @@ async function boot() {
 
   // all good, let's listen
   webServer.startServer(9237);
-  console.log('Started web server');
 }
 
 function ToastNotif(text) {
@@ -158,7 +157,7 @@ chrome.app.runtime.onLaunched.addListener(evt => {
       height: 480,
     }
   });
-  console.log('Opened server console');
+  console.log('Opened server root UI');
 
   boot().then(() => {
     chrome.notifications.create('startup', {

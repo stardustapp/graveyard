@@ -6,8 +6,6 @@
 
 class WebFilesystemMount {
   constructor(opts) {
-    console.log('web filesystem inited with', opts);
-
     this.entry = opts.entry;
     this.prefix = opts.prefix || '';
     if (!this.entry.getDirectory) {
