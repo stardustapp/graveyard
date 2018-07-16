@@ -3,23 +3,19 @@ importScripts(
   '/core/api-entries.js',
   '/core/environment.js',
   '/core/utils.js',
+
+  '/vendor/fengari.js',
+  '/vendor/moment.js',
+  //'/vendor/bugsnag.js',
 );
 importScripts(
   '/core/nsexport.js',
   '/core/platform-api.js',
 
   '/lib/runtime-slave-worker.js',
-
-  '/vendor/fengari.js',
-  '/vendor/moment.js',
-  //'/vendor/bugsnag.js',
+  '/lib/lua-machine.js',
 );
 delete this.window;
-
-const luaconf  = fengari.luaconf;
-const lua      = fengari.lua;
-const lauxlib  = fengari.lauxlib;
-const lualib   = fengari.lualib;
 
 class Workload {
   constructor({basePath, spec, wid}) {
@@ -37,7 +33,7 @@ class Workload {
     const source = await sourceEntry.get();
 
     const machine = new LuaMachine(runtime.deviceForKernelPath(this.basePath));
-    const output = machine.eval(atob(source.Data));
+    const thread = machine.startThread(atob(source.Data));
 
     console.warn('starting workload', source);
     return false;
@@ -65,29 +61,3 @@ const runtime = new RuntimeSlaveWorker(api => {
     return workload.stop(input);
   });
 });
-
-class LuaMachine {
-  constructor() {
-    this.L = lauxlib.luaL_newstate();
-    //lualib.luaL_openlibs(this.L);
-  }
-
-  eval(source) {
-    const {L} = this;
-
-    // this returns an error or a result
-    const compileRes = lauxlib.luaL_loadstring(L, fengari.to_luastring(source));
-    if (compileRes !== lua.LUA_OK) {
-      const error = lua.lua_tostring(L, -1);
-      throw new Error('Lua compile fault. ' + fengari.to_jsstring(error));
-    }
-
-    // this throws on error
-    lua.lua_pushliteral(L, "hello world!");
-    lua.lua_call(L, 1, -1);
-    const output = lua.lua_tostring(L, -1);
-    return fengari.to_jsstring(output);
-  }
-}
-
-console.log('hmm:', new LuaMachine().eval('return "this is a test"'));
