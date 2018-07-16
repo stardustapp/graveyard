@@ -54,7 +54,7 @@ class PackageManager {
     this.all = new Map();
 
     const tx = this.idb.transaction('packages', 'readonly');
-    tx.objectStore('packages').getAll().then(async list => {
+    this.ready = tx.objectStore('packages').getAll().then(async list => {
       await Promise.all(DEFAULT_PACKAGES.map(async spec => {
         const idx = list.findIndex(pkg => pkg.sourceUri === spec.sourceUri);
         if (idx === -1) {

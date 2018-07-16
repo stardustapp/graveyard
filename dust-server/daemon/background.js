@@ -103,9 +103,12 @@ async function boot(launchData) {
   console.debug('BOOT: Opened database');
 
   const packageManager = new PackageManager(db);
+  await packageManager.ready;
   const accountManager = new AccountManager(db, packageManager);
   const sessionManager = new SessionManager(db, accountManager);
   const domainManager = new DomainManager(db, accountManager);
+  await domainManager.ready;
+  console.debug('BOOT: All managers are ready to go!');
 
   // create a root environment using GateApi
   const systemEnv = new Environment();

@@ -43,9 +43,9 @@ class AccountManager {
     ToastNotif(`Loaded account: ${account.address()}`);
 
     const apps = await this.packageManager.getInstalledApps(account);
-    apps.forEach(app => {
-      account.mountApp(app.appRec.appKey, app.package, app.appRec);
-    });
+    await Promise.all(apps.map(app => {
+      return account.mountApp(app.appRec.appKey, app.package, app.appRec);
+    }));
 
     return account;
   }
@@ -100,7 +100,7 @@ class AccountManager {
       console.log('Hot-mounting new account', username, 'into domain', domain.record.primaryFqdn);
       domain.webEnv.bind('/~'+username, account.webEnv);
     }
-    
+
     return account;
   }
 

@@ -55,7 +55,8 @@ class Account {
     throw new Error(`BUG: Account has an unrecognized hashing strategy. Find your system administrator`);
   }
 
-  mountApp(appKey, pkg, appRec) {
+  async mountApp(appKey, pkg, appRec) {
+    await pkg.ready;
     this.webEnv.bind('/'+appKey, pkg.webroot);
   }
 
