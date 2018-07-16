@@ -16,10 +16,11 @@ class DaemonWorkload extends Workload {
     const {wid, wlKey, spec} = this.record;
 
     this.worker = new RuntimeWorker(spec.runtime);
+    const fd = await this.worker.bindFd(this.session.env);
     const response = await this.worker
       .invokeApi('start workload', {
         wid, spec,
-        sessionPath: `/sessions/${this.session.record.sid}`,
+        basePath: fd+'/mnt',
       });
     console.log('worker started:', response);
   }
@@ -43,17 +44,54 @@ class RuntimeWorker extends Worker {
 
     this.onmessage = this.handleMessage.bind(this);
 
+    this.env = new Environment();
+    this.nsExport = new NsExport(this.env);
+    this.nextFd = 1;
+
     this.pendingIds = new Map;
-    this.nextId = 0;
+    this.nextId = 1;
+  }
+
+  async bindFd(target) {
+    const fd = `/fd/${this.nextFd++}`;
+    await this.env.bind(fd, target);
+    return fd;
   }
 
   handleMessage(evt) {
-    const {Id, Ok} = evt.data;
-    if (this.pendingIds.has(Id)) {
+    const {Id, Ok, Op} = evt.data;
+    if (Op) {
+      this.processRuntimeOp(evt.data);
+    } else if (this.pendingIds.has(Id)) {
       const future = this.pendingIds.get(Id);
       this.pendingIds.delete(Id);
       future.resolve(evt.data);
+    } else {
+      throw new Error(`BUG: kernel got message for non-pending thing`);
     }
+  }
+
+  processRuntimeOp(request) {
+    this.nsExport
+      .processOp(request)
+      .then(output => {
+        this.postMessage({
+          Ok: true,
+          Id: request.Id,
+          Output: output,
+        });
+      }, (err) => {
+        console.warn('!!! Kernel syscall failed with', err);
+        this.postMessage({
+          Ok: false,
+          Id: request.Id,
+          Output: {
+            Type: 'String',
+            Name: 'error-message',
+            StringValue: err.message,
+          },
+        });
+      });
   }
 
   async volley(request) {
@@ -63,7 +101,9 @@ class RuntimeWorker extends Worker {
       this.postMessage(request);
     });
 
-    if (response.Ok) {
+    if (response.Op) {
+      throw new Error(`huh`);
+    } else if (response.Ok) {
       console.debug('RuntimeWorker response was ok:', response);
       return response;
     } else {
