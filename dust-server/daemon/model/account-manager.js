@@ -18,6 +18,9 @@ class AccountManager {
     });
     return promise;
   }
+  /*async*/ getById(aid) {
+    return this.getAccount(aid);
+  }
 
   async getAllForDomain(domain) {
     // TODO: refactor once did is present and indexed

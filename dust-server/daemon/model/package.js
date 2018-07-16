@@ -19,6 +19,13 @@ class Package {
     }
   }
 
+  wantsAlwaysOn() {
+    return Object
+      .keys(this.record.workloads)
+      .map(x => this.record.workloads[x])
+      .some(w => w.type === 'daemon');
+  }
+
   createAppInstall(account, appKey, opts) {
     if (!appKey.match(/^[a-z][a-z0-9]+$/i)) {
       throw new Error(`App keys must be alphanumeric`);

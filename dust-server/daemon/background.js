@@ -43,7 +43,7 @@ async function boot(launchData) {
     chrome.power.requestKeepAwake('display');
   }
 
-  const db = await idb.open('system', 7, upgradeDB => {
+  const db = await idb.open('system', 9, upgradeDB => {
     switch (upgradeDB.oldVersion) {
       case 0:
         // Stores name[@domain] profiles
@@ -98,6 +98,20 @@ async function boot(launchData) {
             .createIndex('pid',  'pids',  { unique: false, multiEntry: true });
         upgradeDB.transaction.objectStore('accounts')
             .createIndex('did',  'did',   { unique: false });
+
+      case 7:
+        const workloads = upgradeDB.createObjectStore('workloads', {
+          keyPath: 'wid',
+        });
+        workloads.createIndex('aidApp', ['aid', 'appKey'], { unique: false });
+        workloads.createIndex('didApp', ['did', 'appKey'], { unique: false });
+        workloads.createIndex('type',    'type',           { unique: false });
+
+      case 8:
+        upgradeDB.transaction.objectStore('workloads')
+            .deleteIndex('type');
+        upgradeDB.transaction.objectStore('workloads')
+            .createIndex('type', 'spec.type', { unique: false });
     }
   });
   console.debug('BOOT: Opened database');
@@ -108,6 +122,8 @@ async function boot(launchData) {
   const sessionManager = new SessionManager(db, accountManager);
   const domainManager = new DomainManager(db, accountManager);
   await domainManager.ready;
+  const workloadManager = new WorkloadManager(db, sessionManager, {aid: accountManager});
+  await workloadManager.ready;
   console.debug('BOOT: All managers are ready to go!');
 
   // create a root environment using GateApi
@@ -125,7 +141,7 @@ async function boot(launchData) {
 
     const webEnv = await domainManager.getWebEnvironment(domain);
     webEnv.bind('/~', new GateSite(hostname, domain.record.did,
-        accountManager, sessionManager, domainManager, packageManager));
+        {accountManager, sessionManager, domainManager, packageManager, workloadManager}));
     webEnv.bind('/~~libs', new WebFilesystemMount({
       entry: pkgRoot,
       prefix: 'platform/libs/',

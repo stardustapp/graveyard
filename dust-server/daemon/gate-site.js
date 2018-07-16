@@ -1,7 +1,7 @@
 // Serves up enough HTML to nicely direct users to the account page
 
 class GateSite {
-  constructor(domainName, domainId, accountManager, sessionManager, domainManager, packageManager) {
+  constructor(domainName, domainId, {accountManager, sessionManager, domainManager, packageManager, workloadManager}) {
     if (!domainName || !domainId)
       throw new Error(`GateSite requires a domain name`);
     if (!sessionManager)
@@ -9,10 +9,12 @@ class GateSite {
 
     this.domainName = domainName;
     this.domainId = domainId;
+
     this.accountManager = accountManager;
     this.sessionManager = sessionManager;
     this.domainManager = domainManager;
     this.packageManager = packageManager;
+    this.workloadManager = workloadManager;
   }
 
   async getEntry(path) {
@@ -482,8 +484,10 @@ class GateSiteInstallApp {
 
       const pkg = await this.site.packageManager.getOne(pid);
       const installation = pkg.createAppInstall(request.session.account, appKey, request.req.bodyparams);
+      // TODO: should be one database transaction!!
       await this.site.accountManager.installApp(request.session.account, installation);
-      
+      await this.site.workloadManager.installAppWorkloads('aid', request.session.account.record.aid, installation.appKey, pkg);
+
       return buildRedirect('/~/home');
     }
   }
@@ -511,6 +515,7 @@ class GateSiteRemoveApp {
         </form>`);
     }
 
+    await this.site.workloadManager.purgeAppWorkloads('aid', request.session.account.record.aid, appKey);
     await this.site.accountManager.removeApp(request.session.account, appKey);
     return buildRedirect('/~/home');
   }
