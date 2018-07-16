@@ -46,7 +46,7 @@ class SessionManager {
   }
 
   async create(account, {lifetime, volatile, client, appKey}) {
-    console.log('creating session for', account.address(), '-', account.record.aid, appKey);
+    console.debug('creating session for', account.address(), '-', account.record.aid, appKey);
 
     const record = {
       schema: 1,

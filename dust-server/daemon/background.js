@@ -1,5 +1,5 @@
 async function boot(launchData) {
-  console.debug('BOOT: Booting server...');
+  console.group('Server boot');
 
   const self = await new Promise(resolve => chrome.management.getSelf(resolve));
   const platformInfo = await new Promise(resolve => chrome.runtime.getPlatformInfo(resolve));
@@ -155,7 +155,8 @@ async function boot(launchData) {
 
   // all good, let's listen
   webServer.startServer(9237);
-  console.log('BOOT: Completed :)');
+  console.debug('BOOT: Completed :)');
+  console.groupEnd();
 }
 
 function ToastNotif(text) {

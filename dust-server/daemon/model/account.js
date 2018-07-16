@@ -22,7 +22,7 @@ class Account {
     await this.env.mount('/persist', 'idb-treestore', { db: this.db, store: 'persist' });
     await this.env.mount('/chart-name', 'literal', { string: this.address() });
 
-    console.log('Opened account', this.record.aid, 'for', this.address());
+    console.debug('Opened account', this.record.aid, 'for', this.address());
   }
 
   address() {

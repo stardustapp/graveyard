@@ -3,7 +3,7 @@ class Session {
     this.record = record;
     this.account = account;
 
-    console.log('launching session for', account.address());
+    console.debug('launching session for', account.address());
     this.env = new Environment();
     this.ready = this.loadEnv();
 

@@ -23,9 +23,9 @@ class WorkloadManager {
         return cursor.continue().then(cursorIterate);
       });
 
-    console.log('Waiting for', this.daemonPromises.size, 'daemons to start');
+    console.debug('Waiting for', this.daemonPromises.size, 'daemons to start');
     const daemons = await Promise.all(Array.from(this.daemonPromises.values()));
-    console.log('All daemons started.', daemons);
+    console.debug('All daemons started.', daemons);
   }
 
   async registerDaemon(record) {
@@ -34,18 +34,19 @@ class WorkloadManager {
       throw new Error(`BUG: registerDaemon(${JSON.stringify(wid)}) encountered existing daemon object with that ID`);
     }
 
-    const promise = this.startDaemon(record);
-    this.daemonPromises.set(wid, promise);
-    try {
-      const daemon = await promise;
+    const promise = this.startDaemon(record).then(daemon => {
       this.activeDaemons.set(wid, daemon);
-      console.log(`Successfully registered daemon for`, record);
-    } catch (err) {
-      console.warn(`Failed to register daemon for`, record);
-      throw err;
-    } finally {
-      this.daemonPromises.delete(wid);
-    }
+      console.debug(`Successfully registered daemon`, daemon);
+      return daemon;
+    }, err => {
+      // TODO: send to bugsnag
+      console.error(`Failed to start daemon workload.`, err);
+      console.debug(`Workload that didn't start:`, record, 'Moving on.');
+      return err;
+    });
+
+    this.daemonPromises.set(wid, promise);
+    return promise;
   }
 
   async startDaemon(record) {
