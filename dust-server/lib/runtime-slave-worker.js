@@ -1,0 +1,120 @@
+class RuntimeSlaveWorker {
+  constructor(apiSetup) {
+    onmessage = this.onKernelMessage.bind(this);
+
+    this.pendingIds = new Map;
+    this.nextId = 1;
+
+    this.api = new Map;
+    apiSetup(this.api);
+  }
+
+  async handleKernelMessage(data) {
+    const {Op, Path, Id, Input, Ok} = data;
+
+    if (Op) {
+      // kernel is performing an operation on us
+      (async () => {
+        console.debug('Message received from main script', Op, Path);
+
+        if (Op === 'invoke' && Path.startsWith('/api/')) {
+          const apiName = Path.slice(5);
+          if (this.api.has(apiName)) {
+            const apiImpl = this.api.get(apiName);
+            return {
+              Type: 'JS',
+              Data: await apiImpl(Input.Data),
+            };
+          } else {
+            throw new Error(`You invoked unexpected path ${JSON.stringify(Path)}`);
+          }
+        } else {
+          throw new Error(`BUG: Invoked unimplemented Skylink Op ${JSON.stringify(Op)}`);
+        }
+      })().then(out => {
+        return {
+          Ok: true,
+          Id: Id,
+          Output: out || null,
+        };
+      }, err => {
+        console.warn('Passing failure back to kernel', err, 'for', data);
+        return {
+          Ok: false,
+          Id: Id,
+          Output: {
+            Type: 'Error',
+            StringValue: err.stack,
+          },
+        };
+      }).then(postMessage);
+
+    } else if (this.pendingIds.has(Id)) {
+      const future = this.pendingIds.get(Id);
+      this.pendingIds.delete(Id);
+      future.resolve(data);
+
+    } else {
+      throw new Error(`BUG: wat 7634634`);
+    }
+  }
+
+  onKernelMessage(evt) {
+    console.log('runtime -> kernel:', evt.data);
+    this.handleKernelMessage(evt.data);
+  }
+
+  // duplicated with daemon/model/workload.js
+  async volley(request) {
+    request.Id = this.nextId++;
+    const response = await new Promise(resolve => {
+      this.pendingIds.set(request.Id, {request, resolve});
+      postMessage(request);
+    });
+
+    if (response.Ok) {
+      console.debug('Kernel response was ok:', response);
+      return response;
+    } else {
+      const output = response.Output || {};
+      let error;
+      if (output.Type === 'Error') {
+        const justMessage = output.Type === 'Error' ?
+            output.StringValue.split('\n')[0].split(': ')[1] : '';
+        throw new Error(`(kernel) ${justMessage}`);
+      } else {
+        throw new Error(`Kernel message wasn't okay`);
+      }
+    };
+  }
+
+  deviceForKernelPath(path) {
+    return new KernelPathDevice(this, path);
+  }
+}
+
+class KernelPathDevice {
+  constructor(runtime, pathPrefix) {
+    this.runtime = runtime;
+    this.pathPrefix = pathPrefix;
+  }
+
+  async getEntry(path) {
+    return new KernelPathEntry(this.runtime, this.pathPrefix + path);
+  }
+}
+
+class KernelPathEntry {
+  constructor(runtime, path) {
+    this.runtime = runtime;
+    this.path = path;
+  }
+
+  async get() {
+    const response = await this.runtime.volley({
+      Op: 'get',
+      Path: this.path,
+    });
+    return response.Output;
+  }
+}
