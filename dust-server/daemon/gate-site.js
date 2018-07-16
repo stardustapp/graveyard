@@ -541,7 +541,6 @@ class GateSiteRequest {
   async loadState() {
     if (this.acctCookies.size > 0) {
       const [acctId, sessId] = this.acctCookies.entries().next().value;
-      console.log('have a cookie', acctId, sessId);
       this.session = await this.site.sessionManager.getSession(sessId);
     }
     return this;

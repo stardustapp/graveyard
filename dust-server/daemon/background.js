@@ -1,5 +1,5 @@
-async function boot() {
-  console.log('Booting server...');
+async function boot(launchData) {
+  console.debug('BOOT: Booting server...');
 
   const self = await new Promise(resolve => chrome.management.getSelf(resolve));
   const platformInfo = await new Promise(resolve => chrome.runtime.getPlatformInfo(resolve));
@@ -29,6 +29,11 @@ async function boot() {
     extensionType: self.type,
     isApplication: self.isApp,
     launchType: self.launchType,
+
+    isKioskSession: launchData.isKioskSession,
+    isPublicSession: launchData.isPublicSession,
+    launchSource: launchData.source,
+
     platform: platformInfo,
   };
   //bugsnagClient.metaData = {};
@@ -95,7 +100,7 @@ async function boot() {
             .createIndex('did',  'did',   { unique: false });
     }
   });
-  console.log('Opened database');
+  console.debug('BOOT: Opened database');
 
   const packageManager = new PackageManager(db);
   const accountManager = new AccountManager(db, packageManager);
@@ -113,7 +118,7 @@ async function boot() {
   const webServer = new HttpServer(domainManager, async function (hostname) {
     const domain = await domainManager.findDomain(hostname);
     if (!domain) throw new Error('Domain does not exist');
-    console.log('loading host', hostname, domain);
+    console.debug('loading host', hostname, domain);
 
     const webEnv = await domainManager.getWebEnvironment(domain);
     webEnv.bind('/~', new GateSite(hostname, domain.record.did,
@@ -131,6 +136,7 @@ async function boot() {
 
   // all good, let's listen
   webServer.startServer(9237);
+  console.log('BOOT: Completed :)');
 }
 
 function ToastNotif(text) {
@@ -159,7 +165,7 @@ chrome.app.runtime.onLaunched.addListener(evt => {
   });
   console.log('Opened server root UI');
 
-  boot().then(() => {
+  boot(evt).then(() => {
     chrome.notifications.create('startup', {
       type: 'basic',
       iconUrl: 'assets/stardust-round-128.png',
@@ -167,7 +173,8 @@ chrome.app.runtime.onLaunched.addListener(evt => {
       message: 'Listening for Skylink on HTTP port 9237',
     });
   }, err => {
-    console.log('Server boot failed:', err);
+    console.error('Server boot failed:', err);
+    // TODO: report to bugsnag
     chrome.notifications.create('startup', {
       type: 'basic',
       iconUrl: 'assets/stardust-round-128.png',

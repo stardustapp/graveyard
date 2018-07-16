@@ -13,7 +13,7 @@ class Session {
   async loadEnv() {
     if (this.record.environment) {
       for (const mount of this.record.environment) {
-        console.log('session mount:', mount);
+        console.debug('session mount:', mount);
         switch (mount.type) {
           case 'bind':
             if (mount.source.startsWith('/')) {
@@ -33,7 +33,7 @@ class Session {
 
             } else if (mount.source.startsWith('skylink+') && mount.source.includes('://')) {
               const parts = mount.source.slice('skylink+'.length).split('/');
-              this.env.mount('/mnt'+mount.target, 'network-import', {
+              await this.env.mount('/mnt'+mount.target, 'network-import', {
                 url: parts.slice(0,3).join('/') + '/~~export' + (parts[0].startsWith('ws') ? '/ws' : ''),
                 prefix: ('/' + parts.slice(3).join('/')).replace(/\/+$/, ''),
               });

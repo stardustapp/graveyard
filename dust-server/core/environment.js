@@ -98,7 +98,6 @@ class Environment {
       if (mount.startsWith(path)) {
         console.log('device is CHILD OR MATCH of desired path');
       } else if (path.startsWith(mount)) {
-        console.log('device is PARENT of desired path');
         const subPath = path.slice(mount.length);
         subEnv.bind('', { getEntry: (p) => {
           return device.getEntry(subPath + p);
