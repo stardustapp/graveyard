@@ -765,6 +765,7 @@ const MissingRouteHandler = Vue.component('missing-route', {
     <span>Welcome to Skychat!</span>
   </h2>
   <p>Select a channel to get started :)</p>
+  <p><a href="config.html">Settings & Network Configuration</a></p>
   <p>Built and hosted by <a href="http://danopia.net" target="_blank">Daniel Lamando</a></p>
   <p class="ps-note">PS: No channels? Your profile might not be provisioned for IRC.</p>
 </div>`,
