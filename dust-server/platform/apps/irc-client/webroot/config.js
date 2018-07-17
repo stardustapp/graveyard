@@ -87,7 +87,7 @@ Vue.component('irc-net-card', {
         return;
       }
 
-      const listPath = '/config/irc/networks/'+this.config._id+'/channels';
+      const listPath = '/config/networks/'+this.config._id+'/channels';
       skylink.enumerate(listPath).then(list => {
         var nextId = 1;
         list.forEach(ent => {
@@ -118,9 +118,9 @@ Vue.component('irc-prefs-card', {
   },
   methods: {
     fetchPrefs() {
-      skylink.get('/config/irc/prefs/layout')
+      skylink.get('/config/prefs/layout')
         .then(x => this.layout = x.StringValue);
-      skylink.get('/config/irc/prefs/disable-nicklist')
+      skylink.get('/config/prefs/disable-nicklist')
         .then(x => this.enableNicklist = x.StringValue == 'no');
     },
   },
@@ -135,7 +135,7 @@ Vue.component('irc-add-net', {
         return;
       }
 
-      skylink.store('/config/irc/networks/'+net, Skylink.toEntry(net, {
+      skylink.store('/config/networks/'+net, Skylink.toEntry(net, {
         username: orbiter.launcher.chartName,
         ident: orbiter.launcher.chartName,
         nickname: orbiter.launcher.chartName,

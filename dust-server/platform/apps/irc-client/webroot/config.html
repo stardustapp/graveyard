@@ -67,7 +67,7 @@
     <label>
       <span>Message layout:</span>
       <select v-model="layout"
-          @change="skyStoreString('config/irc/prefs/layout', $event.target.value).then(fetchPrefs)">
+          @change="skyStoreString('config/prefs/layout', $event.target.value).then(fetchPrefs)">
         <option value="modern">Modern, like Slack</option>
         <option value="inline">Inline, like IRSSI</option>
         <option value="aligned">Aligned, like XChat</option>
@@ -78,7 +78,7 @@
       <span>Enable nicklist:</span>
       <div class="input">
         <input type="checkbox" v-model="enableNicklist"
-              @change="skyStoreString('config/irc/prefs/disable-nicklist', $event.target.checked ? 'no' : 'yes')">
+              @change="skyStoreString('config/prefs/disable-nicklist', $event.target.checked ? 'no' : 'yes')">
         <span v-if="enableNicklist">Show by default</span>
       </div>
     </label>
@@ -145,7 +145,7 @@
       </span>
       <sky-foreach
           el="ul" class="channel-list input"
-          :path="'config/irc/networks/'+config._id+'/channels'"
+          :path="'config/networks/'+config._id+'/channels'"
           fields="@"
           :depth="0">
         <li slot="item" slot-scope="entry">{{entry.value}}</li>
@@ -190,7 +190,7 @@
   <irc-prefs-card></irc-prefs-card>
   <sky-foreach
       el="div"
-      path="config/irc/networks"
+      path="config/networks"
       fields="auto-connect full-name hostname ident nickname port use-tls username"
       :depth="1">
     <irc-net-card slot="item" slot-scope="doc" :config="doc||{}"></irc-net-card>

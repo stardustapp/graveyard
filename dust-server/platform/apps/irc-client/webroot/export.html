@@ -18,7 +18,7 @@
         <sky-foreach
             el="optgroup"
             label="networks"
-            path="persist/irc/networks"
+            path="persist/networks"
             fields="status current-nick umodes"
             :depth="1">
           <template slot="item" slot-scope="net">
@@ -36,7 +36,7 @@
             v-if="network"
             el="optgroup"
             label="channels"
-            :path="'persist/irc/networks/'+network+'/channels'"
+            :path="'persist/networks/'+network+'/channels'"
             fields="latest-activity latest-mention latest-seen is-joined"
             :depth="1">
           <template slot="item" slot-scope="ctx">
@@ -48,7 +48,7 @@
             v-if="network"
             el="optgroup"
             label="queries"
-            :path="'persist/irc/networks/'+network+'/queries'"
+            :path="'persist/networks/'+network+'/queries'"
             fields="latest-activity latest-mention latest-seen"
             :depth="1">
           <template slot="item" slot-scope="ctx">
@@ -63,7 +63,7 @@
       <sky-foreach
           el="optgroup"
           label="date range"
-          :path="'persist/irc/networks/'+network+'/'+context"
+          :path="'persist/networks/'+network+'/'+context"
           fields="latest horizon"
           :depth="0">
         <template slot="item" slot-scope="date">

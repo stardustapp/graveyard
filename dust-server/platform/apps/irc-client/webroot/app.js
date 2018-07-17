@@ -216,7 +216,7 @@ const ViewContext = Vue.component('view-context', {
   },
   computed: {
     path() {
-      const netPath = `persist/irc/networks/${this.network}`;
+      const netPath = `persist/networks/${this.network}`;
       if (this.type === 'server') {
         return netPath;
       }
