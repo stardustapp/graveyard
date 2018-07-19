@@ -82,6 +82,8 @@ class RuntimeSlaveWorker {
         const justMessage = output.Type === 'Error' ?
             output.StringValue.split('\n')[0].split(': ')[1] : '';
         throw new Error(`(kernel) ${justMessage}`);
+      } else if (output.Name === 'error-message' && output.Type === 'String') {
+        throw new Error(`(kernel) ${output.StringValue}`);
       } else {
         throw new Error(`Kernel message wasn't okay`);
       }

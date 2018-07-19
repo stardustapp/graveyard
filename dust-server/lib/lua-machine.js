@@ -91,21 +91,27 @@ const LUA_API = {
     */
 
     // ctx.read([pathRoot,] pathParts string...) (val string)
-    read(L) {
-      //checkProcessHealth(l)
-      //extras.MetricIncr("runtime.syscall", "call:read", "app:"+p.App.AppName)
-
+    async read(L) {
       const path = this.resolveLuaPath();
-      console.log("read from", path)
+      console.debug("read from", path)
+      const entry = await path.device.getEntry(path.path);
 
-      /*
-      if str, ok := ctx.GetString(path); ok {
-        l.PushString(str.Get())
-      } else {
-        log.Println(metaLog, "read() failed to find string at path", path)
-        l.PushString("")
-      }*/
-      lua.lua_pushliteral(L, "#TODO");
+      if (entry && entry.get) {
+        try {
+          const value = await entry.get();
+          if (value.Type === 'String') {
+            lua.lua_pushliteral(L, value.StringValue || '');
+            return 1;
+          }
+        } catch (err) {
+          console.debug('read() failed to find string at path', path.path, err);
+          lua.lua_pushliteral(L, '');
+          return 1;
+        }
+      }
+
+      console.debug('read() failed to find string at path', path.path);
+      lua.lua_pushliteral(L, '');
       return 1;
     },
 
