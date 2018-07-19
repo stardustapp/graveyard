@@ -330,11 +330,25 @@ const LUA_API = {
   */
 };
 
-class LuaMachine {
+class LuaContext {
+  constructor(L, rootDevice) {
+    this.lua = L;
+    this.rootDevice = rootDevice;
+  }
+
+  compileLuaToStack(sourceText) {
+    const compileRes = lauxlib.luaL_loadstring(this.lua, fengari.to_luastring(sourceText));
+	if (compileRes !== lua.LUA_OK) {
+      const error = lua.lua_tojsstring(this.lua, -1);
+      throw new Error('Lua compile fault. ' + error);
+    }
+  }
 
   // Reads all the lua arguments and resolves a context for them
   // Reads off stack like: [base context,] names...
-  resolveLuaPath(L) {
+  resolveLuaPath() {
+    const L = this.lua;
+
     // Discover the (optional) context at play
     let device = this.rootDevice;
     if (lua.lua_isuserdata(L, 1)) {
@@ -350,103 +364,170 @@ class LuaMachine {
     }
     lua.lua_settop(L, 0);
 
-    // Create a path
-    if (n === 0) return '';
-    return '/' + paths.join('/');
+    // Give deets
+    const path = (n === 0) ? '' : ('/' + paths.join('/'));
+    return {device, path};
   }
+}
 
+class LuaMachine extends LuaContext {
   constructor(rootDevice) {
-    this.rootDevice = rootDevice;
-
-    const L = this.L = lauxlib.luaL_newstate();
+    const L = lauxlib.luaL_newstate();
     lualib.luaL_openlibs(L);
+    super(L, rootDevice);
+
+    this.nextThreadNum = 1;
+    this.threads = new Map;
+    this.luaThreads = new Map;
 
     // Type marker for native devices (including Environment)
-    lauxlib.luaL_newmetatable(L, "stardust/root");
-    lua.lua_pop(L, 1);
+    lauxlib.luaL_newmetatable(this.lua, "stardust/root");
+    lua.lua_pop(this.lua, 1);
 
-    lauxlib.luaL_newmetatable(L, "stardust/api");
+    lauxlib.luaL_newmetatable(this.lua, "stardust/api");
     for (const callName in LUA_API) {
       // TODO: should be a lambda, w/ an upvalue
       const impl = L => {
         try {
           lua.lua_pushliteral(L, callName);
-          const stackSize = lua.lua_gettop(L);
-          lua.lua_yield(L, stackSize);
+          lua.lua_yield(L, lua.lua_gettop(L));
         } catch (throwable) {
           if (throwable.status !== lua.LUA_YIELD) {
             throw throwable;
           }
         }
       };
-      lua.lua_pushjsfunction(L, impl);
-      lua.lua_setfield(L, -2, callName);
+      lua.lua_pushjsfunction(this.lua, impl);
+      lua.lua_setfield(this.lua, -2, callName);
     }
-    lua.lua_setglobal(L, 'ctx');
+    lua.lua_setglobal(this.lua, 'ctx');
   }
 
-  async startThread(sourceText) {
+  startThread(sourceText) {
     console.debug("Starting lua thread");
+    const threadNum = this.nextThreadNum++;
+    const thread = new LuaThread(this, threadNum);
+    this.threads.set(threadNum, thread);
+    this.luaThreads.set(thread.lua, thread);
 
-    const L = lua.lua_newthread(this.L);
+    thread.compile(sourceText);
+    return thread;
+  }
+}
 
-    // this returns an error or a result
-    const compileRes = lauxlib.luaL_loadstring(L, fengari.to_luastring(sourceText));
-	if (compileRes !== lua.LUA_OK) {
-      const error = fengari.to_jsstring(lua.lua_tostring(L, -1));
-      throw new Error('Lua compile fault. ' + error);
-    }
-    const runnable = lua.lua_toproxy(L, 1);
+class LuaThread extends LuaContext {
+  constructor(machine, number) {
+    super(lua.lua_newthread(machine.lua), machine.rootDevice);
+    this.machine = machine;
+    this.number = number;
 
+    this.createEnvironment();
+  }
+
+  createEnvironment() {
+    const L = this.lua;
     lua.lua_createtable(L, 0, 1);
+
     lua.lua_getglobal(L, 'ipairs');
     lua.lua_setfield(L, -2, fengari.to_luastring('ipairs'));
+
     lua.lua_getglobal(L, 'ctx');
     lua.lua_setfield(L, -2, fengari.to_luastring('ctx'));
-    lua.lua_pushliteral(L, '1337');
-    lua.lua_setfield(L, -2, fengari.to_luastring('id'));
-    // TODO: add input
-    lua.lua_setupvalue(L, -2, 1); // set environment for loaded string
 
-    let running = true;
-    let outputN = 0;
-    while (running) {
-      const evalRes = lua.lua_resume(L, null, outputN);
+    lua.lua_getglobal(L, 'ctx');
+    lua.lua_getfield(L, -1, 'log');
+    lua.lua_remove(L, -2);
+    lua.lua_setfield(L, -2, fengari.to_luastring('print'));
 
-      if (evalRes === lua.LUA_ERRRUN) {
-        const error = fengari.to_jsstring(lua.lua_tostring(L, -1));
+    lua.lua_pushliteral(L, this.number.toString());
+    lua.lua_setfield(L, -2, fengari.to_luastring('thread_number'));
+
+    // take a proxy but otherwise scrap it
+    this.luaEnv = lua.lua_toproxy(L, -1);
+    lua.lua_pop(L, 1);
+  }
+
+  compile(sourceText) {
+    const L = this.lua;
+
+    // compile the script
+    this.compileLuaToStack(sourceText);
+
+    // attach the environment to the loaded string
+    this.luaEnv(L);
+    lua.lua_setupvalue(L, -2, 1);
+
+    // take a proxy but otherwise scrap it
+    this.runnable = lua.lua_toproxy(L, 1);
+    this.sourceText = sourceText;
+    lua.lua_pop(L, 1);
+  }
+
+  registerGlobal(name) {
+    const L = this.lua;
+    this.luaEnv(L);
+    lua.lua_insert(L, -2);
+    lua.lua_setfield(L, -2, fengari.to_luastring(name));
+    lua.lua_pop(L, 1);
+  }
+
+  async run(input={}) {
+    const L = this.lua;
+
+    // pretend to update 'input' global properly
+    lua.lua_pushliteral(L, JSON.stringify(input));
+    this.registerGlobal('input');
+
+    // be a little state machine
+    if (this.running)
+      throw new Error(`BUG: Lua thread can't start, is already started`);
+    this.running = true;
+
+    // stack should just be the function
+    if (lua.lua_gettop(L) !== 0)
+      throw new Error(`BUG: Lua thread can't start without an empty stack`);
+    this.runnable(L);
+
+    let outputNum = 0;
+    while (this.running) {
+      const evalRes = lua.lua_resume(L, null, outputNum);
+      switch (evalRes) {
+
+      case lua.LUA_OK:
+        this.running = false;
+        break;
+
+      case lua.LUA_ERRRUN:
+        const error = lua.lua_tojsstring(L, -1);
         const match = error.match(/^\[string ".+?"\]:(\d+): (.+)$/);
         if (match) {
-          const sourceLine = sourceText.split('\n')[match[1]-1].trim();
+          const sourceLine = this.sourceText.split('\n')[match[1]-1].trim();
           throw new Error(`Lua execution fault: ${match[2]} @ line ${match[1]}: ${sourceLine}`);
         }
         throw new Error('Lua execution fault. ' + error);
+
+      case lua.LUA_YIELD:
+        const callName = lua.lua_tojsstring(L, -1);
+        lua.lua_pop(L, 1);
+
+        console.log('lua api:', callName, 'with', lua.lua_gettop(L), 'args');
+        try {
+          outputNum = await LUA_API[callName].call(this, L);
+        } catch (err) {
+          console.error('BUG: lua API crashed:', err);
+          lauxlib.luaL_error(L, `[BUG] ctx.${callName}() crashed`);
+        }
+
+        // put the function back at the beginning
+        this.runnable(L);
+        lua.lua_insert(L, 1);
+        break;
+
+      default:
+        throw new Error(`BUG: lua resume was weird (${evalRes})`);
       }
-
-      if (evalRes === lua.LUA_OK) {
-        console.log('lua worked!');
-        const output = lua.lua_tostring(L, -1);
-        return fengari.to_jsstring(output);
-      }
-
-      if (evalRes !== lua.LUA_YIELD) {
-        throw new Error(`BUG: lua resume was weird`);
-      }
-
-      const callName = fengari.to_jsstring(lua.lua_tostring(L, -1));
-      lua.lua_pop(L, 1);
-
-      console.log('lua api:', callName, lua.lua_gettop(L));
-      try {
-        outputN = await LUA_API[callName].call(this, L);
-      } catch (err) {
-        console.error('BUG: lua API crashed:', err);
-        lauxlib.luaL_error(L, `[BUG] ctx.${callName}() crashed`);
-      }
-
-      // put the function back at the beginning
-      runnable(L);
-      lua.lua_insert(L, 1);
     }
+
+    console.warn('lua thread completed');
   }
 }

@@ -34,6 +34,7 @@ class Workload {
 
     const machine = new LuaMachine(runtime.deviceForKernelPath(this.basePath));
     const thread = machine.startThread(atob(source.Data));
+    const completion = thread.run();
 
     console.warn('starting workload', source);
     return false;
