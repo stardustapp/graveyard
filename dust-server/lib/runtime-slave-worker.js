@@ -60,7 +60,7 @@ class RuntimeSlaveWorker {
   }
 
   onKernelMessage(evt) {
-    console.log('runtime -> kernel:', evt.data);
+    console.debug('runtime -> kernel:', evt.data);
     this.handleKernelMessage(evt.data);
   }
 

@@ -504,7 +504,7 @@ class LuaThread extends LuaContext {
 
         //checkProcessHealth(l)
         //extras.MetricIncr("runtime.syscall", "call:enumerate", "app:"+p.App.AppName)
-        console.log('lua api:', callName, 'with', lua.lua_gettop(L), 'args');
+        console.debug('lua api:', callName, 'with', lua.lua_gettop(L), 'args');
         try {
           const impl = LUA_API[callName];
           outputNum = await impl.call(this, L);

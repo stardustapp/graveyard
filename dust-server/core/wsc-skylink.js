@@ -93,7 +93,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
 
   sendOutput(ok, output) {
-    console.log('<-- op was', ok ? 'okay' : 'not ok');
+    console.debug('<-- op was', ok ? 'okay' : 'not ok');
     this.sendJson({
       Ok: ok,
       Output: output,
@@ -114,7 +114,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
   on_message(msg) {
     var request = JSON.parse(msg);
-    console.log('got ws message', request);
+    console.debug('got ws message', request);
     if (this.isActive) {
       this.reqQueue.push(request);
     } else {

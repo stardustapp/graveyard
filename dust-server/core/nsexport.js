@@ -36,7 +36,7 @@ class NsExport {
     const Dest = request.Dest || request.dest;
 
     const Input = this.inflateInput(request.Input || request.input);
-    console.log('--> inbound operation:', Op, Path, Dest);
+    console.debug('--> inbound operation:', Op, Path, Dest);
 
     switch (Op) {
       case 'ping':
