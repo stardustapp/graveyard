@@ -2,6 +2,7 @@ this.window = this;
 importScripts(
   '/core/api-entries.js',
   '/core/environment.js',
+  '/core/enumeration.js',
   '/core/utils.js',
 
   '/vendor/fengari.js',

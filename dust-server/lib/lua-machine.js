@@ -211,51 +211,41 @@ const LUA_API = {
     // ctx.enumerate([pathRoot,] pathParts string...) []Entry
     // Entry tables have: name, path, type, stringValue
     async enumerate(L) {
-      //checkProcessHealth(l)
-      //extras.MetricIncr("runtime.syscall", "call:enumerate", "app:"+p.App.AppName)
+      const path = this.resolveLuaPath(L);
+      console.log("enumeration on", path, "from", this.name);
 
-        const path = this.resolveLuaPath(L);
-/*      log.Println(metaLog, "enumeration on", path, "from", ctx.Name())
-
-      startEntry, ok := ctx.Get(path)
-      if !ok {
-        lua.Errorf(l, "enumeration() couldn't find path %s", path)
-        panic("unreachable")
+      const enumer = new EnumerationWriter(1);
+      const entry = await path.device.getEntry(path.path);
+      if (!entry) {
+        throw new Error(`Path not found: ${path.path}`);
+      } else if (entry.enumerate) {
+        await entry.enumerate(enumer);
+      } else {
+        throw new Error(`Entry at ${path.path} isn't enumerable`);
       }
 
-      enum := skylink.NewEnumerator(p.App.ctx, startEntry, 1)
-      results := enum.Run() // <-chan nsEntry
-      l.NewTable() // entry array
-      idx := 0
-      for res := range results {
-        if idx > 0 {
-          l.NewTable() // individual entry
+      lua.lua_newtable(L); // entry array
+      let idx = 0;
+      enumer.entries.filter(x => x.Name).forEach((value, idx) => {
+        lua.lua_newtable(L); // individual entry
 
-          nameParts := strings.Split(res.Name, "/")
-          baseName := nameParts[len(nameParts) - 1]
+        const baseName = decodeURIComponent(value.Name.split('/').slice(-1)[0]);
+        lua.lua_pushliteral(L, baseName);
+        lua.lua_setfield(L, 2, fengari.to_luastring("name"));
+        lua.lua_pushliteral(L, value.Name);
+        lua.lua_setfield(L, 2, fengari.to_luastring("path"));
+        lua.lua_pushliteral(L, value.Type);
+        lua.lua_setfield(L, 2, fengari.to_luastring("type"));
+        lua.lua_pushliteral(L, value.StringValue);
+        lua.lua_setfield(L, 2, fengari.to_luastring("stringValue"));
 
-          l.PushString(baseName)
-          l.SetField(2, "name")
-          l.PushString(res.Name)
-          l.SetField(2, "path")
-          l.PushString(res.Type)
-          l.SetField(2, "type")
-          l.PushString(res.StringValue)
-          l.SetField(2, "stringValue")
-
-          l.RawSetInt(1, idx)
-        }
-        idx++
-      }*/
-      lua.lua_pushliteral(L, "");
+        lua.lua_rawseti(L, 1, idx+1);
+      });
       return 1;
     },
 
     // ctx.log(messageParts string...)
     log(L) {
-      //checkProcessHealth(l)
-      //extras.MetricIncr("runtime.syscall", "call:log", "app:"+p.App.AppName)
-
       const n = lua.lua_gettop(L);
       const parts = new Array(n);
       for (let i = 0; i < n; i++) {
@@ -359,8 +349,8 @@ class LuaContext {
     // Read in the path strings
     const n = lua.lua_gettop(L);
     const paths = new Array(n);
-    for (let i = 1; i <= n; i++) {
-      paths[i] = fengari.to_jsstring(lauxlib.luaL_checkstring(L, i));
+    for (let i = 0; i < n; i++) {
+      paths[i] = fengari.to_jsstring(lauxlib.luaL_checkstring(L, i+1));
     }
     lua.lua_settop(L, 0);
 
@@ -374,8 +364,9 @@ class LuaMachine extends LuaContext {
   constructor(rootDevice) {
     const L = lauxlib.luaL_newstate();
     lualib.luaL_openlibs(L);
-    super(L, rootDevice);
 
+    super(L, rootDevice);
+    this.name = 'lua';
     this.nextThreadNum = 1;
     this.threads = new Map;
     this.luaThreads = new Map;
@@ -420,6 +411,7 @@ class LuaThread extends LuaContext {
     super(lua.lua_newthread(machine.lua), machine.rootDevice);
     this.machine = machine;
     this.number = number;
+    this.name = `${machine.name}-#${number}`
 
     this.createEnvironment();
   }
@@ -510,9 +502,12 @@ class LuaThread extends LuaContext {
         const callName = lua.lua_tojsstring(L, -1);
         lua.lua_pop(L, 1);
 
+        //checkProcessHealth(l)
+        //extras.MetricIncr("runtime.syscall", "call:enumerate", "app:"+p.App.AppName)
         console.log('lua api:', callName, 'with', lua.lua_gettop(L), 'args');
         try {
-          outputNum = await LUA_API[callName].call(this, L);
+          const impl = LUA_API[callName];
+          outputNum = await impl.call(this, L);
         } catch (err) {
           console.error('BUG: lua API crashed:', err);
           lauxlib.luaL_error(L, `[BUG] ctx.${callName}() crashed`);

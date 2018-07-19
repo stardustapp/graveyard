@@ -117,4 +117,16 @@ class KernelPathEntry {
     });
     return response.Output;
   }
+
+  async enumerate(enumer) {
+    const response = await this.runtime.volley({
+      Op: 'enumerate',
+      Path: this.path,
+      Depth: enumer.depth,
+    });
+    // TODO: not a good citizen
+    response.Output.Children.forEach(child => {
+      enumer.entries.push(child);
+    });
+  }
 }
