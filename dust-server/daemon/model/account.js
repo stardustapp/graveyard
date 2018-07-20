@@ -18,6 +18,7 @@ class Account {
       }
     });
 
+    await this.env.mount('/state', 'tmp');
     await this.env.mount('/config', 'idb-treestore', { db: this.db, store: 'config' });
     await this.env.mount('/persist', 'idb-treestore', { db: this.db, store: 'persist' });
     await this.env.mount('/chart-name', 'literal', { string: this.address() });

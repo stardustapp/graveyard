@@ -67,7 +67,7 @@ class Package {
         case 'scoped':
           // Scoped is supposed to be private to the specific application, by appKey
           // We just allow these by default
-          if (!['config', 'persist'].includes(mountDef.flavor)) {
+          if (!['config', 'persist', 'state'].includes(mountDef.flavor)) {
             throw new Error(`Package used unrecognized scoped-mount flavor "${mountDef.flavor}"`);
           }
           mounts.push({
