@@ -278,8 +278,8 @@ const LUA_API = {
           parts[i] = lauxlib.luaL_checknumber(L, i+1);
           break;
         case lua.LUA_TUSERDATA:
-          const userRoot = lauxlib.luaL_checkuserdata(L, i+1, "stardust/root");
-          parts[i] = userRoot;
+          const device = lauxlib.luaL_checkudata(L, i+1, "stardust/root");
+          parts[i] = device;
           break;
         default:
           parts[i] = `[lua ${fengari.to_jsstring(lua.lua_typename(L, type))}]`;
@@ -360,6 +360,77 @@ class LuaContext {
     }
 
     T.endStep();
+  }
+
+  readLuaEntry(T, index) {
+    const L = this.lua;
+    switch (lua.lua_type(L, index)) {
+
+    case lua.LUA_TNIL:
+      return null;
+
+    case lua.LUA_TSTRING:
+      return new StringLiteral("string",
+        lua.lua_tojsstring(L, index));
+
+    case lua.LUA_TNUMBER:
+      return new StringLiteral("number",
+        lua.lua_tonumber(L, index).toString());
+
+    case lua.LUA_TBOOLEAN:
+      if (lua.lua_toboolean(L, index) !== 0) {
+        return new StringLiteral("boolean", "yes");
+      } else {
+        return new StringLiteral("boolean", "no");
+      }
+
+    case lua.LUA_TUSERDATA:
+      // base.Context values are passed back by-ref
+      // TODO: can have a bunch of other interesting userdatas
+      const device = lauxlib.luaL_checkudata(L, 1, "stardust/root");
+      T.log({text: "Lua passed native star-context", device: device.toString()});
+      return device;
+
+    case lua.LUA_TTABLE:
+      // Tables become folders
+      lua.lua_pushvalue(L, index);
+      const folder = new FolderLiteral("input");
+      lua.lua_pushnil(L); // Add nil entry on stack (need 2 free slots).
+      while (lua.lua_next(L, -2)) {
+        const entry = this.readLuaEntry(T, -1);
+        entry.Name = lua.lua_tojsstring(L, -2);
+        lua.lua_pop(L, 1); // Remove val, but need key for the next iter.
+        folder.append(entry);
+      }
+      lua.lua_pop(L, 1);
+      return folder;
+
+    default:
+      lauxlib.luaL_error(L, `Stardust received unmanagable thing of type ${lua.lua_typename(L, index)}`);
+      throw new Error("unreachable");
+    }
+  }
+
+  pushLuaTable(T, folder) {
+    const L = this.lua;
+    lua.lua_newtable(L);
+    for (const child of folder.Children) {
+      switch (child.Type) {
+
+      case 'String':
+        lua.lua_pushliteral(L, child.StringValue || '');
+        break;
+
+      case 'Folder':
+        this.pushLuaTable(T, child);
+        break;
+
+      default:
+        lauxlib.luaL_error(L, `Directory entry ${key} in ${folder.Name} wasn't a recognizable type ${child.Type}`);
+        throw new Error("unreachable");
+      }
+      lua.lua_setfield(L, -2, fengari.to_luastring(child.Name));
+    }
   }
 
   // Reads all the lua arguments and resolves a context for them
@@ -506,11 +577,15 @@ class LuaThread extends LuaContext {
     lua.lua_pop(L, 1);
   }
 
-  async run(input={}) {
+  async run(input) {
     const L = this.lua;
 
     // pretend to update 'input' global properly
-    lua.lua_pushliteral(L, JSON.stringify(input));
+    if (input) {
+      this.pushLuaTable({}, input);
+    } else {
+      lua.lua_pushnil(L);
+    }
     this.registerGlobal('input');
 
     // be a little state machine
