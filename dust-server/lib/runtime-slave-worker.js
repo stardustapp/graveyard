@@ -104,6 +104,11 @@ class KernelPathDevice {
   async getEntry(path) {
     return new KernelPathEntry(this.runtime, this.pathPrefix + path);
   }
+
+  getSubRoot(path) {
+    if (path === '') return this;
+    return new KernelPathDevice(this.runtime, this.pathPrefix + path);
+  }
 }
 
 class KernelPathEntry {
@@ -130,5 +135,14 @@ class KernelPathEntry {
     response.Output.Children.forEach(child => {
       enumer.entries.push(child);
     });
+  }
+
+  async put(value) {
+    const response = await this.runtime.volley({
+      Op: 'store',
+      Dest: this.path,
+      Input: value,
+    });
+    return response.Ok;
   }
 }

@@ -5,58 +5,47 @@ const lualib   = fengari.lualib;
 
 const LUA_API = {
 
-  /*
-  this.addCtxFunction('startRoutine', () => {
-      //checkProcessHealth(l)
-      //extras.MetricIncr("runtime.syscall", "call:startRoutine", "app:"+p.App.AppName)
+  async startRoutine(L, T) {
+    // ctx.startRoutine("dial-server", {network=network})
 
-      //k, v := lua.CheckString(l, 2), l.ToValue(3)
-      //steps = append(steps, step{name: k, function: v})
-      params := &ProcessParams{
-        ParentID: p.ProcessID,
-        RoutineName: lua.CheckString(l, 1),
-      }
+    const routineName = lua.lua_tojsstring(L, 1);
 
-      if l.Top() == 2 && l.IsTable(2) {
-        log.Println(metaLog, "Reading Lua table for routine input", params.RoutineName)
-        params.Input = readLuaEntry(l, 2).(base.Folder)
-      }
+    const sourceEntry = await this.machine.rootDevice.getEntry('/source/routines/'+routineName+'.lua');
+    const source = await sourceEntry.get();
+    let input = null;
 
-      log.Printf(metaLog, "started routine %+v", params)
-      p.App.StartRoutineImpl(params)
-      // TODO: return routine's process
-      return 0
-    }},
-    */
+    if (lua.lua_gettop(L) >= 2 && lua.lua_istable(L, 2)) {
+      T.log({text: "Reading Lua table for routine input", routine: routineName});
+      input = this.readLuaEntry(T, 2);
+    }
 
-    /*/ ctx.mkdirp([pathRoot,] pathParts string...) Context
-    // TODO: add readonly 'chroot' variant, returns 'nil' if not exist
-    {"mkdirp", func(l *lua.State) int {
-      //checkProcessHealth(l)
-      //extras.MetricIncr("runtime.syscall", "call:mkdirp", "app:"+p.App.AppName)
+    const thread = this.machine.startThread(atob(source.Data));
+    const completion = thread.run(input);
 
-      ctx, path := resolveLuaPath(l, p.App.ctx)
-      log.Println(metaLog, "mkdirp to", path, "from", ctx.Name())
+    console.log("started routine", thread);
+    // TODO: return routine's process
+    return 0
+  },
 
-      if ok := toolbox.Mkdirp(ctx, path); !ok {
-        lua.Errorf(l, "mkdirp() couldn't create folders for path %s", path)
-        panic("unreachable")
-      }
+  // ctx.mkdirp([pathRoot,] pathParts string...) Context
+  // TODO: add readonly 'chroot' variant, returns 'nil' if not exist
+  async mkdirp(L, T) {
+    const {device, path} = this.resolveLuaPath(T);
+    T.log({text: `mkdirp to ${path}`});
 
-      subRoot, ok := ctx.GetFolder(path)
-      if !ok {
-        lua.Errorf(l, "mkdirp() couldn't find folder at path %s", path)
-        panic("unreachable")
-      }
-      subNs := base.NewNamespace(ctx.Name() + path, subRoot)
-      subCtx := base.NewRootContext(subNs)
+    T.startStep({name: 'mkdirp'});
+    await mkdirp(device, path);
+    T.endStep();
 
-      l.PushUserData(subCtx)
-      lua.MetaTableNamed(l, "stardust/base.Context")
-      l.SetMetaTable(-2)
-      return 1
-    }},
+    const data = lua.lua_newuserdata(L, 0);
+    data.root = device.getSubRoot(path);
 
+    lauxlib.luaL_getmetatable(L, 'stardust/root');
+    lua.lua_setmetatable(L, -2);
+    return 1;
+  },
+
+/*
     // ctx.import(wireUri) Context
     {"import", func(l *lua.State) int {
       //checkProcessHealth(l)
@@ -92,10 +81,10 @@ const LUA_API = {
 
     // ctx.read([pathRoot,] pathParts string...) (val string)
     async read(L, T) {
-      const path = this.resolveLuaPath(T);
+      const {device, path} = this.resolveLuaPath(T);
       console.debug("read from", path);
       T.startStep({name: 'lookup entry'});
-      const entry = await path.device.getEntry(path.path);
+      const entry = await device.getEntry(path);
       T.endStep();
 
       if (entry && entry.get) {
@@ -110,7 +99,7 @@ const LUA_API = {
             T.endStep({extant: true, ok: false, text: 'Bad type', type: value.Type});
           }
         } catch (err) {
-          console.debug('read() failed to find string at path', path.path, err);
+          console.debug('read() failed to find string at path', path, err);
           lua.lua_pushliteral(L, '');
           T.endStep({extant: false});
           return 1;
@@ -119,7 +108,7 @@ const LUA_API = {
         T.log({text: `entry didn't exist or didn't offer a get()`});
       }
 
-      console.debug('read() failed to find string at path', path.path);
+      console.debug('read() failed to find string at path', path);
       lua.lua_pushliteral(L, '');
       return 1;
     },
@@ -142,30 +131,33 @@ const LUA_API = {
       }
       return 1
     }},
-
+*/
     // ctx.store([pathRoot,] pathParts string..., thingToStore any) (ok bool)
-    {"store", func(l *lua.State) int {
-      //checkProcessHealth(l)
-      //extras.MetricIncr("runtime.syscall", "call:store", "app:"+p.App.AppName)
-
+    async store(L, T) {
       // get the thing to store off the end
-      entry := readLuaEntry(l, -1)
-      l.Pop(1)
-      // read all remaining args as a path
-      ctx, path := resolveLuaPath(l, p.App.ctx)
+      const value = this.readLuaEntry(T, -1);
+      lua.lua_pop(L, 1);
 
       // make sure we're not unlinking
-      if entry == nil {
-        lua.Errorf(l, "store() can't store nils, use ctx.unlink()")
-        panic("unreachable")
-      }
+      if (value == null)
+        throw new Error("store() can't store nils, use ctx.unlink()");
+
+      // read all remaining args as a path
+      const {device, path} = this.resolveLuaPath(T);
+      console.debug("store to", path);
+      T.startStep({name: 'lookup entry'});
+      const entry = await device.getEntry(path);
+      T.endStep();
 
       // do the thing
-      log.Println(metaLog, "store to", path, "from", ctx.Name(), "of", entry)
-      l.PushBoolean(ctx.Put(path, entry))
-      return 1
-    }},
-
+      //log.Println(metaLog, "store to", path, "from", ctx.Name(), "of", entry)
+      T.startStep({name: 'put entry'});
+      const ok = await entry.put(value);
+      lua.lua_pushboolean(L, ok);
+      T.endStep();
+      return 1;
+    },
+/*
     // ctx.invoke([pathRoot,] pathParts string..., input any) (output any)
     {"invoke", func(l *lua.State) int {
       //checkProcessHealth(l)
@@ -226,19 +218,19 @@ const LUA_API = {
     // ctx.enumerate([pathRoot,] pathParts string...) []Entry
     // Entry tables have: name, path, type, stringValue
     async enumerate(L, T) {
-      const path = this.resolveLuaPath(T);
+      const {device, path} = this.resolveLuaPath(T);
 
       T.startStep({name: 'get entry'});
       const enumer = new EnumerationWriter(1);
-      const entry = await path.device.getEntry(path.path);
+      const entry = await device.getEntry(path);
       if (!entry) {
-        throw new Error(`Path not found: ${path.path}`);
+        throw new Error(`Path not found: ${path}`);
       } else if (entry.enumerate) {
         T.startStep({name: 'perform enumeration'});
         await entry.enumerate(enumer);
         T.endStep();
       } else {
-        throw new Error(`Entry at ${path.path} isn't enumerable`);
+        throw new Error(`Entry at ${path} isn't enumerable`);
       }
       T.endStep();
 
@@ -378,7 +370,8 @@ class LuaContext {
         lua.lua_tonumber(L, index).toString());
 
     case lua.LUA_TBOOLEAN:
-      if (lua.lua_toboolean(L, index) !== 0) {
+      const bool = lua.lua_toboolean(L, index);
+      if (bool !== 0) {
         return new StringLiteral("boolean", "yes");
       } else {
         return new StringLiteral("boolean", "no");
@@ -442,7 +435,7 @@ class LuaContext {
     // Discover the (optional) context at play
     let device = this.rootDevice;
     if (lua.lua_isuserdata(L, 1)) {
-      device = lauxlib.luaL_checkudata(L, 1, "stardust/root");
+      device = lauxlib.luaL_checkudata(L, 1, "stardust/root").root;
       lua.lua_remove(L, 1);
       T.log({text: 'Processed arbitrary root'});
     }

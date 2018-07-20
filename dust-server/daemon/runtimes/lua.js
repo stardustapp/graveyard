@@ -6,6 +6,7 @@ importScripts(
   '/core/utils.js',
 
   '/lib/tracing.js',
+  '/lib/mkdirp.js',
 
   '/vendor/fengari.js',
   '/vendor/moment.js',
