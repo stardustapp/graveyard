@@ -25,10 +25,6 @@ class DaemonWorkload extends Workload {
     console.log('worker started:', response);
   }
 
-  onWorkerMessage(evt) {
-    console.log('lua worker event:', evt);
-  }
-
   async stop(reason) {
     const {wid} = this.record;
     const response = await this.worker

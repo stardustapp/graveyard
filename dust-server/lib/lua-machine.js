@@ -91,23 +91,32 @@ const LUA_API = {
     */
 
     // ctx.read([pathRoot,] pathParts string...) (val string)
-    async read(L) {
-      const path = this.resolveLuaPath();
-      console.debug("read from", path)
+    async read(L, T) {
+      const path = this.resolveLuaPath(T);
+      console.debug("read from", path);
+      T.startStep({name: 'lookup entry'});
       const entry = await path.device.getEntry(path.path);
+      T.endStep();
 
       if (entry && entry.get) {
         try {
+          T.startStep({name: 'get entry'});
           const value = await entry.get();
           if (value.Type === 'String') {
             lua.lua_pushliteral(L, value.StringValue || '');
+            T.endStep({extant: true});
             return 1;
+          } else {
+            T.endStep({extant: true, ok: false, text: 'Bad type', type: value.Type});
           }
         } catch (err) {
           console.debug('read() failed to find string at path', path.path, err);
           lua.lua_pushliteral(L, '');
+          T.endStep({extant: false});
           return 1;
         }
+      } else {
+        T.log({text: `entry didn't exist or didn't offer a get()`});
       }
 
       console.debug('read() failed to find string at path', path.path);
@@ -216,20 +225,24 @@ const LUA_API = {
 
     // ctx.enumerate([pathRoot,] pathParts string...) []Entry
     // Entry tables have: name, path, type, stringValue
-    async enumerate(L) {
-      const path = this.resolveLuaPath(L);
-      console.log("enumeration on", path, "from", this.name);
+    async enumerate(L, T) {
+      const path = this.resolveLuaPath(T);
 
+      T.startStep({name: 'get entry'});
       const enumer = new EnumerationWriter(1);
       const entry = await path.device.getEntry(path.path);
       if (!entry) {
         throw new Error(`Path not found: ${path.path}`);
       } else if (entry.enumerate) {
+        T.startStep({name: 'perform enumeration'});
         await entry.enumerate(enumer);
+        T.endStep();
       } else {
         throw new Error(`Entry at ${path.path} isn't enumerable`);
       }
+      T.endStep();
 
+      T.startStep({name: 'build lua result'});
       lua.lua_newtable(L); // entry array
       let idx = 0;
       enumer.entries.filter(x => x.Name).forEach((value, idx) => {
@@ -247,11 +260,12 @@ const LUA_API = {
 
         lua.lua_rawseti(L, 1, idx+1);
       });
+      T.endStep();
       return 1;
     },
 
     // ctx.log(messageParts string...)
-    log(L) {
+    log(L, T) {
       const n = lua.lua_gettop(L);
       const parts = new Array(n);
       for (let i = 0; i < n; i++) {
@@ -274,11 +288,12 @@ const LUA_API = {
       lua.lua_settop(L, 0);
 
       console.log("debug log:", ...parts);
+      T.log({text: parts.join(' '), level: 'info'});
       return 0;
     },
 
     // ctx.sleep(milliseconds int)
-    async sleep(L) {
+    async sleep(L, T) {
       //checkProcessHealth(l)
       //extras.MetricIncr("runtime.syscall", "call:sleep", "app:"+p.App.AppName)
       // TODO: support interupting to abort
@@ -288,11 +303,13 @@ const LUA_API = {
       //p.Status = "Sleeping: Since " + time.Now().Format(time.RFC3339Nano);
       //time.Sleep(time.Duration(ms) * time.Millisecond);
 
+      T.startStep({text: `sleeping`});
       function sleep(ms) {
         return new Promise(resolve =>
           setTimeout(resolve, ms));
       }
       await sleep(ms);
+      T.endStep();
 
       //checkProcessHealth(l)
       //p.Status = "Running";
@@ -332,24 +349,31 @@ class LuaContext {
     this.rootDevice = rootDevice;
   }
 
-  compileLuaToStack(sourceText) {
+  compileLuaToStack(T, sourceText) {
+    T.startStep({name: 'Lua loadstring', bytes: sourceText.length});
+
     const compileRes = lauxlib.luaL_loadstring(this.lua, fengari.to_luastring(sourceText));
-	if (compileRes !== lua.LUA_OK) {
+    if (compileRes !== lua.LUA_OK) {
       const error = lua.lua_tojsstring(this.lua, -1);
+      T.endStep();
       throw new Error('Lua compile fault. ' + error);
     }
+
+    T.endStep();
   }
 
   // Reads all the lua arguments and resolves a context for them
   // Reads off stack like: [base context,] names...
-  resolveLuaPath() {
+  resolveLuaPath(T) {
+    T.startStep({name: 'Resolve tree-path'});
     const L = this.lua;
 
     // Discover the (optional) context at play
     let device = this.rootDevice;
     if (lua.lua_isuserdata(L, 1)) {
-      device = lauxlib.luaL_checkudata(L, 1, "stardust/context");
+      device = lauxlib.luaL_checkudata(L, 1, "stardust/root");
       lua.lua_remove(L, 1);
+      T.log({text: 'Processed arbitrary root'});
     }
 
     // Read in the path strings
@@ -362,6 +386,7 @@ class LuaContext {
 
     // Give deets
     const path = (n === 0) ? '' : ('/' + paths.join('/'));
+    T.endStep({text: 'Built path', path});
     return {device, path};
   }
 }
@@ -385,9 +410,14 @@ class LuaMachine extends LuaContext {
     for (const callName in LUA_API) {
       // TODO: should be a lambda, w/ an upvalue
       const impl = L => {
+        const thread = this.luaThreads.get(L);
+        const argCount = lua.lua_gettop(L);
+        const T = thread.traceCtx.newTrace({name: callName, callName, argCount});
+        thread.T = T; // TODO
+
         try {
           lua.lua_pushliteral(L, callName);
-          lua.lua_yield(L, lua.lua_gettop(L));
+          lua.lua_yield(L, argCount+1);
         } catch (throwable) {
           if (throwable.status !== lua.LUA_YIELD) {
             throw throwable;
@@ -419,10 +449,14 @@ class LuaThread extends LuaContext {
     this.number = number;
     this.name = `${machine.name}-#${number}`
 
-    this.createEnvironment();
+    this.traceCtx = new TraceContext(this.name);
+    const T = this.traceCtx.newTrace({name: 'lua setup'});
+    this.createEnvironment(T);
+    T.end();
   }
 
-  createEnvironment() {
+  createEnvironment(T) {
+    T.startStep({name: 'create environment'});
     const L = this.lua;
     lua.lua_createtable(L, 0, 1);
 
@@ -443,13 +477,15 @@ class LuaThread extends LuaContext {
     // take a proxy but otherwise scrap it
     this.luaEnv = lua.lua_toproxy(L, -1);
     lua.lua_pop(L, 1);
+    T.endStep();
   }
 
   compile(sourceText) {
+    const T = this.traceCtx.newTrace({name: 'lua compile'});
     const L = this.lua;
 
     // compile the script
-    this.compileLuaToStack(sourceText);
+    this.compileLuaToStack(T, sourceText);
 
     // attach the environment to the loaded string
     this.luaEnv(L);
@@ -459,6 +495,7 @@ class LuaThread extends LuaContext {
     this.runnable = lua.lua_toproxy(L, 1);
     this.sourceText = sourceText;
     lua.lua_pop(L, 1);
+    T.end();
   }
 
   registerGlobal(name) {
@@ -506,22 +543,26 @@ class LuaThread extends LuaContext {
 
       case lua.LUA_YIELD:
         const callName = lua.lua_tojsstring(L, -1);
+        const T = this.T; // TODO
         lua.lua_pop(L, 1);
 
         //checkProcessHealth(l)
-        //extras.MetricIncr("runtime.syscall", "call:enumerate", "app:"+p.App.AppName)
-        console.debug('lua api:', callName, 'with', lua.lua_gettop(L), 'args');
+        //console.debug('lua api:', callName, 'with', lua.lua_gettop(L), 'args');
+        T.startStep({name: 'implementation'});
         try {
           const impl = LUA_API[callName];
-          outputNum = await impl.call(this, L);
+          outputNum = await impl.call(this, L, T);
         } catch (err) {
           console.error('BUG: lua API crashed:', err);
           lauxlib.luaL_error(L, `[BUG] ctx.${callName}() crashed`);
+        } finally {
+          T.endStep();
         }
 
         // put the function back at the beginning
         this.runnable(L);
         lua.lua_insert(L, 1);
+        T.end();
         break;
 
       default:

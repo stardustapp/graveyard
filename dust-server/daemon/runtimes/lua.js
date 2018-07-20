@@ -5,6 +5,8 @@ importScripts(
   '/core/enumeration.js',
   '/core/utils.js',
 
+  '/lib/tracing.js',
+
   '/vendor/fengari.js',
   '/vendor/moment.js',
   //'/vendor/bugsnag.js',
