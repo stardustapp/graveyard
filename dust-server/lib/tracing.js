@@ -19,7 +19,6 @@ class CallTrace {
   constructor(context, id, tags={}) {
     this.context = context;
     this.id = id;
-    this.tags = {};
 
     this.nextStepNum = 1;
     this.stepStack = new Array; // child steps go FIRST (shift/unshift)
