@@ -38,7 +38,7 @@ const LUA_API = {
     T.endStep();
 
     const data = lua.lua_newuserdata(L, 0);
-    data.root = device.getSubRoot(path);
+    data.root = device.pathTo(path);
 
     lauxlib.luaL_getmetatable(L, 'stardust/root');
     lua.lua_setmetatable(L, -2);

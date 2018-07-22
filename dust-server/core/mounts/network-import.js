@@ -9,6 +9,7 @@ class NetworkImportMount {
 
     this.url = opts.url;
     this.prefix = opts.prefix || '';
+    this.ready = this.init();
   }
 
   async init() {

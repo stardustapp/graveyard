@@ -13,6 +13,7 @@ class IdbTreestoreMount {
     this.store = opts.store; // string name
 
     this.nidSubs = new Map; // of Sets
+    this.ready = this.init();
   }
 
   async init() {

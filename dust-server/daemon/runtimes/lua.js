@@ -36,7 +36,7 @@ class Workload {
     const sourceEntry = await this.env.getEntry('/session/source/'+this.spec.sourceUri);
     const source = await sourceEntry.get();
 
-    const machine = new LuaMachine(runtime.deviceForKernelPath(this.basePath));
+    const machine = new LuaMachine(this.env.pathTo('/session'));
     const thread = machine.startThread(atob(source.Data));
     const completion = thread.run();
 
