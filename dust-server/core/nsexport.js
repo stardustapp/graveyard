@@ -121,6 +121,8 @@ class NsExport {
         } else if (output.get) {
           // otherwise just return a flattened output
           return await output.get();
+        } else if (output.Type) {
+          return output;
         } else if (output) {
           throw new Error(`Output of ${Path} isn't gettable, please use Dest`);
         }

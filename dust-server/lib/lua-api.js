@@ -91,7 +91,7 @@ const LUA_API = {
       try {
         T.startStep({name: 'get entry'});
         const value = await entry.get();
-        this.pushLiteralEntry(T, value || '');
+        this.pushLiteralEntry(T, value || new StringLiteral('missing', ''));
         T.endStep();
       } catch (err) {
         console.debug('read() failed to find string at path', path, err);
@@ -160,13 +160,13 @@ const LUA_API = {
     lua.lua_pop(L, 1);
 
     T.startStep({name: 'resolve input'});
-    const inputEnt = input.getEntry ? await input.getEntry('/') : input;
-    const inputLit = inputEnt.get ? await inputEnt.get() : inputEnt;
+    const inputEnt = input.getEntry ? await input.getEntry('') : input;
+    //const inputLit = inputEnt.get ? await inputEnt.get() : inputEnt;
     T.endStep();
 
     // read all remaining args as a path
     const {device, path} = this.resolveLuaPath(T);
-    console.debug("invoke of", path, 'from', path, 'with input', inputLit);
+    console.debug("invoke of", path, 'from', path, 'with input', inputEnt);
     T.startStep({name: 'lookup function entry'});
     const entry = await device.getEntry(path + '/invoke');
     T.endStep();
@@ -175,10 +175,10 @@ const LUA_API = {
       throw new Error(`Tried to invoke function ${path} but did not exist or isn't invokable`);
 
     T.startStep({name: 'invoke function'});
-    const output = await entry.invoke(inputLit);
+    const output = await entry.invoke(inputEnt);
     T.endStep();
 
-    this.pushLiteralEntry(output);
+    this.pushLiteralEntry(T, output);
     return 1;
   },
 

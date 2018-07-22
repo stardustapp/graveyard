@@ -29,20 +29,33 @@ class ImportedEntry {
   }
 
   async get() {
-
+    const resp = await this.mount.transport.exec({
+      Op: 'get',
+      Path: this.path,
+    });
+    return resp.Output;
   }
 
   async invoke(input) {
-    console.log(this, input);
+    const resp = await this.mount.transport.exec({
+      Op: 'invoke',
+      Path: this.path,
+      Input: input,
+    });
+    return resp.Output;
   }
 
   async put(value) {
-
+    const resp = await this.mount.transport.exec({
+      Op: 'store',
+      Dest: this.path,
+      Input: value,
+    });
+    return resp.Ok;
   }
 
-  async subscribe(newChannel) {
-
-  }
+  //async subscribe(newChannel) {
+  //}
 
   //async enumerate(enumer) {
   //}

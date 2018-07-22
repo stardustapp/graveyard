@@ -82,7 +82,7 @@ class LuaContext {
         lua.lua_pushliteral(L, entry.StringValue || '');
         break;
       default:
-        lauxlib.luaL_error(L, `Directory entry ${key} in ${folder.Name} wasn't a recognizable type ${child.Type}`);
+        lauxlib.luaL_error(L, `Directory entry ${entry.Name} wasn't a recognizable type ${entry.Type}`);
         throw new Error("unreachable");
     }
   }
@@ -90,7 +90,7 @@ class LuaContext {
   pushLuaTable(T, folder) {
     const L = this.lua;
     lua.lua_newtable(L);
-    for (const child of folder.Children) {
+    for (const child of (folder.Children || [])) {
       this.pushLiteralEntry(T, child);
       lua.lua_setfield(L, -2, fengari.to_luastring(child.Name));
     }
