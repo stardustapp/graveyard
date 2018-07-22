@@ -43,8 +43,8 @@ class LuaContext {
     case lua.LUA_TUSERDATA:
       // base.Context values are passed back by-ref
       // TODO: can have a bunch of other interesting userdatas
-      const device = lauxlib.luaL_checkudata(L, 1, "stardust/root");
-      T.log({text: "Lua passed native star-context", device: device.toString()});
+      const device = lauxlib.luaL_checkudata(L, index, "stardust/root");
+      T.log({text: "Lua passed native star-context", device: device.root.toString()});
       return device;
 
     case lua.LUA_TTABLE:
@@ -67,24 +67,31 @@ class LuaContext {
     }
   }
 
+  pushLiteralEntry(T, entry) {
+    const L = this.lua;
+    if (entry == null) {
+      lua.lua_pushnil(L);
+      return;
+    }
+
+    switch (entry.Type) {
+      case 'Folder':
+        this.pushLuaTable(T, entry);
+        break;
+      case 'String':
+        lua.lua_pushliteral(L, entry.StringValue || '');
+        break;
+      default:
+        lauxlib.luaL_error(L, `Directory entry ${key} in ${folder.Name} wasn't a recognizable type ${child.Type}`);
+        throw new Error("unreachable");
+    }
+  }
+
   pushLuaTable(T, folder) {
     const L = this.lua;
     lua.lua_newtable(L);
     for (const child of folder.Children) {
-      switch (child.Type) {
-
-      case 'String':
-        lua.lua_pushliteral(L, child.StringValue || '');
-        break;
-
-      case 'Folder':
-        this.pushLuaTable(T, child);
-        break;
-
-      default:
-        lauxlib.luaL_error(L, `Directory entry ${key} in ${folder.Name} wasn't a recognizable type ${child.Type}`);
-        throw new Error("unreachable");
-      }
+      this.pushLiteralEntry(T, child);
       lua.lua_setfield(L, -2, fengari.to_luastring(child.Name));
     }
   }

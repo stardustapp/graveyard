@@ -91,19 +91,14 @@ const LUA_API = {
       try {
         T.startStep({name: 'get entry'});
         const value = await entry.get();
-        if (value.Type === 'String') {
-          lua.lua_pushliteral(L, value.StringValue || '');
-          T.endStep({extant: true});
-          return 1;
-        } else {
-          T.endStep({extant: true, ok: false, text: 'Bad type', type: value.Type});
-        }
+        this.pushLiteralEntry(T, value);
+        T.endStep();
       } catch (err) {
         console.debug('read() failed to find string at path', path, err);
         lua.lua_pushliteral(L, '');
         T.endStep({extant: false});
-        return 1;
       }
+      return 1;
     } else {
       T.log({text: `entry didn't exist or didn't offer a get()`});
     }
@@ -157,63 +152,52 @@ const LUA_API = {
     T.endStep();
     return 1;
   },
-/*
-  // ctx.invoke([pathRoot,] pathParts string..., input any) (output any)
-  {"invoke", func(l *lua.State) int {
-    //checkProcessHealth(l)
-    //extras.MetricIncr("runtime.syscall", "call:invoke", "app:"+p.App.AppName)
 
+  // ctx.invoke([pathRoot,] pathParts string..., input any) (output any)
+  async invoke(L, T) {
     // get the thing to store off the end, can be nil
-    input := readLuaEntry(l, -1)
-    l.Pop(1)
+    const input = this.readLuaEntry(T, -1);
+    lua.lua_pop(L, 1);
+
+    T.startStep({name: 'resolve input'});
+    const inputEnt = input.getEntry ? await input.getEntry('/') : input;
+    const inputLit = inputEnt.get ? await inputEnt.get() : inputEnt;
+    T.endStep();
 
     // read all remaining args as a path
-    ctx, path := resolveLuaPath(l, p.App.ctx)
-    p.Status = "Blocked: Invoking " + ctx.Name() + path + " since " + time.Now().Format(time.RFC3339Nano)
-    log.Println(metaLog, "invoke of", path, "from", ctx.Name(), "with input", input)
+    const {device, path} = this.resolveLuaPath(T);
+    console.debug("invoke of", path, 'from', path, 'with input', inputLit);
+    T.startStep({name: 'lookup function entry'});
+    const entry = await device.getEntry(path + '/invoke');
+    T.endStep();
 
-    ivk, ok := ctx.GetFunction(path + "/invoke")
-    if !ok {
-      lua.Errorf(l, "Tried to invoke function %s%s but did not exist", ctx.Name(), path)
-      panic("unreachable")
-    }
+    if (!entry || !entry.invoke)
+      throw new Error(`Tried to invoke function ${path} but did not exist or isn't invokable`);
 
-    output := ivk.Invoke(p.App.ctx, input)
-    //checkProcessHealth(l)
+    T.startStep({name: 'invoke function'});
+    const output = await entry.invoke(inputLit);
+    T.endStep();
 
-    // try returning useful results
-    switch output := output.(type) {
-
-    case base.String:
-      l.PushString(output.Get())
-
-    default:
-      // unknown = just return a context to it
-      subNs := base.NewNamespace("output:/", output)
-      subCtx := base.NewRootContext(subNs)
-
-      l.PushUserData(subCtx)
-      lua.MetaTableNamed(l, "stardust/base.Context")
-      l.SetMetaTable(-2)
-    }
-
-    p.Status = "Running"
-    return 1
-  }},
+    this.pushLiteralEntry(output);
+    return 1;
+  },
 
   // ctx.unlink([pathRoot,] pathParts string...) (ok bool)
-  {"unlink", func(l *lua.State) int {
-    //checkProcessHealth(l)
-    //extras.MetricIncr("runtime.syscall", "call:unlink", "app:"+p.App.AppName)
-
-    ctx, path := resolveLuaPath(l, p.App.ctx)
-    log.Println(metaLog, "unlink of", path, "from", ctx.Name())
+  async unlink(L, T) {
+    // read all args as a path
+    const {device, path} = this.resolveLuaPath(T);
+    console.debug("unlink of", path);
+    T.startStep({name: 'lookup entry'});
+    const entry = await device.getEntry(path);
+    T.endStep();
 
     // do the thing
-    l.PushBoolean(ctx.Put(path, nil))
-    return 1
-  }},
-  */
+    T.startStep({name: 'unlink entry'});
+    const ok = await entry.put(null);
+    lua.lua_pushboolean(L, ok);
+    T.endStep();
+    return 1;
+  },
 
   // ctx.enumerate([pathRoot,] pathParts string...) []Entry
   // Entry tables have: name, path, type, stringValue
@@ -308,29 +292,25 @@ const LUA_API = {
     return 0;
   },
 
-/*
   // ctx.timestamp() string
-  {"timestamp", func(l *lua.State) int {
-    //extras.MetricIncr("runtime.syscall", "call:timestamp", "app:"+p.App.AppName)
-    l.PushString(time.Now().UTC().Format(time.RFC3339))
-    return 1
-  }},
+  timestamp(L, T) {
+    lua.lua_pushliteral(L, (new Date()).toISOString());
+    return 1;
+  },
 
   // ctx.splitString(fulldata string, knife string) []string
-  {"splitString", func(l *lua.State) int {
+  splitString(L, T) {
     //extras.MetricIncr("runtime.syscall", "call:splitString", "app:"+p.App.AppName)
-    str := lua.CheckString(l, 1)
-    knife := lua.CheckString(l, 2)
-    l.SetTop(0)
+    const str = lua.lua_tojsstring(L, 1);
+    const knife = lua.lua_tojsstring(L, 2);
+    lua.lua_settop(L, 0);
 
-    l.NewTable()
-    for idx, part := range strings.Split(str, knife) {
-      l.PushString(part)
-      l.RawSetInt(1, idx + 1)
+    lua.lua_newtable(L);
+    const parts = str.split(knife);
+    for (const i = 0; i < parts.length; i++) {
+      lua.lua_pushliteral(L, parts[i]);
+      lua.lua_rawseti(L, 1, i + 1);
     }
-    return 1
-  }},
-
-}, 0)
-*/
+    return 1;
+  },
 };

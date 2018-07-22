@@ -145,4 +145,13 @@ class KernelPathEntry {
     });
     return response.Ok;
   }
+
+  async invoke(value) {
+    const response = await this.runtime.volley({
+      Op: 'invoke',
+      Path: this.path,
+      Input: value,
+    });
+    return response.Output;
+  }
 }
