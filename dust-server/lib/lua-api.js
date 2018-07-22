@@ -45,39 +45,37 @@ const LUA_API = {
     return 1;
   },
 
-/*
   // ctx.import(wireUri) Context
-  {"import", func(l *lua.State) int {
-    //checkProcessHealth(l)
-    //extras.MetricIncr("runtime.syscall", "call:import", "app:"+p.App.AppName)
-
-    wireUri := lua.CheckString(l, 1)
-    log.Println(metaLog, "opening wire", wireUri)
-    p.Status = "Waiting: Dialing " + wireUri
+  async import(L, T) {
+    const wireUri = lua.lua_tojsstring(L, 1);
+    lua.lua_pop(L, 1);
+    //p.Status = "Waiting: Dialing " + wireUri
 
     // TODO: support abort interruptions
-    if wire, ok := openWire(wireUri); ok {
-      log.Println(metaLog, "Lua successfully opened wire", wireUri)
+    if (!wireUri.startsWith('skylink+ws'))
+      throw new Error(`can't import that yet`);
 
-      // create a new base.Context
-      subNs := base.NewNamespace(wireUri, wire)
-      subCtx := base.NewRootContext(subNs)
+    T.startStep({name: 'start network import', wireUri});
+    const device = new NetworkImportMount({
+      url: wireUri.slice(8).split('/').slice(0, 3).join('/').replace('/::1', '/[::1]') + '/~~export/ws',
+      prefix: '/' + wireUri.split('/').slice(3).join('/'),
+    });
+    await device.ready.then(() => {
+      T.endStep();
+      console.log("Lua successfully opened wire", wireUri);
 
-      // return a Lua version of the ctx
-      l.PushUserData(subCtx)
-      lua.MetaTableNamed(l, "stardust/base.Context")
-      l.SetMetaTable(-2)
+      const data = lua.lua_newuserdata(L, 0);
+      data.root = device;
+      lauxlib.luaL_getmetatable(L, 'stardust/root');
+      lua.lua_setmetatable(L, -2);
+    }, err => {
+      T.endStep();
+      console.warn("failed to open wire", wireUri, err);
+      lua.lua_pushnil(L);
+    });
 
-    } else {
-      log.Println(metaLog, "failed to open wire", wireUri)
-      l.PushNil()
-    }
-
-    //checkProcessHealth(l)
-    p.Status = "Running"
-    return 1
-  }},
-  */
+    return 1;
+  },
 
   // ctx.read([pathRoot,] pathParts string...) (val string)
   async read(L, T) {
@@ -150,6 +148,13 @@ const LUA_API = {
 
     // read all remaining args as a path
     const {device, path} = this.resolveLuaPath(T);
+
+    if (value.getEntry) {
+      console.warn("Experimental store-as-bind to", path);
+      device.bind(path, value);
+      return 1;
+    }
+
     console.debug("store to", path);
     T.startStep({name: 'lookup entry'});
     const entry = await device.getEntry(path);
@@ -281,8 +286,6 @@ const LUA_API = {
 
   // ctx.sleep(milliseconds int)
   async sleep(L, T) {
-    //checkProcessHealth(l)
-    //extras.MetricIncr("runtime.syscall", "call:sleep", "app:"+p.App.AppName)
     // TODO: support interupting to abort
 
     const ms = lauxlib.luaL_checkinteger(L, 1);
@@ -298,8 +301,6 @@ const LUA_API = {
     await sleep(ms);
     T.endStep();
 
-    //checkProcessHealth(l)
-    //p.Status = "Running";
     return 0;
   },
 
