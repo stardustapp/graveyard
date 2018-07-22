@@ -103,7 +103,7 @@ class IdbPath {
     console.log('putting', obj, 'to', this.path);
 
     const txn = new IdbTransaction(this.mount, 'readwrite');
-    const newNid = await txn.createNode(obj);
+    const newNid = (obj === null) ? null : await txn.createNode(obj);
 
     const handle = await txn.walkPath(this.path);
     const parent = handle.parent();
@@ -201,7 +201,7 @@ class IdbTransaction {
       case 'String':
         newNode.raw = literal.StringValue || '';
         break;
-        
+
       default:
         throw new Error(`Failed to map IDB type ${this.node.type} for createNode()`);
     }
@@ -300,7 +300,7 @@ class IdbHandle {
     }
     const oldChild = this.current();
     const parent = this.parent();
-    
+
     if (parent.constructor !== IdbExtantNode) {
       throw new Error(`Can't replace node, parent is not extant`);
     }
@@ -317,13 +317,16 @@ class IdbHandle {
       });
     }
 
-    parent.obj.children.push([oldChild.name, newNid]);
-    await this.txn.objectStore.put(parent.obj);
-    this.txn.mount.routeNidEvent(parent.obj.nid, {
-      op: 'assign-child',
-      child: oldChild.name,
-      nid: newNid,
-    });
+    if (newNid) {
+      parent.obj.children.push([oldChild.name, newNid]);
+      await this.txn.objectStore.put(parent.obj);
+      this.txn.mount.routeNidEvent(parent.obj.nid, {
+        op: 'assign-child',
+        child: oldChild.name,
+        nid: newNid,
+      });
+    }
+
     // TODO: delay events until transaction is completed
     await this.walkName(oldChild.name);
   }
