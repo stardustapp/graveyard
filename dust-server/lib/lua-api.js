@@ -108,25 +108,36 @@ const LUA_API = {
     return 1;
   },
 
-  /*
   // ctx.readDir([pathRoot,] pathParts string...) (val table)
-  // TODO: reimplement as an enumeration
-  {"readDir", func(l *lua.State) int {
-    //checkProcessHealth(l)
-    //extras.MetricIncr("runtime.syscall", "call:readDir", "app:"+p.App.AppName)
+  async readDir(L, T) {
+    const {device, path} = this.resolveLuaPath(T);
+    console.debug("read from", path);
 
-    ctx, path := resolveLuaPath(l, p.App.ctx)
-    log.Println(metaLog, "readdir on", path, "from", ctx.Name())
+    T.startStep({name: 'lookup entry'});
+    const entry = await device.getEntry(path, true);
+    T.endStep();
+    if (!entry) throw new Error(`Couldn't find path to readDir() on`);
 
-    if folder, ok := ctx.GetFolder(path); ok {
-      pushLuaTable(l, folder)
-    } else {
-      l.NewTable()
-      log.Println(metaLog, "readdir() failed to find folder at path", path)
+    if (entry.enumerate) {
+      const enumer = new EnumerationWriter(1);
+      T.startStep({name: 'perform enumeration'});
+      await entry.enumerate(enumer);
+      T.endStep();
+
+      T.startStep({name: 'build lua result'});
+      lua.lua_newtable(L);
+      enumer.entries.filter(x => x.Name).forEach(value => {
+        const baseName = decodeURIComponent(value.Name.split('/').slice(-1)[0]);
+        this.pushLiteralEntry(T, value);
+        lua.lua_setfield(L, -2, fengari.to_luastring(decodeURIComponent(value.Name)));
+      });
+      T.endStep();
+      return 1;
     }
-    return 1
-  }},
-*/
+
+    throw new Error(`readDir() target wasn't enumerable`);
+  },
+
   // ctx.store([pathRoot,] pathParts string..., thingToStore any) (ok bool)
   async store(L, T) {
     // get the thing to store off the end

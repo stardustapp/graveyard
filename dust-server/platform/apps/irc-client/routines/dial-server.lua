@@ -49,7 +49,7 @@ end
 -- There is no live wire. Let's see if we can dial out.
 ctx.log("Dialing new IRC wire for", configName)
 ctx.store(state, "status", "Dialing")
-local wireUri = ctx.invoke("session", "drivers", "irc-dialer", "dial", config)
+local wireUri = ctx.invoke("dialer", "dial", ctx.readDir(config))
 
 -- If we can't, there's nothing else to do. Bail.
 if not wireUri then
