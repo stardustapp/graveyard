@@ -20,6 +20,7 @@ importScripts(
 
   '/lib/runtime-slave-worker.js',
   '/lib/lua-machine.js',
+  '/lib/lua-api.js',
 );
 delete this.window;
 
