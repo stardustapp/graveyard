@@ -270,7 +270,7 @@ const LUA_API = {
         parts[i] = lauxlib.luaL_checknumber(L, i+1);
         break;
       case lua.LUA_TUSERDATA:
-        const device = lauxlib.luaL_checkudata(L, i+1, "stardust/root");
+        const device = lauxlib.luaL_checkudata(L, i+1, "stardust/root").root.baseUri;
         parts[i] = device;
         break;
       default:

@@ -81,6 +81,9 @@ class LuaContext {
       case 'String':
         lua.lua_pushliteral(L, entry.StringValue || '');
         break;
+      case 'Unknown':
+        lua.lua_pushnil(L);
+        break;
       default:
         lauxlib.luaL_error(L, `Directory entry ${entry.Name} wasn't a recognizable type ${entry.Type}`);
         throw new Error("unreachable");
@@ -194,7 +197,7 @@ class LuaThread extends LuaContext {
     const L = this.lua;
     lua.lua_createtable(L, 0, 1);
 
-    const copiedGlobals = ['tonumber', 'ipairs', 'ctx'];
+    const copiedGlobals = ['tonumber', 'type', 'string', 'ipairs', 'ctx'];
     for (const name of copiedGlobals) {
       lua.lua_getglobal(L, name);
       lua.lua_setfield(L, -2, fengari.to_luastring(name));
@@ -261,51 +264,55 @@ class LuaThread extends LuaContext {
       throw new Error(`BUG: Lua thread can't start without an empty stack`);
     this.runnable(L);
 
-    let outputNum = 0;
-    while (this.running) {
-      const evalRes = lua.lua_resume(L, null, outputNum);
-      switch (evalRes) {
+    try {
+      let outputNum = 0;
+      while (this.running) {
+        const evalRes = lua.lua_resume(L, null, outputNum);
+        switch (evalRes) {
 
-      case lua.LUA_OK:
-        this.running = false;
-        break;
+        case lua.LUA_OK:
+          this.running = false;
+          break;
 
-      case lua.LUA_ERRRUN:
-        const error = lua.lua_tojsstring(L, -1);
-        const match = error.match(/^\[string ".+?"\]:(\d+): (.+)$/);
-        if (match) {
-          const sourceLine = this.sourceText.split('\n')[match[1]-1].trim();
-          throw new Error(`Lua execution fault: ${match[2]} @ line ${match[1]}: ${sourceLine}`);
+        case lua.LUA_ERRRUN:
+          const error = lua.lua_tojsstring(L, -1);
+          throw new Error('Lua execution fault (' + error + ')');
+
+        case lua.LUA_YIELD:
+          const callName = lua.lua_tojsstring(L, -1);
+          const T = this.T; // TODO
+          lua.lua_pop(L, 1);
+
+          //checkProcessHealth(l)
+          //console.debug('lua api:', callName, 'with', lua.lua_gettop(L), 'args');
+          T.startStep({name: 'implementation'});
+          try {
+            const impl = LUA_API[callName];
+            outputNum = await impl.call(this, L, T);
+          } catch (err) {
+            console.error('BUG: lua API crashed:', err);
+            lauxlib.luaL_error(L, `[BUG] ctx.${callName}() crashed`);
+          } finally {
+            T.endStep();
+          }
+
+          // put the function back at the beginning
+          this.runnable(L);
+          lua.lua_insert(L, 1);
+          T.end();
+          break;
+
+        default:
+          throw new Error(`BUG: lua resume was weird (${evalRes})`);
         }
-        throw new Error('Lua execution fault. ' + error);
-
-      case lua.LUA_YIELD:
-        const callName = lua.lua_tojsstring(L, -1);
-        const T = this.T; // TODO
-        lua.lua_pop(L, 1);
-
-        //checkProcessHealth(l)
-        //console.debug('lua api:', callName, 'with', lua.lua_gettop(L), 'args');
-        T.startStep({name: 'implementation'});
-        try {
-          const impl = LUA_API[callName];
-          outputNum = await impl.call(this, L, T);
-        } catch (err) {
-          console.error('BUG: lua API crashed:', err);
-          lauxlib.luaL_error(L, `[BUG] ctx.${callName}() crashed`);
-        } finally {
-          T.endStep();
-        }
-
-        // put the function back at the beginning
-        this.runnable(L);
-        lua.lua_insert(L, 1);
-        T.end();
-        break;
-
-      default:
-        throw new Error(`BUG: lua resume was weird (${evalRes})`);
       }
+    } catch (err) {
+      const match = err.message.match(/\(\[string ".+?"\]:(\d+): (.+)\)$/);
+      if (match) {
+        const sourceLine = this.sourceText.split('\n')[match[1]-1].trim();
+        throw new Error(`Lua execution fault: ${match[2]} @ line ${match[1]}: ${sourceLine}`);
+      }
+      throw err;
     }
 
     console.warn('lua thread completed');
