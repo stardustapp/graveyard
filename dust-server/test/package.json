@@ -1,0 +1,27 @@
+{
+  "name": "chrome-profile-server-test",
+  "version": "0.0.0",
+  "description": "Test suite",
+  "main": "index.js",
+  "directories": {
+    "test": ""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^5.2.0"
+  },
+  "scripts": {
+    "test": "./node_modules/mocha/bin/mocha *"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stardustapp/chrome-profile-server.git"
+  },
+  "author": "Daniel Lamando",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/stardustapp/chrome-profile-server/issues"
+  },
+  "homepage": "https://github.com/stardustapp/chrome-profile-server#readme"
+}
