@@ -4,6 +4,8 @@ importScripts(
   '/core/environment.js',
   '/core/enumeration.js',
   '/core/utils.js',
+  '/core/mounts/tmp.js',
+  '/core/mounts/network-import.js',
 
   '/lib/tracing.js',
   '/lib/mkdirp.js',
@@ -33,6 +35,7 @@ class Workload {
 
   async init() {
     await this.env.bind('/session', runtime.deviceForKernelPath(this.basePath));
+    await this.env.mount('/session/state', 'tmp');
     const sourceEntry = await this.env.getEntry('/session/source/'+this.spec.sourceUri);
     const source = await sourceEntry.get();
 

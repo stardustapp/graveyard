@@ -26,7 +26,6 @@ const DEFAULT_PACKAGES = [
     mounts: {
       '/config': { type: 'scoped', flavor: 'config' },
       '/persist': { type: 'scoped', flavor: 'persist' },
-      '/state': { type: 'scoped', flavor: 'state' },
       //'/secret': { type: 'scoped', flavor: 'secret' },
       '/dialer': { type: 'bind',
         suggestion: 'skylink+ws://52.36.135.46:29234/pub',
