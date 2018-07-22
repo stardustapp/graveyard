@@ -32,6 +32,24 @@ describe('Environment', function() {
     expect(output[1]).to.equal('/test/t/t');
   });
 
+  it('should allow root-pathing after pathTo', async function() {
+    const env = new Environment();
+    await env.bind('/asdf/33', {getEntry: path => path});
+    const child = env.pathTo('/asdf/33');
+
+    const output = await child.getEntry('');
+    expect(output).to.equal('');
+  });
+
+  it('should allow escaping root-pathing after pathTo', async function() {
+    const env = new Environment();
+    await env.bind('/asdf/33', {getEntry: path => path});
+    const child = env.pathTo('/asdf/33/4');
+
+    const output = await child.getEntry('');
+    expect(output).to.equal('/4');
+  });
+
   it(`shouldn't leak child binds to parents`, async function() {
     const env = new Environment();
     const child = env.pathTo('/asdf');

@@ -103,9 +103,6 @@ class Environment {
 
   // returns the MOST specific mount for given path
   matchPath(path) {
-    if (!path) {
-      throw new Error("matchPath() requires a path");
-    }
     var pathSoFar = path;
     while (true) {
       if (this.devices.has(pathSoFar)) {
@@ -121,12 +118,7 @@ class Environment {
   }
 
   async getEntry(path, required, apiCheck) {
-    // show our root if we have to
-    // TODO: support a mount to / while adding mounted children, if any?
-    if (!path)
-      return new VirtualEnvEntry(this, '');
-    if (path === '/' && !this.devices.has(''))
-      return new VirtualEnvEntry(this, '');
+    if (path === '/') path = '';
 
     var entry;
     const {mount, subPath} = this.matchPath(path);
@@ -134,18 +126,16 @@ class Environment {
       entry = await mount.getEntry(subPath);
     }
 
-    if (!entry) {
-      const childPoints = Array.from(this.devices.keys())
-        .filter(x => x.startsWith(path) && x !== path);
-      if (childPoints.length) {
-        entry = new VirtualEnvEntry(this, path);
-      }
+    // show our root if we have to
+    // TODO: support a mount to / while adding mounted children, if any?
+    if (entry == null && this.prefixes.has(path)) {
+      return new VirtualEnvEntry(this, path);
     }
 
-    if (required && !entry) {
+    if (required && entry == null) {
       throw new Error(`getEntry(${JSON.stringify(path)}) failed but was marked required`);
     }
-    if (apiCheck && entry && !entry[apiCheck]) {
+    if (apiCheck && entry != null && !entry[apiCheck]) {
       throw new Error(`getEntry(${JSON.stringify(path)}) found a ${entry.constructor.name} which doesn't present desired API ${apiCheck}`);
     }
 

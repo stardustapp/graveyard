@@ -43,8 +43,8 @@ class LuaContext {
     case lua.LUA_TUSERDATA:
       // base.Context values are passed back by-ref
       // TODO: can have a bunch of other interesting userdatas
-      const device = lauxlib.luaL_checkudata(L, index, "stardust/root");
-      T.log({text: "Lua passed native star-context", device: device.root.toString()});
+      const device = lauxlib.luaL_checkudata(L, index, "stardust/root").root;
+      T.log({text: "Lua passed native star-context", device: device.toString()});
       return device;
 
     case lua.LUA_TTABLE:

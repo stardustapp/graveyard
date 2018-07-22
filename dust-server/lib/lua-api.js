@@ -91,7 +91,7 @@ const LUA_API = {
       try {
         T.startStep({name: 'get entry'});
         const value = await entry.get();
-        this.pushLiteralEntry(T, value);
+        this.pushLiteralEntry(T, value || '');
         T.endStep();
       } catch (err) {
         console.debug('read() failed to find string at path', path, err);
