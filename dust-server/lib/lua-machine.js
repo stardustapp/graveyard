@@ -194,11 +194,11 @@ class LuaThread extends LuaContext {
     const L = this.lua;
     lua.lua_createtable(L, 0, 1);
 
-    lua.lua_getglobal(L, 'ipairs');
-    lua.lua_setfield(L, -2, fengari.to_luastring('ipairs'));
-
-    lua.lua_getglobal(L, 'ctx');
-    lua.lua_setfield(L, -2, fengari.to_luastring('ctx'));
+    const copiedGlobals = ['tonumber', 'ipairs', 'ctx'];
+    for (const name of copiedGlobals) {
+      lua.lua_getglobal(L, name);
+      lua.lua_setfield(L, -2, fengari.to_luastring(name));
+    }
 
     lua.lua_getglobal(L, 'ctx');
     lua.lua_getfield(L, -1, 'log');

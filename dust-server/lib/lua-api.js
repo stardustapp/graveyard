@@ -151,7 +151,7 @@ const LUA_API = {
 
     if (value.getEntry) {
       console.warn("Experimental store-as-bind to", path);
-      device.bind(path, value);
+      await device.bind(path, value);
       return 1;
     }
 
