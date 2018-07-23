@@ -318,24 +318,38 @@ class IdbHandle {
     this.nids.pop();
     this.names.pop();
 
-    if (oldChild.constructor === IdbExtantNode) {
-      console.log('IDB overwriting', this.path);
+    if (oldChild.constructor === IdbExtantNode && newNid) {
+      console.log('IDB overwriting', this.names.join('/'));
       parent.obj.children = parent.obj.children
           .filter(x => x[1] !== oldChild.nid);
-      this.txn.mount.routeNidEvent(parent.obj.nid, {
-        op: 'remove-child',
-        child: childName,
-      });
-    }
-
-    if (newNid) {
       parent.obj.children.push([childName, newNid]);
       await this.txn.objectStore.put(parent.obj);
       this.txn.mount.routeNidEvent(parent.obj.nid, {
-        op: 'assign-child',
+        op: 'replace-child',
         child: childName,
         nid: newNid,
       });
+
+    } else {
+      if (oldChild.constructor === IdbExtantNode) {
+        console.log('IDB removing', this.names.join('/'));
+        parent.obj.children = parent.obj.children
+            .filter(x => x[1] !== oldChild.nid);
+        this.txn.mount.routeNidEvent(parent.obj.nid, {
+          op: 'remove-child',
+          child: childName,
+        });
+      }
+
+      if (newNid) {
+        parent.obj.children.push([childName, newNid]);
+        await this.txn.objectStore.put(parent.obj);
+        this.txn.mount.routeNidEvent(parent.obj.nid, {
+          op: 'assign-child',
+          child: childName,
+          nid: newNid,
+        });
+      }
     }
 
     // TODO: delay events until transaction is completed
@@ -482,7 +496,7 @@ class IdbSubscription {
 
   async processNidEvent(nid, txn, event) {
     console.log('sub processing NID event', nid, event);
-    
+
     if (this.parentNids.has(event.nid)) {
       console.log(`one of sub's parent NIDs changed, resetting`);
       this.reset();
@@ -504,7 +518,7 @@ class IdbSubNode {
     this.children = new Map; // nid->IdbSubNode
     this.childPrefix = path + (path ? '/' : '');
   }
-  
+
   // given a sub and IDB transaction, recursively send shallow exports to the client
   async transmitEntry(sub, txn, asChanged=false) {
     const node = await txn.getNodeByNid(this.nid);
@@ -571,7 +585,16 @@ class IdbSubNode {
           await childNode.transmitEntry(sub, txn, false);
         }
         break;
-      
+
+      case 'replace-child':
+        if (this.height > 0) {
+          const childNode = new IdbSubNode(event.nid,
+              this.childPrefix+encodeURIComponent(event.child), this.height - 1);
+          this.children.set(event.child, childNode);
+          await childNode.transmitEntry(sub, txn, true);
+        }
+        break;
+
       default:
         console.warn('idb subnode', this, 'got unimpl event', event);
     }
