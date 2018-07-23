@@ -14,6 +14,9 @@ class EnumerationWriter {
   canDescend() {
     return this.names.length < this.depth;
   }
+  remainingDepth() {
+    return this.depth - this.names.length;
+  }
 
   descend(name) {
     this.names.push(name);
@@ -26,10 +29,56 @@ class EnumerationWriter {
     return this;
   }
 
+  // Transclude an external enumeration at the current visitation point
+  // TODO: catch over-walking, and something else i forget
+  visitEnumeration(entry) {
+    if (entry.Type !== 'Folder') throw new Error(`This isn't a Folder!`);
+    if (entry.Name !== 'enumeration') throw new Error(`This isn't an enumeration!`);
+
+    const enumPrefix = this.names.map(encodeURIComponent).join('/');
+    for (const literal of entry.Children) {
+      if (enumPrefix) {
+        literal.Name = enumPrefix + (literal.Name ? ('/' + literal.Name) : '');
+      }
+      this.entries.push(literal);
+    }
+  }
+
   toOutput() {
     if (this.names.length > 0)
       throw new Error(`BUG: EnumerationWriter asked to serialize, but is still descended`);
     return new FolderLiteral('enumeration', this.entries);
+  }
+
+  // Converts the completed enumeration output into a NSAPI literal structure
+  reconstruct() {
+    if (this.names.length > 0)
+      throw new Error(`BUG: EnumerationWriter asked to reconstruct, but is still descended`);
+
+    const outputStack = new Array;
+    for (const entry of this.entries) {
+      const parts = entry.Name.split('/');
+      if (entry.Name === '')
+        parts.pop(); // handle root-path case
+
+      while (parts.length < outputStack.length) {
+        outputStack.pop();
+      }
+      if (parts.length === outputStack.length) {
+        entry.Name = parts[parts.length-1] || '';
+        const parent = outputStack[outputStack.length - 1]
+        if (parent) {
+          if (parent.Type !== 'Folder')
+            throw new Error(`enumerate put something inside a non-folder ${parent.Type}`);
+          parent.Children.push(entry);
+        }
+        outputStack.push(entry);
+        if (entry.Type === 'Folder' && !entry.Children) {
+          entry.Children = [];
+        }
+      }
+    }
+    return outputStack[0];
   }
 }
 
@@ -56,4 +105,11 @@ function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
     c.stop(new StringLiteral('nosub',
         `This entry does not implement reactive subscriptions`));
   });
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    EnumerationWriter,
+    EnumerateIntoSubscription,
+  };
 }
