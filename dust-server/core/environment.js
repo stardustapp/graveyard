@@ -23,8 +23,8 @@ class Environment {
     if (device.ready)
       await device.ready;
 
-    if (this.devices.has(target))
-      throw new Error(`Environment refusing to replace device at ${target}`);
+    //if (this.devices.has(target))
+    //  throw new Error(`Environment refusing to replace device at ${target}`);
     this.devices.set(target, device);
 
     // record the new prefixes
@@ -35,7 +35,7 @@ class Environment {
       pathSoFar = pathSoFar.slice(0, pathSoFar.lastIndexOf('/'));
     };
 
-    console.info('bound', device, 'at', target);
+    //console.debug('bound', device, 'at', target);
   }
 
   pathTo(path) {

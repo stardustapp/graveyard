@@ -1097,7 +1097,7 @@ while healthyWire do
   end
 
   -- Sleep a sec
-  ctx.sleep(250)
+  ctx.sleep(2000)
 end
 
 if ctx.read(state, "status") == "Ready" then

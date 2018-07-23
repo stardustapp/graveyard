@@ -43,7 +43,7 @@ class AccountManager {
 
     const account = new Account(record);
     await account.open();
-    ToastNotif(`Loaded account: ${account.address()}`);
+    //ToastNotif(`Loaded account: ${account.address()}`);
 
     const apps = await this.packageManager.getInstalledApps(account);
     await Promise.all(apps.map(app => {
@@ -104,7 +104,7 @@ class AccountManager {
       domain.webEnv.bind('/~'+username, account.webEnv);
     }
 
-    return account;
+    return await this.getAccount(record.aid);
   }
 
   async setPassword(account, newPassword) {
