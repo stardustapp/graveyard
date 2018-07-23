@@ -319,7 +319,7 @@ class IdbHandle {
     this.names.pop();
 
     if (oldChild.constructor === IdbExtantNode && newNid) {
-      console.log('IDB overwriting', this.names.join('/'));
+      console.log('IDB overwriting', this.names.join('/'), childName);
       parent.obj.children = parent.obj.children
           .filter(x => x[1] !== oldChild.nid);
       parent.obj.children.push([childName, newNid]);
@@ -327,17 +327,19 @@ class IdbHandle {
       this.txn.mount.routeNidEvent(parent.obj.nid, {
         op: 'replace-child',
         child: childName,
+        oldNid: oldChild.nid,
         nid: newNid,
       });
 
     } else {
       if (oldChild.constructor === IdbExtantNode) {
-        console.log('IDB removing', this.names.join('/'));
+        console.log('IDB removing', this.names.join('/'), childName);
         parent.obj.children = parent.obj.children
             .filter(x => x[1] !== oldChild.nid);
         this.txn.mount.routeNidEvent(parent.obj.nid, {
           op: 'remove-child',
           child: childName,
+          oldNid: oldChild.nid,
         });
       }
 
@@ -497,7 +499,7 @@ class IdbSubscription {
   async processNidEvent(nid, txn, event) {
     console.log('sub processing NID event', nid, event);
 
-    if (this.parentNids.has(event.nid)) {
+    if (this.parentNids.has(event.oldNid)) {
       console.log(`one of sub's parent NIDs changed, resetting`);
       this.reset();
       await this.start();
