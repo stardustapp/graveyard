@@ -70,7 +70,7 @@ function writeToLog(log, entry)
   end
 
   -- store using next ID from partition
-  local nextId = ""..(partition.latest + 1)
+  local nextId = ""..((partition.latest + 1) | 0) -- force to integer
   ctx.store(partition.root, nextId, entry)
   ctx.store(partition.root, "latest", nextId)
   partition.latest = nextId
@@ -176,22 +176,22 @@ function handleMention(msg, where, sender, text)
       raw = msg,
     })
 
-  ctx.invoke("session", "notifier", "send-message", {
+  --[[ #TODO ctx.invoke("session", "notifier", "send-message", {
       text = text,
       title = "IRC: "..sender.." mentioned you in "..where,
       level = "2",
       -- link = "https://devmode.cloud/~dan/irc/",
-    })
+    })]]--
 end
 
 function listChannelsWithUser(nick)
   local chans = {}
-  local allChans = ctx.enumerate(channelsCtx, "")
-  for _, chanEnt in ipairs(allChans) do
-    local chan = getChannel(chanEnt.name)
+  local allChans = ctx.readDir(channelsCtx, "")
+  for _, chanName in pairs(allChans) do
+    local chan = getChannel(chanName)
 
     if ctx.read(chan.members, nick, "nick") ~= "" then
-      chans[chanEnt.name] = chan
+      chans[chanName] = chan
     end
   end
   return chans
@@ -700,10 +700,10 @@ local handlers = {
     ctx.store(state, "status", "Ready")
 
     ctx.log("Connection is ready - joining all configured channels")
-    local channels = ctx.enumerate(config, "channels")
-    for _, chan in ipairs(channels) do
-      ctx.log("Auto-joining channel", chan.stringValue)
-      sendMessage("JOIN", {["1"] = chan.stringValue})
+    local channels = ctx.readDir(config, "channels")
+    for _, chan in pairs(channels) do
+      ctx.log("Auto-joining channel", chan)
+      sendMessage("JOIN", {["1"] = chan})
     end
     return true
   end,
