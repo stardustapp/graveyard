@@ -117,18 +117,13 @@ const LUA_API = {
     if (!entry) throw new Error(`Couldn't find path to readDir() on`);
 
     if (entry.enumerate) {
-      const enumer = new EnumerationWriter(1);
+      const enumer = new EnumerationWriter(2); // TODO
       T.startStep({name: 'perform enumeration'});
       await entry.enumerate(enumer);
       T.endStep();
 
       T.startStep({name: 'build lua result'});
-      lua.lua_newtable(L);
-      enumer.entries.filter(x => x.Name).forEach(value => {
-        const baseName = decodeURIComponent(value.Name.split('/').slice(-1)[0]);
-        this.pushLiteralEntry(T, value);
-        lua.lua_setfield(L, -2, fengari.to_luastring(decodeURIComponent(value.Name)));
-      });
+      this.pushLiteralEntry(T, enumer.reconstruct());
       T.endStep();
       return 1;
     }
@@ -319,7 +314,7 @@ const LUA_API = {
 
     lua.lua_newtable(L);
     const parts = str.split(knife);
-    for (const i = 0; i < parts.length; i++) {
+    for (let i = 0; i < parts.length; i++) {
       lua.lua_pushliteral(L, parts[i]);
       lua.lua_rawseti(L, 1, i + 1);
     }

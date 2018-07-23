@@ -57,8 +57,16 @@ class ImportedEntry {
   //async subscribe(newChannel) {
   //}
 
-  //async enumerate(enumer) {
-  //}
+  async enumerate(enumer) {
+    const resp = await this.mount.transport.exec({
+      Op: 'enumerate',
+      Path: this.path,
+      Depth: enumer.remainingDepth(),
+    });
+
+    // transclude the remote enumeration
+    enumer.visitEnumeration(resp.Output);
+  }
 }
 
 class SkylinkWsTransport {
