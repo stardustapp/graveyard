@@ -96,15 +96,14 @@ class AccountManager {
       throw err;
     }
 
-    const account = new Account(record);
+    const account = await this.getAccount(record.aid);
     ToastNotif(`New account registration: ${account.address()} by ${email} - ${realname}`);
 
     if (domain.webEnv) {
       console.log('Hot-mounting new account', username, 'into domain', domain.record.primaryFqdn);
       domain.webEnv.bind('/~'+username, account.webEnv);
     }
-
-    return await this.getAccount(record.aid);
+    return account;
   }
 
   async setPassword(account, newPassword) {
