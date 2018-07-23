@@ -215,18 +215,23 @@ class IdbTransaction {
 class IdbHandle {
   constructor(txn) {
     this.txn = txn;
-    this.nids = []
-    this.stack = [];
+    this.nids = new Array;
+    this.stack = new Array;
+    this.names = new Array;
   }
   async init() {
     this.nids = ['root'];
     this.stack = [await this.txn.getNodeByNid('root')];
+    this.names = [''];
     return this;
   }
 
   // Helpers to work with the stack
   current() {
     return this.stack[this.stack.length - 1];
+  }
+  currentName() {
+    return this.names[this.stack.length - 1];
   }
   exists() {
     return this.current().constructor === IdbExtantNode;
@@ -246,6 +251,7 @@ class IdbHandle {
     if (path.startsWith('/')) {
       this.stack = [this.root()];
       this.nids = ['root'];
+      this.names = [''];
       path = path.slice(1);
     }
     if (!path.length) {
@@ -271,6 +277,7 @@ class IdbHandle {
       if (this.stack.length > 1) {
         this.stack.pop();
         this.nids.pop();
+        this.names.pop();
       }
       return;
     }
@@ -284,6 +291,7 @@ class IdbHandle {
       if (child) {
         this.stack.push(await this.txn.getNodeByNid(child[1]));
         this.nids.push(child[1]);
+        this.names.push(name);
         return true;
       }
     }
@@ -291,6 +299,7 @@ class IdbHandle {
     // no node? pathing into emptiness. don't complain tho
     this.stack.push(new IdbGhostNode(name));
     this.nids.push('');
+    this.names.push(name);
     return false;
   }
 
@@ -299,6 +308,7 @@ class IdbHandle {
       throw new Error(`Can't replace the root node`);
     }
     const oldChild = this.current();
+    const childName = this.currentName();
     const parent = this.parent();
 
     if (parent.constructor !== IdbExtantNode) {
@@ -306,6 +316,7 @@ class IdbHandle {
     }
     this.stack.pop();
     this.nids.pop();
+    this.names.pop();
 
     if (oldChild.constructor === IdbExtantNode) {
       console.log('IDB overwriting', this.path);
@@ -313,22 +324,22 @@ class IdbHandle {
           .filter(x => x[1] !== oldChild.nid);
       this.txn.mount.routeNidEvent(parent.obj.nid, {
         op: 'remove-child',
-        child: oldChild.name,
+        child: childName,
       });
     }
 
     if (newNid) {
-      parent.obj.children.push([oldChild.name, newNid]);
+      parent.obj.children.push([childName, newNid]);
       await this.txn.objectStore.put(parent.obj);
       this.txn.mount.routeNidEvent(parent.obj.nid, {
         op: 'assign-child',
-        child: oldChild.name,
+        child: childName,
         nid: newNid,
       });
     }
 
     // TODO: delay events until transaction is completed
-    await this.walkName(oldChild.name);
+    await this.walkName(childName);
   }
 }
 
