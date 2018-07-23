@@ -212,6 +212,14 @@ class VirtualEnvEntry {
         }
       }
     });
+    this.env.prefixes.forEach(prefix => {
+      if (prefix.startsWith(this.path)) {
+        const subPath = prefix.slice(this.path.length + 1);
+        if (!subPath.includes('/')) {
+          children.push({Name: subPath});
+        }
+      }
+    });
 
     if (children.length) {
       const nameParts = this.path.split('/');
