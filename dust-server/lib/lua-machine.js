@@ -156,14 +156,8 @@ class LuaMachine extends LuaContext {
         T.originalStack = lua.lua_tojsstring(L, -1);
         lua.lua_pop(L, 1);
 
-        try {
-          lua.lua_pushliteral(L, callName);
-          lua.lua_yield(L, argCount+1);
-        } catch (throwable) {
-          if (throwable.status !== lua.LUA_YIELD) {
-            throw throwable;
-          }
-        }
+        lua.lua_pushliteral(L, callName);
+        lua.lua_yield(L, argCount+1);
       };
       lua.lua_pushjsfunction(this.lua, impl);
       lua.lua_setfield(this.lua, -2, callName);
