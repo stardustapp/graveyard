@@ -152,6 +152,10 @@ class LuaMachine extends LuaContext {
         const T = thread.traceCtx.newTrace({name: callName, callName, argCount});
         thread.T = T; // TODO
 
+        lauxlib.luaL_traceback(L, L, `Calling ctx.${callName}()`, 1);
+        T.originalStack = lua.lua_tojsstring(L, -1);
+        lua.lua_pop(L, 1);
+
         try {
           lua.lua_pushliteral(L, callName);
           lua.lua_yield(L, argCount+1);
