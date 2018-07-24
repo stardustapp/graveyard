@@ -9,6 +9,7 @@ importScripts(
 
   '/lib/tracing.js',
   '/lib/mkdirp.js',
+  '/lib/path-fragment.js',
 
   '/vendor/fengari.js',
   '/vendor/moment.js',

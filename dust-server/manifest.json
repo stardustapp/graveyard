@@ -16,6 +16,7 @@
           "core/http-server.js", "core/nsexport.js", "core/wsc-skylink.js", "core/platform-api.js",
         "core/mounts/idb-treestore.js", "core/mounts/fs-string-dict.js", "core/mounts/network-import.js",
           "core/mounts/tmp.js", "core/mounts/web-filesystem.js",
+        "lib/path-fragment.js",
         "daemon/model/account-manager.js", "daemon/model/account.js",
           "daemon/model/domain-manager.js", "daemon/model/domain.js",
           "daemon/model/package-manager.js", "daemon/model/package.js",

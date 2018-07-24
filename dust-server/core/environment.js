@@ -28,12 +28,14 @@ class Environment {
     this.devices.set(target, device);
 
     // record the new prefixes
-    var pathSoFar = target;
-    while (true) {
-      this.prefixes.add(pathSoFar);
-      if (pathSoFar.length === 0) break;
-      pathSoFar = pathSoFar.slice(0, pathSoFar.lastIndexOf('/'));
-    };
+    if (target.length !== 0) {
+      var pathSoFar = target.slice(0, target.lastIndexOf('/'));
+      while (true) {
+        this.prefixes.add(pathSoFar);
+        if (pathSoFar.length === 0) break;
+        pathSoFar = pathSoFar.slice(0, pathSoFar.lastIndexOf('/'));
+      }
+    }
 
     //console.debug('bound', device, 'at', target);
   }
@@ -231,25 +233,45 @@ class VirtualEnvEntry {
   }
 
   async enumerate(enumer) {
+    const myPath = PathFragment.parse(this.path);
+
     const children = new Array();
+    const seenParts = new Set();
+
     this.env.devices.forEach((mount, path) => {
-      if (path.startsWith(this.path)) {
-        const subPath = path.slice(this.path.length + 1);
-        if (!subPath.includes('/')) {
-          children.push({name: subPath, mount, path});
-        }
+      const it = PathFragment.parse(path);
+      if (it.startsWith(myPath) && it.count() === myPath.count() + 1) {
+        children.push({
+          name: it.lastName(),
+          entry: mount.getEntry(''),
+        });
+        seenParts.add(it.lastPart());
       }
     });
-    if (!children.length)
+
+    this.env.prefixes.forEach(prefix => {
+      const it = PathFragment.parse(prefix);
+      if (it.startsWith(myPath) && it.count() === myPath.count() + 1 && !seenParts.has(it.lastPart())) {
+        children.push({
+          name: it.lastName(),
+          entry: new VirtualEnvEntry(this.env, prefix),
+        });
+        seenParts.add(it.lastPart());
+      }
+    });
+
+    if (!children.length) {
+      console.warn(`VirtualEnvEntry#enumerate() called when shouldn't be possible`);
       return;
+    }
 
     enumer.visit({Type: 'Folder'});
     if (enumer.canDescend()) {
       for (const child of children) {
         enumer.descend(child.name);
         try {
-          const rootEntry = await child.mount.getEntry('');
-          if (rootEntry.enumerate) {
+          const rootEntry = await child.entry;
+          if (enumer.canDescend() && rootEntry.enumerate) {
             await rootEntry.enumerate(enumer);
           } else {
             enumer.visit(await rootEntry.get());
