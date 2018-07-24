@@ -323,7 +323,6 @@ class IdbHandle {
       parent.obj.children = parent.obj.children
           .filter(x => x[1] !== oldChild.nid);
       parent.obj.children.push([childName, newNid]);
-      await this.txn.objectStore.put(parent.obj);
       this.txn.mount.routeNidEvent(parent.obj.nid, {
         op: 'replace-child',
         child: childName,
@@ -345,7 +344,6 @@ class IdbHandle {
 
       if (newNid) {
         parent.obj.children.push([childName, newNid]);
-        await this.txn.objectStore.put(parent.obj);
         this.txn.mount.routeNidEvent(parent.obj.nid, {
           op: 'assign-child',
           child: childName,
@@ -353,6 +351,7 @@ class IdbHandle {
         });
       }
     }
+    await this.txn.objectStore.put(parent.obj);
 
     // TODO: delay events until transaction is completed
     await this.walkName(childName);
