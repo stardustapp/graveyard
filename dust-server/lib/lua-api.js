@@ -119,8 +119,18 @@ const LUA_API = {
     if (entry.enumerate) {
       const enumer = new EnumerationWriter(2); // TODO
       T.startStep({name: 'perform enumeration'});
-      await entry.enumerate(enumer);
-      T.endStep();
+      try {
+        await entry.enumerate(enumer);
+        T.endStep();
+      } catch (err) {
+        if (err.Ok === false) {
+          console.warn('ctx.readDir() enumeration failed :(', err);
+          lua.lua_pushnil(L);
+          T.endStep();
+          return 1;
+        }
+        throw err;
+      }
 
       T.startStep({name: 'build lua result'});
       this.pushLiteralEntry(T, enumer.reconstruct());
