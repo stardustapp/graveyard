@@ -100,7 +100,7 @@ class IdbPath {
   }
 
   async put(obj) {
-    console.log('putting', obj, 'to', this.path);
+    //console.log('putting', obj, 'to', this.path);
 
     const txn = new IdbTransaction(this.mount, 'readwrite');
     const newNid = (obj === null) ? null : await txn.createNode(obj);
@@ -206,7 +206,7 @@ class IdbTransaction {
         throw new Error(`Failed to map IDB type ${this.node.type} for createNode()`);
     }
     await this.objectStore.add(newNode); // throws if exists
-    console.log('Created IDB node:', newNode);
+    //console.log('Created IDB node:', newNode);
     return newNode.nid;
   }
 }
@@ -319,7 +319,7 @@ class IdbHandle {
     this.names.pop();
 
     if (oldChild.constructor === IdbExtantNode && newNid) {
-      console.log('IDB overwriting', this.names.join('/'), childName);
+      //console.log('IDB overwriting', this.names.join('/'), childName);
       parent.obj.children = parent.obj.children
           .filter(x => x[1] !== oldChild.nid);
       parent.obj.children.push([childName, newNid]);
@@ -332,7 +332,7 @@ class IdbHandle {
 
     } else {
       if (oldChild.constructor === IdbExtantNode) {
-        console.log('IDB removing', this.names.join('/'), childName);
+        //console.log('IDB removing', this.names.join('/'), childName);
         parent.obj.children = parent.obj.children
             .filter(x => x[1] !== oldChild.nid);
         this.txn.mount.routeNidEvent(parent.obj.nid, {
@@ -496,7 +496,7 @@ class IdbSubscription {
   }
 
   async processNidEvent(nid, txn, event) {
-    console.log('sub processing NID event', nid, event);
+    //console.debug('sub processing NID event', nid, event);
 
     if (this.parentNids.has(event.oldNid)) {
       console.log(`one of sub's parent NIDs changed, resetting`);

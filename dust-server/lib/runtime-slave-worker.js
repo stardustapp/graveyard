@@ -60,7 +60,7 @@ class RuntimeSlaveWorker {
   }
 
   onKernelMessage(evt) {
-    console.debug('runtime -> kernel:', evt.data);
+    //console.debug('runtime -> kernel:', evt.data);
     this.handleKernelMessage(evt.data);
   }
 
@@ -73,7 +73,7 @@ class RuntimeSlaveWorker {
     });
 
     if (response.Ok) {
-      console.debug('Kernel response was ok:', response);
+      //console.debug('Kernel response was ok:', response);
       return response;
     } else {
       const output = response.Output || {};

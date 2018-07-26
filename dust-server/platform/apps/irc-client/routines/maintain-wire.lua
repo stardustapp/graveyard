@@ -93,7 +93,7 @@ end
 -- Restore checkpoint from stored state
 local savedCheckpoint = ctx.read(persist, "wire-checkpoint")
 local checkpoint = tonumber(savedCheckpoint) or -1
-ctx.log("Resuming after wire checkpoint", checkpoint)
+ctx.log("Resuming after wire checkpoint", checkpoint, savedCheckpoint)
 
 -- Create some basic folders
 local serverLog   = {
@@ -1079,7 +1079,7 @@ while healthyWire do
 
   -- Ping / check health every minute
   pingCounter = pingCounter + 1
-  if pingCounter > 240 then
+  if pingCounter > 30 then
     sendMessage("PING", {
         ["1"] = "maintain-wire "..ctx.timestamp(),
       })

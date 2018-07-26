@@ -114,7 +114,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
   on_message(msg) {
     var request = JSON.parse(msg);
-    console.debug('got ws message', request);
+    //console.debug('got ws message', request);
     if (this.isActive) {
       this.reqQueue.push(request);
     } else {

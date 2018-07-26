@@ -109,7 +109,7 @@ const LUA_API = {
   // ctx.readDir([pathRoot,] pathParts string...) (val table)
   async readDir(L, T) {
     const {device, path} = this.resolveLuaPath(T);
-    console.debug("read from", path);
+    //console.debug("read from", path);
 
     T.startStep({name: 'lookup entry'});
     const entry = await device.getEntry(path, true);

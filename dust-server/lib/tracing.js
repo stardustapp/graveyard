@@ -11,7 +11,8 @@ class TraceContext {
   }
 
   submitTrace(trace) {
-    console.log(this.id, 'got trace:', trace);
+    // TODO
+    //console.log(this.id, 'got trace:', trace);
   }
 }
 
