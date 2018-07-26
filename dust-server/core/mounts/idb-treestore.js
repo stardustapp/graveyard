@@ -409,9 +409,13 @@ class IdbExtantNode extends IdbNode {
 
     // and recurse...
     if (this.obj.type === 'Folder' && this.obj.children.length > 0 && enumer.canDescend()) {
-      for (const [name, nid] of this.obj.children) {
+      const children = await Promise.all(this.obj
+        .children.map(([name, nid]) =>
+          txn.getNodeByNid(nid)
+            .then(node => [name, node])));
+
+      for (const [name, child] of children) {
         enumer.descend(name);
-        const child = await txn.getNodeByNid(nid);
         await child.enumerate(enumer, txn);
         enumer.ascend();
       }
