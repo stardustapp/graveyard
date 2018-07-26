@@ -186,7 +186,7 @@ end
 
 function listChannelsWithUser(nick)
   local chans = {}
-  local allChans = ctx.readDir(channelsCtx, "")
+  local allChans = ctx.readDir(channelsCtx)
   for _, chanName in pairs(allChans) do
     local chan = getChannel(chanName)
 
@@ -1052,13 +1052,14 @@ while healthyWire do
     checkpoint = checkpoint + 1
 
     local message = ctx.readDir(wire, "history", checkpoint)
-    ctx.log("New wire message", message.command)
 
-    if message.command == nil then
-      -- when does this happen?
+    if message == nil then
+      -- we missed history :(
+      -- just skip it... someday tell the user
       ctx.log("Nil command on msg:", message)
 
     elseif message.source ~= "client" or message.command == 'PRIVMSG' or message.command == 'NOTICE' or message.command == 'CTCP' or message.command == 'CTCP_ANSWER' or message.command == 'CAP' then
+      ctx.log("New wire message", message.command)
 
       local handler = handlers[message.command]
       if type(handler) ~= "function" then
@@ -1071,9 +1072,8 @@ while healthyWire do
       end
 
     else
-      -- the message is from us - TODO: privmsg should record, nothing else tho
+      ctx.log("New wire message from us", message.command)
       ctx.store(persist, "wire-checkpoint", checkpoint)
-
     end
   end
 
