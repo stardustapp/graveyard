@@ -187,7 +187,7 @@ end
 function listChannelsWithUser(nick)
   local chans = {}
   local allChans = ctx.readDir(channelsCtx)
-  for _, chanName in pairs(allChans) do
+  for chanName in pairs(allChans) do
     local chan = getChannel(chanName)
 
     if ctx.read(chan.members, nick, "nick") ~= "" then
