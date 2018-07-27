@@ -21,6 +21,7 @@ class Account {
     await this.env.mount('/config', 'idb-treestore', { db: this.db, store: 'config' });
     await this.env.mount('/persist', 'idb-treestore', { db: this.db, store: 'persist' });
     await this.env.mount('/chart-name', 'literal', { string: this.address() });
+    await this.env.bind('/sessions', new SessionsApiDriver(this));
 
     console.debug('Opened account', this.record.aid, 'for', this.address());
   }

@@ -113,3 +113,27 @@ if (typeof module !== 'undefined') {
     EnumerateIntoSubscription,
   };
 }
+
+class FlatEnumerable {
+  constructor(...things) {
+    this.list = things.slice(0);
+  }
+  async get() {
+    return new FolderLiteral('enumerable', this.list);
+  }
+  async enumerate(enumer) {
+    enumer.visit(new FolderLiteral());
+    if (!enumer.canDescend()) return;
+    for (const child of this.list) {
+      enumer.descend(child.Name);
+      if (enumer.canDescend() && child.enumerate) {
+        await child.enumerate(enumer);
+      } else if (child.get) {
+        enumer.visit(await child.get());
+      } else {
+        enumer.visit(child);
+      }
+      enumer.ascend();
+    }
+  }
+}

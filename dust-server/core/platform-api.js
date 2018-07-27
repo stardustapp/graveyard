@@ -2,6 +2,7 @@ class PlatformApi {
   constructor(name) {
     this.name = name;
     this.paths = new Map;
+    this.env = new Environment();
 
     // this gets filled in at .compile()
     this.structType = new PlatformApiTypeFolder(name);
@@ -9,12 +10,16 @@ class PlatformApi {
 
   getter(path, type, impl) {
     const baseName = decodeURIComponent(path.slice(1).split('/').slice(-1)[0]);
-    this.paths.set(path, new PlatformApiGetter(this, baseName, type, impl));
+    const device = new PlatformApiGetter(this, baseName, type, impl);
+    this.paths.set(path, device);
+    this.env.bind(path, device);
     return this;
   }
   function(path, args) {
     const baseName = decodeURIComponent(path.slice(1).split('/').slice(-1)[0]);
-    this.paths.set(path, new PlatformApiFunction(this, baseName, args));
+    const device = new PlatformApiFunction(this, baseName, args);
+    this.paths.set(path, device);
+    this.env.bind(path, device);
     return this;
   }
 
@@ -49,8 +54,8 @@ class PlatformApi {
     });
   }
 
-  async getEntry(path) {
-    return this.paths.get(path);
+  getEntry(path) {
+    return this.env.getEntry(path);
   }
 }
 
@@ -82,6 +87,21 @@ class PlatformApiFunction {
         .then(x => ({
           get: () => this.outputType.serialize(x),
         }));
+  }
+  getEntry(path) {
+    switch (path) {
+      case '':
+        return new FlatEnumerable(
+          new StringLiteral('input'),
+          new StringLiteral('output'),
+          {Type: 'Function', Name: 'invoke'});
+      case '/input':
+        return { get: () => this.inputType.name };
+      case '/output':
+        return { get: () => this.outputType.name };
+      case '/invoke':
+        return this;
+    }
   }
 }
 
