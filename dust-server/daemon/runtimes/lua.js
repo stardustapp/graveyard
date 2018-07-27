@@ -4,8 +4,9 @@ importScripts(
   '/core/environment.js',
   '/core/enumeration.js',
   '/core/utils.js',
-  '/core/mounts/tmp.js',
-  '/core/mounts/network-import.js',
+
+  '/drivers/tmp.js',
+  '/drivers/network-import.js',
 
   '/lib/tracing.js',
   '/lib/mkdirp.js',

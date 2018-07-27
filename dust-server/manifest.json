@@ -14,15 +14,14 @@
           "vendor/idb.js", "vendor/moment.js", "vendor/common-tags.js",
         "core/utils.js", "core/api-entries.js", "core/enumeration.js", "core/environment.js",
           "core/http-server.js", "core/nsexport.js", "core/wsc-skylink.js", "core/platform-api.js",
-        "core/mounts/idb-treestore.js", "core/mounts/fs-string-dict.js", "core/mounts/network-import.js",
-          "core/mounts/tmp.js", "core/mounts/web-filesystem.js",
+        "drivers/idb-treestore.js", "drivers/fs-string-dict.js", "drivers/network-import.js",
+          "drivers/tmp.js", "drivers/web-filesystem.js", "drivers/workloads-api.js",
         "lib/path-fragment.js",
         "daemon/model/account-manager.js", "daemon/model/account.js",
           "daemon/model/domain-manager.js", "daemon/model/domain.js",
           "daemon/model/package-manager.js", "daemon/model/package.js",
           "daemon/model/session-manager.js", "daemon/model/session.js",
           "daemon/model/workload-manager.js", "daemon/model/workload.js",
-        "daemon/drivers/workloads-api.js",
         "daemon/default-site.js", "daemon/gate-site.js", "daemon/gate-api.js", "daemon/domain-api.js",
         "daemon/background.js"]
     }
