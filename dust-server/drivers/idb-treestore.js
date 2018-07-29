@@ -65,6 +65,7 @@ class IdbTreestoreMount {
   }
 
   async routeNidEvent(nid, event) {
+    console.log('nid event', nid, event);
     if (this.nidSubs.has(nid)) {
       const txn = new IdbTransaction(this, 'readonly');
       const subs = this.nidSubs.get(nid);
@@ -93,8 +94,8 @@ class IdbPath {
     const handle = await txn.walkPath(this.path);
 
     if (!handle.exists()) {
-      return null;
-      //throw new Error(`Path ${this.path} doesn't exist, can't be gotten`);
+      //return null;
+      throw new Error(`Path ${this.path} doesn't exist, can't be gotten`);
     }
     return handle.current().shallowExport();
   }
@@ -433,8 +434,9 @@ class IdbSubscription {
     this.depth = depth;
     this.channel = channel;
 
-    // If any of these change, we restart the whole sub
+    // If any of these change, we might restart the whole sub
     this.parentNids = new Set;
+    this.parentStack = new Array;
     // IDB-side root node - when this changes, the sub basically restarts
     this.currentNode = null;
     // A copy of the root IdbSubNode sent to the client
@@ -451,6 +453,7 @@ class IdbSubscription {
 
     // Register the path down to the sub's root node
     this.parentNids = new Set;
+    this.parentStack = handle.stack;
     handle.nids
       .filter(nid => nid)
       .forEach(nid => {
@@ -463,7 +466,7 @@ class IdbSubscription {
       await this.rootNode.transmitEntry(this, txn, false);
       console.log('all done initial sync');
     } else {
-      console.log(`Subscription made to ghost entry`, this.rootPath.path);
+      console.log(`Subscription made to ghost entry`, this.rootPath.path, this.parentNids);
     }
   }
 
@@ -480,6 +483,7 @@ class IdbSubscription {
     });
 
     // structure reset
+    this.parentStack.length = [];
     this.parentNids.clear();
     this.currentNode = null;
     this.nidMap.clear();
@@ -500,15 +504,23 @@ class IdbSubscription {
   async processNidEvent(nid, txn, event) {
     //console.debug('sub processing NID event', nid, event);
 
-    if (this.parentNids.has(event.oldNid)) {
-      console.log(`one of sub's parent NIDs changed, resetting`);
+    if (this.changesParentStack(nid, event)) {
+      console.log(`one of sub's parent NIDs changed, resetting`, nid);
       this.reset();
       await this.start();
-    }
 
-    if (this.nidMap.has(nid)) {
+    } else if (this.nidMap.has(nid)) {
       const node = this.nidMap.get(nid);
       await node.processEvent(this, txn, event);
+    }
+  }
+
+  changesParentStack(nid, event) {
+    if (!this.parentNids.has(nid)) return false;
+    for (let idx = 0; idx < this.parentStack.length - 1; idx++) {
+      const parent = this.parentStack[idx];
+      const child = this.parentStack[idx+1];
+      if (parent.nid === nid && child.name === event.child) return true;
     }
   }
 }
@@ -568,7 +580,7 @@ class IdbSubNode {
   }
 
   // Process events on this nid
-  // Currently, the only mutable aspect of a nid 
+  // Currently, the only mutable aspect of a nid is a Folder's child listing
   async processEvent(sub, txn, event) {
     switch (event.op) {
       case 'remove-child':
