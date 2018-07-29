@@ -47,7 +47,7 @@ class ImportedEntry {
 
   async put(value) {
     const resp = await this.mount.transport.exec({
-      Op: 'store',
+      Op: (value === null) ? 'unlink' : 'store',
       Dest: this.path,
       Input: value,
     });

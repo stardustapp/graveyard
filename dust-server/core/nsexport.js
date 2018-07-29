@@ -65,6 +65,16 @@ class NsExport {
           throw new Error(`Entry at ${Dest} isn't puttable`);
         }
 
+      case 'unlink':
+        var entry = await namespace.getEntry(Path);
+        if (!entry) {
+          throw new Error(`Path not found: ${Path}`);
+        } else if (entry.put) {
+          return await entry.put(null);
+        } else {
+          throw new Error(`Entry at ${Path} isn't unlinkable`);
+        }
+
       case 'enumerate':
         var entry = await namespace.getEntry(Path);
         if (!entry) {
