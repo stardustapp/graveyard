@@ -109,12 +109,10 @@ class IdbPath {
     const parent = handle.parent();
     if (!parent.nid) {
       // TODO: implement this like mkdirp?
-      console.warn(`Failed to put to ${this.path} because the direct parent doesn't exist`);
-      return false;
+      throw new Error(`Failed to put to ${this.path} because the direct parent doesn't exist`);
     }
     await handle.replaceCurrent(txn, newNid);
     await txn.innerTxn.complete;
-    return true;
   }
 
   async enumerate(enumer) {
