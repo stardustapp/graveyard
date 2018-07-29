@@ -61,7 +61,11 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
 
   sendJson(body) {
-    this.write_message(JSON.stringify(body));
+    if (this.ws_connection) {
+      this.write_message(JSON.stringify(body));
+    } else {
+      console.warn(`TODO: channel's downstream websocket isnt connected anymore`)
+    }
   }
 
   // Given a function that gets passed a newly-allocated channel
