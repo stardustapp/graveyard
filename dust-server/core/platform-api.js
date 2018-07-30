@@ -125,6 +125,7 @@ class PlatformTypeError extends ExtendableError {
 class PlatformApiTypeString {
   constructor(name, defaultValue=null, ser=String, de=String) {
     this.name = name;
+    this.type = 'String';
     this.defaultValue = defaultValue;
     this.ser = ser;
     this.de = de;
@@ -149,6 +150,7 @@ class PlatformApiTypeString {
 class PlatformApiTypeNull {
   constructor(name) {
     this.name = name;
+    this.type = 'Null';
   }
   serialize(value) {
     if (value != null)
@@ -165,6 +167,7 @@ class PlatformApiTypeNull {
 class PlatformApiTypeFolder {
   constructor(name, fields=[]) {
     this.name = name;
+    this.type = 'Folder';
     this.fields = fields;
   }
   serialize(value) {

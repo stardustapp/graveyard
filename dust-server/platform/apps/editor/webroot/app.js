@@ -276,7 +276,7 @@ Vue.component('invoke-function', {
       var input = null;
       if (this.inShape.type === 'Folder') {
         var props = [];
-        this.inShape.props.forEach(prop => {
+        this.inShape.fields.forEach(prop => {
           var val = this.input[prop.name];
           if (!val) {
             if (!prop.optional) {
@@ -319,15 +319,14 @@ Vue.component('invoke-function', {
     },
   },
   created() {
-    skylink.fetchShape(this.tab.path + '/input-shape')
-    .then(shape => {
-      this.inShape = shape;
-      this.props = shape.props;
+    skylink.loadString(this.tab.path.slice(0, -6) + 'input')
+    .then(raw => {
+      this.inShape = JSON.parse(raw);
     });
 
-    skylink.fetchShape(this.tab.path + '/output-shape')
-    .then(shape => {
-      this.outShape = shape;
+    skylink.loadString(this.tab.path.slice(0, -6) + 'output')
+    .then(raw => {
+      this.outShape = JSON.parse(raw);
     });
   },
 });
