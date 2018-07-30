@@ -67,9 +67,13 @@ class PlatformApiGetter {
     this.get = this.get.bind(this);
   }
   get(self=this.self) {
-    return this.impl
-        .call(self)
-        .then(x => this.outputType.serialize(x));
+    return Promise
+      .resolve(this.impl.call(self))
+      .then(x => this.type.serialize(x));
+  }
+  getEntry(path) {
+    if (path.length === 0) return this;
+    throw new Error(`Getters don't have any children`);
   }
 }
 
@@ -96,9 +100,9 @@ class PlatformApiFunction {
           new StringLiteral('output'),
           {Type: 'Function', Name: 'invoke'});
       case '/input':
-        return { get: () => this.inputType.name };
+        return { get: () => JSON.stringify(this.inputType) };
       case '/output':
-        return { get: () => this.outputType.name };
+        return { get: () => JSON.stringify(this.outputType) };
       case '/invoke':
         return this;
     }
