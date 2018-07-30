@@ -89,11 +89,11 @@ class PlatformApiFunction {
     this.invoke = this.invoke.bind(this);
   }
   invoke(input, self=this.self) {
-    return this.impl
-        .call(self, this.inputType.deserialize(input))
-        .then(x => ({
-          get: () => this.outputType.serialize(x),
-        }));
+    return Promise
+      .resolve(this.impl.call(self, this.inputType.deserialize(input)))
+      .then(x => ({
+        get: () => this.outputType.serialize(x),
+      }));
   }
   getEntry(path) {
     switch (path) {

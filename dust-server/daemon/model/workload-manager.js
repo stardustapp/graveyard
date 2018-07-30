@@ -164,6 +164,7 @@ class WorkloadManager {
         console.log('purge-pending daemon', wid, 'launched -- stopping it now');
         await daemon.stop('uninstall');
         this.activeDaemons.delete(wid);
+        this.daemonPromises.delete(wid);
         console.log('purge-pending daemon', wid, 'was cleanly stopped -- yay!');
       } catch (err) {
         console.log('purge-pending daemon', wid, 'failed to launch -- moving on');

@@ -33,13 +33,13 @@ const DEFAULT_PACKAGES = [
         hint: 'An IRC modem, used to connect to IRC networks' },
     },
     workloads: {
-      primary: {
+      'primary': {
         displayName: 'Primary loop',
         type: 'daemon',
         sourceUri: 'routines/launch.lua',
         runtime: 'lua',
       },
-      sendMessage: {
+      'send message': {
         displayName: 'IRC Message sender',
         type: 'function',
         sourceUri: 'routines/send-message.lua',
