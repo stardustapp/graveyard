@@ -184,6 +184,11 @@ class IdbTransaction {
       type: literal.Type,
       nid: forcedNid || Math.random().toString(16).slice(2),
     }
+
+    // pad out nid if it ended in zeroes
+    if (newNode.nid.length < 13)
+      newNode.nid += new Array(14 - newNode.nid.length).join('0');
+
     switch (literal.Type) {
       case 'Folder':
         // recursively store children too
