@@ -159,7 +159,7 @@ class AccountManager {
             if (!ok)
               throw new Error('Failed to auto-create folder', curPath, `- just didn't work`);
           }
-        } else {
+        } else if (!mount.skipIfMissing) {
           throw new Error(`App install lists "${mount.source}" but that path wasn't found`);
         }
       }

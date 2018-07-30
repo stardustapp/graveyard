@@ -45,14 +45,10 @@ class Package {
     const workKeys = Object.keys(this.record.workloads);
     if (workKeys.length) {
       mounts.push({
-        type: 'device',
+        type: 'bind',
         target: '/workloads',
-        driver: 'WorkloadsApi',
-        input: {
-          pid: this.record.pid,
-          aid: account.record.aid,
-          appKey: appKey,
-        },
+        source: `/apps/${appKey}/workloads`,
+        skipIfMissing: true,
       });
 
       // Some workloads want to autostart on system boot
