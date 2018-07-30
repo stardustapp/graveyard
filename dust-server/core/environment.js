@@ -20,6 +20,9 @@ class Environment {
       //console.warn('bind() wants a trailing slash for target now')
       //target += '/';
     }
+    if (target.length && !target.startsWith('/')) {
+      throw new Error(`Environment#bind() only accepts absolute mount paths`);
+    }
     if (device.ready)
       await device.ready;
 
@@ -271,6 +274,10 @@ class VirtualEnvEntry {
         enumer.descend(child.name);
         try {
           const rootEntry = await child.entry;
+          if (!rootEntry) {
+            throw new Error(`Root entry was null`);
+          }
+
           if (enumer.canDescend() && rootEntry.enumerate) {
             await rootEntry.enumerate(enumer);
           } else {
