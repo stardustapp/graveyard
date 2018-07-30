@@ -64,6 +64,7 @@ class Account {
 
   unmountApp(appKey, pkg, appRec) {
     this.webEnv.devices.delete('/'+appKey);
+    // TODO: unbind
   }
 
   close() {

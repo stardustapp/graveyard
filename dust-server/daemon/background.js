@@ -59,9 +59,8 @@ async function boot(launchData) {
     if (!domain) throw new Error('Domain does not exist');
     console.debug('loading host', hostname, domain);
 
-    const webEnv = await domainManager.getWebEnvironment(domain);
-    webEnv.bind('/~', new GateSite(hostname, domain.record.did,
-        {accountManager, sessionManager, domainManager, packageManager, workloadManager}));
+    const webEnv = await kernel.domainManager.getWebEnvironment(domain);
+    webEnv.bind('/~', new GateSite(hostname, domain.record.did, kernel));
     webEnv.bind('/~~libs', new WebFilesystemMount({
       entry: pkgRoot,
       prefix: 'platform/libs/',
