@@ -14,6 +14,7 @@
           "vendor/idb.js", "vendor/moment.js", "vendor/common-tags.js",
         "core/utils.js", "core/api-entries.js", "core/enumeration.js", "core/environment.js",
           "core/http-server.js", "core/nsexport.js", "core/wsc-skylink.js", "core/platform-api.js",
+        "daemon/database.js", "daemon/kernel.js",
         "drivers/idb-treestore.js", "drivers/fs-string-dict.js", "drivers/network-import.js",
           "drivers/tmp.js", "drivers/web-filesystem.js",
           "drivers/app-api.js", "drivers/sessions-api.js", "drivers/workloads-api.js",

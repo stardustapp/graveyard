@@ -77,7 +77,7 @@ class PackageManager {
         this.all.set(pkg.record.pid, pkg);
       });
       console.log('Loaded', list.length, 'packages');
-    });
+    }).then(() => this);
   }
 
   getAll() {

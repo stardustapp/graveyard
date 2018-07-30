@@ -26,6 +26,7 @@ class WorkloadManager {
     console.debug('Waiting for', this.daemonPromises.size, 'daemons to start');
     const daemons = await Promise.all(Array.from(this.daemonPromises.values()));
     console.debug('All daemons started.', daemons);
+    return this;
   }
 
   async registerDaemon(record) {

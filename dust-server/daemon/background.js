@@ -43,99 +43,19 @@ async function boot(launchData) {
     chrome.power.requestKeepAwake('display');
   }
 
-  const db = await idb.open('system', 9, upgradeDB => {
-    switch (upgradeDB.oldVersion) {
-      case 0:
-        // Stores name[@domain] profiles
-        // Domainless profiles are 'local' users
-        // These can be for remote users eventually
-        upgradeDB.createObjectStore('profiles', {
-          keyPath: 'chartName',
-        });
-      case 3:
-        // Stores authoritative records of domains
-        upgradeDB.createObjectStore('domains', {
-          keyPath: 'domainName',
-        });
-      case 4:
-        upgradeDB.deleteObjectStore('profiles');
-        // name@domain accounts
-        upgradeDB.createObjectStore('accounts', {
-          keyPath: ['username', 'domain'],
-        });
-        // uniquely IDd sessions for users
-        upgradeDB.createObjectStore('sessions', {
-          keyPath: 'id',
-        }).createIndex('accounts', ['username', 'domain']);
-      case 5:
-        // ugh let's just start over
-        upgradeDB.deleteObjectStore('sessions');
-        upgradeDB.deleteObjectStore('accounts');
-        upgradeDB.deleteObjectStore('domains');
+  const db = await OpenSystemDatabase();
+  console.debug('BOOT: Opened system database');
 
-        const accounts = upgradeDB.createObjectStore('accounts', {
-          keyPath: 'aid',
-        });
-        accounts.createIndex('address', ['username', 'domain'], { unique: true });
-
-        const sessions = upgradeDB.createObjectStore('sessions', {
-          keyPath: 'sid',
-        });
-        sessions.createIndex('aid',      'aid',      { unique: false });
-        sessions.createIndex('lastUsed', 'lastUsed', { unique: false });
-
-        const domains = upgradeDB.createObjectStore('domains', {
-          keyPath: 'did',
-        });
-        domains.createIndex('fqdn', 'fqdns', { unique: true,  multiEntry: true });
-        domains.createIndex('aid',  'aids',  { unique: false, multiEntry: true });
-
-      case 6:
-        const packages = upgradeDB.createObjectStore('packages', {
-          keyPath: 'pid',
-        });
-        upgradeDB.transaction.objectStore('accounts')
-            .createIndex('pid',  'pids',  { unique: false, multiEntry: true });
-        upgradeDB.transaction.objectStore('accounts')
-            .createIndex('did',  'did',   { unique: false });
-
-      case 7:
-        const workloads = upgradeDB.createObjectStore('workloads', {
-          keyPath: 'wid',
-        });
-        workloads.createIndex('aidApp', ['aid', 'appKey'], { unique: false });
-        workloads.createIndex('didApp', ['did', 'appKey'], { unique: false });
-        workloads.createIndex('type',    'type',           { unique: false });
-
-      case 8:
-        upgradeDB.transaction.objectStore('workloads')
-            .deleteIndex('type');
-        upgradeDB.transaction.objectStore('workloads')
-            .createIndex('type', 'spec.type', { unique: false });
-    }
-  });
-  console.debug('BOOT: Opened database');
-
-  const packageManager = new PackageManager(db);
-  await packageManager.ready;
-  const accountManager = new AccountManager(db, packageManager);
-  const sessionManager = new SessionManager(db, accountManager);
-  const domainManager = new DomainManager(db, accountManager);
-  await domainManager.ready;
-  const workloadManager = new WorkloadManager(db, sessionManager, {aid: accountManager});
-  await workloadManager.ready;
-  console.debug('BOOT: All managers are ready to go!');
-
-  // create a root environment using GateApi
-  const systemEnv = new Environment();
-  const gateApi = new GateApi(systemEnv, accountManager, sessionManager, domainManager, packageManager);
+  const kernel = await new Kernel(db).ready;
+  Kernel.Instance = kernel;
+  console.debug('BOOT: Kernel is ready');
 
   const pkgRoot = await new Promise(r =>
     chrome.runtime.getPackageDirectoryEntry(r));
 
   // init the web server
-  const webServer = new HttpServer(domainManager, async function (hostname) {
-    const domain = await domainManager.findDomain(hostname);
+  const webServer = new HttpServer(kernel.domainManager, async function (hostname) {
+    const domain = await kernel.domainManager.findDomain(hostname);
     if (!domain) throw new Error('Domain does not exist');
     console.debug('loading host', hostname, domain);
 
@@ -150,7 +70,7 @@ async function boot(launchData) {
   });
 
   // expose the entire system environment on the network
-  const nsExport = new NsExport(systemEnv);
+  const nsExport = new NsExport(kernel.systemEnv);
   nsExport.mount(webServer);
 
   // all good, let's listen
@@ -167,12 +87,6 @@ function ToastNotif(text) {
     message: text,
   });
 }
-
-  //chrome.runtime.getPackageDirectoryEntry(packageDirectory => {
-  //  packageDirectory.getDirectory(directory, {create: false}, webroot => {
-  //    var fs = new WSC.FileSystem(webroot)
-
-// TODO: visible window required to open the firewall on ChromeOS
 
 chrome.app.runtime.onLaunched.addListener(evt => {
   chrome.app.window.create('console/ui.html', {
@@ -205,12 +119,10 @@ chrome.app.runtime.onLaunched.addListener(evt => {
 });
 
 // Restart immediately when there's new stuff
-// TODO: don't restart immediately, lol.
+// TODO: don't restart _immediately_, lol.
 chrome.runtime.onUpdateAvailable.addListener(function (details) {
-  //setState('updateAvailable', details);
   chrome.runtime.restart();
 });
 chrome.runtime.onRestartRequired.addListener(function (reason) {
-  //setState('restartRequired', reason);
   chrome.runtime.restart();
 });
