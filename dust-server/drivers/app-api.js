@@ -7,7 +7,7 @@ window.AppApiDriver = class AppApiDriver extends PlatformApi {
     this.package = pkg;
     console.log('app api', account, appRec, pkg);
 
-    this.getter('/always%20on', Boolean, () => appRec.alwaysOn);
+    this.getter('/always on', Boolean, () => appRec.alwaysOn);
     this.getter('/mounts', String, () => JSON.stringify(appRec.mounts));
     this.getter('/pid', String, () => pkg.record.pid);
 

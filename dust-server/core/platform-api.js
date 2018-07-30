@@ -9,6 +9,9 @@ class PlatformApi {
   }
 
   getter(path, type, impl) {
+    // TODO: better handling of the fact that paths must round-trip
+    path = path.replace(' ', '%20');
+
     const baseName = decodeURIComponent(path.slice(1).split('/').slice(-1)[0]);
     const device = new PlatformApiGetter(this, baseName, type, impl);
     this.paths.set(path, device);
@@ -100,9 +103,9 @@ class PlatformApiFunction {
           new StringLiteral('output'),
           {Type: 'Function', Name: 'invoke'});
       case '/input':
-        return { get: () => JSON.stringify(this.inputType) };
+        return { get: () => new StringLiteral('input', JSON.stringify(this.inputType)) };
       case '/output':
-        return { get: () => JSON.stringify(this.outputType) };
+        return { get: () => new StringLiteral('output', JSON.stringify(this.outputType)) };
       case '/invoke':
         return this;
     }
