@@ -27,9 +27,14 @@ class DaemonWorkload extends Workload {
 
   async stop(reason) {
     const {wid} = this.record;
-    const response = await this.worker
-      .invokeApi('stop workload', {wid, reason});
-    console.log('worker stopped:', response);
+    try {
+      const response = await this.worker
+        .invokeApi('stop workload', {wid, reason});
+      console.log('worker stopped:', response);
+    } finally {
+      this.worker.terminate();
+      console.log('worker terminated');
+    }
   }
 }
 
