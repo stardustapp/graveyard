@@ -37,7 +37,7 @@ class Account {
   async assertPassword(password) {
     //const secretEnt = await this.env.getEntry('/config/password');
     //const secretVal = await secretEnt.get();
-    
+
     const {secretHash} = this.record;
     if (!secretHash) {
       throw new Error(`This account doesn't have a password and cannot be logged into`);
@@ -52,7 +52,7 @@ class Account {
       }
       return ok;
     }
-    
+
     throw new Error(`BUG: Account has an unrecognized hashing strategy. Find your system administrator`);
   }
 
