@@ -59,6 +59,7 @@ class Account {
   async mountApp(appKey, pkg, appRec) {
     await pkg.ready;
     this.webEnv.bind('/'+appKey, pkg.webroot);
+    this.env.bind('/apps/'+appKey, new AppApiDriver(this, pkg, appRec));
   }
 
   unmountApp(appKey, pkg, appRec) {
