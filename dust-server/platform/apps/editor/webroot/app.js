@@ -138,12 +138,7 @@ Vue.component('entry-item', {
     },
     load() {
       if (!this.loader) {
-        this.loader = skylinkP.then(x => x.enumerate(this.path, {
-          shapes: [
-            '/rom/shapes/function',
-            '/rom/shapes/web-app',
-          ],
-        })).then(x => {
+        this.loader = skylinkP.then(x => x.enumerate(this.path, {})).then(x => {
           this.entry = x.splice(0, 1)[0];
           this.entry.Children = x.sort((a, b) => {
             var nameA = a.Name.toUpperCase();
@@ -152,6 +147,12 @@ Vue.component('entry-item', {
             if (nameA > nameB) { return 1; }
             return 0;
           });
+
+          // unescape the 'paths' - we already know there's only 1 part
+          for (const child of x) {
+            child.Path = this.path + '/' + child.Name;
+            child.Name = decodeURIComponent(child.Name);
+          }
         });
       }
       return this.loader;
