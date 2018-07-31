@@ -7,10 +7,9 @@ class WorkloadManager {
 
     this.activeDaemons = new Map;
     this.daemonPromises = new Map;
-    this.ready = this.init();
   }
 
-  async init() {
+  async boot() {
     const self = this;
 
     const tx = this.idb.transaction('workloads', 'readonly');

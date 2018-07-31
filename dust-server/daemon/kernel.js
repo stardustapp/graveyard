@@ -9,12 +9,16 @@ class Kernel {
     this.accountManager = new AccountManager(db, this.packageManager);
     this.sessionManager = new SessionManager(db, this.accountManager);
     this.domainManager = await new DomainManager(db, this.accountManager).ready;
-    this.workloadManager = await new WorkloadManager(db, this.sessionManager, {
+    this.workloadManager = new WorkloadManager(db, this.sessionManager, {
       aid: this.accountManager,
-    }).ready;
+    });
+    return this;
+  }
 
+  async boot() {
     // create a root environment using GateApi
     this.gateApi = new GateApi(this.systemEnv, this.accountManager, this.sessionManager, this.domainManager, this.packageManager);
-    return this;
+
+    await this.workloadManager.boot();
   }
 }

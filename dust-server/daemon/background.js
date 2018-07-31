@@ -48,7 +48,7 @@ async function boot(launchData) {
 
   const kernel = await new Kernel(db).ready;
   Kernel.Instance = kernel;
-  console.debug('BOOT: Kernel is ready');
+  console.debug('BOOT: Kernel is initialized');
 
   const pkgRoot = await new Promise(r =>
     chrome.runtime.getPackageDirectoryEntry(r));
@@ -71,9 +71,12 @@ async function boot(launchData) {
   // expose the entire system environment on the network
   const nsExport = new NsExport(kernel.systemEnv);
   nsExport.mount(webServer);
-
-  // all good, let's listen
   webServer.startServer(9237);
+  console.debug('BOOT: HTTP server is started');
+
+  await kernel.boot();
+  console.debug('BOOT: User services have started');
+
   console.debug('BOOT: Completed :)');
   console.groupEnd();
 }
