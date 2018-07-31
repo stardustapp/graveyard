@@ -26,6 +26,9 @@ class Environment {
     if (device.ready)
       await device.ready;
 
+    // TODO: better handling of the fact that paths must round-trip
+    target = target.replace(' ', '%20');
+
     //if (this.devices.has(target))
     //  throw new Error(`Environment refusing to replace device at ${target}`);
     this.devices.set(target, device);

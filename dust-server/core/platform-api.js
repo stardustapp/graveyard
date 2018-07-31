@@ -19,6 +19,9 @@ class PlatformApi {
     return this;
   }
   function(path, args) {
+    // TODO: better handling of the fact that paths must round-trip
+    path = path.replace(' ', '%20');
+
     const baseName = decodeURIComponent(path.slice(1).split('/').slice(-1)[0]);
     const device = new PlatformApiFunction(this, baseName, args);
     this.paths.set(path, device);
