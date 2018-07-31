@@ -15,6 +15,7 @@ class LoaderCache {
       return this.promises.get(id);
 
     const promise = this.loadOne(input).then(value => {
+      this.promises.delete(id);
       this.entities.set(id, value);
       console.debug(`Successfully loaded value`, id, 'as', value);
       return value;
@@ -42,20 +43,12 @@ class LoaderCache {
       this.entities.delete(id);
 
     } else if (this.promises.has(id)) {
-      const promise = this.promises.get(id);
       try {
-        console.warn('purge-pending value', id, `hasn't loaded yet -- waiting`);
-
-        const value = await promise;
-        console.log('purge-pending value', id, 'loaded -- deleting it now');
-        if (value && value.stop) {
-          await value.stop(input);
-        }
-        this.entities.delete(id);
-
-        console.log('purge-pending value', id, 'was cleanly deleted -- yay!');
+        console.warn('purge-pending value', id, 'is still starting, waiting...');
+        await this.promises.get(id);
+        return this.delete(id, input);
       } catch (err) {
-        console.log('purge-pending value', id, 'failed to start -- moving on');
+        console.warn('purge-pending value', id, 'failed to start -- moving on');
       }
 
     } else {
