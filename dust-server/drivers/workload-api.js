@@ -1,12 +1,16 @@
 window.WorkloadApiDriver = class WorkloadApiDriver extends PlatformApi {
-  constructor(account, pkg, appRec, wlKey) {
-    super(`workload ${appRec} ${wlKey}`);
+  constructor(account, pkg, appRec, workload) {
+    super(`workload ${appRec} ${workload.record.wlKey}`);
     this.account = account;
     this.package = pkg;
     this.appRec = appRec;
-    this.wlRec = pkg.record.workloads[wlKey];
+    this.workload = workload;
+    this.wlRec = pkg.record.workloads[workload.record.wlKey];
+    if (!this.wlRec) {
+      throw new Error(`no wlRec`);
+    }
 
-    console.debug('------------ workloads app api boot ------------', account, pkg, appRec, this.wlRec);
+    console.debug('------------ workloads app api boot ------------', account, pkg, appRec, workload, this.wlRec);
 
     this.getter('/display name', String, () => this.wlRec.displayName);
     this.getter('/type', String, () => this.wlRec.type);
@@ -18,8 +22,8 @@ window.WorkloadApiDriver = class WorkloadApiDriver extends PlatformApi {
     switch (this.wlRec.type) {
       case 'daemon':
         console.info('workload api daemon', )
-        this.getter('/status', String, () => {});
-        this.getter('/session', String, () => {});
+        this.getter('/has worker', Boolean, () => !!workload.worker);
+        this.getter('/session uri', String, () => workload.session.uri);
         this.function('/restart', {
           impl() {
             //console.log('restart', this.wlRec.);

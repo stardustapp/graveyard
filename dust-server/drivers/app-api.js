@@ -11,12 +11,18 @@ window.AppApiDriver = class AppApiDriver extends PlatformApi {
     this.getter('/mounts', String, () => JSON.stringify(appRec.mounts));
     this.getter('/pid', String, () => pkg.record.pid);
 
-    for (const wlKey in pkg.record.workloads) {
-      console.log('app api wl', wlKey);
-      // TODO: canonical PlatformApi support for sub-devices
-      this.env.bind(`/workloads/${wlKey}`, new WorkloadApiDriver(account, pkg, appRec, wlKey));
-    }
+    this.ready = this.init();
+  }
 
+  async init() {
+    const workloads = await Kernel.Instance.workloadManager
+      .listAppWorkloads('aid', this.account.record.aid, this.appRec.appKey);
+    for (const workload of workloads) {
+      console.log('app api workload', workload);
+      // TODO: canonical PlatformApi support for sub-devices
+      this.env.bind(`/workloads/${workload.record.wlKey}`, new WorkloadApiDriver(this.account, this.package, this.appRec, workload));
+    }
+  }
 /*
     this.function('/new', {
       input: {
@@ -30,7 +36,6 @@ window.AppApiDriver = class AppApiDriver extends PlatformApi {
       impl: this.newSession,
     });
 */
-  }
 
   //newSession({lifetime, client}) {
   //  throw new Error('TODO');

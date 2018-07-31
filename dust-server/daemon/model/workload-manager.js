@@ -70,6 +70,33 @@ class WorkloadManager {
     return daemon;
   }
 
+  async listAppWorkloads(ownerType, ownerId, appKey) {
+    const self = this;
+
+    const tx = this.idb.transaction('workloads');
+    const store = tx.objectStore('workloads');
+    const promises = new Array;
+    await store.index(ownerType+'App')
+      .openCursor(IDBKeyRange.only([ownerId, appKey]))
+      .then(function cursorIterate(cursor) {
+        if (!cursor) return;
+
+        const {wid, spec} = cursor.value;
+        switch (spec.type) {
+          case 'daemon':
+            promises.push(self.daemonPromises.get(wid));
+            break;
+          default:
+            console.warn('Listed unknown app workload type', spec.type);
+            promises.push({record: cursor.value});
+            break;
+        }
+
+        return cursor.continue().then(cursorIterate);
+      });
+    return Promise.all(promises);
+  }
+
   async installAppWorkloads(ownerType, ownerId, appKey, pkg) {
     const newWorkloads = new Array;
 
