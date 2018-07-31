@@ -5,8 +5,10 @@ class WorkloadManager {
     this.ownerImpls = ownerImpls;
     this.ownerTypes = Object.keys(ownerImpls);
 
-    this.sessions = new LoaderCache(this.loadSession.bind(this));
-    this.workloads = new LoaderCache(this.loadWorkload.bind(this));
+    this.sessions = new LoaderCache(this
+        .loadSession.bind(this));
+    this.workloads = new LoaderCache(this
+        .loadWorkload.bind(this));
   }
 
   loadSession({ownerType, ownerId, appKey}) {

@@ -2,24 +2,15 @@ class AccountManager {
   constructor(idb, packageManager) {
     this.idb = idb;
     this.packageManager = packageManager;
-    this.promises = new Map;
+
+    this.accounts = new LoaderCache(this
+        .loadAccount.bind(this));
   }
 
   // Manage each session as a singleton
   // TODO: update lastUsed like once a minute
-  /*async*/ getAccount(accountId) {
-    if (this.promises.has(accountId))
-      return this.promises.get(accountId);
-    const promise = this.loadAccount(accountId);
-    this.promises.set(accountId, promise);
-    promise.catch(err => {
-      this.promises.delete(accountId);
-      return err;
-    });
-    return promise;
-  }
   /*async*/ getById(aid) {
-    return this.getAccount(aid);
+    return this.accounts.getOne(aid, aid);
   }
 
   async getAllForDomain(domain) {
@@ -30,7 +21,7 @@ class AccountManager {
       .getAll();
     return await Promise.all(all
       .filter(r => r.did == domain.record.did)
-      .map(r => this.getAccount(r.aid)));
+      .map(r => this.getById(r.aid)));
   }
 
   async loadAccount(accountId) {
@@ -96,7 +87,7 @@ class AccountManager {
       throw err;
     }
 
-    const account = await this.getAccount(record.aid);
+    const account = await this.getById(record.aid);
     ToastNotif(`New account registration: ${account.address()} by ${email} - ${realname}`);
 
     if (domain.webEnv) {

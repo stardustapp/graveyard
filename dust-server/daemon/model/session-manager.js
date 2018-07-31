@@ -17,23 +17,17 @@ class SessionManager {
   constructor(idb, accountManager) {
     this.idb = idb;
     this.accountManager = accountManager;
-    this.sessionPromises = new Map;
+
+    this.sessions = new LoaderCache(this
+        .loadSession.bind(this));
+  }
+
+  /*async*/ getById(sid) {
+    return this.sessions.getOne(sid, sid);
   }
 
   // Manage each session as a singleton
   // TODO: update lastUsed like once a minute
-  /*async*/ getSession(sessionId) {
-    if (this.sessionPromises.has(sessionId))
-      return this.sessionPromises.get(sessionId);
-    const promise = this.loadSession(sessionId).catch(err => {
-      this.sessionPromises.delete(sessionId);
-      //console.log(`Session ${sessionId} failed to load:`, err);
-      throw err;
-    });
-    this.sessionPromises.set(sessionId, promise);
-    return promise;
-  }
-
   async loadSession(sessionId) {
     const record = await this.idb
         .transaction('sessions')
@@ -41,7 +35,7 @@ class SessionManager {
     if (!record)
       throw new Error(`session ID ${sessionId} is invalid`);
 
-    const account = await this.accountManager.getAccount(record.aid);
+    const account = await this.accountManager.getById(record.aid);
     return new Session(record, account);
   }
 
@@ -77,9 +71,7 @@ class SessionManager {
       throw err;
     }
 
-    const session = new Session(record, account);
-    this.sessionPromises.set(record.sid, Promise.resolve(session));
-    return session;
+    return this.getById(record.sid);
   }
 
   async purge(session) {
@@ -87,7 +79,7 @@ class SessionManager {
     await tx.objectStore('sessions').delete(session.record.sid);
     await tx.complete;
 
-    this.sessionPromises.delete(session.record.sid);
+    this.sessions.delete(session.record.sid);
   }
 };
 

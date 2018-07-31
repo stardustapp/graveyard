@@ -1,6 +1,6 @@
 class LoaderCache {
   constructor(loaderFunc) {
-    if (!loaderFunc || loaderFunc.constructor !== Function)
+    if (!loaderFunc || loaderFunc.prototype instanceof Function)
       throw new Error(`LoaderCache requires a loader Function`);
     this.loader = loaderFunc;
 
