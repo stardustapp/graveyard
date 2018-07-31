@@ -3,6 +3,17 @@ class Workload {
     this.record = record;
     this.session = session;
   }
+
+  static from(record, session) {
+    const {wid, spec} = record;
+    switch (spec.type) {
+      case 'daemon':
+        return new DaemonWorkload(record, session).ready;
+      default:
+        console.warn('Listed unknown app workload type', spec.type);
+        return {record};
+    }
+  }
 }
 
 class DaemonWorkload extends Workload {
@@ -23,6 +34,7 @@ class DaemonWorkload extends Workload {
         basePath: fd+'/mnt',
       });
     console.log('worker started:', response);
+    return this;
   }
 
   async stop(reason) {

@@ -5,12 +5,46 @@ class WorkloadManager {
     this.ownerImpls = ownerImpls;
     this.ownerTypes = Object.keys(ownerImpls);
 
-    this.activeDaemons = new Map;
-    this.daemonPromises = new Map;
+    this.sessions = new LoaderCache(this.loadSession.bind(this));
+    this.workloads = new LoaderCache(this.loadWorkload.bind(this));
+  }
+
+  loadSession({ownerType, ownerId, appKey}) {
+    if (!(ownerType in this.ownerImpls))
+      throw new Error(`BUG: tried to start session for unknown owner type ${ownerType}`);
+    const ownerManager = this.ownerImpls[ownerType];
+
+    return ownerManager.getById(ownerId).then(owner => {
+      return this.sessionManager.create(owner, {
+        lifetime: 'long',
+        volatile: true,
+        client: `WorkloadManager daemon for ${appKey}`,
+        appKey: appKey,
+      });
+    });
+  }
+  getSessionFor({ownerType, ownerId, appKey}) {
+    return this.sessions.getOne(
+      JSON.stringify([ownerType, ownerId, appKey]),
+      {ownerType, ownerId, appKey});
+  }
+
+  loadWorkload(record) {
+    console.log('Starting daemon for', record);
+    return this.getSessionFor({
+      ownerType: record.ownerType,
+      appKey: record.appKey,
+      ownerId: record[record.ownerType],
+    }).then(session =>
+      Workload.from(record, session));
+  }
+  getWorkloadFor(record) {
+    return this.workloads.getOne(record.wid, record);
   }
 
   async boot() {
     const self = this;
+    const promises = new Array;
 
     const tx = this.idb.transaction('workloads', 'readonly');
     const typeIdx = tx.objectStore('workloads').index('type');
@@ -18,56 +52,14 @@ class WorkloadManager {
       .index('type').openCursor(IDBKeyRange.only('daemon'))
       .then(function cursorIterate(cursor) {
         if (!cursor) return;
-        self.registerDaemon(cursor.value);
+        promises.push(self.getWorkloadFor(cursor.value));
         return cursor.continue().then(cursorIterate);
       });
 
-    console.debug('Waiting for', this.daemonPromises.size, 'daemons to start');
-    const daemons = await Promise.all(Array.from(this.daemonPromises.values()));
-    console.debug('All daemons started.', daemons);
+    console.debug('Waiting for', promises.length, 'daemons to start');
+    const results = await Promise.all(promises);
+    console.debug('All daemons started.', results);
     return this;
-  }
-
-  async registerDaemon(record) {
-    const {wid} = record;
-    if (this.activeDaemons.has(wid) || this.daemonPromises.has(wid)) {
-      throw new Error(`BUG: registerDaemon(${JSON.stringify(wid)}) encountered existing daemon object with that ID`);
-    }
-
-    const promise = this.startDaemon(record).then(daemon => {
-      this.activeDaemons.set(wid, daemon);
-      console.debug(`Successfully registered daemon`, daemon);
-      return daemon;
-    }, err => {
-      // TODO: send to bugsnag
-      console.error(`Failed to start daemon workload.`, err);
-      console.debug(`Workload that didn't start:`, record, 'Moving on.');
-      return err;
-    });
-
-    this.daemonPromises.set(wid, promise);
-    return promise;
-  }
-
-  async startDaemon(record) {
-    console.log('Starting daemon for', record);
-    if (!(record.ownerType in this.ownerImpls)) {
-      throw new Error(`BUG: tried to start daemon with unknown owner type ${record.ownerType}`);
-    }
-    const ownerManager = this.ownerImpls[record.ownerType];
-    const owner = await ownerManager.getById(record[record.ownerType]);
-
-    const session = await this.sessionManager.create(owner, {
-      lifetime: 'long',
-      volatile: true,
-      client: `WorkloadManager daemon ${record.wid}`,
-      appKey: record.appKey,
-    });
-
-    const daemon = new DaemonWorkload(record, session);
-    await daemon.ready;
-    this.activeDaemons.set(record.wid, daemon);
-    return daemon;
   }
 
   async listAppWorkloads(ownerType, ownerId, appKey) {
@@ -80,18 +72,7 @@ class WorkloadManager {
       .openCursor(IDBKeyRange.only([ownerId, appKey]))
       .then(function cursorIterate(cursor) {
         if (!cursor) return;
-
-        const {wid, spec} = cursor.value;
-        switch (spec.type) {
-          case 'daemon':
-            promises.push(self.daemonPromises.get(wid));
-            break;
-          default:
-            console.warn('Listed unknown app workload type', spec.type);
-            promises.push({record: cursor.value});
-            break;
-        }
-
+        promises.push(self.getWorkloadFor(cursor.value));
         return cursor.continue().then(cursorIterate);
       });
     return Promise.all(promises);
@@ -136,7 +117,7 @@ class WorkloadManager {
       .filter(w => w.spec.type === 'daemon');
     if (daemonRecs.length) {
       console.log('Starting up', daemonRecs.length, 'daemons for newly installed', appKey, 'app');
-      const daemons = await Promise.all(daemonRecs.map(w => this.startDaemon(w)));
+      const daemons = await Promise.all(daemonRecs.map(w => this.getWorkloadFor(w)));
       console.log('Done starting new daemons :)', daemons);
     }
   }
@@ -165,7 +146,7 @@ class WorkloadManager {
     if (daemonWids.length) {
       console.log('Found daemons', daemonWids, 'to kill for', appKey, 'uninstall');
       const outcomes = await Promise.all(daemonWids.map(wid => this
-        .stopDaemon(wid, 'uninstall')
+        .workloads.delete(wid, 'uninstall')
         .then(() => wid, err => {
           console.error('BUG: daemon stop failed with', err);
           return err;
@@ -174,30 +155,5 @@ class WorkloadManager {
     }
 
     console.log('Purge of', ownerType, ownerId, appKey, 'is complete');
-  }
-
-  async stopDaemon(wid, signal) {
-    if (this.activeDaemons.has(wid)) {
-      const daemon = this.activeDaemons.get(wid);
-      await daemon.stop('uninstall');
-      this.activeDaemons.delete(wid);
-
-    } else if (this.daemonPromises.has(wid)) {
-      const promise = this.daemonPromises.get(wid);
-      try {
-        console.warn('purge-pending daemon', wid, `hasn't launched yet -- waiting`);
-        const daemon = await promise;
-        console.log('purge-pending daemon', wid, 'launched -- stopping it now');
-        await daemon.stop('uninstall');
-        this.activeDaemons.delete(wid);
-        this.daemonPromises.delete(wid);
-        console.log('purge-pending daemon', wid, 'was cleanly stopped -- yay!');
-      } catch (err) {
-        console.log('purge-pending daemon', wid, 'failed to launch -- moving on');
-      }
-
-    } else {
-      console.warn('not purging daemon', wid, `- it wasn't started (??)`);
-    }
   }
 }

@@ -18,7 +18,7 @@
         "drivers/idb-treestore.js", "drivers/fs-string-dict.js", "drivers/network-import.js",
           "drivers/tmp.js", "drivers/web-filesystem.js",
           "drivers/app-api.js", "drivers/sessions-api.js", "drivers/workload-api.js",
-        "lib/path-fragment.js",
+        "lib/caching.js", "lib/path-fragment.js",
         "daemon/model/account-manager.js", "daemon/model/account.js",
           "daemon/model/domain-manager.js", "daemon/model/domain.js",
           "daemon/model/package-manager.js", "daemon/model/package.js",
