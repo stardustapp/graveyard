@@ -25,8 +25,10 @@ window.WorkloadApiDriver = class WorkloadApiDriver extends PlatformApi {
         this.getter('/has worker', Boolean, () => !!workload.worker);
         this.getter('/session uri', String, () => workload.session.uri);
         this.function('/restart', {
-          impl() {
-            //console.log('restart', this.wlRec.);
+          async impl() {
+            console.log('restarting', workload, 'on user request');
+            await workload.stop('restart');
+            await workload.init();
           }
         });
         break;
