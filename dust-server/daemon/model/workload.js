@@ -34,17 +34,38 @@ class Workload extends PlatformApi  {
   }
 
   async init() {
+    const fd = await this.runtime
+      .bindFd(this.session.env);
+
     const {wid, wlKey, spec} = this.record;
     switch (spec.type) {
 
       case 'daemon':
-        const fd = await this.runtime.bindFd(this.session.env);
-        const response = await this.runtime
-          .invokeApi('start workload', {
+        console.log('daemon started:', await this.runtime
+          .invokeApi('start daemon', {
+            wid, spec,
+            basePath: fd+'/mnt',
+          }));
+        break;
+
+      case 'function':
+        await this.runtime
+          .invokeApi('load function', {
             wid, spec,
             basePath: fd+'/mnt',
           });
-        console.log('daemon started:', response);
+
+        this.function('/invoke', {
+          input: 'hello',
+          output: 'hello, world',
+          impl(input) {
+            console.log('invoking', this, 'on user request');
+            return this.runtime
+              .invokeApi('run function', {
+                wid, input,
+              });
+          }
+        });
 
       default:
         console.warn('"Started" unknown app workload type', spec.type);
@@ -59,7 +80,7 @@ class Workload extends PlatformApi  {
 
       case 'daemon':
         const response = await this.runtime
-          .invokeApi('stop workload', {wid, reason});
+          .invokeApi('stop daemon', {wid, reason});
         console.log('daemon stopped:', response);
 
       default:

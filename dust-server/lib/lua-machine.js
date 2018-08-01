@@ -182,7 +182,8 @@ class LuaThread extends LuaContext {
     super(lua.lua_newthread(machine.lua), machine.rootDevice);
     this.machine = machine;
     this.number = number;
-    this.name = `${machine.name}-#${number}`
+    this.name = `${machine.name}-#${number}`;
+    this.status = 'Idle';
 
     this.traceCtx = new TraceContext(this.name);
     const T = this.traceCtx.newTrace({name: 'lua setup'});
@@ -242,6 +243,10 @@ class LuaThread extends LuaContext {
   }
 
   async run(input) {
+    if (this.status !== 'Idle')
+      throw new Error(`Cannot run thread while it's ${this.status}`);
+    this.status = 'Running';
+
     const L = this.lua;
 
     // pretend to update 'input' global properly
@@ -311,6 +316,8 @@ class LuaThread extends LuaContext {
         throw new Error(`Lua execution fault: ${match[2]} @ line ${match[1]}: ${sourceLine}`);
       }
       throw err;
+    } finally {
+      this.status = 'Idle';
     }
 
     console.warn('lua thread completed');

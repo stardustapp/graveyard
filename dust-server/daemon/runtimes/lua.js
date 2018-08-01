@@ -42,12 +42,17 @@ class Workload {
     const sourceEntry = await this.env.getEntry('/session/source/'+this.spec.sourceUri);
     const source = await sourceEntry.get();
 
-    const machine = new LuaMachine(this.env.pathTo('/session'));
-    const thread = machine.startThread(atob(source.Data));
-    const completion = thread.run();
-
-    console.warn('starting workload', source);
+    this.machine = new LuaMachine(this.env.pathTo('/session'));
+    this.thread = this.machine.startThread(atob(source.Data));
     return this;
+  }
+
+  start(input) {
+    console.warn('starting workload with', input);
+    const completion = this.thread.run();
+    return {
+      completion,
+    };
   }
 
   async stop(evt) {
@@ -59,16 +64,32 @@ class Workload {
 const runtime = new RuntimeSlaveWorker(api => {
   const workloads = new Map;
 
-  api.set('start workload', async input => {
+  api.set('start daemon', async input => {
+    const workload = new Workload(input);
+    workloads.set(input.wid, workload);
+    await workload.ready;
+    workload.start();
+    return;
+  });
+  api.set('stop daemon', async input => {
+    const workload = workloads.get(input.wid);
+    if (!workload)
+      throw new Error('BUG: stop requested for unregistered daemon.', input);
+    workloads.delete(input.wid);
+    await workload.stop(input.reason);
+    return;
+  });
+
+  api.set('load function', async input => {
     const workload = new Workload(input);
     workloads.set(input.wid, workload);
     return;
   });
-  api.set('stop workload', async input => {
+  api.set('run function', async input => {
     const workload = workloads.get(input.wid);
     if (!workload)
-      throw new Error('BUG: stop requested for unregistered workload.', input);
-    workloads.delete(input.wid);
-    return;
+      throw new Error('BUG: run requested for unregistered function.', input);
+    const handle = workload.start(input.input);
+    return handle.completion;
   });
 });
