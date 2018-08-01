@@ -3,49 +3,41 @@ class Workload {
     this.record = record;
     this.session = session;
     this.runtime = runtime;
-  }
 
-  static from(record, session, runtime) {
-    const {wid, spec} = record;
-    switch (spec.type) {
-      case 'daemon':
-        return new DaemonWorkload(record, session, runtime).ready;
-      default:
-        console.warn('Listed unknown app workload type', spec.type);
-        return {record};
-    }
-  }
-}
-
-class DaemonWorkload extends Workload {
-  constructor(record, session, runtime) {
-    super(record, session, runtime);
-    console.warn('------- DAEMON UP:', record.spec.displayName);
     this.ready = this.init();
   }
 
   async init() {
     const {wid, wlKey, spec} = this.record;
+    switch (spec.type) {
 
-    const fd = await this.runtime.bindFd(this.session.env);
-    const response = await this.runtime
-      .invokeApi('start workload', {
-        wid, spec,
-        basePath: fd+'/mnt',
-      });
-    console.log('worker started:', response);
+      case 'daemon':
+        const fd = await this.runtime.bindFd(this.session.env);
+        const response = await this.runtime
+          .invokeApi('start workload', {
+            wid, spec,
+            basePath: fd+'/mnt',
+          });
+        console.log('daemon started:', response);
+
+      default:
+        console.warn('"Started" unknown app workload type', spec.type);
+    }
+
     return this;
   }
 
   async stop(reason) {
-    const {wid} = this.record;
-    try {
-      const response = await this.runtime
-        .invokeApi('stop workload', {wid, reason});
-      console.log('worker stopped:', response);
-    } finally {
-      this.runtime.terminate();
-      console.log('worker terminated');
+    const {wid, spec} = this.record;
+    switch (spec.type) {
+
+      case 'daemon':
+        const response = await this.runtime
+          .invokeApi('stop workload', {wid, reason});
+        console.log('worker stopped:', response);
+
+      default:
+        console.warn('"Stopped" unknown app workload type', spec.type);
     }
   }
 }

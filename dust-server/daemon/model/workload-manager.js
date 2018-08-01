@@ -58,7 +58,7 @@ class WorkloadManager {
         session,
         implementation: spec.runtime,
       }).then(runtime =>
-        Workload.from(record, session, runtime)));
+        new Workload(record, session, runtime).ready));
   }
   getWorkloadFor(record) {
     return this.workloads.getOne(record.wid, record);
