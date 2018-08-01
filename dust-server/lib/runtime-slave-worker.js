@@ -28,6 +28,10 @@ class RuntimeSlaveWorker {
           } else {
             throw new Error(`You invoked unexpected path ${JSON.stringify(Path)}`);
           }
+
+        } else if (Op === 'ping') {
+          return {};
+
         } else {
           throw new Error(`BUG: Invoked unimplemented Skylink Op ${JSON.stringify(Op)}`);
         }

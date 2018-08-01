@@ -5,8 +5,12 @@ class WorkloadManager {
     this.ownerImpls = ownerImpls;
     this.ownerTypes = Object.keys(ownerImpls);
 
+    this.allWorkers = new Array;
+
     this.sessions = new LoaderCache(this
         .loadSession.bind(this));
+    this.runtimes = new LoaderCache(this
+        .loadRuntime.bind(this));
     this.workloads = new LoaderCache(this
         .loadWorkload.bind(this));
   }
@@ -31,14 +35,30 @@ class WorkloadManager {
       {ownerType, ownerId, appKey});
   }
 
+  loadRuntime({session, implementation}) {
+    const label = `${implementation}: ${session.account.address()} / ${session.record.appKey}`;
+    const worker = new RuntimeWorker(implementation, label);
+    this.allWorkers.push(worker);
+    return worker.volley({Op: 'ping'}).then(() => worker);
+  }
+  getRuntimeFor({session, implementation}) {
+    const {sid, appKey} = session.record;
+    return this.runtimes.getOne(
+      JSON.stringify([sid, appKey, implementation]),
+      {session, implementation});
+  }
+
   loadWorkload(record) {
-    console.log('Starting daemon for', record);
+    const {spec, ownerType, appKey} = record;
+    const ownerId = record[record.ownerType];
     return this.getSessionFor({
-      ownerType: record.ownerType,
-      appKey: record.appKey,
-      ownerId: record[record.ownerType],
+      ownerType, ownerId, appKey,
     }).then(session =>
-      Workload.from(record, session));
+      this.getRuntimeFor({
+        session,
+        implementation: spec.runtime,
+      }).then(runtime =>
+        Workload.from(record, session, runtime)));
   }
   getWorkloadFor(record) {
     return this.workloads.getOne(record.wid, record);
