@@ -51,7 +51,9 @@ class RuntimeSlaveWorker {
             StringValue: err.stack,
           },
         };
-      }).then(postMessage);
+      }).then(x => {
+        postMessage(x);
+      });
 
     } else if (this.pendingIds.has(Id)) {
       const future = this.pendingIds.get(Id);

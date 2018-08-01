@@ -20,7 +20,7 @@ window.AppApiDriver = class AppApiDriver extends PlatformApi {
     for (const workload of workloads) {
       console.log('app api workload', workload);
       // TODO: canonical PlatformApi support for sub-devices
-      this.env.bind(`/workloads/${workload.record.wlKey}`, new WorkloadApiDriver(this.account, this.package, this.appRec, workload));
+      this.env.bind(`/workloads/${workload.record.wlKey}`, workload);
     }
   }
 /*
@@ -36,8 +36,4 @@ window.AppApiDriver = class AppApiDriver extends PlatformApi {
       impl: this.newSession,
     });
 */
-
-  //newSession({lifetime, client}) {
-  //  throw new Error('TODO');
-  //}
 }

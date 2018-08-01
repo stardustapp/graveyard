@@ -47,12 +47,12 @@ class Workload {
     const completion = thread.run();
 
     console.warn('starting workload', source);
-    return false;
+    return this;
   }
 
   async stop(evt) {
     console.warn('stopping workload', this);
-    return false;
+    return this;
   }
 }
 
@@ -62,13 +62,13 @@ const runtime = new RuntimeSlaveWorker(api => {
   api.set('start workload', async input => {
     const workload = new Workload(input);
     workloads.set(input.wid, workload);
-    return workload.ready;
+    return;
   });
   api.set('stop workload', async input => {
     const workload = workloads.get(input.wid);
     if (!workload)
       throw new Error('BUG: stop requested for unregistered workload.', input);
     workloads.delete(input.wid);
-    return workload.stop(input);
+    return;
   });
 });
