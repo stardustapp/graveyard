@@ -2,6 +2,10 @@
 //  x => x.subscribe(this.path+'/latest', {maxDepth: 0})
 //      .then(chan => new SingleSubscription(chan));
 
+setTimeout(() => {
+  skylinkP.then(x => x.mkdirp('/config/networks'));
+}, 1000);
+
 Vue.component('context-listing', {
   template: '#context-listing',
   props: {

@@ -1,3 +1,9 @@
+setTimeout(() => {
+  skylinkP.then(x => {
+    x.mkdirp('/config/networks');
+    x.mkdirp('/config/prefs');
+  });
+}, 1000);
 
 Vue.component('auth-card', {
   template: '#auth-card',
