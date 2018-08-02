@@ -121,7 +121,7 @@ class GateSiteLogin {
     }
 
     // load account and check access
-    const account = await this.site.accountManager.getAccount(accountId);
+    const account = await this.site.accountManager.getById(accountId);
     await account.assertPassword(password);
     console.log('launching', account);
 
