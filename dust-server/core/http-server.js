@@ -2,7 +2,7 @@ class HttpServer {
   constructor(domainManager, hostLoader) {
     this.domainManager = domainManager;
     this.wsc = new WSC.WebApplication({
-      host: '0.0.0.0',
+      host: '::',
       handlers: [
         [/^.+$/, HttpWildcardHandler.bind(null, this)],
       ],
