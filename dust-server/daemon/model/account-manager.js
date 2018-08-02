@@ -127,7 +127,10 @@ class AccountManager {
     for (const mount of mounts) {
       if (mount.type === 'bind' && mount.source.startsWith('/')) { // TODO: verify remotes too
         const entry = await account.env.getEntry(mount.source);
-        const literal = entry && await entry.get();
+        let literal;
+        try {
+          if (entry) literal = await entry.get();
+        } catch (err) {}
         if (literal) continue;
 
         if (mount.createIfMissing) {
@@ -140,15 +143,21 @@ class AccountManager {
             const curPath = '/'+curParts.join('/');
 
             const curEntry = await account.env.getEntry(curPath);
-            const literal = curEntry && await curEntry.get();
+            let literal;
+            try {
+              if (entry) literal = await curEntry.get();
+            } catch (err) {}
             if (literal) continue; // exists!
 
             if (!curEntry || !curEntry.put)
               throw new Error('Failed to auto-create folder', curPath, `because it wasn't writable`);
             console.warn('Creating folder', curPath, 'for', account.address());
-            const ok = await curEntry.put(new FolderLiteral(decodeURIComponent(part)));
-            if (!ok)
+            try {
+              await curEntry.put(new FolderLiteral(decodeURIComponent(part)));
+            } catch (err) {
+              console.error('Failed to auto-create folder', curPath, err);
               throw new Error('Failed to auto-create folder', curPath, `- just didn't work`);
+            }
           }
         } else if (!mount.skipIfMissing) {
           throw new Error(`App install lists "${mount.source}" but that path wasn't found`);
