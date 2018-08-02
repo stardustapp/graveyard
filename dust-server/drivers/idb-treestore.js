@@ -174,6 +174,14 @@ class IdbTransaction {
     }
   }
 
+  makeRandomNid() {
+    let nid = Math.random().toString(16).slice(2);
+
+    // pad out nid if it ended in zeroes
+    if (nid.length >= 13) return nid;
+    return nid + new Array(14 - nid.length).join('0');
+  }
+
   // Accepts a Skylink-format literal entry,
   // and stores a sanitized version under an unallocated NID.
   // The transaction must be opened in 'readwrite' mode.
@@ -182,12 +190,8 @@ class IdbTransaction {
     const newNode = {
       name: literal.Name,
       type: literal.Type,
-      nid: forcedNid || Math.random().toString(16).slice(2),
+      nid: forcedNid || this.makeRandomNid(),
     }
-
-    // pad out nid if it ended in zeroes
-    if (newNode.nid.length < 13)
-      newNode.nid += new Array(14 - newNode.nid.length).join('0');
 
     switch (literal.Type) {
       case 'Folder':
