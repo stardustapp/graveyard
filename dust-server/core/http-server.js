@@ -338,7 +338,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
         success: false,
         error: 'internal-error',
         message: `The server failed to respond`,
-        cause: `${err.name}: ${err.message}`,
+        cause: err ? `${err.name}: ${err.message}` : null,
       }, 500);
       throw err;
     }
