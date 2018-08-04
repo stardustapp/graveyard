@@ -122,6 +122,12 @@ class VirtualHost {
     } else {
       responder.sendJson(target);
     }
+
+    Datadog.Instance.count('skychart.web_request', 1, {
+      'home-domain': this.hostname,
+      method: 'GET',
+      ok: true,
+    });
   }
 
   // Specifically for routing POST to function invocations
@@ -152,6 +158,12 @@ class VirtualHost {
     } else {
       responder.sendJson(response);
     }
+
+    Datadog.Instance.count('skychart.web_request', 1, {
+      'home-domain': this.hostname,
+      method: 'POST',
+      ok: true,
+    });
   }
 }
 

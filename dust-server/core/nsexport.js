@@ -38,6 +38,8 @@ class NsExport {
     const Input = this.inflateInput(request.Input || request.input);
     console.debug('--> inbound operation:', Op, Path, Dest);
 
+    Datadog.Instance.count('skylink.op.invocation', 1, {Op});
+
     switch (Op) {
       case 'ping':
         return;
