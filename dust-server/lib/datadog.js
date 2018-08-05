@@ -23,15 +23,16 @@ function appendPoint(map, metric, value, tags) {
 }
 
 class Datadog {
-  constructor(apiKey, globalTags) {
-    this.flushPeriod = 10; // seconds
+  constructor(apiKey, hostName, globalTags) {
+    this.apiKey = apiKey;
+    this.hostName = hostName;
     this.globalTags = listifyTags(globalTags);
+
+    this.apiRoot = 'https://api.datadoghq.com/api';
+    this.flushPeriod = 10; // seconds
     this.gauges = new Map;
     this.rates = new Map;
     this.counts = new Map;
-
-    this.apiRoot = 'https://api.datadoghq.com/api';
-    this.apiKey = apiKey;
 
     this.flushTimer = setInterval(this.flushNow.bind(this),
       this.flushPeriod * 1000);
@@ -77,12 +78,14 @@ class Datadog {
         metric: array.metric,
         type: 'gauge',
         points: [[batchDate, mean]],
+        host: this.hostName,
         tags: this.globalTags.concat(array.tagList),
       });
       series.push({
         metric: array.metric+'.max',
         type: 'gauge',
         points: [[batchDate, max]],
+        host: this.hostName,
         tags: this.globalTags.concat(array.tagList),
       });
       array.length = 0;
@@ -99,6 +102,7 @@ class Datadog {
         type: 'rate',
         interval: this.flushPeriod,
         points: [[batchDate, value]],
+        host: this.hostName,
         tags: this.globalTags.concat(array.tagList),
       });
       array.length = 0;
@@ -111,6 +115,7 @@ class Datadog {
         type: 'count',
         interval: this.flushPeriod,
         points: [[batchDate, value]],
+        host: this.hostName,
         tags: this.globalTags.concat(array.tagList),
       });
       array.length = 0;
@@ -127,6 +132,7 @@ class Datadog {
         timestamp: batchDate,
         message: 'Datadog pump is running',
         status: 0,
+        host_name: this.hostName,
         tags: this.globalTags,
       }),
     ]);
@@ -142,7 +148,8 @@ chrome.storage.local.get('boxId', ({boxId}) => {
     });
   }
   console.log('Configured datadog for boxId', boxId);
-  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', {boxId, host: boxId});
+  const host = 'starbox-'+boxId;
+  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', host, {boxId});
 });
 
 // TODO: this is copied from idb-treestore.js
