@@ -168,6 +168,13 @@ class SkylinkPingHandler extends WSC.BaseHandler {
     super();
   }
 
+  head(path) {
+    this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
+    this.setHeader('Server', HttpServer.SERVER_HEADER);
+    this.writeHeaders(200);
+    this.finish();
+  }
+
   get(path) {
     const payload = JSON.stringify({Ok: true});
 
