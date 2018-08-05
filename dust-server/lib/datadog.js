@@ -69,12 +69,9 @@ class Datadog {
     const series = [];
 
     for (const array of this.gauges.values()) {
-      // most recent
-      //const value = array[array.length-1] || 0;
-      // average value
-      let mean = array.length < 2 ? (array[0] || 0)
-          : array.reduce((acc, cur) => acc + cur, 0) / array.length;
-      let max = array.sort((a, b) => b - a)[0] || 0;
+      if (array.length < 1) continue;
+      let mean = array.reduce((acc, cur) => acc + cur, 0) / array.length;
+      let max = array.sort((a, b) => b - a)[0];
 
       series.push({
         metric: array.metric,
