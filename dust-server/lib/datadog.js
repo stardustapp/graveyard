@@ -1,24 +1,48 @@
+function listifyTags(obj={}) {
+  return Object.keys(obj).map(key => `${key}:${obj[key]}`);
+}
+
+class PointArray extends Array {
+  constructor(metric, tagList) {
+    super();
+    this.metric = metric;
+    this.tagList = tagList;
+  }
+}
+
+function appendPoint(map, metric, value, tags) {
+  const tagList = listifyTags(tags).sort();
+  const key = JSON.stringify([metric, tagList]);
+  if (map.has(key)) {
+    map.get(key).push(value);
+  } else {
+    const list = new PointArray(metric, tagList);
+    map.set(key, list);
+    list.push(value);
+  }
+}
+
 class Datadog {
-  constructor(apiKey, globalTags={}) {
+  constructor(apiKey, globalTags) {
     this.flushPeriod = 10; // seconds
-    this.globalTags = this.listifyTags(globalTags);
-    this.gauges = new Array;
-    this.rates = new Array;
-    this.counts = new Array;
+    this.globalTags = listifyTags(globalTags);
+    this.gauges = new Map;
+    this.rates = new Map;
+    this.counts = new Map;
     this.submissionUri = 'https://api.datadoghq.com/api/v1/series?api_key='+apiKey;
 
     this.flushTimer = setInterval(this.flushNow.bind(this),
       this.flushPeriod * 1000);
   }
 
-  gauge(metric, value, tags={}) {
-    this.gauges.push({metric, value, tags});
+  gauge(metric, value, tags) {
+    appendPoint(this.gauges, metric, value, tags)
   }
-  rate(metric, value, tags={}) {
-    this.rates.push({metric, value, tags});
+  rate(metric, value, tags) {
+    appendPoint(this.rates, metric, value, tags)
   }
-  count(metric, value, tags={}) {
-    this.counts.push({metric, value, tags});
+  count(metric, value, tags) {
+    appendPoint(this.counts, metric, value, tags)
   }
 
   stop() {
@@ -27,58 +51,60 @@ class Datadog {
     this.flushTimer = null;
   }
 
-  listifyTags(obj={}) {
-    return Object.keys(obj).map(key => `${key}:${obj[key]}`);
-  }
-
   async flushNow() {
     const batchDate = Math.floor(+new Date() / 1000) - this.flushPeriod;
     const series = [];
 
-    for (const {metric, value, tags} of this.gauges) {
+    for (const array of this.gauges.values()) {
+      const value = array[array.length-1] || 0;
       series.push({
-        metric: metric,
+        metric: array.metric,
         type: 'gauge',
         points: [[batchDate, value]],
-        tags: this.globalTags.concat(this.listifyTags(tags)),
+        tags: this.globalTags.concat(array.tagList),
       });
+      array.length = 0;
     }
-    this.gauges.length = 0;
 
-    for (const {metric, value, tags} of this.rates) {
+    for (const array of this.rates.values()) {
+      let value = array[0] || 0;
+      if (array.length > 1) {
+        value = array.reduce((acc, cur) => acc + cur, 0) / array.length;
+      }
       series.push({
-        metric: metric,
+        metric: array.metric,
         type: 'rate',
-        //interval: 10,
+        interval: this.flushPeriod,
         points: [[batchDate, value]],
-        tags: this.globalTags.concat(this.listifyTags(tags)),
+        tags: this.globalTags.concat(array.tagList),
       });
+      array.length = 0;
     }
-    this.rates.length = 0;
 
-    for (const {metric, value, tags} of this.counts) {
+    for (const array of this.counts.values()) {
+      const value = array.reduce((acc, cur) => acc + cur, 0);
       series.push({
-        metric: metric,
+        metric: array.metric,
         type: 'count',
-        //interval: 10,
+        interval: this.flushPeriod,
         points: [[batchDate, value]],
-        tags: this.globalTags.concat(this.listifyTags(tags)),
+        tags: this.globalTags.concat(array.tagList),
       });
+      array.length = 0;
     }
-    this.counts.length = 0;
 
     if (series.length === 0)
       return;
 
-    const resp = await fetch(this.submissionUri, {
+    await fetch(this.submissionUri, {
       method: 'POST',
-      mode: 'no-cors',
+      mode: 'no-cors', // we won't get any info about how the request went
+      body: JSON.stringify({series}),
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({series}),
     });
-    console.log('Submitted', series.length, 'datas to Datadog, got', resp);
+    console.log('Submitted', series.length, 'datas to Datadog');
   }
 }
 
