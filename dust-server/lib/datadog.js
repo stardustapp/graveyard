@@ -29,10 +29,23 @@ class Datadog {
     this.gauges = new Map;
     this.rates = new Map;
     this.counts = new Map;
-    this.submissionUri = 'https://api.datadoghq.com/api/v1/series?api_key='+apiKey;
+
+    this.apiRoot = 'https://api.datadoghq.com/api';
+    this.apiKey = apiKey;
 
     this.flushTimer = setInterval(this.flushNow.bind(this),
       this.flushPeriod * 1000);
+  }
+
+  doHTTP(apiPath, payload) {
+    return fetch(`${this.apiRoot}${apiPath}?api_key=${this.apiKey}`, {
+      method: 'POST',
+      mode: 'no-cors', // we won't get any info about how the request went
+      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
 
   gauge(metric, value, tags) {
@@ -109,14 +122,17 @@ class Datadog {
     if (series.length === 0)
       return;
 
-    await fetch(this.submissionUri, {
-      method: 'POST',
-      mode: 'no-cors', // we won't get any info about how the request went
-      body: JSON.stringify({series}),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    // Actually transmit data to Datadog
+    await Promise.all([
+      this.doHTTP('/v1/series', {series}),
+      this.doHTTP('/v1/check_run', {
+        check: 'starbox.alive',
+        timestamp: batchDate,
+        message: 'Datadog pump is running',
+        status: 0,
+        tags: this.globalTags,
+      }),
+    ]);
     console.log('Submitted', series.length, 'datas to Datadog');
   }
 }
@@ -129,7 +145,7 @@ chrome.storage.local.get('boxId', ({boxId}) => {
     });
   }
   console.log('Configured datadog for boxId', boxId);
-  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', {boxId});
+  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', {boxId, host: boxId});
 });
 
 // TODO: this is copied from idb-treestore.js
