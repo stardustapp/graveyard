@@ -56,11 +56,23 @@ class Datadog {
     const series = [];
 
     for (const array of this.gauges.values()) {
-      const value = array[array.length-1] || 0;
+      // most recent
+      //const value = array[array.length-1] || 0;
+      // average value
+      let mean = array.length < 2 ? (array[0] || 0)
+          : array.reduce((acc, cur) => acc + cur, 0) / array.length;
+      let max = array.sort((a, b) => b - a)[0] || 0;
+
       series.push({
         metric: array.metric,
         type: 'gauge',
-        points: [[batchDate, value]],
+        points: [[batchDate, mean]],
+        tags: this.globalTags.concat(array.tagList),
+      });
+      series.push({
+        metric: array.metric+'.max',
+        type: 'gauge',
+        points: [[batchDate, max]],
         tags: this.globalTags.concat(array.tagList),
       });
       array.length = 0;
@@ -71,6 +83,7 @@ class Datadog {
       if (array.length > 1) {
         value = array.reduce((acc, cur) => acc + cur, 0) / array.length;
       }
+
       series.push({
         metric: array.metric,
         type: 'rate',

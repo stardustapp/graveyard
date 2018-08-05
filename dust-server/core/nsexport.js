@@ -30,15 +30,31 @@ class NsExport {
     }
   }
 
-  async processOp(request, namespace=this.namespace) {
+  processOp(request, namespace) {
+    const startTime = new Date;
+    const promise = this
+      .processOpInner(request, namespace);
+
+    promise
+      .then(resp => true, err => false)
+      .then(ok => {
+        const endTime = new Date;
+        const elapsedMs = endTime - startTime;
+        const op = request.Op || request.op;
+        Datadog.Instance.count('skylink.op.invocation', 1, {op, ok});
+        Datadog.Instance.gauge('skylink.op.elapsed_ms', elapsedMs, {op, ok});
+      });
+
+    return promise;
+  }
+
+  async processOpInner(request, namespace=this.namespace) {
     const Op = request.Op || request.op;
     const Path = request.Path || request.path;
     const Dest = request.Dest || request.dest;
 
     const Input = this.inflateInput(request.Input || request.input);
     console.debug('--> inbound operation:', Op, Path, Dest);
-
-    Datadog.Instance.count('skylink.op.invocation', 1, {Op});
 
     switch (Op) {
       case 'ping':
