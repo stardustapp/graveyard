@@ -43,6 +43,11 @@ class SkylinkPostHandler extends WSC.BaseHandler {
   }
 }
 
+let openChannels = 0;
+setInterval(() => {
+  Datadog.Instance.gauge('skylink.channel.open_count', openChannels);
+})
+
 class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   constructor(nsExport) {
     super();
@@ -70,6 +75,9 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
 
   // Given a function that gets passed a newly-allocated channel
   async newChannelFunc(input) {
+    Datadog.Instance.count('skylink.channel.opens', 1);
+    openChannels++;
+
     const chanId = this.nextChan++;
     const channel = {
       channelId: chanId,
@@ -83,6 +91,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
           Chan: chanId,
           Output: value,
         });
+        Datadog.Instance.count('skylink.channel.packets', 1, {status: 'next'});
       },
       stop(message) {
         this.sendJson({
@@ -90,6 +99,8 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
           Chan: chanId,
           Output: message,
         });
+        Datadog.Instance.count('skylink.channel.packets', 1, {status: 'stop'});
+        openChannels--;
       },
     }
     this.channels.set(chanId, channel);
