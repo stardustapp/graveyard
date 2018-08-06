@@ -120,7 +120,26 @@ class NsExport {
           return await entry.subscribe(depth, newChan);
         } else if (entry.enumerate) {
           return await EnumerateIntoSubscription(entry.enumerate, depth, newChan);
-        } else {
+        } else if (entry.get) {
+          return newChan.invoke(async c => {
+            try {
+              const literal = await entry.get();
+              if (literal) {
+                literal.Name = 'entry';
+                c.next(new FolderLiteral('notif', [
+                  new StringLiteral('type', 'Added'),
+                  new StringLiteral('path', ''),
+                  literal,
+                ]));
+              }
+              c.next(new FolderLiteral('notif', [
+                new StringLiteral('type', 'Ready'),
+              ]));
+            } finally {
+              c.error(new StringLiteral('nosub',
+                  `This entry does not implement reactive subscriptions`));
+            }
+          });
           throw new Error(`Entry at ${Path} isn't subscribable`);
         }
 
