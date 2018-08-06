@@ -43,10 +43,10 @@ class SkylinkPostHandler extends WSC.BaseHandler {
   }
 }
 
-let openChannels = 0;
+let openWsChannels = 0;
 setInterval(() => {
-  Datadog.Instance.gauge('skylink.channel.open_count', openChannels);
-})
+  Datadog.Instance.gauge('skylink.channel.open_count', openWsChannels, {transport: 'websocket'});
+});
 
 class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   constructor(nsExport) {
@@ -75,8 +75,8 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
 
   // Given a function that gets passed a newly-allocated channel
   async newChannelFunc(input) {
-    Datadog.Instance.count('skylink.channel.opens', 1);
-    openChannels++;
+    Datadog.Instance.count('skylink.channel.opens', 1, {transport: 'websocket'});
+    openWsChannels++;
 
     const chanId = this.nextChan++;
     const channel = {
@@ -91,7 +91,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
           Chan: chanId,
           Output: value,
         });
-        Datadog.Instance.count('skylink.channel.packets', 1, {status: 'next'});
+        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'websocket', status: 'next'});
       },
       stop(message) {
         this.sendJson({
@@ -99,8 +99,8 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
           Chan: chanId,
           Output: message,
         });
-        Datadog.Instance.count('skylink.channel.packets', 1, {status: 'stop'});
-        openChannels--;
+        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'websocket', status: 'stop'});
+        openWsChannels--;
       },
     }
     this.channels.set(chanId, channel);

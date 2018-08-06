@@ -1,3 +1,8 @@
+let openWorkerChannels = 0;
+setInterval(() => {
+  Datadog.Instance.gauge('skylink.channel.open_count', openWorkerChannels, {transport: 'worker'});
+})
+
 class RuntimeWorker extends Worker {
   constructor(runtimeName, threadName=`${runtimeName} runtime`) {
     super(`daemon/runtimes/${runtimeName}.js`, {name: threadName});
@@ -11,6 +16,60 @@ class RuntimeWorker extends Worker {
 
     this.pendingIds = new Map;
     this.nextId = 1;
+
+    this.channels = new Map;
+    this.nextChan = 1;
+
+    this.env.mount('/channels/new', 'function', {
+      invoke: this.newChannelFunc.bind(this),
+    });
+  }
+
+  // Given a function that gets passed a newly-allocated channel
+  async newChannelFunc(input) {
+    Datadog.Instance.count('skylink.channel.opens', 1, {transport: 'worker'});
+    openWorkerChannels++;
+    const worker = this;
+
+    const rawChannel = new MessageChannel;
+    const chanId = this.nextChan++;
+    const channel = {
+      channelId: chanId,
+      port1: rawChannel.port1,
+      port2: rawChannel.port2,
+      start() {
+        input(this);
+      },
+      next(value) {
+        this.port1.postMessage({
+          Status: 'Next',
+          Output: value,
+        });
+        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'worker', status: 'next'});
+      },
+      done() {
+        this.port1.postMessage({
+          Status: 'Done',
+        });
+        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'worker', status: 'done'});
+        this.close();
+      },
+      error(value) {
+        this.port1.postMessage({
+          Status: 'Error',
+          Output: value,
+        });
+        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'worker', status: 'error'});
+        this.close();
+      },
+      close() {
+        openWorkerChannels--;
+        worker.channels.delete(chanId);
+        this.port1.close();
+      },
+    }
+    this.channels.set(chanId, channel);
+    return channel;
   }
 
   // Expose a specific environment to the runtime by opening an FD
@@ -37,11 +96,23 @@ class RuntimeWorker extends Worker {
     this.nsExport
       .processOp(request)
       .then(output => {
-        this.postMessage({
-          Ok: true,
-          Id: request.Id,
-          Output: output,
-        });
+        if (output && output.channelId) {
+          // Transfer the second MessageChannel
+          this.postMessage({
+            Ok: true,
+            Id: request.Id,
+            Status: 'Ok',
+            Chan: output.channelId,
+          }, [output.port2]);
+          output.start();
+        } else {
+          // Normal data packet
+          this.postMessage({
+            Ok: true,
+            Id: request.Id,
+            Output: output,
+          });
+        }
       }, (err) => {
         console.warn('!!! Kernel syscall failed with', err);
         this.postMessage({

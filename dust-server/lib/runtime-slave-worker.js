@@ -58,6 +58,13 @@ class RuntimeSlaveWorker {
     } else if (this.pendingIds.has(Id)) {
       const future = this.pendingIds.get(Id);
       this.pendingIds.delete(Id);
+      if ('Chan' in data) {
+        const channel = new KernelChannel(this, data.Chan, ports[0]);
+        data.Output = {
+          channel: channel.map(entryToJS),
+          stop: channel.stop.bind(channel),
+        };
+      }
       future.resolve(data);
 
     } else {
@@ -93,6 +100,27 @@ class RuntimeSlaveWorker {
 
   deviceForKernelPath(path) {
     return new KernelPathDevice(this, path);
+  }
+}
+
+class KernelChannel extends Channel {
+  constructor(worker, chanId, port) {
+    super(chanId);
+    this.worker = worker;
+    this.chanId = chanId;
+    this.port = port;
+
+    port.onmessage = evt => {
+      this.route(evt.data);
+    };
+  }
+
+  stop() {
+    console.log('skylink Requesting stop of chan', this.chanId);
+    return this.worker.volley({
+      Op: 'stop',
+      Path: '/chan/'+this.chanId,
+    });
   }
 }
 
@@ -132,6 +160,7 @@ class KernelPathEntry {
       Path: this.path,
       Depth: enumer.depth,
     });
+
     // TODO: not a good citizen
     response.Output.Children.forEach(child => {
       enumer.entries.push(child);
@@ -152,6 +181,15 @@ class KernelPathEntry {
       Op: 'invoke',
       Path: this.path,
       Input: value,
+    });
+    return response.Output;
+  }
+
+  async subscribe(depth, newChan) {
+    const response = await this.runtime.volley({
+      Op: 'subscribe',
+      Path: this.path,
+      Depth: depth,
     });
     return response.Output;
   }

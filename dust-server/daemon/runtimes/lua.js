@@ -8,6 +8,11 @@ importScripts(
   '/drivers/tmp.js',
   '/drivers/network-import.js',
 
+  '/platform/libs/core/data/channel.js',
+  '/platform/libs/core/data/subs/_base.js',
+  '/platform/libs/core/data/subs/single.js',
+  '/platform/libs/core/skylink/ns-convert.js',
+
   '/lib/tracing.js',
   '/lib/mkdirp.js',
   '/lib/path-fragment.js',
