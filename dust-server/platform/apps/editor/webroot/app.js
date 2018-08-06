@@ -296,7 +296,7 @@ Vue.component('invoke-function', {
         });
         input = Skylink.Folder('input', props);
       } else if (this.inShape.type === 'String') {
-        this.input = Skylink.String('input', prompt('input:'));
+        input = Skylink.String('input', prompt('input:'));
       }
 
       this.output = null;

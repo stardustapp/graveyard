@@ -74,7 +74,7 @@ class Workload {
 
   start(input) {
     console.warn('starting workload with', input);
-    const completion = this.thread.run();
+    const completion = this.thread.run(input);
     return {
       completion,
     };

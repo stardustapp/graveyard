@@ -256,12 +256,11 @@ class LuaThread extends LuaContext {
     const L = this.lua;
 
     // pretend to update 'input' global properly
-    if (input) {
-      this.pushLuaTable({}, input);
-    } else {
-      lua.lua_pushnil(L);
-    }
+    // TODO: T spans whole function run?
+    const T = this.traceCtx.newTrace({name: 'load input'});
+    this.pushLiteralEntry(T, input);
     this.registerGlobal('input');
+    T.end();
 
     // be a little state machine
     if (this.running)

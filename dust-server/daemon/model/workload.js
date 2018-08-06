@@ -62,7 +62,8 @@ class Workload extends PlatformApi  {
             console.log('invoking', this, 'on user request');
             return this.runtime
               .invokeApi('run function', {
-                wid, input,
+                wid: wid,
+                input: new StringLiteral('input', input),
               });
           }
         });
