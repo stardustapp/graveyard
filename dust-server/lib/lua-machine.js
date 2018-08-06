@@ -171,8 +171,6 @@ class LuaMachine extends LuaContext {
     const thread = new LuaThread(this, threadNum);
     this.threads.set(threadNum, thread);
     this.luaThreads.set(thread.lua, thread);
-
-    thread.compile(sourceText);
     return thread;
   }
 }
@@ -217,6 +215,10 @@ class LuaThread extends LuaContext {
   }
 
   compile(sourceText) {
+    if (this.status !== 'Idle')
+      throw new Error(`Cannot compile thread while it's ${this.status}`);
+    this.status = 'Compiling';
+
     const T = this.traceCtx.newTrace({name: 'lua compile'});
     const L = this.lua;
 
@@ -232,6 +234,8 @@ class LuaThread extends LuaContext {
     this.sourceText = sourceText;
     lua.lua_pop(L, 1);
     T.end();
+
+    this.status = 'Idle';
   }
 
   registerGlobal(name) {
@@ -245,6 +249,8 @@ class LuaThread extends LuaContext {
   async run(input) {
     if (this.status !== 'Idle')
       throw new Error(`Cannot run thread while it's ${this.status}`);
+    if (!this.runnable)
+      throw new Error(`Cannot run thread - no source has been compiled yet`);
     this.status = 'Running';
 
     const L = this.lua;
