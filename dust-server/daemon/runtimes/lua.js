@@ -49,9 +49,26 @@ class Workload {
     this.machine = new LuaMachine(this.env.pathTo('/session'));
     this.thread = this.machine.startThread();
 
-    const literal = await sourceEntry.get();
-    const source = atob(literal.Data);
-    this.thread.compile(source);
+    if (sourceEntry.subscribe) {
+      console.warn('Subscribing to lua');
+      const rawSub = await sourceEntry.subscribe();
+      await new Promise(resolve => {
+        const sub = new SingleSubscription(rawSub);
+        sub.forEach(literal => {
+          console.log('source sub got', literal);
+          const source = atob(literal.Data);
+          this.thread.compile(source);
+
+          resolve && resolve();
+          resolve = null;
+        });
+      });
+
+    } else {
+      const literal = await sourceEntry.get();
+      const source = atob(literal.Data);
+      this.thread.compile(source);
+    }
     return this;
   }
 
