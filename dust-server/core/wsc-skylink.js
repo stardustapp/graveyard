@@ -121,8 +121,6 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
 
     // offer async response follow-ups with channels
     // mount in env for processing code
-    const channels = new Map();
-    var nextChan = 1;
     this.localEnv.mount('/channels/new', 'function', {
       invoke: this.newChannelFunc.bind(this),
     });

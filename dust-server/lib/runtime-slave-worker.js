@@ -1,6 +1,6 @@
 class RuntimeSlaveWorker {
   constructor(apiSetup) {
-    onmessage = this.onKernelMessage.bind(this);
+    onmessage = this.handleKernelMessage.bind(this);
 
     this.pendingIds = new Map;
     this.nextId = 1;
@@ -9,7 +9,7 @@ class RuntimeSlaveWorker {
     apiSetup(this.api);
   }
 
-  async handleKernelMessage(data) {
+  async handleKernelMessage({data, ports}) {
     const {Op, Path, Id, Input, Ok} = data;
 
     if (Op) {
@@ -63,11 +63,6 @@ class RuntimeSlaveWorker {
     } else {
       throw new Error(`BUG: wat 7634634`);
     }
-  }
-
-  onKernelMessage(evt) {
-    //console.debug('runtime -> kernel:', evt.data);
-    this.handleKernelMessage(evt.data);
   }
 
   // duplicated with daemon/model/workload.js
