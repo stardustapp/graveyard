@@ -59,6 +59,16 @@ class Datadog {
     appendPoint(this.counts, metric, value, tags)
   }
 
+  statusCheck(metric, status, message, tags) {
+    return this.doHTTP('/v1/check_run', {
+      check: metric,
+      timestamp: Math.floor(+new Date() / 1000),
+      message, status,
+      host_name: this.hostName,
+      tags: this.globalTags.concat(listifyTags(tags)),
+    });
+  }
+
   stop() {
     if (!this.flushTimer) throw new Error(`Can't stop, already stopped.`);
     clearInterval(this.flushTimer);
@@ -66,7 +76,10 @@ class Datadog {
   }
 
   async flushNow() {
-    const batchDate = Math.floor(+new Date() / 1000) - this.flushPeriod;
+    // report metrics as the middle of the batch
+    // TODO: why?
+    // TODO: batching points into chunks of 20/40/60 seconds in production
+    const batchDate = Math.floor(+new Date() / 1000) - Math.round(this.flushPeriod / 2);
     const series = [];
 
     for (const array of this.gauges.values()) {
@@ -127,14 +140,7 @@ class Datadog {
     // Actually transmit data to Datadog
     await Promise.all([
       this.doHTTP('/v1/series', {series}),
-      this.doHTTP('/v1/check_run', {
-        check: 'starbox.alive',
-        timestamp: batchDate,
-        message: 'Datadog pump is running',
-        status: 0,
-        host_name: this.hostName,
-        tags: this.globalTags,
-      }),
+      this.statusCheck('starbox.alive', 0, 'Datadog pump is running'),
     ]);
     console.log('Submitted', series.length, 'datas to Datadog');
   }
@@ -149,7 +155,7 @@ chrome.storage.local.get('boxId', ({boxId}) => {
   }
   console.log('Configured datadog for boxId', boxId);
   const host = 'starbox-'+boxId;
-  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', host, {boxId});
+  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', host, {});
 });
 
 // TODO: this is copied from idb-treestore.js
