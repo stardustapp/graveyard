@@ -68,7 +68,7 @@ local commands = {
     sendPacket("PRIVMSG", {["1"]=input.target, ["2"]=emote})
   end,
 
-  join = function (arg) sendPacket("JOIN", {["1"]=input.target, ["2"]=arg}) end,
+  join = function (arg) sendPacket("JOIN", {["1"]=arg or input.target}) end,
   part = function (arg) sendPacket("PART", {["1"]=input.target, ["2"]=(arg or "Leaving")}) end,
   quit = function (arg) sendPacket("QUIT", {["1"]=arg or "Issued /quit"}) end,
 

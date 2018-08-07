@@ -220,11 +220,11 @@ const ViewContext = Vue.component('view-context', {
   },
   computed: {
     path() {
-      const netPath = `persist/networks/${this.network}`;
+      const netPath = `persist/networks/${encodeURIComponent(this.network)}`;
       if (this.type === 'server') {
         return netPath;
       }
-      return `${netPath}/${this.type}/${this.context}`;
+      return `${netPath}/${encodeURIComponent(this.type)}/${encodeURIComponent(this.context)}`;
     },
     logPath() {
       if (this.type === 'server') {
