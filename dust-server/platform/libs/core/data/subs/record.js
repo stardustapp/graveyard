@@ -54,10 +54,10 @@ class RecordSubscription {
     const parts = path.split('/');
     if (parts.length == 1) {
       // new document
-      const [id] = parts;
+      const id = decodeURIComponent(parts[0]);
       const doc = {
         _id: id,
-        _path: this.basePath + '/' + id,
+        _path: this.basePath + '/' + parts[0],
       };
       if (this.selfItems) {
         doc.value = entry;
@@ -76,7 +76,8 @@ class RecordSubscription {
 
     } else if (parts.length == 2) {
       // add field to existing doc
-      const [id, field] = parts;
+      const id = decodeURIComponent(parts[0]);
+      const field = decodeURIComponent(parts[1]);
       const doc = this.idMap.get(id);
       //switch (entry.Type)
       doc[field] = entry || '';
@@ -116,7 +117,7 @@ class RecordSubscription {
     if (parts.length == 1) {
       // replaced document
       if (this.selfItems) {
-        const [id] = parts;
+        const id = decodeURIComponent(parts[0]);
         const doc = this.idMap.get(id);
         doc.value = entry;
       } else if (this.fields.length) {
@@ -125,7 +126,8 @@ class RecordSubscription {
 
     } else if (parts.length == 2) {
       // changed field on existing doc
-      const [id, field] = parts;
+      const id = decodeURIComponent(parts[0]);
+      const field = decodeURIComponent(parts[1]);
       const doc = this.idMap.get(id);
       //switch (entry.Type)
 
@@ -163,7 +165,7 @@ class RecordSubscription {
     const parts = path.split('/');
     if (parts.length == 1) {
       // deleted document
-      const [id] = parts;
+      const id = decodeURIComponent(parts[0]);
       const doc = this.idMap.get(id);
       this.idMap.delete(id);
 
@@ -175,7 +177,8 @@ class RecordSubscription {
 
     } else if (parts.length == 2) {
       // remove field from existing doc
-      const [id, field] = parts;
+      const id = decodeURIComponent(parts[0]);
+      const field = decodeURIComponent(parts[1]);
       const doc = this.idMap.get(id);
       doc[field] = null;
 
