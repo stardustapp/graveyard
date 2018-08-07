@@ -81,8 +81,17 @@ class Workload {
   }
 
   start(input) {
-    console.warn('starting workload with', input);
-    const completion = this.thread.run(input);
+    const completion = this.thread.run(input)
+      .catch(err => {
+        // restart the lua thread since it's probably crashed
+        // TODO: cleanly stop old thread, or recover the lua thread
+        console.warn('Recreating Lua workload because of crash');
+        const oldThread = this.thread;
+        this.thread = this.machine.startThread();
+        this.thread.compile(oldThread.sourceText);
+        return Promise.reject(err);
+      });
+
     return {
       completion,
     };
