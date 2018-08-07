@@ -155,9 +155,10 @@ const LUA_API = {
     // read all remaining args as a path
     const {device, path} = this.resolveLuaPath(T);
 
-    if (value.getEntry) {
+    if (value.getEntry && path.startsWith('/state/')) {
       console.warn("Experimental store-as-bind to", path);
-      await device.bind(path, value);
+      const env = await StateEnvs.getOne('x', 'x');
+      await env.bind(path.slice(6), value);
       return 1;
     }
 

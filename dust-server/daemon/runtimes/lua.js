@@ -11,8 +11,10 @@ importScripts(
   '/platform/libs/core/data/channel.js',
   '/platform/libs/core/data/subs/_base.js',
   '/platform/libs/core/data/subs/single.js',
+  '/platform/libs/core/skylink/client.js',
   '/platform/libs/core/skylink/ns-convert.js',
 
+  '/lib/caching.js',
   '/lib/tracing.js',
   '/lib/mkdirp.js',
   '/lib/path-fragment.js',
@@ -31,6 +33,12 @@ importScripts(
 );
 delete this.window;
 
+const StateEnvs = new LoaderCache(id => {
+  const env = new Environment();
+  env.bind('', new TemporaryMount());
+  return env;
+});
+
 class Workload {
   constructor({basePath, spec, wid}) {
     this.basePath = basePath;
@@ -43,7 +51,7 @@ class Workload {
 
   async init() {
     await this.env.bind('/session', runtime.deviceForKernelPath(this.basePath));
-    await this.env.mount('/session/state', 'tmp');
+    await this.env.bind('/session/state', await StateEnvs.getOne('x', 'x'));
     const sourceEntry = await this.env.getEntry('/session/source/'+this.spec.sourceUri);
 
     this.machine = new LuaMachine(this.env.pathTo('/session'));
