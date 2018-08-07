@@ -1301,6 +1301,12 @@ function entryToJS (ent) {
     case 'String':
       return ent.StringValue;
 
+    case 'Blob':
+      return ent; // TODO: wrap with helpers to await as string
+
+    default:
+      console.warn(`Received wire literal of unhandled type`, ent.Type);
+      return null;
   }
 }
 class SkylinkHttpTransport {
