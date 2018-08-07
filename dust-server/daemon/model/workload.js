@@ -56,17 +56,23 @@ class Workload extends PlatformApi  {
           });
 
         this.function('/invoke', {
-          input: 'hello',
-          output: 'hello, world',
+          input: {
+            network: String,
+            target: String,
+            command: String,
+            argument: '',
+          },
+          output: Boolean,
           impl(input) {
             console.log('invoking', this, 'on user request');
             return this.runtime
               .invokeApi('run function', {
                 wid: wid,
-                input: new StringLiteral('input', input),
+                input: Skylink.toEntry('input', input),
               });
           }
         });
+        break;
 
       default:
         console.warn('"Started" unknown app workload type', spec.type);

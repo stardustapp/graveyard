@@ -25,6 +25,7 @@
           "daemon/model/session-manager.js", "daemon/model/session.js",
           "daemon/model/workload-manager.js", "daemon/model/workload.js",
         "daemon/default-site.js", "daemon/gate-site.js", "daemon/gate-api.js", "daemon/domain-api.js",
+        "platform/libs/core/skylink/client.js", "platform/libs/core/skylink/ns-convert.js",
         "daemon/background.js"]
     }
   },

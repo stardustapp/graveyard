@@ -39,10 +39,10 @@ const DEFAULT_PACKAGES = [
         sourceUri: 'routines/launch.lua',
         runtime: 'lua',
       },
-      'send message': {
-        displayName: 'IRC Message sender',
+      'command': {
+        displayName: 'Outbound command processor',
         type: 'function',
-        sourceUri: 'routines/send-message.lua',
+        sourceUri: 'routines/do-command.lua',
         runtime: 'lua',
       },
     },
