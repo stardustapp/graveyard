@@ -473,9 +473,6 @@ class IdbSubscription {
     if (this.currentNode.constructor === IdbExtantNode) {
       this.rootNode = new IdbSubNode(this.currentNode.nid, '', this.depth);
       await this.rootNode.transmitEntry(this, txn, false);
-      console.log('all done initial sync');
-    } else {
-      console.log(`Subscription made to ghost entry`, this.rootPath.path, this.parentNids);
     }
   }
 

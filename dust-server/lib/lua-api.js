@@ -81,7 +81,6 @@ const LUA_API = {
   // ctx.read([pathRoot,] pathParts string...) (val string)
   async read(L, T) {
     const {device, path} = this.resolveLuaPath(T);
-    console.debug("read from", path);
     T.startStep({name: 'lookup entry'});
     const entry = await device.getEntry(path);
     T.endStep();
@@ -110,8 +109,6 @@ const LUA_API = {
   // ctx.readDir([pathRoot,] pathParts string...) (val table)
   async readDir(L, T) {
     const {device, path} = this.resolveLuaPath(T);
-    //console.debug("read from", path);
-
     T.startStep({name: 'lookup entry'});
     const entry = await device.getEntry(path, true);
     T.endStep();
@@ -156,13 +153,11 @@ const LUA_API = {
     const {device, path} = this.resolveLuaPath(T);
 
     if (value.getEntry && path.startsWith('/state/')) {
-      console.warn("Experimental store-as-bind to", path);
       const env = await StateEnvs.getOne('x', 'x');
       await env.bind(path.slice(6), value);
       return 1;
     }
 
-    console.debug("store to", path);
     T.startStep({name: 'lookup entry'});
     const entry = await device.getEntry(path);
     T.endStep();
@@ -209,7 +204,6 @@ const LUA_API = {
   async unlink(L, T) {
     // read all args as a path
     const {device, path} = this.resolveLuaPath(T);
-    console.debug("unlink of", path);
     T.startStep({name: 'lookup entry'});
     const entry = await device.getEntry(path);
     T.endStep();

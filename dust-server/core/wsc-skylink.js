@@ -23,7 +23,6 @@ class SkylinkPostHandler extends WSC.BaseHandler {
         new Uint8Array(this.request.body)));
 
     const send = (ok, output) => {
-      console.log('<-- op was', ok ? 'okay' : 'not ok');
       this.sendResponse({
         Ok: ok,
         Output: output,
@@ -108,7 +107,6 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
 
   sendOutput(ok, output) {
-    console.debug('<-- op was', ok ? 'okay' : 'not ok');
     this.sendJson({
       Ok: ok,
       Output: output,
@@ -117,8 +115,6 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
 
   // These functions are invoked by the websocket processor
   open() {
-    console.log('ws open', this);
-
     // offer async response follow-ups with channels
     // mount in env for processing code
     this.localEnv.mount('/channels/new', 'function', {
@@ -127,7 +123,6 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
   on_message(msg) {
     var request = JSON.parse(msg);
-    //console.debug('got ws message', request);
     if (this.isActive) {
       this.reqQueue.push(request);
     } else {

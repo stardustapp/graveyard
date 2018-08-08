@@ -142,7 +142,7 @@ class Datadog {
       this.doHTTP('/v1/series', {series}),
       this.statusCheck('starbox.alive', 0, 'Datadog pump is running'),
     ]);
-    console.log('Submitted', series.length, 'datas to Datadog');
+    console.debug('Submitted', series.length, 'datas to Datadog');
   }
 }
 

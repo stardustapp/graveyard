@@ -58,12 +58,10 @@ class Workload {
     this.thread = this.machine.startThread();
 
     if (sourceEntry.subscribe) {
-      console.warn('Subscribing to lua');
       const rawSub = await sourceEntry.subscribe();
       await new Promise(resolve => {
         const sub = new SingleSubscription(rawSub);
         sub.forEach(literal => {
-          console.log('source sub got', literal);
           const source = atob(literal.Data);
           this.thread.compile(source);
 
