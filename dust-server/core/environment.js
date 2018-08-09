@@ -2,18 +2,60 @@
 // Generally one Environment is equivilent to one HTTP Origin
 // (that is, it doesn't handle differing hostnames or protocols)
 
+// bind() puts devices in, getEntry() gets entries from devices. (both async)
+// Use pathTo() to select a subpath as a new Environment.
+// - Future bind() calls cascade _down_ the selectPath() tree, but not up.
+// - You can never walk out of any Environment, so this also works for access scoping.
+
 class Environment {
-  constructor(baseUri) {
-    this.baseUri = baseUri || 'tmp://';
-    this.mounts = new Map();
+  constructor(baseUri='env:') {
+    this.baseUri = baseUri;
+    this.devices = new Map;
+    this.prefixes = new Set;
   }
 
-  bind(path, source) {
-    return this.mount(path, 'bind', {source});
+  // introduce a new device at a path
+  async bind(target, device) {
+    if (!target.endsWith('/')) {
+      //console.warn('bind() wants a trailing slash for target now')
+      //target += '/';
+    }
+    if (target.length && !target.startsWith('/')) {
+      throw new Error(`Environment#bind() only accepts absolute mount paths`);
+    }
+    if (device.ready)
+      await device.ready;
+
+    // TODO: better handling of the fact that paths must round-trip
+    target = target.replace(' ', '%20');
+
+    //if (this.devices.has(target))
+    //  throw new Error(`Environment refusing to replace device at ${target}`);
+    this.devices.set(target, device);
+
+    // record the new prefixes
+    if (target.length !== 0) {
+      var pathSoFar = target.slice(0, target.lastIndexOf('/'));
+      while (true) {
+        this.prefixes.add(pathSoFar);
+        if (pathSoFar.length === 0) break;
+        pathSoFar = pathSoFar.slice(0, pathSoFar.lastIndexOf('/'));
+      }
+    }
+
+    //console.debug('bound', device, 'at', target);
   }
 
-  // creates a mount of type, with opts, and places it at path
-  async mount(path, type, opts) {
+  pathTo(path) {
+    if (path == '/') path = '';
+    return new ChildEnvironment(this, path);
+  }
+
+  // launches a new device with opts, and binds it at path
+  // kinda like a linux 'mount' command
+  //
+  // you should probably just make the device yourself and bind it.
+  mount(path, type, opts) {
     opts = opts || {};
     //console.log('Mounting', type, 'to', path, 'with', opts);
 
@@ -44,14 +86,14 @@ class Environment {
                 invoke: opts.invoke,
               };
             default:
-              throw new Error(`function mounts only have /invoke`);
+              throw new Error(`function devices only have /invoke`);
           }
         }};
         break;
       case 'literal':
         mount = { async getEntry(path) {
           if (path) {
-            throw new Error(`literal mounts have no pathing`);
+            throw new Error(`literal devices have no pathing`);
           }
           return {
             async get() {
@@ -64,22 +106,16 @@ class Environment {
         throw new Error(`bad mount type ${type} for ${path}`);
     }
 
-    if (mount.init)
-      await mount.init();
-
-    this.mounts.set(path, mount);
+    return this.bind(path, mount);
   }
 
   // returns the MOST specific mount for given path
   matchPath(path) {
-    if (!path) {
-      throw new Error("matchPath() requires a path");
-    }
     var pathSoFar = path;
     while (true) {
-      if (this.mounts.has(pathSoFar)) {
+      if (this.devices.has(pathSoFar)) {
         return {
-          mount: this.mounts.get(pathSoFar),
+          mount: this.devices.get(pathSoFar),
           subPath: path.slice(pathSoFar.length),
         };
       }
@@ -89,32 +125,8 @@ class Environment {
     return {};
   }
 
-  getSubPathEnv(path) {
-    if (!path || path === '/')
-      return this;
-
-    const subEnv = new Environment(this.baseUri + path);
-    Array.from(this.mounts.entries()).forEach(([mount, device]) => {
-      if (mount.startsWith(path)) {
-        console.log('device is CHILD OR MATCH of desired path');
-      } else if (path.startsWith(mount)) {
-        const subPath = path.slice(mount.length);
-        subEnv.bind('', { getEntry: (p) => {
-          return device.getEntry(subPath + p);
-        }});
-        // TODO: what if there's multiple parents? need the most accurate
-      }
-    });
-    return subEnv;
-  }
-
   async getEntry(path, required, apiCheck) {
-    // show our root if we have to
-    // TODO: support a mount to / while adding mounted children, if any?
-    if (!path)
-      return new VirtualEnvEntry(this, '');
-    if (path === '/' && !this.mounts.has(''))
-      return new VirtualEnvEntry(this, '');
+    if (path === '/') path = '';
 
     var entry;
     const {mount, subPath} = this.matchPath(path);
@@ -122,18 +134,16 @@ class Environment {
       entry = await mount.getEntry(subPath);
     }
 
-    if (!entry) {
-      const childPoints = Array.from(this.mounts.keys())
-        .filter(x => x.startsWith(path) && x !== path);
-      if (childPoints.length) {
-        entry = new VirtualEnvEntry(this, path);
-      }
+    // show our root if we have to
+    // TODO: support a mount to / while adding mounted children, if any?
+    if (entry == null && this.prefixes.has(path)) {
+      return new VirtualEnvEntry(this, path);
     }
 
-    if (required && !entry) {
+    if (required && entry == null) {
       throw new Error(`getEntry(${JSON.stringify(path)}) failed but was marked required`);
     }
-    if (apiCheck && entry && !entry[apiCheck]) {
+    if (apiCheck && entry != null && !entry[apiCheck]) {
       throw new Error(`getEntry(${JSON.stringify(path)}) found a ${entry.constructor.name} which doesn't present desired API ${apiCheck}`);
     }
 
@@ -142,10 +152,50 @@ class Environment {
 
   inspect() {
     const mountNames = new Array();
-    this.mounts.forEach((_, key) => mountNames.push(key));
+    this.devices.forEach((_, key) => mountNames.push(key));
     return `<Environment [${mountNames.join(' ')}]>`;
   }
 };
+
+class ChildEnvironment extends Environment {
+  constructor(parent, selfPath) {
+    super(parent.baseUri + selfPath);
+
+    // copy existing parents
+    this.parentEnvs = new Array;
+    if (parent.parentEnvs) {
+      parent.parentEnvs.forEach(({env, subPath}) => {
+        this.parentEnvs.push({env,
+          subPath: subPath+selfPath,
+        });
+      });
+    }
+
+    // add the most-direct parent
+    this.parentEnvs.unshift({
+      env: parent,
+      subPath: selfPath,
+    });
+
+    if (this.parentEnvs.length > 5)
+      console.warn(`WARN: ChildEnvironment has a parent stack more than 5 deep`);
+  }
+
+  async getEntry(path, required, apiCheck) {
+    if (path.includes('..'))
+      throw new Error(`Directory traversal not impl yet`);
+
+    const localEnt = await super.getEntry(path, false, apiCheck);
+    if (localEnt != null) return localEnt;
+    for (const {env, subPath} of this.parentEnvs) {
+      const parentEnt = await env.getEntry(subPath+path, false, apiCheck);
+      if (parentEnt != null) return parentEnt;
+    }
+
+    if (required)
+      throw new Error(`ChildEnvironment getEntry() didn't find anything for requirement ${path} even with ${parentEnvs.length} parent envs`);
+  }
+}
 
 // Returns fake container entries that lets the user find the actual content
 class VirtualEnvEntry {
@@ -162,9 +212,17 @@ class VirtualEnvEntry {
 
   get() {
     const children = new Array();
-    this.env.mounts.forEach((mount, path) => {
+    this.env.devices.forEach((mount, path) => {
       if (path.startsWith(this.path)) {
         const subPath = path.slice(this.path.length + 1);
+        if (!subPath.includes('/')) {
+          children.push({Name: subPath});
+        }
+      }
+    });
+    this.env.prefixes.forEach(prefix => {
+      if (prefix.startsWith(this.path)) {
+        const subPath = prefix.slice(this.path.length + 1);
         if (!subPath.includes('/')) {
           children.push({Name: subPath});
         }
@@ -181,25 +239,49 @@ class VirtualEnvEntry {
   }
 
   async enumerate(enumer) {
+    const myPath = PathFragment.parse(this.path);
+
     const children = new Array();
-    this.env.mounts.forEach((mount, path) => {
-      if (path.startsWith(this.path)) {
-        const subPath = path.slice(this.path.length + 1);
-        if (!subPath.includes('/')) {
-          children.push({name: subPath, mount, path});
-        }
+    const seenParts = new Set();
+
+    this.env.devices.forEach((mount, path) => {
+      const it = PathFragment.parse(path);
+      if (it.startsWith(myPath) && it.count() === myPath.count() + 1) {
+        children.push({
+          name: it.lastName(),
+          entry: mount.getEntry(''),
+        });
+        seenParts.add(it.lastPart());
       }
     });
-    if (!children.length)
+
+    this.env.prefixes.forEach(prefix => {
+      const it = PathFragment.parse(prefix);
+      if (it.startsWith(myPath) && it.count() === myPath.count() + 1 && !seenParts.has(it.lastPart())) {
+        children.push({
+          name: it.lastName(),
+          entry: new VirtualEnvEntry(this.env, prefix),
+        });
+        seenParts.add(it.lastPart());
+      }
+    });
+
+    if (!children.length) {
+      console.warn(`VirtualEnvEntry#enumerate() called when shouldn't be possible`);
       return;
+    }
 
     enumer.visit({Type: 'Folder'});
     if (enumer.canDescend()) {
       for (const child of children) {
         enumer.descend(child.name);
         try {
-          const rootEntry = await child.mount.getEntry('');
-          if (rootEntry.enumerate) {
+          const rootEntry = await child.entry;
+          if (!rootEntry) {
+            throw new Error(`Root entry was null`);
+          }
+
+          if (enumer.canDescend() && rootEntry.enumerate) {
             await rootEntry.enumerate(enumer);
           } else {
             enumer.visit(await rootEntry.get());
@@ -212,4 +294,8 @@ class VirtualEnvEntry {
       }
     }
   }
+}
+
+if (typeof exports !== 'undefined') {
+  exports.Environment = Environment;
 }

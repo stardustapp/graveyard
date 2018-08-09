@@ -2,19 +2,30 @@ class PlatformApi {
   constructor(name) {
     this.name = name;
     this.paths = new Map;
+    this.env = new Environment();
 
     // this gets filled in at .compile()
     this.structType = new PlatformApiTypeFolder(name);
   }
 
   getter(path, type, impl) {
+    // TODO: better handling of the fact that paths must round-trip
+    path = path.replace(' ', '%20');
+
     const baseName = decodeURIComponent(path.slice(1).split('/').slice(-1)[0]);
-    this.paths.set(path, new PlatformApiGetter(this, baseName, type, impl));
+    const device = new PlatformApiGetter(this, baseName, type, impl);
+    this.paths.set(path, device);
+    this.env.bind(path, device);
     return this;
   }
   function(path, args) {
+    // TODO: better handling of the fact that paths must round-trip
+    path = path.replace(' ', '%20');
+
     const baseName = decodeURIComponent(path.slice(1).split('/').slice(-1)[0]);
-    this.paths.set(path, new PlatformApiFunction(this, baseName, args));
+    const device = new PlatformApiFunction(this, baseName, args);
+    this.paths.set(path, device);
+    this.env.bind(path, device);
     return this;
   }
 
@@ -49,8 +60,8 @@ class PlatformApi {
     });
   }
 
-  async getEntry(path) {
-    return this.paths.get(path);
+  getEntry(path) {
+    return this.env.getEntry(path);
   }
 }
 
@@ -62,9 +73,13 @@ class PlatformApiGetter {
     this.get = this.get.bind(this);
   }
   get(self=this.self) {
-    return this.impl
-        .call(self)
-        .then(x => this.outputType.serialize(x));
+    return Promise
+      .resolve(this.impl.call(self))
+      .then(x => this.type.serialize(x));
+  }
+  getEntry(path) {
+    if (path.length === 0) return this;
+    throw new Error(`Getters don't have any children`);
   }
 }
 
@@ -77,11 +92,26 @@ class PlatformApiFunction {
     this.invoke = this.invoke.bind(this);
   }
   invoke(input, self=this.self) {
-    return this.impl
-        .call(self, this.inputType.deserialize(input))
-        .then(x => ({
-          get: () => this.outputType.serialize(x),
-        }));
+    return Promise
+      .resolve(this.impl.call(self, this.inputType.deserialize(input)))
+      .then(x => ({
+        get: () => this.outputType.serialize(x),
+      }));
+  }
+  getEntry(path) {
+    switch (path) {
+      case '':
+        return new FlatEnumerable(
+          new StringLiteral('input'),
+          new StringLiteral('output'),
+          {Type: 'Function', Name: 'invoke'});
+      case '/input':
+        return { get: () => new StringLiteral('input', JSON.stringify(this.inputType)) };
+      case '/output':
+        return { get: () => new StringLiteral('output', JSON.stringify(this.outputType)) };
+      case '/invoke':
+        return this;
+    }
   }
 }
 
@@ -98,6 +128,7 @@ class PlatformTypeError extends ExtendableError {
 class PlatformApiTypeString {
   constructor(name, defaultValue=null, ser=String, de=String) {
     this.name = name;
+    this.type = 'String';
     this.defaultValue = defaultValue;
     this.ser = ser;
     this.de = de;
@@ -122,6 +153,7 @@ class PlatformApiTypeString {
 class PlatformApiTypeNull {
   constructor(name) {
     this.name = name;
+    this.type = 'Null';
   }
   serialize(value) {
     if (value != null)
@@ -138,6 +170,7 @@ class PlatformApiTypeNull {
 class PlatformApiTypeFolder {
   constructor(name, fields=[]) {
     this.name = name;
+    this.type = 'Folder';
     this.fields = fields;
   }
   serialize(value) {

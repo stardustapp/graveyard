@@ -1,3 +1,9 @@
+setTimeout(() => {
+  skylinkP.then(x => {
+    x.mkdirp('/config/networks');
+    x.mkdirp('/config/prefs');
+  });
+}, 1000);
 
 Vue.component('auth-card', {
   template: '#auth-card',
@@ -87,7 +93,7 @@ Vue.component('irc-net-card', {
         return;
       }
 
-      const listPath = '/config/irc/networks/'+this.config._id+'/channels';
+      const listPath = '/config/networks/'+this.config._id+'/channels';
       skylink.enumerate(listPath).then(list => {
         var nextId = 1;
         list.forEach(ent => {
@@ -118,9 +124,9 @@ Vue.component('irc-prefs-card', {
   },
   methods: {
     fetchPrefs() {
-      skylink.get('/config/irc/prefs/layout')
+      skylink.get('/config/prefs/layout')
         .then(x => this.layout = x.StringValue);
-      skylink.get('/config/irc/prefs/disable-nicklist')
+      skylink.get('/config/prefs/disable-nicklist')
         .then(x => this.enableNicklist = x.StringValue == 'no');
     },
   },
@@ -135,43 +141,13 @@ Vue.component('irc-add-net', {
         return;
       }
 
-      skylink.store('/config/irc/networks/'+net, Skylink.toEntry(net, {
+      skylink.store('/config/networks/'+net, Skylink.toEntry(net, {
         username: orbiter.launcher.chartName,
         ident: orbiter.launcher.chartName,
         nickname: orbiter.launcher.chartName,
         'full-name': `${orbiter.metadata.ownerName} on Stardust`,
         'auto-connect': 'no',
         channels: {},
-      }));
-    },
-  },
-});
-
-
-
-Vue.component('domain-manage-card', {
-  template: '#domain-manage-card',
-  props: {
-    config: Object,
-  },
-  computed: {
-  },
-  methods: {
-  },
-});
-
-Vue.component('domain-add-card', {
-  template: '#domain-add-card',
-  methods: {
-    add() {
-      const domain = prompt('Your new Fully Qualified Domain Name:');
-      if (!domain.match(/(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63}$)/)) {
-        return;
-      }
-
-      console.log('doing the thing', domain);
-      skylink.invoke('/domains/register/invoke', Skylink.toEntry('request', {
-        domain,
       }));
     },
   },

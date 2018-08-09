@@ -138,12 +138,7 @@ Vue.component('entry-item', {
     },
     load() {
       if (!this.loader) {
-        this.loader = skylinkP.then(x => x.enumerate(this.path, {
-          shapes: [
-            '/rom/shapes/function',
-            '/rom/shapes/web-app',
-          ],
-        })).then(x => {
+        this.loader = skylinkP.then(x => x.enumerate(this.path, {})).then(x => {
           this.entry = x.splice(0, 1)[0];
           this.entry.Children = x.sort((a, b) => {
             var nameA = a.Name.toUpperCase();
@@ -152,6 +147,12 @@ Vue.component('entry-item', {
             if (nameA > nameB) { return 1; }
             return 0;
           });
+
+          // unescape the 'paths' - we already know there's only 1 part
+          for (const child of x) {
+            child.Path = this.path + '/' + child.Name;
+            child.Name = decodeURIComponent(child.Name);
+          }
         });
       }
       return this.loader;
@@ -275,7 +276,7 @@ Vue.component('invoke-function', {
       var input = null;
       if (this.inShape.type === 'Folder') {
         var props = [];
-        this.inShape.props.forEach(prop => {
+        this.inShape.fields.forEach(prop => {
           var val = this.input[prop.name];
           if (!val) {
             if (!prop.optional) {
@@ -295,7 +296,7 @@ Vue.component('invoke-function', {
         });
         input = Skylink.Folder('input', props);
       } else if (this.inShape.type === 'String') {
-        this.input = Skylink.String('input', prompt('input:'));
+        input = Skylink.String('input', prompt('input:'));
       }
 
       this.output = null;
@@ -318,15 +319,14 @@ Vue.component('invoke-function', {
     },
   },
   created() {
-    skylink.fetchShape(this.tab.path + '/input-shape')
-    .then(shape => {
-      this.inShape = shape;
-      this.props = shape.props;
+    skylink.loadString(this.tab.path.slice(0, -6) + 'input')
+    .then(raw => {
+      this.inShape = JSON.parse(raw);
     });
 
-    skylink.fetchShape(this.tab.path + '/output-shape')
-    .then(shape => {
-      this.outShape = shape;
+    skylink.loadString(this.tab.path.slice(0, -6) + 'output')
+    .then(raw => {
+      this.outShape = JSON.parse(raw);
     });
   },
 });

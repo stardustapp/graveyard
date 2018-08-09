@@ -9,6 +9,7 @@ class NetworkImportMount {
 
     this.url = opts.url;
     this.prefix = opts.prefix || '';
+    this.ready = this.init();
   }
 
   async init() {
@@ -28,23 +29,44 @@ class ImportedEntry {
   }
 
   async get() {
-
+    const resp = await this.mount.transport.exec({
+      Op: 'get',
+      Path: this.path,
+    });
+    return resp.Output;
   }
 
   async invoke(input) {
-    console.log(this, input);
+    const resp = await this.mount.transport.exec({
+      Op: 'invoke',
+      Path: this.path,
+      Input: input,
+    });
+    return resp.Output;
   }
 
   async put(value) {
-
+    const resp = await this.mount.transport.exec({
+      Op: (value === null) ? 'unlink' : 'store',
+      Dest: this.path,
+      Input: value,
+    });
+    return resp.Ok;
   }
 
-  async subscribe(newChannel) {
-
-  }
-
-  //async enumerate(enumer) {
+  //async subscribe(newChannel) {
   //}
+
+  async enumerate(enumer) {
+    const resp = await this.mount.transport.exec({
+      Op: 'enumerate',
+      Path: this.path,
+      Depth: enumer.remainingDepth(),
+    });
+
+    // transclude the remote enumeration
+    enumer.visitEnumeration(resp.Output);
+  }
 }
 
 class SkylinkWsTransport {

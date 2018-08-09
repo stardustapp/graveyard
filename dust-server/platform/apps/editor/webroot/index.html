@@ -91,7 +91,12 @@
       <span class="name">{{name}}</span>
       <a v-if="canLaunch" class="material-icons launch-icon"
           :href="launchUri" @click.stop.prevent="launch"
+          title="launch app plugin"
           >launch</a>
+      <i v-if="isFolder" class="material-icons ctxlist-icon reload-btn"
+          @click.stop="reload"
+          title="refresh folder's children"
+          >refresh</i>
       <i class="material-icons ctxlist-icon delete-btn"
          @click.stop="deleteEntry"
          title="remove entry from this folder">delete</i>
@@ -105,7 +110,7 @@
         :name="child.Name"
         :type="child.Type"
         :stat="child"
-        :path="path + '/' + child.Name"
+        :path="child.Path"
         :start-open="name === 'sd://apt.danopia.net'">
       </entry-item>
 
@@ -172,7 +177,7 @@
     </p>
 
     <label
-        v-for="prop in inShape.props"
+        v-for="prop in inShape.fields"
         :key="prop.name"
         class="form-row">
       <span>{{prop.name}}</span>

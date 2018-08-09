@@ -21,6 +21,7 @@ class Account {
     await this.env.mount('/config', 'idb-treestore', { db: this.db, store: 'config' });
     await this.env.mount('/persist', 'idb-treestore', { db: this.db, store: 'persist' });
     await this.env.mount('/chart-name', 'literal', { string: this.address() });
+    await this.env.bind('/sessions', new SessionsApiDriver(this));
 
     console.debug('Opened account', this.record.aid, 'for', this.address());
   }
@@ -36,7 +37,7 @@ class Account {
   async assertPassword(password) {
     //const secretEnt = await this.env.getEntry('/config/password');
     //const secretVal = await secretEnt.get();
-    
+
     const {secretHash} = this.record;
     if (!secretHash) {
       throw new Error(`This account doesn't have a password and cannot be logged into`);
@@ -51,17 +52,19 @@ class Account {
       }
       return ok;
     }
-    
+
     throw new Error(`BUG: Account has an unrecognized hashing strategy. Find your system administrator`);
   }
 
   async mountApp(appKey, pkg, appRec) {
     await pkg.ready;
     this.webEnv.bind('/'+appKey, pkg.webroot);
+    this.env.bind('/apps/'+appKey, new AppApiDriver(this, pkg, appRec));
   }
 
   unmountApp(appKey, pkg, appRec) {
-    this.webEnv.mounts.delete('/'+appKey);
+    this.webEnv.devices.delete('/'+appKey);
+    // TODO: unbind
   }
 
   close() {

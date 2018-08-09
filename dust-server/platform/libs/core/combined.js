@@ -3,6 +3,7 @@ class Channel {
   constructor(id) {
     this.id = id;
     this.queue = ['waiting'];
+    this.callbacks = {};
 
     this.burnBacklog = this.burnBacklog.bind(this);
   }
@@ -259,10 +260,10 @@ class RecordSubscription {
     const parts = path.split('/');
     if (parts.length == 1) {
       // new document
-      const [id] = parts;
+      const id = decodeURIComponent(parts[0]);
       const doc = {
         _id: id,
-        _path: this.basePath + '/' + id,
+        _path: this.basePath + '/' + parts[0],
       };
       if (this.selfItems) {
         doc.value = entry;
@@ -281,7 +282,8 @@ class RecordSubscription {
 
     } else if (parts.length == 2) {
       // add field to existing doc
-      const [id, field] = parts;
+      const id = decodeURIComponent(parts[0]);
+      const field = decodeURIComponent(parts[1]);
       const doc = this.idMap.get(id);
       //switch (entry.Type)
       doc[field] = entry || '';
@@ -321,7 +323,7 @@ class RecordSubscription {
     if (parts.length == 1) {
       // replaced document
       if (this.selfItems) {
-        const [id] = parts;
+        const id = decodeURIComponent(parts[0]);
         const doc = this.idMap.get(id);
         doc.value = entry;
       } else if (this.fields.length) {
@@ -330,7 +332,8 @@ class RecordSubscription {
 
     } else if (parts.length == 2) {
       // changed field on existing doc
-      const [id, field] = parts;
+      const id = decodeURIComponent(parts[0]);
+      const field = decodeURIComponent(parts[1]);
       const doc = this.idMap.get(id);
       //switch (entry.Type)
 
@@ -368,7 +371,7 @@ class RecordSubscription {
     const parts = path.split('/');
     if (parts.length == 1) {
       // deleted document
-      const [id] = parts;
+      const id = decodeURIComponent(parts[0]);
       const doc = this.idMap.get(id);
       this.idMap.delete(id);
 
@@ -380,7 +383,8 @@ class RecordSubscription {
 
     } else if (parts.length == 2) {
       // remove field from existing doc
-      const [id, field] = parts;
+      const id = decodeURIComponent(parts[0]);
+      const field = decodeURIComponent(parts[1]);
       const doc = this.idMap.get(id);
       doc[field] = null;
 
@@ -526,6 +530,7 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
 
     this.status = 'Idle';
 
+    /*
     // Autoconfigure skychart endpoint, defaulting to TLS
     // Downgrade to insecure where real certs don't go: localhost, LAN, and IPs
     let protocol = 'wss';
@@ -533,7 +538,9 @@ return k({},n(this))}function Bc(){return n(this).overflow}function Cc(){return{
     if (this.domainName.match(/^(localhost|[^.]+.(?:lan|local)|(?:\d{1,3}\.)+\d{1,3})(?::(\d+))?$/)) {
       protocol = 'ws';
       port = ':9237';
-    }
+    }*/
+    const protocol = location.protocol.includes('s') ? 'wss' : 'ws';
+    const port = location.port.length ? (':'+location.port) : '';
     this.endpoint = `${protocol}://${this.domainName}${port}/~~export/ws`;
 
     console.log('Configuring orbiter launchsite for chart', chartName);
@@ -1294,6 +1301,12 @@ function entryToJS (ent) {
     case 'String':
       return ent.StringValue;
 
+    case 'Blob':
+      return ent; // TODO: wrap with helpers to await as string
+
+    default:
+      console.warn(`Received wire literal of unhandled type`, ent.Type);
+      return null;
   }
 }
 class SkylinkHttpTransport {

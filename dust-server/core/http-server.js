@@ -2,7 +2,7 @@ class HttpServer {
   constructor(domainManager, hostLoader) {
     this.domainManager = domainManager;
     this.wsc = new WSC.WebApplication({
-      host: '0.0.0.0',
+      host: '::',
       handlers: [
         [/^.+$/, HttpWildcardHandler.bind(null, this)],
       ],
@@ -122,6 +122,12 @@ class VirtualHost {
     } else {
       responder.sendJson(target);
     }
+
+    Datadog.Instance.count('skychart.web_request', 1, {
+      'home-domain': this.hostname,
+      method: 'GET',
+      ok: true,
+    });
   }
 
   // Specifically for routing POST to function invocations
@@ -152,6 +158,12 @@ class VirtualHost {
     } else {
       responder.sendJson(response);
     }
+
+    Datadog.Instance.count('skychart.web_request', 1, {
+      'home-domain': this.hostname,
+      method: 'POST',
+      ok: true,
+    });
   }
 }
 
@@ -338,7 +350,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
         success: false,
         error: 'internal-error',
         message: `The server failed to respond`,
-        cause: `${err.name}: ${err.message}`,
+        cause: err ? `${err.name}: ${err.message}` : null,
       }, 500);
       throw err;
     }

@@ -2,24 +2,42 @@ this.window = this;
 importScripts(
   '/core/api-entries.js',
   '/core/environment.js',
+  '/core/enumeration.js',
   '/core/utils.js',
+
+  '/drivers/tmp.js',
+  '/drivers/network-import.js',
+
+  '/platform/libs/core/data/channel.js',
+  '/platform/libs/core/data/subs/_base.js',
+  '/platform/libs/core/data/subs/single.js',
+  '/platform/libs/core/skylink/client.js',
+  '/platform/libs/core/skylink/ns-convert.js',
+
+  '/lib/caching.js',
+  '/lib/tracing.js',
+  '/lib/mkdirp.js',
+  '/lib/path-fragment.js',
+
+  '/vendor/fengari.js',
+  '/vendor/moment.js',
+  //'/vendor/bugsnag.js',
 );
 importScripts(
   '/core/nsexport.js',
   '/core/platform-api.js',
 
   '/lib/runtime-slave-worker.js',
-
-  '/vendor/fengari.js',
-  '/vendor/moment.js',
-  //'/vendor/bugsnag.js',
+  '/lib/lua-machine.js',
+  '/lib/lua-api.js',
 );
 delete this.window;
 
-const luaconf  = fengari.luaconf;
-const lua      = fengari.lua;
-const lauxlib  = fengari.lauxlib;
-const lualib   = fengari.lualib;
+const StateEnvs = new LoaderCache(id => {
+  const env = new Environment();
+  env.bind('', new TemporaryMount());
+  return env;
+});
 
 class Workload {
   constructor({basePath, spec, wid}) {
@@ -33,61 +51,85 @@ class Workload {
 
   async init() {
     await this.env.bind('/session', runtime.deviceForKernelPath(this.basePath));
+    await this.env.bind('/session/state', await StateEnvs.getOne('x', 'x'));
     const sourceEntry = await this.env.getEntry('/session/source/'+this.spec.sourceUri);
-    const source = await sourceEntry.get();
 
-    const machine = new LuaMachine(runtime.deviceForKernelPath(this.basePath));
-    const output = machine.eval(atob(source.Data));
+    this.machine = new LuaMachine(this.env.pathTo('/session'));
+    this.thread = this.machine.startThread();
 
-    console.warn('starting workload', source);
-    return false;
+    if (sourceEntry.subscribe) {
+      const rawSub = await sourceEntry.subscribe();
+      await new Promise(resolve => {
+        const sub = new SingleSubscription(rawSub);
+        sub.forEach(literal => {
+          const source = atob(literal.Data);
+          this.thread.compile(source);
+
+          resolve && resolve();
+          resolve = null;
+        });
+      });
+
+    } else {
+      const literal = await sourceEntry.get();
+      const source = atob(literal.Data);
+      this.thread.compile(source);
+    }
+    return this;
+  }
+
+  start(input) {
+    const completion = this.thread.run(input)
+      .catch(err => {
+        // restart the lua thread since it's probably crashed
+        // TODO: cleanly stop old thread, or recover the lua thread
+        console.warn('Recreating Lua workload because of crash');
+        const oldThread = this.thread;
+        this.thread = this.machine.startThread();
+        this.thread.compile(oldThread.sourceText);
+        return Promise.reject(err);
+      });
+
+    return {
+      completion,
+    };
   }
 
   async stop(evt) {
     console.warn('stopping workload', this);
-    return false;
+    return this;
   }
 }
 
 const runtime = new RuntimeSlaveWorker(api => {
   const workloads = new Map;
 
-  api.set('start workload', async input => {
+  api.set('start daemon', async input => {
     const workload = new Workload(input);
     workloads.set(input.wid, workload);
-    return workload.ready;
+    await workload.ready;
+    workload.start();
+    return;
   });
-  api.set('stop workload', async input => {
+  api.set('stop daemon', async input => {
     const workload = workloads.get(input.wid);
     if (!workload)
-      throw new Error('BUG: stop requested for unregistered workload.', input);
+      throw new Error('BUG: stop requested for unregistered daemon.', input);
     workloads.delete(input.wid);
-    return workload.stop(input);
+    await workload.stop(input.reason);
+    return;
+  });
+
+  api.set('load function', async input => {
+    const workload = new Workload(input);
+    workloads.set(input.wid, workload);
+    return;
+  });
+  api.set('run function', async input => {
+    const workload = workloads.get(input.wid);
+    if (!workload)
+      throw new Error('BUG: run requested for unregistered function.', input);
+    const handle = workload.start(input.input);
+    return handle.completion;
   });
 });
-
-class LuaMachine {
-  constructor() {
-    this.L = lauxlib.luaL_newstate();
-    //lualib.luaL_openlibs(this.L);
-  }
-
-  eval(source) {
-    const {L} = this;
-
-    // this returns an error or a result
-    const compileRes = lauxlib.luaL_loadstring(L, fengari.to_luastring(source));
-    if (compileRes !== lua.LUA_OK) {
-      const error = lua.lua_tostring(L, -1);
-      throw new Error('Lua compile fault. ' + fengari.to_jsstring(error));
-    }
-
-    // this throws on error
-    lua.lua_pushliteral(L, "hello world!");
-    lua.lua_call(L, 1, -1);
-    const output = lua.lua_tostring(L, -1);
-    return fengari.to_jsstring(output);
-  }
-}
-
-console.log('hmm:', new LuaMachine().eval('return "this is a test"'));

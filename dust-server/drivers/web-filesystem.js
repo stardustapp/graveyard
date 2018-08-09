@@ -90,6 +90,13 @@ class WebFsFileEntry {
       };
       reader.readAsDataURL(file);
     });
-    return new BlobLiteral(this.entry.name, base64, file.type)
+
+    const mimeType = file.type ? file.type
+      : typeGuesses[this.entry.name.split('.').slice(-1)[0]];
+    return new BlobLiteral(this.entry.name, base64, mimeType);
   }
 }
+
+const typeGuesses = {
+  'lua': 'text/x-lua',
+};

@@ -33,7 +33,7 @@ class DomainManager {
       const tx = this.idb.transaction('domains', 'readwrite');
       return tx.objectStore('domains').add(domain)
           .then(() => tx.complete);
-    });
+    }).then(() => this);
   }
 
   async registerDomain(domainName, owner) {

@@ -28,20 +28,21 @@ const DEFAULT_PACKAGES = [
       '/persist': { type: 'scoped', flavor: 'persist' },
       //'/secret': { type: 'scoped', flavor: 'secret' },
       '/dialer': { type: 'bind',
-        suggestion: 'skylink+ws://52.36.135.46:29234/pub',
+        //suggestion: 'skylink+ws://52.36.135.46:29234/pub',
+        suggestion: 'skylink+ws://localhost:9234/pub',
         hint: 'An IRC modem, used to connect to IRC networks' },
     },
     workloads: {
-      primary: {
+      'primary': {
         displayName: 'Primary loop',
         type: 'daemon',
         sourceUri: 'routines/launch.lua',
         runtime: 'lua',
       },
-      sendMessage: {
-        displayName: 'IRC Message sender',
+      'command': {
+        displayName: 'Outbound command processor',
         type: 'function',
-        sourceUri: 'routines/send-message.lua',
+        sourceUri: 'routines/do-command.lua',
         runtime: 'lua',
       },
     },
@@ -76,7 +77,7 @@ class PackageManager {
         this.all.set(pkg.record.pid, pkg);
       });
       console.log('Loaded', list.length, 'packages');
-    });
+    }).then(() => this);
   }
 
   getAll() {

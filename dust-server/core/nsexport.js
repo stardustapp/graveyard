@@ -30,13 +30,31 @@ class NsExport {
     }
   }
 
-  async processOp(request, namespace=this.namespace) {
+  processOp(request, namespace) {
+    const startTime = new Date;
+    const promise = this
+      .processOpInner(request, namespace);
+
+    promise
+      .then(resp => true, err => false)
+      .then(ok => {
+        const endTime = new Date;
+        const elapsedMs = endTime - startTime;
+        const op = request.Op || request.op;
+        Datadog.Instance.count('skylink.op.invocation', 1, {op, ok});
+        Datadog.Instance.gauge('skylink.op.elapsed_ms', elapsedMs, {op, ok});
+      });
+
+    return promise;
+  }
+
+  async processOpInner(request, namespace=this.namespace) {
     const Op = request.Op || request.op;
     const Path = request.Path || request.path;
     const Dest = request.Dest || request.dest;
 
     const Input = this.inflateInput(request.Input || request.input);
-    console.log('--> inbound operation:', Op, Path, Dest);
+    console.debug('--> inbound operation:', Op, Path, Dest);
 
     switch (Op) {
       case 'ping':
@@ -49,7 +67,8 @@ class NsExport {
         } else if (entry.get) {
           const value = await entry.get();
           if (value) return value;
-          throw new Error(`Path doesn't exist: ${Path}`);
+          //throw new Error(`Path doesn't exist: ${Path}`);
+          return null;
         } else {
           throw new Error(`Entry at ${Path} isn't gettable`);
         }
@@ -62,6 +81,16 @@ class NsExport {
           return await entry.put(Input);
         } else {
           throw new Error(`Entry at ${Dest} isn't puttable`);
+        }
+
+      case 'unlink':
+        var entry = await namespace.getEntry(Path);
+        if (!entry) {
+          throw new Error(`Path not found: ${Path}`);
+        } else if (entry.put) {
+          return await entry.put(null);
+        } else {
+          throw new Error(`Entry at ${Path} isn't unlinkable`);
         }
 
       case 'enumerate':
@@ -91,7 +120,26 @@ class NsExport {
           return await entry.subscribe(depth, newChan);
         } else if (entry.enumerate) {
           return await EnumerateIntoSubscription(entry.enumerate, depth, newChan);
-        } else {
+        } else if (entry.get) {
+          return newChan.invoke(async c => {
+            try {
+              const literal = await entry.get();
+              if (literal) {
+                literal.Name = 'entry';
+                c.next(new FolderLiteral('notif', [
+                  new StringLiteral('type', 'Added'),
+                  new StringLiteral('path', ''),
+                  literal,
+                ]));
+              }
+              c.next(new FolderLiteral('notif', [
+                new StringLiteral('type', 'Ready'),
+              ]));
+            } finally {
+              c.error(new StringLiteral('nosub',
+                  `This entry does not implement reactive subscriptions`));
+            }
+          });
           throw new Error(`Entry at ${Path} isn't subscribable`);
         }
 
@@ -120,6 +168,8 @@ class NsExport {
         } else if (output.get) {
           // otherwise just return a flattened output
           return await output.get();
+        } else if (output.Type) {
+          return output;
         } else if (output) {
           throw new Error(`Output of ${Path} isn't gettable, please use Dest`);
         }

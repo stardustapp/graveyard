@@ -13,6 +13,7 @@ class IdbTreestoreMount {
     this.store = opts.store; // string name
 
     this.nidSubs = new Map; // of Sets
+    this.ready = this.init();
   }
 
   async init() {
@@ -64,6 +65,7 @@ class IdbTreestoreMount {
   }
 
   async routeNidEvent(nid, event) {
+    console.log('nid event', nid, event);
     if (this.nidSubs.has(nid)) {
       const txn = new IdbTransaction(this, 'readonly');
       const subs = this.nidSubs.get(nid);
@@ -92,28 +94,26 @@ class IdbPath {
     const handle = await txn.walkPath(this.path);
 
     if (!handle.exists()) {
-      return null;
-      //throw new Error(`Path ${this.path} doesn't exist, can't be gotten`);
+      //return null;
+      throw new Error(`Path ${this.path} doesn't exist, can't be gotten`);
     }
     return handle.current().shallowExport();
   }
 
   async put(obj) {
-    console.log('putting', obj, 'to', this.path);
+    //console.log('putting', obj, 'to', this.path);
 
     const txn = new IdbTransaction(this.mount, 'readwrite');
-    const newNid = await txn.createNode(obj);
+    const newNid = (obj === null) ? null : await txn.createNode(obj);
 
     const handle = await txn.walkPath(this.path);
     const parent = handle.parent();
     if (!parent.nid) {
       // TODO: implement this like mkdirp?
-      console.warn(`Failed to put to ${this.path} because the direct parent doesn't exist`);
-      return false;
+      throw new Error(`Failed to put to ${this.path} because the direct parent doesn't exist`);
     }
     await handle.replaceCurrent(txn, newNid);
     await txn.innerTxn.complete;
-    return true;
   }
 
   async enumerate(enumer) {
@@ -174,6 +174,14 @@ class IdbTransaction {
     }
   }
 
+  makeRandomNid() {
+    let nid = Math.random().toString(16).slice(2);
+
+    // pad out nid if it ended in zeroes
+    if (nid.length >= 13) return nid;
+    return nid + new Array(14 - nid.length).join('0');
+  }
+
   // Accepts a Skylink-format literal entry,
   // and stores a sanitized version under an unallocated NID.
   // The transaction must be opened in 'readwrite' mode.
@@ -182,8 +190,9 @@ class IdbTransaction {
     const newNode = {
       name: literal.Name,
       type: literal.Type,
-      nid: forcedNid || Math.random().toString(16).slice(2),
+      nid: forcedNid || this.makeRandomNid(),
     }
+
     switch (literal.Type) {
       case 'Folder':
         // recursively store children too
@@ -200,12 +209,12 @@ class IdbTransaction {
       case 'String':
         newNode.raw = literal.StringValue || '';
         break;
-        
+
       default:
         throw new Error(`Failed to map IDB type ${this.node.type} for createNode()`);
     }
     await this.objectStore.add(newNode); // throws if exists
-    console.log('Created IDB node:', newNode);
+    //console.log('Created IDB node:', newNode);
     return newNode.nid;
   }
 }
@@ -214,18 +223,23 @@ class IdbTransaction {
 class IdbHandle {
   constructor(txn) {
     this.txn = txn;
-    this.nids = []
-    this.stack = [];
+    this.nids = new Array;
+    this.stack = new Array;
+    this.names = new Array;
   }
   async init() {
     this.nids = ['root'];
     this.stack = [await this.txn.getNodeByNid('root')];
+    this.names = [''];
     return this;
   }
 
   // Helpers to work with the stack
   current() {
     return this.stack[this.stack.length - 1];
+  }
+  currentName() {
+    return this.names[this.stack.length - 1];
   }
   exists() {
     return this.current().constructor === IdbExtantNode;
@@ -245,6 +259,7 @@ class IdbHandle {
     if (path.startsWith('/')) {
       this.stack = [this.root()];
       this.nids = ['root'];
+      this.names = [''];
       path = path.slice(1);
     }
     if (!path.length) {
@@ -270,6 +285,7 @@ class IdbHandle {
       if (this.stack.length > 1) {
         this.stack.pop();
         this.nids.pop();
+        this.names.pop();
       }
       return;
     }
@@ -283,6 +299,7 @@ class IdbHandle {
       if (child) {
         this.stack.push(await this.txn.getNodeByNid(child[1]));
         this.nids.push(child[1]);
+        this.names.push(name);
         return true;
       }
     }
@@ -290,6 +307,7 @@ class IdbHandle {
     // no node? pathing into emptiness. don't complain tho
     this.stack.push(new IdbGhostNode(name));
     this.nids.push('');
+    this.names.push(name);
     return false;
   }
 
@@ -298,33 +316,53 @@ class IdbHandle {
       throw new Error(`Can't replace the root node`);
     }
     const oldChild = this.current();
+    const childName = this.currentName();
     const parent = this.parent();
-    
+
     if (parent.constructor !== IdbExtantNode) {
       throw new Error(`Can't replace node, parent is not extant`);
     }
     this.stack.pop();
     this.nids.pop();
+    this.names.pop();
 
-    if (oldChild.constructor === IdbExtantNode) {
-      console.log('IDB overwriting', this.path);
+    if (oldChild.constructor === IdbExtantNode && newNid) {
+      //console.log('IDB overwriting', this.names.join('/'), childName);
       parent.obj.children = parent.obj.children
           .filter(x => x[1] !== oldChild.nid);
+      parent.obj.children.push([childName, newNid]);
       this.txn.mount.routeNidEvent(parent.obj.nid, {
-        op: 'remove-child',
-        child: oldChild.name,
+        op: 'replace-child',
+        child: childName,
+        oldNid: oldChild.nid,
+        nid: newNid,
       });
-    }
 
-    parent.obj.children.push([oldChild.name, newNid]);
+    } else {
+      if (oldChild.constructor === IdbExtantNode) {
+        //console.log('IDB removing', this.names.join('/'), childName);
+        parent.obj.children = parent.obj.children
+            .filter(x => x[1] !== oldChild.nid);
+        this.txn.mount.routeNidEvent(parent.obj.nid, {
+          op: 'remove-child',
+          child: childName,
+          oldNid: oldChild.nid,
+        });
+      }
+
+      if (newNid) {
+        parent.obj.children.push([childName, newNid]);
+        this.txn.mount.routeNidEvent(parent.obj.nid, {
+          op: 'assign-child',
+          child: childName,
+          nid: newNid,
+        });
+      }
+    }
     await this.txn.objectStore.put(parent.obj);
-    this.txn.mount.routeNidEvent(parent.obj.nid, {
-      op: 'assign-child',
-      child: oldChild.name,
-      nid: newNid,
-    });
+
     // TODO: delay events until transaction is completed
-    await this.walkName(oldChild.name);
+    await this.walkName(childName);
   }
 }
 
@@ -379,9 +417,13 @@ class IdbExtantNode extends IdbNode {
 
     // and recurse...
     if (this.obj.type === 'Folder' && this.obj.children.length > 0 && enumer.canDescend()) {
-      for (const [name, nid] of this.obj.children) {
+      const children = await Promise.all(this.obj
+        .children.map(([name, nid]) =>
+          txn.getNodeByNid(nid)
+            .then(node => [name, node])));
+
+      for (const [name, child] of children) {
         enumer.descend(name);
-        const child = await txn.getNodeByNid(nid);
         await child.enumerate(enumer, txn);
         enumer.ascend();
       }
@@ -401,8 +443,9 @@ class IdbSubscription {
     this.depth = depth;
     this.channel = channel;
 
-    // If any of these change, we restart the whole sub
+    // If any of these change, we might restart the whole sub
     this.parentNids = new Set;
+    this.parentStack = new Array;
     // IDB-side root node - when this changes, the sub basically restarts
     this.currentNode = null;
     // A copy of the root IdbSubNode sent to the client
@@ -419,6 +462,7 @@ class IdbSubscription {
 
     // Register the path down to the sub's root node
     this.parentNids = new Set;
+    this.parentStack = handle.stack;
     handle.nids
       .filter(nid => nid)
       .forEach(nid => {
@@ -429,9 +473,6 @@ class IdbSubscription {
     if (this.currentNode.constructor === IdbExtantNode) {
       this.rootNode = new IdbSubNode(this.currentNode.nid, '', this.depth);
       await this.rootNode.transmitEntry(this, txn, false);
-      console.log('all done initial sync');
-    } else {
-      console.log(`Subscription made to ghost entry`, this.rootPath.path);
     }
   }
 
@@ -448,6 +489,7 @@ class IdbSubscription {
     });
 
     // structure reset
+    this.parentStack.length = [];
     this.parentNids.clear();
     this.currentNode = null;
     this.nidMap.clear();
@@ -466,17 +508,25 @@ class IdbSubscription {
   }
 
   async processNidEvent(nid, txn, event) {
-    console.log('sub processing NID event', nid, event);
-    
-    if (this.parentNids.has(event.nid)) {
-      console.log(`one of sub's parent NIDs changed, resetting`);
+    //console.debug('sub processing NID event', nid, event);
+
+    if (this.changesParentStack(nid, event)) {
+      console.log(`one of sub's parent NIDs changed, resetting`, nid);
       this.reset();
       await this.start();
-    }
 
-    if (this.nidMap.has(nid)) {
+    } else if (this.nidMap.has(nid)) {
       const node = this.nidMap.get(nid);
       await node.processEvent(this, txn, event);
+    }
+  }
+
+  changesParentStack(nid, event) {
+    if (!this.parentNids.has(nid)) return false;
+    for (let idx = 0; idx < this.parentStack.length - 1; idx++) {
+      const parent = this.parentStack[idx];
+      const child = this.parentStack[idx+1];
+      if (parent.nid === nid && child.name === event.child) return true;
     }
   }
 }
@@ -489,7 +539,7 @@ class IdbSubNode {
     this.children = new Map; // nid->IdbSubNode
     this.childPrefix = path + (path ? '/' : '');
   }
-  
+
   // given a sub and IDB transaction, recursively send shallow exports to the client
   async transmitEntry(sub, txn, asChanged=false) {
     const node = await txn.getNodeByNid(this.nid);
@@ -536,7 +586,7 @@ class IdbSubNode {
   }
 
   // Process events on this nid
-  // Currently, the only mutable aspect of a nid 
+  // Currently, the only mutable aspect of a nid is a Folder's child listing
   async processEvent(sub, txn, event) {
     switch (event.op) {
       case 'remove-child':
@@ -556,7 +606,16 @@ class IdbSubNode {
           await childNode.transmitEntry(sub, txn, false);
         }
         break;
-      
+
+      case 'replace-child':
+        if (this.height > 0) {
+          const childNode = new IdbSubNode(event.nid,
+              this.childPrefix+encodeURIComponent(event.child), this.height - 1);
+          this.children.set(event.child, childNode);
+          await childNode.transmitEntry(sub, txn, true);
+        }
+        break;
+
       default:
         console.warn('idb subnode', this, 'got unimpl event', event);
     }

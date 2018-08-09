@@ -23,7 +23,6 @@ class SkylinkPostHandler extends WSC.BaseHandler {
         new Uint8Array(this.request.body)));
 
     const send = (ok, output) => {
-      console.log('<-- op was', ok ? 'okay' : 'not ok');
       this.sendResponse({
         Ok: ok,
         Output: output,
@@ -43,6 +42,11 @@ class SkylinkPostHandler extends WSC.BaseHandler {
   }
 }
 
+let openWsChannels = 0;
+setInterval(() => {
+  Datadog.Instance.gauge('skylink.channel.open_count', openWsChannels, {transport: 'websocket'});
+});
+
 class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   constructor(nsExport) {
     super();
@@ -61,11 +65,18 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
 
   sendJson(body) {
-    this.write_message(JSON.stringify(body));
+    if (this.ws_connection) {
+      this.write_message(JSON.stringify(body));
+    } else {
+      console.warn(`TODO: channel's downstream websocket isnt connected anymore`)
+    }
   }
 
   // Given a function that gets passed a newly-allocated channel
   async newChannelFunc(input) {
+    Datadog.Instance.count('skylink.channel.opens', 1, {transport: 'websocket'});
+    openWsChannels++;
+
     const chanId = this.nextChan++;
     const channel = {
       channelId: chanId,
@@ -79,6 +90,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
           Chan: chanId,
           Output: value,
         });
+        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'websocket', status: 'next'});
       },
       stop(message) {
         this.sendJson({
@@ -86,6 +98,8 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
           Chan: chanId,
           Output: message,
         });
+        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'websocket', status: 'stop'});
+        openWsChannels--;
       },
     }
     this.channels.set(chanId, channel);
@@ -93,7 +107,6 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
 
   sendOutput(ok, output) {
-    console.log('<-- op was', ok ? 'okay' : 'not ok');
     this.sendJson({
       Ok: ok,
       Output: output,
@@ -102,19 +115,14 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
 
   // These functions are invoked by the websocket processor
   open() {
-    console.log('ws open', this);
-
     // offer async response follow-ups with channels
     // mount in env for processing code
-    const channels = new Map();
-    var nextChan = 1;
     this.localEnv.mount('/channels/new', 'function', {
       invoke: this.newChannelFunc.bind(this),
     });
   }
   on_message(msg) {
     var request = JSON.parse(msg);
-    console.log('got ws message', request);
     if (this.isActive) {
       this.reqQueue.push(request);
     } else {
@@ -162,6 +170,13 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
 class SkylinkPingHandler extends WSC.BaseHandler {
   constructor() {
     super();
+  }
+
+  head(path) {
+    this.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
+    this.setHeader('Server', HttpServer.SERVER_HEADER);
+    this.writeHeaders(200);
+    this.finish();
   }
 
   get(path) {

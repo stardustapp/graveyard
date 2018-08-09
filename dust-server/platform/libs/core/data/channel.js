@@ -3,6 +3,7 @@ class Channel {
   constructor(id) {
     this.id = id;
     this.queue = ['waiting'];
+    this.callbacks = {};
 
     this.burnBacklog = this.burnBacklog.bind(this);
   }

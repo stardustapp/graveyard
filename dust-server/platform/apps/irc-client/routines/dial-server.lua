@@ -36,7 +36,7 @@ if wireUri ~= "" then
     local status = ctx.read(wire, "state")
     ctx.log("Found wire for", configName, "with status", status)
     if status == "Ready" or status == "Pending" then
-      ctx.store(state, "wire", wire)
+      ctx.store("state", "networks", configName, "wire", wire)
       ctx.store(state, "status", status)
       ctx.startRoutine("maintain-wire", {network=configName})
       return
@@ -49,7 +49,7 @@ end
 -- There is no live wire. Let's see if we can dial out.
 ctx.log("Dialing new IRC wire for", configName)
 ctx.store(state, "status", "Dialing")
-local wireUri = ctx.invoke("session", "drivers", "irc-dialer", "dial", config)
+local wireUri = ctx.invoke("dialer", "dial", ctx.readDir(config))
 
 -- If we can't, there's nothing else to do. Bail.
 if not wireUri then
@@ -81,6 +81,6 @@ if wire == nil then
 else
   ctx.log("Dialed", configName, ":)")
   ctx.store(persist, "wire-uri", wireUri)
-  ctx.store(state, "wire", wire)
+  ctx.store("state", "networks", configName, "wire", wire)
   ctx.startRoutine("maintain-wire", {network=configName})
 end

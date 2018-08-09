@@ -2,6 +2,10 @@
 //  x => x.subscribe(this.path+'/latest', {maxDepth: 0})
 //      .then(chan => new SingleSubscription(chan));
 
+setTimeout(() => {
+  skylinkP.then(x => x.mkdirp('/config/networks'));
+}, 1000);
+
 Vue.component('context-listing', {
   template: '#context-listing',
   props: {
@@ -155,7 +159,7 @@ Vue.component('status-activity', {
         case 'PART':
           return `${nickName} left (${extraPath}) ${this.msg.params[1] || ''}`;
         case 'KICK':
-          return `${nickName} kicked ${this.msg.params[1]} from ${this.msg.params[0]} (${this.msg.params[1] || ''})`;
+          return `${nickName} kicked ${this.msg.params[1]} from ${this.msg.params[0]} (${this.msg.params[2] || ''})`;
         case 'QUIT':
           return `${nickName} quit (${extraPath}) ${this.msg.params[0] || ''}`;
         case 'NICK':
@@ -216,11 +220,11 @@ const ViewContext = Vue.component('view-context', {
   },
   computed: {
     path() {
-      const netPath = `persist/irc/networks/${this.network}`;
+      const netPath = `persist/networks/${encodeURIComponent(this.network)}`;
       if (this.type === 'server') {
         return netPath;
       }
-      return `${netPath}/${this.type}/${this.context}`;
+      return `${netPath}/${encodeURIComponent(this.type)}/${encodeURIComponent(this.context)}`;
     },
     logPath() {
       if (this.type === 'server') {
@@ -271,193 +275,23 @@ const ViewContext = Vue.component('view-context', {
     },
 
     joinChan() {
-      this.sendGenericPayload('JOIN', [this.context]);
+      this.doCommand('join');
     },
 
-    // sends raw IRC (command & args) to current network
-    sendGenericPayload(cmd, args) {
-      const sendFunc = '/runtime/apps/irc/namespace/state/networks/' + this.network + '/wire/send/invoke';
-      const command = cmd.toUpperCase()
-      const params = {};
-      args.forEach((arg, idx) => params[''+(idx+1)] = arg);
-
-      console.log('sending to', this.network, '-', command, params);
-      return skylink.invoke(sendFunc, Skylink.toEntry('', {command, params}));
-    },
-
-    // send simple PRIVMSG with word wrap
-    sendPrivateMessage(target, msg) {
-      // wrap messages to prevent truncation at 512
-      // TODO: smarter message cutting based on measured prefix
-      const maxLength = 400 - target.length;
-      var msgCount = 0;
-      var offset = 0;
-      const sendNextChunk = () => {
-        var thisChunk = msg.substr(offset, maxLength);
-        if (thisChunk.length === 0) {
-          return Promise.resolve(msgCount);
-        }
-        msgCount++;
-
-        // not the last message? try chopping at a space
-        const lastSpace = thisChunk.lastIndexOf(' ');
-        if ((offset + thisChunk.length) < msg.length && lastSpace > 0) {
-          thisChunk = thisChunk.slice(0, lastSpace);
-          offset += thisChunk.length + 1;
-        } else {
-          offset += thisChunk.length;
-        }
-
-        return this
-          .sendGenericPayload('PRIVMSG', [target, thisChunk])
-          .then(sendNextChunk);
-      };
-      return sendNextChunk();
-    },
-
-    sendMessage(msg, cbs) {
-      console.log('send message', msg);
-
-      this.sendPrivateMessage(this.context, msg)
-        .then((x) => cbs.accept(), (err) => cbs.reject(err));
-    },
-
-    execCommand(cmd, args, cbs) {
-      var promise;
-      switch (cmd.toLowerCase()) {
-
-        // a few things are just helpers for talking
-
-        case 'me':
-          promise = this.sendGenericPayload("CTCP", [this.context, "ACTION", args.join(' ')]);
-          break;
-        case 'say':
-          promise = this.sendPrivateMessage(this.context, args.join(' '));
-          break;
-        case 'shrug':
-          var shrug = '¯\\_(ツ)_/¯';
-          if (args.length) {
-            shrug = args.join(' ') + ' ' + shrug;
-          }
-          promise = this.sendPrivateMessage(this.context, shrug);
-          break;
-        case 'slap':
-          if (args[0]) {
-            promise = this.sendGenericPayload("CTCP", [
-              this.context, "ACTION",
-              `slaps ${args.join(' ')} around a bit with a large trout`]);
-          }
-          break;
-        case 'hi5':
-          if (args[0]) {
-            promise = this.sendGenericPayload("CTCP", [
-              this.context, "ACTION",
-              `_o/\\o_ ${args.join(' ')}`]);
-          }
-          break;
-
-        // commands that pass as-is to IRC server
-        case 'whois':
-        case 'whowas':
-        case 'who':
-        case 'links':
-        case 'map':
-        case 'accept':
-        case 'help':
-        case 'userhost':
-        case 'ison':
-        case 'motd':
-        case 'time':
-        case 'nick':
-        case 'mode':
-        case 'stats':
-        case 'ping':
-        // and also some of these i guess
-        case 'chanserv':
-        case 'nickserv':
-        case 'cs':
-        case 'ns':
-          promise = this.sendGenericPayload(cmd, args);
-          break;
-
-        case 'j':
-        case 'join':
-          promise = this.sendGenericPayload('join', args);
-          break;
-
-        case 'p':
-        case 'part':
-          promise = this
-            .sendGenericPayload(cmd, [this.context, args.join(' ') || 'Leaving']);
-          break;
-
-        case 'invite':
-          promise = this
-            .sendGenericPayload(cmd, [args[0], args[1] || this.context]);
-          break;
-
-        case 'who':
-        case 'topic':
-        case 'names':
-          promise = this
-            .sendGenericPayload(cmd, [args[0] || this.context]);
-          break;
-
-        case 'cycle':
-          promise = this
-            .sendGenericPayload('PART', [this.context, args.join(' ') || 'Cycling'])
-            .then(() => this.sendGenericPayload('JOIN', [this.context]));
-          break;
-
-        case 'q':
-        case 'quit':
-          promise = this
-            .sendGenericPayload(cmd, [args.join(' ') || 'User quit']);
-          break;
-
-        case 'away':
-          if (args.length) {
-            promise = this.sendGenericPayload(cmd, [args.join(' ')]);
-          } else {
-            promise = this.sendGenericPayload(cmd, []);
-          }
-          break;
-
-        case 'msg':
-          promise = this
-            .sendPrivateMessage(args[0], args.slice(1).join(' '));
-          break;
-
-        case 'notice':
-          promise = this
-            .sendGenericPayload(cmd, [args[0], args.slice(1).join(' ')]);
-          break;
-
-        case 'ctcp':
-          promise = this
-            .sendGenericPayload("CTCP", [args[0], args[1], args.slice(2).join(' ')]);
-          break;
-
-        case 'raw':
-        case 'quote':
-          const trailingIdx = args.findIndex(x => x.startsWith(':'));
-          if (trailingIdx != -1) {
-            const trailing = args.slice(trailingIdx).join(' ').slice(1);
-            args.splice(trailingIdx, args.length-trailingIdx, trailing);
-          }
-
-          promise = this
-            .sendGenericPayload(args[0], args.slice(1));
-          break;
-
-        default:
-          alert(`Command /${cmd.toLowerCase()} doesn't exist`);
-          cbs.reject();
+    doCommand(command, argument='', cbs={}) {
+      // support pre-split arguments for high-fidelity multiargs
+      if (argument.constructor !== String) {
+        const params = {};
+        argument.forEach((arg, idx) => params[''+(idx+1)] = arg);
+        argument = params;
       }
 
-      if (promise) {
-        promise.then((x) => cbs.accept(), (err) => cbs.reject(err))
-      }
+      console.log('sending to', this.network, this.context, '-', command, argument);
+      return skylink.invoke('/workloads/command/invoke/invoke', Skylink.toEntry('', {
+        network: this.network,
+        target: this.context,
+        command, argument,
+      })).then(cbs.accept, cbs.reject);
     },
 
     setLatestSeen(id) {
@@ -720,20 +554,10 @@ Vue.component('send-message', {
         },
       };
 
-      if (input[0] == '/') {
-        var cmd = input.slice(1);
-        var args = [];
-        const argIdx = cmd.indexOf(' ');
-        if (argIdx != -1) {
-          args = cmd.slice(argIdx+1).split(' '); // TODO: better story here
-          cmd = cmd.slice(0, argIdx);
-        }
-        this.$emit('command', cmd, args, cbs);
-      } else {
-        var msg = Promise.resolve(input);
-
-        // pastebin if we want to
-        if (this.shouldPastebin) {
+      if (this.shouldPastebin) {
+        alert('#TODO: pastebin not impl');
+        cbs.reject();
+        /*
           const filename = 'p'+Skylink.randomId()+'.txt';
           const {domainName, chartName} = orbiter.launcher;
           const httpUri = `https://${domainName}/~${chartName}/blobs/pastes/${filename}`;
@@ -741,17 +565,19 @@ Vue.component('send-message', {
             .mkdirp('/persist/blobs/uploads')
             .then(() => skylink.putFile('/persist/blobs/pastes/'+filename, input))
             .then(() => 'pastebin: '+httpUri);
-        }
+        */
 
-        msg.then(text => {
-          text.split('\n').slice(0, 15).forEach(line => {
-            this.$emit('message', line, cbs);
-          });
-        }, err => {
-          alert('msg send failed: '+err);
-          console.log('msg send failed:', err);
-          cbs.reject();
-        });
+      } else if (input[0] == '/') {
+        var cmd = input.slice(1);
+        var arg = '';
+        const argIdx = cmd.indexOf(' ');
+        if (argIdx != -1) {
+          arg = cmd.slice(argIdx+1);
+          cmd = cmd.slice(0, argIdx);
+        }
+        this.$emit('command', cmd, arg, cbs);
+      } else {
+        this.$emit('command', 'say', input, cbs);
       }
     },
   },
@@ -765,6 +591,7 @@ const MissingRouteHandler = Vue.component('missing-route', {
     <span>Welcome to Skychat!</span>
   </h2>
   <p>Select a channel to get started :)</p>
+  <p><a href="config.html">Settings & Network Configuration</a></p>
   <p>Built and hosted by <a href="http://danopia.net" target="_blank">Daniel Lamando</a></p>
   <p class="ps-note">PS: No channels? Your profile might not be provisioned for IRC.</p>
 </div>`,

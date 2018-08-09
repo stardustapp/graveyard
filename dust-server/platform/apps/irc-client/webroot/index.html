@@ -85,8 +85,7 @@
             :networkName="network"
             :chanPath="path"
             members="memberList"
-            @message="sendMessage"
-            @command="execCommand"
+            @command="doCommand"
           />
       </div>
 
@@ -234,7 +233,7 @@
 
     <sky-foreach
       el="div"
-      path="persist/irc/networks"
+      path="persist/networks"
       fields="current-nick umodes"
       :depth="1">
     <template slot="item" slot-scope="net">

@@ -2,24 +2,15 @@ class AccountManager {
   constructor(idb, packageManager) {
     this.idb = idb;
     this.packageManager = packageManager;
-    this.promises = new Map;
+
+    this.accounts = new LoaderCache(this
+        .loadAccount.bind(this));
   }
 
   // Manage each session as a singleton
   // TODO: update lastUsed like once a minute
-  /*async*/ getAccount(accountId) {
-    if (this.promises.has(accountId))
-      return this.promises.get(accountId);
-    const promise = this.loadAccount(accountId);
-    this.promises.set(accountId, promise);
-    promise.catch(err => {
-      this.promises.delete(accountId);
-      return err;
-    });
-    return promise;
-  }
   /*async*/ getById(aid) {
-    return this.getAccount(aid);
+    return this.accounts.getOne(aid, aid);
   }
 
   async getAllForDomain(domain) {
@@ -30,7 +21,7 @@ class AccountManager {
       .getAll();
     return await Promise.all(all
       .filter(r => r.did == domain.record.did)
-      .map(r => this.getAccount(r.aid)));
+      .map(r => this.getById(r.aid)));
   }
 
   async loadAccount(accountId) {
@@ -43,7 +34,7 @@ class AccountManager {
 
     const account = new Account(record);
     await account.open();
-    ToastNotif(`Loaded account: ${account.address()}`);
+    //ToastNotif(`Loaded account: ${account.address()}`);
 
     const apps = await this.packageManager.getInstalledApps(account);
     await Promise.all(apps.map(app => {
@@ -96,14 +87,13 @@ class AccountManager {
       throw err;
     }
 
-    const account = new Account(record);
+    const account = await this.getById(record.aid);
     ToastNotif(`New account registration: ${account.address()} by ${email} - ${realname}`);
 
     if (domain.webEnv) {
       console.log('Hot-mounting new account', username, 'into domain', domain.record.primaryFqdn);
       domain.webEnv.bind('/~'+username, account.webEnv);
     }
-
     return account;
   }
 
@@ -137,7 +127,10 @@ class AccountManager {
     for (const mount of mounts) {
       if (mount.type === 'bind' && mount.source.startsWith('/')) { // TODO: verify remotes too
         const entry = await account.env.getEntry(mount.source);
-        const literal = entry && await entry.get();
+        let literal;
+        try {
+          if (entry) literal = await entry.get();
+        } catch (err) {}
         if (literal) continue;
 
         if (mount.createIfMissing) {
@@ -150,17 +143,23 @@ class AccountManager {
             const curPath = '/'+curParts.join('/');
 
             const curEntry = await account.env.getEntry(curPath);
-            const literal = curEntry && await curEntry.get();
+            let literal;
+            try {
+              if (entry) literal = await curEntry.get();
+            } catch (err) {}
             if (literal) continue; // exists!
 
             if (!curEntry || !curEntry.put)
               throw new Error('Failed to auto-create folder', curPath, `because it wasn't writable`);
             console.warn('Creating folder', curPath, 'for', account.address());
-            const ok = await curEntry.put(new FolderLiteral(decodeURIComponent(part)));
-            if (!ok)
+            try {
+              await curEntry.put(new FolderLiteral(decodeURIComponent(part)));
+            } catch (err) {
+              console.error('Failed to auto-create folder', curPath, err);
               throw new Error('Failed to auto-create folder', curPath, `- just didn't work`);
+            }
           }
-        } else {
+        } else if (!mount.skipIfMissing) {
           throw new Error(`App install lists "${mount.source}" but that path wasn't found`);
         }
       }

@@ -17,7 +17,7 @@ class Session {
         switch (mount.type) {
           case 'bind':
             if (mount.source.startsWith('/')) {
-              const device = this.account.env.getSubPathEnv(mount.source);
+              const device = this.account.env.pathTo(mount.source);
               this.env.bind('/mnt'+mount.target, device);
 
 

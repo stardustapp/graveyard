@@ -1,133 +1,97 @@
-class Workload {
-  constructor(record, session) {
+class Workload extends PlatformApi  {
+  constructor(record, session, runtime) {
+    super(`workload ${record.wid} ${record.wlKey} ${record.appKey}`);
+
     this.record = record;
     this.session = session;
-  }
-}
+    this.runtime = runtime;
 
-class DaemonWorkload extends Workload {
-  constructor(record, session) {
-    super(record, session);
-    console.warn('------- DAEMON UP:', record.spec.displayName);
+    const {wid, wlKey, spec} = record;
+    this.getter('/display name', String, () => spec.displayName);
+    this.getter('/type', String, () => spec.type);
+    this.getter('/config/runtime type', String, () => spec.runtime);
+    this.getter('/config/source uri', String, () => spec.sourceUri);
+
+    switch (spec.type) {
+      case 'daemon':
+        console.info('workload api daemon', )
+        this.getter('/has worker', Boolean, () => !!this.runtime);
+        this.getter('/session uri', String, () => this.session.uri);
+        this.function('/restart', {
+          async impl() {
+            console.log('restarting', this, 'on user request');
+            await this.stop('restart');
+            await this.init();
+          }
+        });
+        break;
+
+      case 'function':
+        break;
+    }
+
     this.ready = this.init();
   }
 
   async init() {
+    const fd = await this.runtime
+      .bindFd(this.session.env);
+
     const {wid, wlKey, spec} = this.record;
+    switch (spec.type) {
 
-    this.worker = new RuntimeWorker(spec.runtime);
-    const fd = await this.worker.bindFd(this.session.env);
-    const response = await this.worker
-      .invokeApi('start workload', {
-        wid, spec,
-        basePath: fd+'/mnt',
-      });
-    console.log('worker started:', response);
-  }
+      case 'daemon':
+        console.log('daemon started:', await this.runtime
+          .invokeApi('start daemon', {
+            wid, spec,
+            basePath: fd+'/mnt',
+          }));
+        break;
 
-  onWorkerMessage(evt) {
-    console.log('lua worker event:', evt);
+      case 'function':
+        await this.runtime
+          .invokeApi('load function', {
+            wid, spec,
+            basePath: fd+'/mnt',
+          });
+
+        this.function('/invoke', {
+          input: {
+            network: String,
+            target: String,
+            command: String,
+            argument: '',
+          },
+          output: Boolean,
+          impl(input) {
+            console.log('invoking', this, 'on user request');
+            return this.runtime
+              .invokeApi('run function', {
+                wid: wid,
+                input: Skylink.toEntry('input', input),
+              });
+          }
+        });
+        break;
+
+      default:
+        console.warn('"Started" unknown app workload type', spec.type);
+    }
+
+    return this;
   }
 
   async stop(reason) {
-    const {wid} = this.record;
-    const response = await this.worker
-      .invokeApi('stop workload', {wid, reason});
-    console.log('worker stopped:', response);
-  }
-}
+    const {wid, spec} = this.record;
+    switch (spec.type) {
 
-class RuntimeWorker extends Worker {
-  constructor(runtimeName) {
-    super(`daemon/runtimes/${runtimeName}.js`);
-    this.runtimeName = runtimeName;
+      case 'daemon':
+        const response = await this.runtime
+          .invokeApi('stop daemon', {wid, reason});
+        console.log('daemon stopped:', response);
 
-    this.onmessage = this.handleMessage.bind(this);
-
-    this.env = new Environment();
-    this.nsExport = new NsExport(this.env);
-    this.nextFd = 1;
-
-    this.pendingIds = new Map;
-    this.nextId = 1;
-  }
-
-  async bindFd(target) {
-    const fd = `/fd/${this.nextFd++}`;
-    await this.env.bind(fd, target);
-    return fd;
-  }
-
-  handleMessage(evt) {
-    const {Id, Ok, Op} = evt.data;
-    if (Op) {
-      this.processRuntimeOp(evt.data);
-    } else if (this.pendingIds.has(Id)) {
-      const future = this.pendingIds.get(Id);
-      this.pendingIds.delete(Id);
-      future.resolve(evt.data);
-    } else {
-      throw new Error(`BUG: kernel got message for non-pending thing`);
+      default:
+        console.warn('"Stopped" unknown app workload type', spec.type);
     }
-  }
-
-  processRuntimeOp(request) {
-    this.nsExport
-      .processOp(request)
-      .then(output => {
-        this.postMessage({
-          Ok: true,
-          Id: request.Id,
-          Output: output,
-        });
-      }, (err) => {
-        console.warn('!!! Kernel syscall failed with', err);
-        this.postMessage({
-          Ok: false,
-          Id: request.Id,
-          Output: {
-            Type: 'String',
-            Name: 'error-message',
-            StringValue: err.message,
-          },
-        });
-      });
-  }
-
-  async volley(request) {
-    request.Id = this.nextId++;
-    const response = await new Promise(resolve => {
-      this.pendingIds.set(request.Id, {request, resolve});
-      this.postMessage(request);
-    });
-
-    if (response.Op) {
-      throw new Error(`huh`);
-    } else if (response.Ok) {
-      console.debug('RuntimeWorker response was ok:', response);
-      return response;
-    } else {
-      const output = response.Output || {};
-      let error;
-      if (output.Type === 'Error') {
-        const justMessage = output.Type === 'Error' ?
-            output.StringValue.split('\n')[0].split(': ')[1] : '';
-        throw new Error(`(in ${this.runtimeName} runtime) ${justMessage}`);
-      } else {
-        throw new Error(`Runtime message wasn't okay`);
-      }
-    };
-  }
-
-  async invokeApi(path, input) {
-    const response = await this.volley({
-      Op: 'invoke',
-      Path: '/api/'+path,
-      Input: {
-        Type: 'JS',
-        Data: input,
-      }
-    });
-    return response.Output.Data;
   }
 }

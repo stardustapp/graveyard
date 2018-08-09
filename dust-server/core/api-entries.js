@@ -67,3 +67,11 @@ class BlobLiteral {
     return `<Blob ${JSON.stringify(this.Name)} ${JSON.stringify(this.Mime)}>`;
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    FolderLiteral,
+    StringLiteral,
+    BlobLiteral,
+  };
+}

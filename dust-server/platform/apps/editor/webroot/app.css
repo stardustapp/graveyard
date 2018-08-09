@@ -66,7 +66,6 @@ ul {
   padding-right: 5px;
 }
 
-
 .folder-name .ctxlist-icon {
   color: #034e6e;
   opacity: 0;
@@ -88,6 +87,9 @@ ul {
 }
 .folder-name .delete-btn:hover {
   color: #f33;
+}
+.folder-name .reload-btn:hover {
+  color: #66f;
 }
 
 

@@ -70,7 +70,7 @@ function writeToLog(log, entry)
   end
 
   -- store using next ID from partition
-  local nextId = ""..(partition.latest + 1)
+  local nextId = ""..((partition.latest + 1) | 0) -- force to integer
   ctx.store(partition.root, nextId, entry)
   ctx.store(partition.root, "latest", nextId)
   partition.latest = nextId
@@ -93,7 +93,7 @@ end
 -- Restore checkpoint from stored state
 local savedCheckpoint = ctx.read(persist, "wire-checkpoint")
 local checkpoint = tonumber(savedCheckpoint) or -1
-ctx.log("Resuming after wire checkpoint", checkpoint)
+ctx.log("Resuming after wire checkpoint", checkpoint, savedCheckpoint)
 
 -- Create some basic folders
 local serverLog   = {
@@ -176,22 +176,22 @@ function handleMention(msg, where, sender, text)
       raw = msg,
     })
 
-  ctx.invoke("session", "notifier", "send-message", {
+  --[[ #TODO ctx.invoke("session", "notifier", "send-message", {
       text = text,
       title = "IRC: "..sender.." mentioned you in "..where,
       level = "2",
       -- link = "https://devmode.cloud/~dan/irc/",
-    })
+    })]]--
 end
 
 function listChannelsWithUser(nick)
   local chans = {}
-  local allChans = ctx.enumerate(channelsCtx, "")
-  for _, chanEnt in ipairs(allChans) do
-    local chan = getChannel(chanEnt.name)
+  local allChans = ctx.readDir(channelsCtx)
+  for chanName in pairs(allChans) do
+    local chan = getChannel(chanName)
 
     if ctx.read(chan.members, nick, "nick") ~= "" then
-      chans[chanEnt.name] = chan
+      chans[chanName] = chan
     end
   end
   return chans
@@ -700,10 +700,10 @@ local handlers = {
     ctx.store(state, "status", "Ready")
 
     ctx.log("Connection is ready - joining all configured channels")
-    local channels = ctx.enumerate(config, "channels")
-    for _, chan in ipairs(channels) do
-      ctx.log("Auto-joining channel", chan.stringValue)
-      sendMessage("JOIN", {["1"] = chan.stringValue})
+    local channels = ctx.readDir(config, "channels")
+    for _, chan in pairs(channels) do
+      ctx.log("Auto-joining channel", chan)
+      sendMessage("JOIN", {["1"] = chan})
     end
     return true
   end,
@@ -1052,13 +1052,14 @@ while healthyWire do
     checkpoint = checkpoint + 1
 
     local message = ctx.readDir(wire, "history", checkpoint)
-    ctx.log("New wire message", message.command)
 
-    if message.command == nil then
-      -- when does this happen?
+    if message == nil then
+      -- we missed history :(
+      -- just skip it... someday tell the user
       ctx.log("Nil command on msg:", message)
 
     elseif message.source ~= "client" or message.command == 'PRIVMSG' or message.command == 'NOTICE' or message.command == 'CTCP' or message.command == 'CTCP_ANSWER' or message.command == 'CAP' then
+      ctx.log("New wire message", message.command)
 
       local handler = handlers[message.command]
       if type(handler) ~= "function" then
@@ -1071,15 +1072,14 @@ while healthyWire do
       end
 
     else
-      -- the message is from us - TODO: privmsg should record, nothing else tho
+      ctx.log("New wire message from us", message.command)
       ctx.store(persist, "wire-checkpoint", checkpoint)
-
     end
   end
 
   -- Ping / check health every minute
   pingCounter = pingCounter + 1
-  if pingCounter > 240 then
+  if pingCounter > 30 then
     sendMessage("PING", {
         ["1"] = "maintain-wire "..ctx.timestamp(),
       })
@@ -1097,7 +1097,7 @@ while healthyWire do
   end
 
   -- Sleep a sec
-  ctx.sleep(250)
+  ctx.sleep(2000)
 end
 
 if ctx.read(state, "status") == "Ready" then

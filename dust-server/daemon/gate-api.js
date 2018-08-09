@@ -54,7 +54,7 @@ class GateApi {
     const sessionId = path.slice(1, slashIdx);
     const subPath = path.slice(slashIdx);
 
-    const session = await this.sessionManager.getSession(sessionId);
+    const session = await this.sessionManager.getById(sessionId);
     if (session) {
       return await session.env.getEntry(subPath);
     } else {
