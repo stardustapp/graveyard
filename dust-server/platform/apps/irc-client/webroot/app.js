@@ -275,7 +275,8 @@ const ViewContext = Vue.component('view-context', {
     },
 
     joinChan() {
-      this.doCommand('join');
+      if (this.type === 'channels')
+        this.doCommand('join', this.context);
     },
 
     doCommand(command, argument='', cbs={}) {
