@@ -14,10 +14,10 @@ importScripts(
   '/src/webapp/core/skylink/client.js',
   '/src/webapp/core/skylink/ns-convert.js',
 
-  '/src/kernel/caching.js',
-  '/src/kernel/tracing.js',
-  '/src/kernel/mkdirp.js',
-  '/src/kernel/path-fragment.js',
+  '/src/lib/caching.js',
+  '/src/lib/tracing.js',
+  '/src/lib/mkdirp.js',
+  '/src/lib/path-fragment.js',
 
   '/vendor/libraries/fengari.js',
   '/vendor/libraries/moment.js',
@@ -27,9 +27,9 @@ importScripts(
   '/src/core/nsexport.js',
   '/src/core/platform-api.js',
 
-  '/src/kernel/runtime-slave-worker.js',
-  '/src/kernel/lua-machine.js',
-  '/src/kernel/lua-api.js',
+  '/src/lib/runtime-slave-worker.js',
+  '/src/lib/lua-machine.js',
+  '/src/lib/lua-api.js',
 );
 delete this.window;
 

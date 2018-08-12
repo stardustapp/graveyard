@@ -18,7 +18,7 @@
         "src/devices/idb-treestore.js", "src/devices/fs-string-dict.js", "src/devices/network-import.js",
           "src/devices/tmp.js", "src/devices/web-filesystem.js",
           "src/devices/app-api.js", "src/devices/sessions-api.js",
-        "src/kernel/datadog.js", "src/kernel/caching.js", "src/kernel/path-fragment.js", "src/kernel/runtime-worker.js",
+        "src/lib/datadog.js", "src/lib/caching.js", "src/lib/path-fragment.js", "src/lib/runtime-worker.js",
         "src/daemon/model/account-manager.js", "src/daemon/model/account.js",
           "src/daemon/model/domain-manager.js", "src/daemon/model/domain.js",
           "src/daemon/model/package-manager.js", "src/daemon/model/package.js",
