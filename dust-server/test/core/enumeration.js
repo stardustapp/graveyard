@@ -1,10 +1,10 @@
 const assert = require('assert');
 const {expect} = require('chai');
 
-const {StringLiteral, FolderLiteral} = require('../../core/api-entries');
+const {StringLiteral, FolderLiteral} = require('../../src/core/api-entries');
 global.StringLiteral = StringLiteral;
 global.FolderLiteral = FolderLiteral;
-const {EnumerationWriter} = require('../../core/enumeration');
+const {EnumerationWriter} = require('../../src/core/enumeration');
 
 describe('EnumerationWriter', function() {
   it('should generally function', function() {

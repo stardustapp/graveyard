@@ -1,6 +1,6 @@
 const assert = require('assert');
 const {expect} = require('chai');
-const {Environment} = require('../../core/environment');
+const {Environment} = require('../../src/core/environment');
 
 describe('Environment', function() {
   it('should generally work', async function() {
