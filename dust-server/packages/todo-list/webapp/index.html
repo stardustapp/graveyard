@@ -1,0 +1,101 @@
+<!doctype html>
+<title>TODONE</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+<link href="/~~libs/vendor/fonts/material-icons.css" type="text/css" rel="stylesheet">
+<link href="/~~libs/vue/vue-app.css" type="text/css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="x-stardust-appid" content="todo-list">
+
+<div id="app">
+  <!-- render top bar w/ connection state and current user -->
+  <sky-session></sky-session>
+
+  <h2>TO-DONE!</h2>
+  <a href="config.html" style="display: block; text-align: center;">Configure themes</a>
+
+  <sky-form
+      action="store-child-folder"
+      path="persist/entries">
+    <input
+        type="hidden"
+        name="status"
+        value="todo"
+      />
+    <sky-datetime-field
+        name="added-at"
+        type="current-timestamp"
+      ></sky-datetime-field>
+
+    <input
+        type="text"
+        name="body"
+        placeholder="What's next?"
+        autofocus
+        required
+      />
+
+      <sky-foreach
+          el="select"
+          path="persist/themes"
+          name="theme"
+          fields="name color"
+          :depth="1">
+        <option slot="header" selected value="">No theme</option>
+        <option slot="item" slot-scope="doc"
+                :key="doc._id" :value="doc._id">{{doc.name}}</option>
+      </sky-foreach>
+
+    <button type="submit">
+      Add the thing
+    </button>
+  </sky-form>
+
+  <p>Here are your things:</p>
+  <sky-foreach
+      el="ul"
+      path="persist/entries"
+      fields="body status theme"
+      :depth="1"
+      :filter="{status: 'todo'}">
+    <li slot="item" slot-scope="doc" :key="doc._id">
+      <label class="hit-area">
+        <sky-action-checkbox
+            :path="doc._path+'/status'"
+            checked-value="done"
+          ></sky-action-checkbox>
+      </label>
+      <span class="body">{{doc.body}}</span>
+      <button class="ice-it sub-action"
+              @click="skyStoreString(doc._path+'/status', 'frozen')">
+        <i class="material-icons">ac_unit</i>
+      </button>
+    </li>
+    <!--template slot="hiddenNotice" slot-scope="props">
+      <li class="completed-count">
+        <em>you've completed {{props.count}} items!</em>
+      </li>
+    </template-->
+  </sky-foreach>
+
+  <p>Icebox!!!!!:</p>
+  <sky-foreach
+      el="ul"
+      path="persist/entries"
+      fields="body status"
+      :depth="1"
+      :filter="{status: 'frozen'}">
+    <li slot="item" slot-scope="doc" :key="doc._id">
+      <button class="thaw-it sub-action"
+              @click="skyStoreString(doc._path+'/status', 'todo')">
+        <i class="material-icons">whatshot</i>
+      </button>
+      <span class="body">{{doc.body}}</span>
+    </li>
+  </sky-foreach>
+</div>
+
+<script src="/~~libs/vendor/libraries/vue.js"></script>
+<script src="/~~libs/core/combined.js"></script>
+<script src="/~~libs/vue/vue-app.js"></script>

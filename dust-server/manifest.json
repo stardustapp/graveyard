@@ -10,23 +10,23 @@
   "app": {
     "background": {
       "scripts": [
-        "vendor/bugsnag.js", "vendor/bcrypt.js", "vendor/wsc-chrome.js",
-          "vendor/idb.js", "vendor/moment.js", "vendor/common-tags.js",
-        "core/utils.js", "core/api-entries.js", "core/enumeration.js", "core/environment.js",
-          "core/http-server.js", "core/nsexport.js", "core/wsc-skylink.js", "core/platform-api.js",
-        "daemon/database.js", "daemon/kernel.js",
-        "drivers/idb-treestore.js", "drivers/fs-string-dict.js", "drivers/network-import.js",
-          "drivers/tmp.js", "drivers/web-filesystem.js",
-          "drivers/app-api.js", "drivers/sessions-api.js",
-        "lib/datadog.js", "lib/caching.js", "lib/path-fragment.js", "lib/runtime-worker.js",
-        "daemon/model/account-manager.js", "daemon/model/account.js",
-          "daemon/model/domain-manager.js", "daemon/model/domain.js",
-          "daemon/model/package-manager.js", "daemon/model/package.js",
-          "daemon/model/session-manager.js", "daemon/model/session.js",
-          "daemon/model/workload-manager.js", "daemon/model/workload.js",
-        "daemon/default-site.js", "daemon/gate-site.js", "daemon/gate-api.js", "daemon/domain-api.js",
-        "platform/libs/core/skylink/client.js", "platform/libs/core/skylink/ns-convert.js",
-        "daemon/background.js"]
+        "vendor/libraries/bugsnag.js", "vendor/libraries/bcrypt.js", "vendor/libraries/wsc-chrome.js",
+          "vendor/libraries/idb.js", "vendor/libraries/moment.js", "vendor/libraries/common-tags.js",
+        "src/core/utils.js", "src/core/api-entries.js", "src/core/enumeration.js", "src/core/environment.js",
+          "src/core/http-server.js", "src/core/nsexport.js", "src/core/wsc-skylink.js", "src/core/platform-api.js",
+        "src/daemon/database.js", "src/daemon/kernel.js",
+        "src/devices/idb-treestore.js", "src/devices/fs-string-dict.js", "src/devices/network-import.js",
+          "src/devices/tmp.js", "src/devices/web-filesystem.js",
+          "src/devices/app-api.js", "src/devices/sessions-api.js",
+        "src/kernel/datadog.js", "src/kernel/caching.js", "src/kernel/path-fragment.js", "src/kernel/runtime-worker.js",
+        "src/daemon/model/account-manager.js", "src/daemon/model/account.js",
+          "src/daemon/model/domain-manager.js", "src/daemon/model/domain.js",
+          "src/daemon/model/package-manager.js", "src/daemon/model/package.js",
+          "src/daemon/model/session-manager.js", "src/daemon/model/session.js",
+          "src/daemon/model/workload-manager.js", "src/daemon/model/workload.js",
+        "src/daemon/default-site.js", "src/daemon/gate-site.js", "src/daemon/gate-api.js", "src/daemon/domain-api.js",
+        "src/webapp/core/skylink/client.js", "src/webapp/core/skylink/ns-convert.js",
+        "src/daemon/background.js"]
     }
   },
   "permissions": [
