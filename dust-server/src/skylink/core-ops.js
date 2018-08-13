@@ -2,7 +2,7 @@ SKYLINK_CORE_OPS = new Map;
 
 SKYLINK_CORE_OPS.set('ping', () => null);
 
-SKYLINK_CORE_OPS.set('get', async function(request) {
+SKYLINK_CORE_OPS.set('get', async function get(request) {
   const {Path} = request;
 
   var entry = await this.env.getEntry(Path);
@@ -18,7 +18,7 @@ SKYLINK_CORE_OPS.set('get', async function(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('store', async function(request) {
+SKYLINK_CORE_OPS.set('store', async function store(request) {
   const {Dest} = request;
   const Input = InflateSkylinkLiteral(request.Input);
 
@@ -32,7 +32,7 @@ SKYLINK_CORE_OPS.set('store', async function(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('unlink', async function(request) {
+SKYLINK_CORE_OPS.set('unlink', async function unlink(request) {
   const {Path} = request;
 
   var entry = await this.env.getEntry(Path);
@@ -45,7 +45,7 @@ SKYLINK_CORE_OPS.set('unlink', async function(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('enumerate', async function(request) {
+SKYLINK_CORE_OPS.set('enumerate', async function enumerate(request) {
   const {Path, Depth} = request;
 
   var entry = await this.env.getEntry(Path);
@@ -60,7 +60,7 @@ SKYLINK_CORE_OPS.set('enumerate', async function(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('subscribe', async function(request) {
+SKYLINK_CORE_OPS.set('subscribe', async function subscribe(request) {
   const {Path, Depth} = request;
 
   // get the channel constructor, we'll want it
@@ -101,7 +101,7 @@ SKYLINK_CORE_OPS.set('subscribe', async function(request) {
   }
 });
 
-SKYLINK_CORE_OPS.set('invoke', async function(request) {
+SKYLINK_CORE_OPS.set('invoke', async function invoke(request) {
   const {Path, Dest} = request;
   const Input = InflateSkylinkLiteral(request.Input);
 

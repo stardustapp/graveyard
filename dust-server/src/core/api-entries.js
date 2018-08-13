@@ -90,6 +90,9 @@ function InflateSkylinkLiteral(raw) {
       });
       return folder;
 
+    case 'JS':
+      return raw.Data;
+
     default:
       throw new Error(`skylink literal had unimpl Type ${raw.Type}`);
   }

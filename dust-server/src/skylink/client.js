@@ -1,8 +1,5 @@
 class SkylinkClient {
-  constructor(performer) {
-    this.performer = performer;
-    this.waitingReceivers = new Array;
-
+  constructor() {
     // extension points
     this.outputDecoders = new Array;
     this.frameProcessors = new Array;
@@ -30,29 +27,27 @@ class SkylinkClient {
     }
   }
 
-  // by default, calls sendFrame() and queues for a processFrame() call
+  // TODO: by default, calls sendFrame() and queues for a receiveFrame() call
   // please either extend and replace, or integrate those two funcs so this impl works
   async volley(request) {
-    this.sendFrame(request);
+    throw new Error(`#TODO: impl volley() to do something lol`);
   }
 
-  processFrame(frame) {
+  receiveFrame(frame) {
     // let extensions override the whole frame
     for (const processor of this.frameProcessors) {
-      const result = processor(output);
+      const result = processor(frame);
       if (result) return;
     }
 
-    const receiver = this.waitingReceivers.shift();
-    if (!receiver)
-      throw new Error('skylink received skylink payload without receiver');
-    receiver.resolve(this.decodeOutput(d));
+    // fallback to impl default
+    this.processFrame(frame);
   }
 }
 
 class StatelessHttpSkylinkClient extends SkylinkClient {
   constructor(endpoint) {
-    super(this.exec.bind(this));
+    super();
     this.endpoint = endpoint;
   }
 
@@ -72,11 +67,65 @@ class StatelessHttpSkylinkClient extends SkylinkClient {
   }
 }
 
+// Used for WebWorkers and such
+// You pass received frames to receiveFrame() and impl sendFrame()
+// Your eventObj should have postMessage(data) and call its onmessage(evt)
+// IDs are attached to each message, so it's not lockstep
+// You can have a Client & Server on both sides via the Reversal extension
+class MessagePassingSkylinkClient extends SkylinkClient {
+  constructor(eventObj) {
+    super();
+
+    // wire our send and receive to the given I/O interface
+    this.postMessage = eventObj.postMessage.bind(eventObj);
+    eventObj.onmessage = this.processMessageEvent.bind(this);
+
+    this.pendingIds = new Map;
+    this.nextId = 1;
+  }
+
+  async volley(request) {
+    request.Id = this.nextId++;
+
+    // send request and await response
+    const response = await new Promise(resolve => {
+      this.pendingIds.set(request.Id, {request, resolve});
+      this.postMessage(request);
+    });
+    return response;
+  }
+
+  processMessageEvent(evt) {
+    // Attach the passed port, if any
+    if (evt.ports.length)
+      evt.data._port = evt.ports[0];
+    else if ('_port' in evt.data)
+      throw new Error(`BUG: _port was already present on passed message`);
+
+    // Submit for processing
+    this.receiveFrame(evt.data);
+  }
+
+  processFrame(frame) {
+    const {Id} = frame;
+
+    if (this.pendingIds.has(Id)) {
+      const future = this.pendingIds.get(Id);
+      this.pendingIds.delete(Id);
+      future.resolve(frame);
+
+    } else {
+      throw new Error(`BUG: skylink message-passer got message for non-pending thing`);
+    }
+  }
+}
+
 class WebsocketSkylinkClient extends SkylinkClient {
   constructor(endpoint) {
-    super(this.exec.bind(this));
+    super();
     this.endpoint = endpoint;
 
+    this.waitingReceivers = new Array;
     this.isLive = true;
     this.ready = this.init();
   }
@@ -88,7 +137,7 @@ class WebsocketSkylinkClient extends SkylinkClient {
     this.ws = new WebSocket(this.endpoint);
     this.ws.onmessage = msg => {
       const frame = JSON.parse(msg.data);
-      this.processFrame(frame);
+      this.receiveFrame(frame);
     };
 
     // wait for connection or failure
@@ -100,8 +149,8 @@ class WebsocketSkylinkClient extends SkylinkClient {
           this.stop();
         };
         this.ws.onerror = err => {
-          reject(new Error(`Skylink websocket has errored. ${err}`));
-          this.stop(err);
+          this.ws = null;
+          reject(new Error(`Skylink websocket has failed. ${err}`));
         };
       });
 
@@ -114,7 +163,7 @@ class WebsocketSkylinkClient extends SkylinkClient {
     }
   }
 
-  stop(err) {
+  stop(input=null) {
     if (this.ws) {
       console.log('Shutting down Websocket transport')
       clearInterval(this.pingTimer);
@@ -127,49 +176,37 @@ class WebsocketSkylinkClient extends SkylinkClient {
     });
     this.waitingReceivers.length = 0;
 
-    this.handleShutdown(new StringLiteral('error', err.message));
+    this.handleShutdown(input);
   }
 
-  exec(request) {
-    return this.getConn()
+  volley(request) {
+    return this.ready
       .then(() => new Promise((resolve, reject) => {
         this.waitingReceivers.push({resolve, reject});
         this.ws.send(JSON.stringify(request));
       }))
-      .then(this.transformResp)
-      .then(x => x, err => {
-        if (typeof process === 'undefined' || process.argv.includes('-v'))
-          console.warn('Failed netop:', request);
-        return Promise.reject(err);
+      .then(this.transformResp);
+  }
+
+  // triggered by volley()
+  processFrame(frame) {
+    const receiver = this.waitingReceivers.shift();
+    if (receiver) {
+      return receiver.resolve(frame);
+    } else {
+      throw new Error(`skylink received skylink payload without receiver`);
+    }
+  }
+
+  /*
+  return {
+    channel: chan.map(entryToJS),
+    stop: () => {
+      console.log('skylink Requesting stop of chan', obj.Chan);
+      return this.exec({
+        Op: 'stop',
+        Path: '/chan/'+obj.Chan,
       });
-  }
-
-  // Chain after a json promise with .then()
-  transformResp(obj) {
-    if (!(obj.ok === true || obj.Ok === true || obj.Status === "Ok")) {
-      //alert(`Stardust operation failed:\n\n${obj}`);
-      this.stats.fails++;
-      return Promise.reject(obj);
-    }
-
-    // detect channel creations and register them
-    if (obj.Chan) {
-      this.stats.chans++;
-      //console.log('skylink creating channel', obj.Chan);
-      const chan = new Channel(obj.Chan);
-      this.channels[obj.Chan] = chan;
-      return {
-        channel: chan.map(entryToJS),
-        stop: () => {
-          console.log('skylink Requesting stop of chan', obj.Chan);
-          return this.exec({
-            Op: 'stop',
-            Path: '/chan/'+obj.Chan,
-          });
-        },
-      };
-    }
-
-    return obj;
-  }
+    },
+  };*/
 }

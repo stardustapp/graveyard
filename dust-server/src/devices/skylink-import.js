@@ -16,14 +16,14 @@ class ImportedSkylinkDevice {
     return new ImportedSkylinkDevice(this.remote, this.pathPrefix + path);
   }
 
-  fromUri(uri) {
+  static fromUri(uri) {
     const parts = uri.slice('skylink+'.length).split('/');
     const scheme = parts[0].slice(0, -1);
     const endpoint = parts.slice(0, 3).join('/') + '/~~export' + (scheme.startsWith('ws') ? '/ws' : '');
     const remotePrefix = ('/' + parts.slice(3).join('/')).replace(/\/+$/, '');
 
     if (scheme.startsWith('http')) {
-      const skylink = new StatelessHttpPostSkylinkClient(endpoint);
+      const skylink = new StatelessHttpSkylinkClient(endpoint);
       return new ImportedSkylinkDevice(skylink, remotePrefix);
 
     } else if (scheme.startsWith('ws')) {
@@ -71,8 +71,11 @@ class ImportedSkylinkEntry {
   }
 
   async put(value) {
-    const response = await this.remote.volley({
-      Op: (value === null) ? 'unlink' : 'store',
+    const response = await this.remote.volley((value === null) ? {
+      Op: 'unlink',
+      Path: this.path,
+    } : {
+      Op: 'store',
       Dest: this.path,
       Input: value,
     });

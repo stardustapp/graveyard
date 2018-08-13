@@ -146,17 +146,29 @@ class Datadog {
   }
 }
 
-chrome.storage.local.get('boxId', ({boxId}) => {
-  if (!boxId) {
-    boxId = makeRandomNid();
-    chrome.storage.local.set({boxId}, () => {
-      console.log('Self-assigned box ID', boxId);
-    });
+if (typeof chrome === 'object') {
+  // we're probs in a chrome app or extension
+  chrome.storage.local.get('boxId', ({boxId}) => {
+    if (!boxId) {
+      boxId = makeRandomNid();
+      chrome.storage.local.set({boxId}, () => {
+        console.log('Self-assigned box ID', boxId);
+      });
+    }
+    console.log('Configured datadog for boxId', boxId);
+    const host = 'starbox-'+boxId;
+    Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', host, {});
+  });
+} else if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+  if (location.pathname.startsWith('/src/runtimes/')) {
+    const runtime = location.pathname.split('/')[2].split('.').slice(0, -1).join('.');
+    Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', 'runtime-'+runtime, {runtime});
+  } else {
+    Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', 'webworker', {});
   }
-  console.log('Configured datadog for boxId', boxId);
-  const host = 'starbox-'+boxId;
-  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', host, {});
-});
+} else {
+  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', 'webbrowser', {});
+}
 
 // TODO: this is copied from idb-treestore.js
 function makeRandomNid() {

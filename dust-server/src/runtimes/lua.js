@@ -13,16 +13,20 @@ importScripts(
   '/src/webapp/core/data/subs/single.js',
   '/src/webapp/core/skylink/ns-convert.js',
 
-  '/src/skylink/core-ops.js',
   '/src/skylink/client.js',
   '/src/skylink/server.js',
+  '/src/skylink/core-ops.js',
+  '/src/skylink/ext-channel.js',
+  '/src/skylink/ext-reversal.js',
   '/src/skylink/channel-client.js',
   '/src/skylink/channel-server.js',
+  '/src/skylink/messageport.js',
 
   '/src/lib/caching.js',
   '/src/lib/tracing.js',
   '/src/lib/mkdirp.js',
   '/src/lib/path-fragment.js',
+  '/src/lib/datadog.js',
 
   '/vendor/libraries/fengari.js',
   '/vendor/libraries/moment.js',
@@ -54,7 +58,7 @@ class Workload {
   }
 
   async init() {
-    await this.env.bind('/session', runtime.deviceForKernelPath(this.basePath));
+    await this.env.bind('/session', slave.deviceForKernelPath(this.basePath));
     await this.env.bind('/session/state', await StateEnvs.getOne('x', 'x'));
     const sourceEntry = await this.env.getEntry('/session/source/'+this.spec.sourceUri);
 
@@ -105,35 +109,59 @@ class Workload {
   }
 }
 
-const runtime = new RuntimeSlaveWorker(api => {
-  const workloads = new Map;
+class LuaRuntime extends PlatformApi {
+  constructor() {
+    super('lua runtime');
+    const jsObj = Symbol.for('raw js object');
 
-  api.set('start daemon', async input => {
+    this.workloads = new Map;
+
+    this.function('/start daemon', {
+      input: jsObj,
+      impl: this.startDaemon,
+    });
+    this.function('/stop daemon', {
+      input: jsObj,
+      impl: this.stopDaemon,
+    });
+
+    this.function('/load function', {
+      input: jsObj,
+      impl: this.loadFunction,
+    });
+    this.function('/run function', {
+      input: jsObj,
+      output: jsObj,
+      impl: this.runFunction,
+    });
+  }
+
+  async startDaemon(input) {
     const workload = new Workload(input);
-    workloads.set(input.wid, workload);
+    this.workloads.set(input.wid, workload);
     await workload.ready;
     workload.start();
-    return;
-  });
-  api.set('stop daemon', async input => {
-    const workload = workloads.get(input.wid);
+  }
+  async stopDaemon(input) {
+    const workload = this.workloads.get(input.wid);
     if (!workload)
       throw new Error('BUG: stop requested for unregistered daemon.', input);
-    workloads.delete(input.wid);
+    this.workloads.delete(input.wid);
     await workload.stop(input.reason);
-    return;
-  });
+  }
 
-  api.set('load function', async input => {
+  async loadFunction(input) {
     const workload = new Workload(input);
-    workloads.set(input.wid, workload);
-    return;
-  });
-  api.set('run function', async input => {
-    const workload = workloads.get(input.wid);
+    this.workloads.set(input.wid, workload);
+  }
+  async runFunction(input) {
+    const workload = this.workloads.get(input.wid);
     if (!workload)
       throw new Error('BUG: run requested for unregistered function.', input);
     const handle = workload.start(input.input);
     return handle.completion;
-  });
-});
+  }
+}
+
+const runtime = new LuaRuntime();
+const slave = new RuntimeSlaveWorker(runtime.env);

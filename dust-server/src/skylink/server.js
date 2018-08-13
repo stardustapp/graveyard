@@ -33,6 +33,7 @@ class SkylinkServer {
   }
 
   // Called by transports when the client sends an operation
+  // Promises a frame back
   processFrame(request) {
     const startTime = new Date;
 
