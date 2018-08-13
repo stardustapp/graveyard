@@ -1,18 +1,11 @@
-class SkylinkClient {
-  constructor() {
-  }
-
-  processFrame(data) {
-    throw new Error(`Not Implemented #TODO`);
-  }
-}
-
 class SkylinkServer {
   constructor(env) {
     this.env = env;
     this.ops = new Map(SKYLINK_CORE_OPS);
 
-    this.outputEncoders = [];
+    // event handlers
+    this.outputEncoders = new Array;
+    this.shutdownHandlers = new Array;
   }
 
   attach(extension) {
@@ -20,23 +13,32 @@ class SkylinkServer {
   }
 
   encodeOutput(output) {
+    // let extensions provide custom framing
     for (const encoder of this.outputEncoders) {
       const frame = encoder(output);
-      if (frame) return frame;;
+      if (frame) return frame;
     }
 
+    // build a default frame
     return {
       Ok: true,
       Output: output,
     };
   }
 
+  handleShutdown(input) {
+    for (const handler of this.shutdownHandlers) {
+      handler(input);
+    }
+  }
+
+  // Called by transports when the client sends an operation
   processFrame(request) {
     const startTime = new Date;
 
     const keys = Object.keys(request);
-    if (keys.some(k => k[0] > 'Z')) {
-      console.warn('Received frame with bad casing, fixing it');
+    if (keys.some(k => k[0] > '`')) { // HACK: checks for lowercase letters
+      console.warn('Received Skylink frame with bad key casing, fixing it');
       const newReq = {};
       keys.forEach(key => {
         newReq[key[0].toUpperCase()+key.slice(1)] = request[key];

@@ -58,7 +58,6 @@ class IdbTreestoreMount {
       const subs = this.nidSubs.get(nid);
       subs.delete(sub);
       if (subs.size === 0) {
-        console.log('Nothing is watching nid', nid, 'anymore, removing from nidSubs');
         this.nidSubs.delete(nid);
       }
     }
@@ -66,6 +65,7 @@ class IdbTreestoreMount {
 
   async routeNidEvent(nid, event) {
     console.log('nid event', nid, event);
+
     if (this.nidSubs.has(nid)) {
       const txn = new IdbTransaction(this, 'readonly');
       const subs = this.nidSubs.get(nid);
@@ -73,10 +73,6 @@ class IdbTreestoreMount {
         sub.processNidEvent(nid, txn, event);
       });
     }
-  }
-
-  unregisterSub(sub) {
-    // TODO
   }
 }
 
@@ -112,6 +108,7 @@ class IdbPath {
       // TODO: implement this like mkdirp?
       throw new Error(`Failed to put to ${this.path} because the direct parent doesn't exist`);
     }
+
     await handle.replaceCurrent(txn, newNid);
     await txn.innerTxn.complete;
   }
@@ -124,7 +121,11 @@ class IdbPath {
 
   async subscribe(depth, newChannel) {
     return await newChannel.invoke(async c => {
+      // bind a new sub to the channel
       const sub = new IdbSubscription(this, depth, c);
+      c.onStop(sub.stop.bind(sub));
+
+      // send the initial state
       await sub.start();
       c.next(new FolderLiteral('notif', [
         new StringLiteral('type', 'Ready'),
@@ -214,7 +215,6 @@ class IdbTransaction {
         throw new Error(`Failed to map IDB type ${this.node.type} for createNode()`);
     }
     await this.objectStore.add(newNode); // throws if exists
-    //console.log('Created IDB node:', newNode);
     return newNode.nid;
   }
 }
@@ -476,10 +476,10 @@ class IdbSubscription {
     }
   }
 
-  reset() {
+  reset(andRemove=true) {
     // delete everything from the client & clean up
     if (this.rootNode) {
-      this.rootNode.retractEntry(this);
+      this.rootNode.retractEntry(this, andRemove);
     }
     this.rootNode = null;
 
@@ -493,6 +493,12 @@ class IdbSubscription {
     this.parentNids.clear();
     this.currentNode = null;
     this.nidMap.clear();
+  }
+
+  stop(reason) {
+    console.log('stopping IDB subscription due to', reason);
+    this.reset(false); // don't send anything further
+    this.channel.done();
   }
 
   registerNidNotifs(nid, node) {
@@ -569,7 +575,6 @@ class IdbSubNode {
   }
 
   retractEntry(sub, andRemove=true) {
-    console.log('Retracting IDB node', this.nid, 'path', this.path, 'and remove:', andRemove);
     sub.unregisterNidNotifs(this.nid);
 
     // remove children first

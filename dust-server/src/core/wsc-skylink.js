@@ -46,8 +46,8 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
 
     // create a new environment just for this connection
     this.env = new Environment();
-    this.env.mount('/tmp', 'tmp');
-    this.env.bind('/pub', pubEnv); // TODO: prefix /api or /mnt or something
+    this.env.bind('/tmp', new TemporaryMount);
+    this.env.bind('/pub', pubEnv);
 
     this.skylink = new SkylinkServer(this.env);
     this.skylink.attach(new ChannelExtension());
@@ -67,9 +67,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
 
   // These functions are invoked by the websocket processor
-  open() {
-    console.log('ws opened');
-  }
+  open() {}
   on_message(msg) {
     var request = JSON.parse(msg);
     if (this.isActive) {
@@ -80,7 +78,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
     }
   }
   on_close() {
-    console.log('ws closed');
+    this.skylink.handleShutdown(new StringLiteral('reason', 'WebSocket was closed'));
     // TODO: shut down session
   }
 

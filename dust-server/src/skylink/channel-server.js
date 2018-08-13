@@ -1,6 +1,6 @@
 let allOpenChannels = 0;
 setInterval(() => {
-  Datadog.Instance.gauge('skylink.server.open_channels', this.allOpenChannels, {});
+  Datadog.Instance.gauge('skylink.server.open_channels', allOpenChannels, {});
 }, 10*1000);
 
 
@@ -11,9 +11,17 @@ class ChannelExtension {
   }
 
   attachTo(skylink) {
+    skylink.shutdownHandlers.push(this.stopAll.bind(this));
     skylink.env.mount('/channels/new', 'function', {
       invoke: this.newChannelFunc.bind(this),
     });
+  }
+
+  stopAll() {
+    for (const chan of this.channels.values()) {
+      chan.triggerStop(new StringLiteral('reason', 'Skylink is shutting down'));
+    }
+    this.channels.clear();
   }
 
   newChannelFunc(input) {
@@ -24,11 +32,31 @@ class ChannelExtension {
     const channel = new Channel(chanId);
     this.channels.set(chanId, channel);
 
+    // Wire a way to async-signal the origin *once*
+    const stopPromise = new Promise(resolve => {
+      channel.triggerStop = resolve;
+    });
+
+    // Pass a simplified API to the thing that wanted the channel
     input({
-      next(data) { channel.handle({Status: 'Next', Output: data}) },
-      error(data) { channel.handle({Status: 'Error', Output: data}) },
-      done() { channel.handle({Status: 'Done'}) },
-    })
+      next(Output) {
+        channel.handle({Status: 'Next', Output});
+        Datadog.Instance.count('skylink.channel.packets', 1, {status: 'next'});
+      },
+      error(Output) {
+        channel.handle({Status: 'Error', Output});
+        allOpenChannels--;
+        Datadog.Instance.count('skylink.channel.packets', 1, {status: 'error'});
+      },
+      done() {
+        channel.handle({Status: 'Done'});
+        allOpenChannels--;
+        Datadog.Instance.count('skylink.channel.packets', 1, {status: 'done'});
+      },
+      onStop(cb) {
+        stopPromise.then(cb);
+      },
+    });
     return channel;
   }
 }
@@ -58,10 +86,9 @@ class InlineChannelCarrier {
 
   plumbChannel(channel) {
     channel.forEachPacket(pkt => {
-      console.log(channel.id, pkt);
       pkt.Chan = channel.id;
       this.sendCb(pkt);
-    });
+    }, () => {/* already handled */});
   }
 }
 
