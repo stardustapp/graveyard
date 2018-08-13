@@ -16,6 +16,13 @@ class IdbTreestoreMount {
     this.ready = this.init();
   }
 
+  metricTags(tags={}) {
+    tags.db = this.db.name;
+    tags.store = this.store;
+    tags.treeroot = `idb-${this.db.name}-${this.store}`;
+    return tags;
+  };
+
   async init() {
     const txn = new IdbTransaction(this, 'readwrite');
 
@@ -28,6 +35,10 @@ class IdbTreestoreMount {
       txn.createNode(new FolderLiteral('root'), 'root');
       console.warn('Seeded IDB mount with root node');
     }
+
+    setInterval(() => {
+      Datadog.Instance.gauge('idbtree.reactivity.active_nodes', this.nidSubs.size, this.metricTags());
+    }, 10*1000);
 
     await txn.innerTxn.complete;
     console.debug('Done initing IDB mount', this.store);
@@ -64,6 +75,7 @@ class IdbTreestoreMount {
   }
 
   async routeNidEvent(nid, event) {
+    Datadog.Instance.count('idbtree.reactivity.triggered_events', 1, this.metricTags({nidEvent: event}));
     console.log('nid event', nid, event);
 
     if (this.nidSubs.has(nid)) {
@@ -141,6 +153,7 @@ class IdbTransaction {
     this.mount = mount;
     this.innerTxn = mount.db.transaction(mount.store, mode);
     this.objectStore = this.innerTxn.objectStore(mount.store);
+    Datadog.Instance.count('idbtree.reactivity.created_txns', 1, this.mount.metricTags({idbMode: mode}));
   }
 
   async walkTree() {
@@ -188,6 +201,8 @@ class IdbTransaction {
   // The transaction must be opened in 'readwrite' mode.
   // The new NID is returned.
   async createNode(literal, forcedNid=null) {
+    Datadog.Instance.count('idbtree.reactivity.created_nodes', 1, this.mount.metricTags({entryType: literal.Type}));
+
     const newNode = {
       name: literal.Name,
       type: literal.Type,
