@@ -4,16 +4,24 @@ class Channel {
     this.id = id;
     this.queue = ['waiting'];
     this.callbacks = {};
+    this.alive = true;
 
     this.burnBacklog = this.burnBacklog.bind(this);
   }
 
   // add a packet to process after all other existing packets process
   handle(packet) {
+    if (!this.alive)
+      throw new Error(`Channel isn't alive`);
+
     this.queue.push(packet);
     if (this.queue.length == 1 && this.callbacks) {
       // if we're alone at the front, let's kick it off
       this.burnBacklog();
+    }
+
+    if (packet.Status !== 'Next') {
+      this.alive = false;
     }
   }
 
@@ -50,6 +58,28 @@ class Channel {
   /////////////////
   // Public API
 
+  // Like forEach but you are given every packet unwrapped, and simply told when there are no more coming.
+  forEachPacket(effect, finisher) {
+    if (!finisher) {
+      finisher = (pkt) => {
+        console.log('Channel #', this.id, 'came to an end. No one cared.');
+      };
+    }
+
+    this.start({
+      onNext: effect,
+      onError(x) {
+        effect(x);
+        finisher();
+      },
+      onDone(x) {
+        effect(x);
+        finisher();
+      },
+    })
+  }
+
+  // You give a main callback, and two different finishers
   forEach(effect, errorFinisher, doneFinisher) {
     if (!errorFinisher) {
       errorFinisher = (pkt) => {

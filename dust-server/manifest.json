@@ -13,7 +13,8 @@
         "vendor/libraries/bugsnag.js", "vendor/libraries/bcrypt.js", "vendor/libraries/wsc-chrome.js",
           "vendor/libraries/idb.js", "vendor/libraries/moment.js", "vendor/libraries/common-tags.js",
         "src/core/utils.js", "src/core/api-entries.js", "src/core/enumeration.js", "src/core/environment.js",
-          "src/core/http-server.js", "src/core/nsexport.js", "src/core/wsc-skylink.js", "src/core/platform-api.js",
+          "src/core/http-server.js", "src/core/wsc-skylink.js", "src/core/platform-api.js",
+        "src/skylink/api.js", "src/skylink/channel-server.js", "src/skylink/core-ops.js",
         "src/daemon/database.js", "src/daemon/kernel.js",
         "src/devices/idb-treestore.js", "src/devices/fs-string-dict.js", "src/devices/network-import.js",
           "src/devices/tmp.js", "src/devices/web-filesystem.js",
@@ -25,7 +26,7 @@
           "src/daemon/model/session-manager.js", "src/daemon/model/session.js",
           "src/daemon/model/workload-manager.js", "src/daemon/model/workload.js",
         "src/daemon/default-site.js", "src/daemon/gate-site.js", "src/daemon/gate-api.js", "src/daemon/domain-api.js",
-        "src/webapp/core/skylink/client.js", "src/webapp/core/skylink/ns-convert.js",
+        "src/webapp/core/data/channel.js", "src/webapp/core/skylink/client.js", "src/webapp/core/skylink/ns-convert.js",
         "src/daemon/background.js"]
     }
   },

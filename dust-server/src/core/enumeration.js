@@ -102,7 +102,7 @@ function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
     c.next(new FolderLiteral('notif', [
       new StringLiteral('type', 'Ready'),
     ]));
-    c.stop(new StringLiteral('nosub',
+    c.error(new StringLiteral('nosub',
         `This entry does not implement reactive subscriptions`));
   });
 }

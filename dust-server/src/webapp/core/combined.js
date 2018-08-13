@@ -50,6 +50,28 @@ class Channel {
   /////////////////
   // Public API
 
+  // Like forEach but you are given every packet unwrapped, and simply told when there are no more coming.
+  forEachPacket(effect, finisher) {
+    if (!finisher) {
+      finisher = (pkt) => {
+        console.log('Channel #', this.id, 'came to an end. No one cared.');
+      };
+    }
+    
+    this.start({
+      onNext: effect,
+      onError(x) {
+        effect(x);
+        finisher();
+      },
+      onDone(x) {
+        effect(x);
+        finisher();
+      },
+    })
+  }
+
+  // You give a main callback, and two different finishers
   forEach(effect, errorFinisher, doneFinisher) {
     if (!errorFinisher) {
       errorFinisher = (pkt) => {
@@ -1305,8 +1327,8 @@ function entryToJS (ent) {
       return ent; // TODO: wrap with helpers to await as string
 
     default:
-      console.warn(`Received wire literal of unhandled type`, ent.Type);
-      return null;
+      throw new Error(`Received wire literal of unhandled type ${JSON.stringify(ent.Type)}`);
+
   }
 }
 class SkylinkHttpTransport {

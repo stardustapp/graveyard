@@ -549,6 +549,7 @@ class IdbSubNode {
     const notifType = asChanged ? 'Changed' : 'Added';
     const entry = node.shallowExport();
     entry.Name = 'entry';
+    delete entry.Children;
     sub.channel.next(new FolderLiteral('notif', [
       new StringLiteral('type', notifType),
       new StringLiteral('path', this.path),

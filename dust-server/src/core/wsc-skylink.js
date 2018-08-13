@@ -1,7 +1,20 @@
+function ExposeSkylinkOverHttp(env, httpd) {
+  // all POSTs run against the same skylink server
+  const stateless = new SkylinkServer(env);
+  httpd.addRoute('^/~~export$', SkylinkPostHandler.bind(null, stateless));
+
+  // websockets make their own skylink server for state
+  httpd.addRoute('^/~~export/ws$', SkylinkWebsocketHandler.bind(null, env));
+
+  // pings are dumb lol
+  httpd.addRoute('^/~~export/ping$', SkylinkPingHandler);
+}
+
+// Uses the given SkylinkServer instance for every request
 class SkylinkPostHandler extends WSC.BaseHandler {
-  constructor(nsExport) {
+  constructor(skylink) {
     super();
-    this.nsExport = nsExport;
+    this.skylink = skylink;
   }
 
   sendResponse(data) {
@@ -16,49 +29,29 @@ class SkylinkPostHandler extends WSC.BaseHandler {
     this.finish();
   }
 
-  post(path) {
+  async post(path) {
     // Parse up the submitted JSON
-    var body = JSON.parse(
+    var request = JSON.parse(
       String.fromCharCode.apply(null,
         new Uint8Array(this.request.body)));
 
-    const send = (ok, output) => {
-      this.sendResponse({
-        Ok: ok,
-        Output: output,
-      });
-    };
-
-    this.nsExport.processOp(body).then(output => {
-      send(true, output);
-    }, (err) => {
-      console.warn('!!! Operation failed with', err);
-      send(false, {
-        Type: 'String',
-        Name: 'error-message',
-        StringValue: err.message,
-      });
-    });
+    const response = await this.skylink.processFrame(request);
+    this.sendResponse(response);
   }
 }
 
-let openWsChannels = 0;
-setInterval(() => {
-  Datadog.Instance.gauge('skylink.channel.open_count', openWsChannels, {transport: 'websocket'});
-});
-
 class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
-  constructor(nsExport) {
+  constructor(pubEnv) {
     super();
-    this.nsExport = nsExport;
 
     // create a new environment just for this connection
-    this.localEnv = new Environment();
-    this.localEnv.mount('/tmp', 'tmp');
-    this.localEnv.bind('/pub', nsExport.namespace); // TODO: prefix /api
+    this.env = new Environment();
+    this.env.mount('/tmp', 'tmp');
+    this.env.bind('/pub', pubEnv); // TODO: prefix /api or /mnt or something
 
-    this.channels = new Map;
-    this.nextChan = 1;
+    this.skylink = new SkylinkServer(this.env);
+    this.skylink.attach(new ChannelExtension());
+    this.skylink.attach(new InlineChannelCarrier(this.sendJson.bind(this)));
 
     this.isActive = false;
     this.reqQueue = new Array;
@@ -67,59 +60,15 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   sendJson(body) {
     if (this.ws_connection) {
       this.write_message(JSON.stringify(body));
+      if (body._after) body._after();
     } else {
       console.warn(`TODO: channel's downstream websocket isnt connected anymore`)
     }
   }
 
-  // Given a function that gets passed a newly-allocated channel
-  async newChannelFunc(input) {
-    Datadog.Instance.count('skylink.channel.opens', 1, {transport: 'websocket'});
-    openWsChannels++;
-
-    const chanId = this.nextChan++;
-    const channel = {
-      channelId: chanId,
-      sendJson: this.sendJson.bind(this),
-      start() {
-        input(this);
-      },
-      next(value) {
-        this.sendJson({
-          Status: 'Next',
-          Chan: chanId,
-          Output: value,
-        });
-        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'websocket', status: 'next'});
-      },
-      stop(message) {
-        this.sendJson({
-          Status: 'Stop',
-          Chan: chanId,
-          Output: message,
-        });
-        Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'websocket', status: 'stop'});
-        openWsChannels--;
-      },
-    }
-    this.channels.set(chanId, channel);
-    return channel;
-  }
-
-  sendOutput(ok, output) {
-    this.sendJson({
-      Ok: ok,
-      Output: output,
-    });
-  }
-
   // These functions are invoked by the websocket processor
   open() {
-    // offer async response follow-ups with channels
-    // mount in env for processing code
-    this.localEnv.mount('/channels/new', 'function', {
-      invoke: this.newChannelFunc.bind(this),
-    });
+    console.log('ws opened');
   }
   on_message(msg) {
     var request = JSON.parse(msg);
@@ -135,35 +84,20 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
     // TODO: shut down session
   }
 
-  processRequest(request) {
-    this.nsExport.processOp(request, this.localEnv).then(output => {
-      if (output && output.channelId) {
-        this.sendJson({
-          Ok: true,
-          Status: 'Ok',
-          Chan: output.channelId,
-        });
-        output.start();
-      } else {
-        this.sendOutput(true, output);
-      }
+  async processRequest(request) {
+    try {
+      const response = await this.skylink.processFrame(request);
+      this.sendJson(response);
 
-    }, (err) => {
-      const stackSnip = (err.stack || new String(err)).split('\n').slice(0,4).join('\n');
-      console.warn('!!! Operation failed with', stackSnip);
-      this.sendOutput(false, {
-        Type: 'String',
-        Name: 'error-message',
-        StringValue: err.message,
-      });
-    }).then(() => {
+    //const stackSnip = (err.stack || new String(err)).split('\n').slice(0,4).join('\n');
+    } finally {
       // we're done with the req, move on
       if (this.reqQueue.length) {
         this.processRequest(this.reqQueue.shift());
       } else {
         this.isActive = false;
       }
-    });
+    }
   }
 }
 

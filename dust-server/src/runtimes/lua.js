@@ -14,6 +14,8 @@ importScripts(
   '/src/webapp/core/skylink/client.js',
   '/src/webapp/core/skylink/ns-convert.js',
 
+  '/src/skylink/nsexport.js',
+
   '/src/lib/caching.js',
   '/src/lib/tracing.js',
   '/src/lib/mkdirp.js',
@@ -24,7 +26,6 @@ importScripts(
   //'/vendor/libraries/bugsnag.js',
 );
 importScripts(
-  '/src/core/nsexport.js',
   '/src/core/platform-api.js',
 
   '/src/lib/runtime-slave-worker.js',

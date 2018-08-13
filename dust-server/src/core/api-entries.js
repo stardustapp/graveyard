@@ -68,10 +68,38 @@ class BlobLiteral {
   }
 }
 
+function InflateSkylinkLiteral(raw) {
+  if (!raw) {
+    return null;
+  }
+  if (raw.constructor !== Object) {
+    throw new Error(`Raw skylink literal wasn't an Object, please read the docs`);
+  }
+  if (!raw.Type) {
+    throw new Error(`Raw skylink literal ${JSON.stringify(raw.Name||raw)} didn't have a Type, please check your payload`);
+  }
+  switch (raw.Type) {
+
+    case 'String':
+      return new StringLiteral(raw.Name || 'input', raw.StringValue);
+
+    case 'Folder':
+      const folder = new FolderLiteral(raw.Name || 'input');
+      (raw.Children || []).forEach(child => {
+        folder.append(InflateSkylinkLiteral(child))
+      });
+      return folder;
+
+    default:
+      throw new Error(`skylink literal had unimpl Type ${raw.Type}`);
+  }
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     FolderLiteral,
     StringLiteral,
     BlobLiteral,
+    InflateSkylinkLiteral,
   };
 }
