@@ -53,14 +53,11 @@ const LUA_API = {
     //p.Status = "Waiting: Dialing " + wireUri
 
     // TODO: support abort interruptions
-    if (!wireUri.startsWith('skylink+ws'))
+    if (!wireUri.startsWith('skylink+'))
       throw new Error(`can't import that yet`);
 
     T.startStep({name: 'start network import', wireUri});
-    const device = new NetworkImportMount({
-      url: wireUri.slice(8).split('/').slice(0, 3).join('/').replace('/::1', '/[::1]') + '/~~export/ws',
-      prefix: '/' + wireUri.split('/').slice(3).join('/'),
-    });
+    const device = ImportedSkylinkDevice.fromUri(wireUri.replace('/::1', '/[::1]'));
     await device.ready.then(() => {
       T.endStep();
       console.log("Lua successfully opened wire", wireUri);

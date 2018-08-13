@@ -6,15 +6,18 @@ importScripts(
   '/src/core/utils.js',
 
   '/src/devices/tmp.js',
-  '/src/devices/network-import.js',
+  '/src/devices/skylink-import.js',
 
   '/src/webapp/core/data/channel.js',
   '/src/webapp/core/data/subs/_base.js',
   '/src/webapp/core/data/subs/single.js',
-  '/src/webapp/core/skylink/client.js',
   '/src/webapp/core/skylink/ns-convert.js',
 
-  '/src/skylink/nsexport.js',
+  '/src/skylink/core-ops.js',
+  '/src/skylink/client.js',
+  '/src/skylink/server.js',
+  '/src/skylink/channel-client.js',
+  '/src/skylink/channel-server.js',
 
   '/src/lib/caching.js',
   '/src/lib/tracing.js',

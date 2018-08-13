@@ -11,13 +11,13 @@ class ChannelExtension {
   }
 
   attachTo(skylink) {
-    skylink.shutdownHandlers.push(this.stopAll.bind(this));
+    skylink.shutdownHandlers.push(this.handleShutdown.bind(this));
     skylink.env.mount('/channels/new', 'function', {
       invoke: this.newChannelFunc.bind(this),
     });
   }
 
-  stopAll() {
+  handleShutdown() {
     for (const chan of this.channels.values()) {
       chan.triggerStop(new StringLiteral('reason', 'Skylink is shutting down'));
     }
@@ -91,106 +91,3 @@ class InlineChannelCarrier {
     }, () => {/* already handled */});
   }
 }
-
-/*
-  transmit(status, output=null) {
-    if (!this.open) throw new Error(`Tried to transmit on closed Channel`);
-    Datadog.Instance.count('skylink.channel.packets', 1, {transport: 'inline', status});
-
-    this.sendJson({
-      Status: 'Next',
-      Chan: chanId,
-      Output: value,
-    });
-
-    if (status !== 'Next') {
-      this.open = false;
-      InlineChannelExport.openChannels--;
-    }
-  }
-}
-
-class ChannelExportExtension {
-  constructor(transport) {
-    if (!transport) throw new Error(`Needs a transport`);
-    this.transport = transport;
-  }
-
-  bindTo(nsexport) {
-    // set up some state
-    nsexport.channels = new Map;
-    nsexport.nextChan = 1;
-
-    // offer async response follow-ups with channels
-    // mount in env for processing code
-    nsexport.env.mount('/channels/new', 'function', {
-      invoke: input => transport.createChannel(nsexport, input),
-    });
-
-    // API to stop a channel
-    nsexport.externalOps.stop = this.stopOp.bind(this);
-  }
-
-  cleanup(nsexport) {
-    
-  }
-}
-
-class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
-  constructor(nsExport) {
-    super();
-    this.nsExport = nsExport;
-
-    // create a new environment just for this connection
-    this.localEnv = new Environment();
-    this.localEnv.mount('/tmp', 'tmp');
-    this.localEnv.bind('/pub', nsExport.namespace); // TODO: prefix /api
-
-    this.channels = new Map;
-    this.nextChan = 1;
-
-    this.isActive = false;
-    this.reqQueue = new Array;
-  }
-
-  sendJson(body) {
-    if (this.ws_connection) {
-      this.write_message(JSON.stringify(body));
-    } else {
-      console.warn(`TODO: channel's downstream inline isnt connected anymore`)
-    }
-  }
-
-  processRequest(request) {
-    this.nsExport.processOp(request, this.localEnv).then(output => {
-      if (output && output.channelId) {
-        this.sendJson({
-          Ok: true,
-          Status: 'Ok',
-          Chan: output.channelId,
-        });
-        output.start();
-      } else {
-        this.sendOutput(true, output);
-      }
-
-    }, (err) => {
-      const stackSnip = (err.stack || new String(err)).split('\n').slice(0,4).join('\n');
-      console.warn('!!! Operation failed with', stackSnip);
-      this.sendOutput(false, {
-        Type: 'String',
-        Name: 'error-message',
-        StringValue: err.message,
-      });
-    }).then(() => {
-      // we're done with the req, move on
-      if (this.reqQueue.length) {
-        this.processRequest(this.reqQueue.shift());
-      } else {
-        this.isActive = false;
-      }
-    });
-  }
-}
-
-*/
