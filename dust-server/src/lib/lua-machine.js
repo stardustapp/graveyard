@@ -200,6 +200,22 @@ class LuaThread extends LuaContext {
       lua.lua_setfield(L, -2, fengari.to_luastring(name));
     }
 
+    lua.lua_pushjsfunction(L, L => {
+      const input = lua.lua_tojsstring(L, -1);
+      lua.lua_pop(L, 1);
+      lua.lua_pushliteral(L, encodeURIComponent(input));
+      return 1;
+    });
+    lua.lua_setfield(L, -2, 'encodeURIComponent');
+
+    lua.lua_pushjsfunction(L, L => {
+      const input = lua.lua_tojsstring(L, -1);
+      lua.lua_pop(L, 1);
+      lua.lua_pushliteral(L, decodeURIComponent(input));
+      return 1;
+    });
+    lua.lua_setfield(L, -2, 'decodeURIComponent');
+
     lua.lua_getglobal(L, 'ctx');
     lua.lua_getfield(L, -1, 'log');
     lua.lua_remove(L, -2);
