@@ -37,8 +37,16 @@ class IdbTreestoreMount {
     }
 
     setInterval(() => {
-      Datadog.Instance.gauge('idbtree.reactivity.active_nodes', this.nidSubs.size, this.metricTags());
+      Datadog.Instance.gauge('idbtree.reactivity.active_nodes',
+          this.nidSubs.size, this.metricTags());
     }, 10*1000);
+    setInterval(async () => {
+      const typeMap = await this.tallyAllNodeTypes();
+      for (const [type, count] of typeMap) {
+        Datadog.Instance.gauge('idbtree.total_nodes',
+            count, this.metricTags({entryType: type}));
+      }
+    }, 60*1000);
 
     await txn.innerTxn.complete;
     console.debug('Done initing IDB mount', this.store);
@@ -85,6 +93,24 @@ class IdbTreestoreMount {
         sub.processNidEvent(nid, txn, event);
       });
     }
+  }
+
+  async tallyAllNodeTypes() {
+    const self = this;
+    const types = new Map;
+    function countType(n) {
+      types.set(n.type, (types.get(n.type) || 0) + 1);
+    }
+
+    const tx = this.db.transaction(this.store, 'readonly');
+    await tx.objectStore(this.store)
+      .openCursor()
+      .then(function cursorIterate(cursor) {
+        if (!cursor) return;
+        countType(cursor.value);
+        return cursor.continue().then(cursorIterate);
+      });
+    return types;
   }
 }
 
