@@ -83,7 +83,7 @@ class IdbTreestoreMount {
   }
 
   async routeNidEvent(nid, event) {
-    Datadog.Instance.count('idbtree.reactivity.triggered_events', 1, this.metricTags({nidEvent: event}));
+    Datadog.Instance.count('idbtree.reactivity.triggered_events', 1, this.metricTags({nidOp: event.op}));
     console.log('nid event', nid, event);
 
     if (this.nidSubs.has(nid)) {
@@ -484,9 +484,10 @@ class IdbSubscription {
     this.depth = depth;
     this.channel = channel;
 
-    // If any of these change, we might restart the whole sub
+    // If the path from the parent to us changes, we restart the whole sub
     this.parentNids = new Set;
     this.parentStack = new Array;
+    this.parentNames = new Array;
     // IDB-side root node - when this changes, the sub basically restarts
     this.currentNode = null;
     // A copy of the root IdbSubNode sent to the client
@@ -504,6 +505,7 @@ class IdbSubscription {
     // Register the path down to the sub's root node
     this.parentNids = new Set;
     this.parentStack = handle.stack;
+    this.parentNames = handle.names;
     handle.nids
       .filter(nid => nid)
       .forEach(nid => {
@@ -531,6 +533,7 @@ class IdbSubscription {
 
     // structure reset
     this.parentStack.length = [];
+    this.parentNames.length = [];
     this.parentNids.clear();
     this.currentNode = null;
     this.nidMap.clear();
@@ -572,8 +575,8 @@ class IdbSubscription {
     if (!this.parentNids.has(nid)) return false;
     for (let idx = 0; idx < this.parentStack.length - 1; idx++) {
       const parent = this.parentStack[idx];
-      const child = this.parentStack[idx+1];
-      if (parent.nid === nid && child.name === event.child) return true;
+      const childName = this.parentNames[idx+1];
+      if (parent.nid === nid && childName === event.child) return true;
     }
   }
 }

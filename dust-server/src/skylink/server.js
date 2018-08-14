@@ -81,7 +81,7 @@ class SkylinkServer {
     if (this.ops.has(request.Op)) {
       return this.ops.get(request.Op).call(this, request);
     } else {
-      throw new Error(`Server doesn't implement ${Op} operation`);
+      throw new Error(`Server doesn't implement ${request.Op} operation`);
     }
   }
 }
