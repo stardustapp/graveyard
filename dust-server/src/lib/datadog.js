@@ -146,7 +146,7 @@ class Datadog {
   }
 }
 
-if (typeof chrome === 'object') {
+if (typeof chrome === 'object' && chrome.storage) {
   // we're probs in a chrome app or extension
   chrome.storage.local.get('boxId', ({boxId}) => {
     if (!boxId) {
@@ -161,7 +161,7 @@ if (typeof chrome === 'object') {
   });
 } else if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
   if (location.pathname.startsWith('/src/runtimes/')) {
-    const runtime = location.pathname.split('/')[2].split('.').slice(0, -1).join('.');
+    const runtime = location.pathname.split('/')[3].split('.').slice(0, -1).join('.');
     Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', 'runtime-'+runtime, {runtime});
   } else {
     Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', 'webworker', {});
