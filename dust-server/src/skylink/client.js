@@ -132,7 +132,7 @@ class WebsocketSkylinkClient extends SkylinkClient {
 
   async init() {
     console.log(`Starting Skylink Websocket to ${this.endpoint}`);
-    this.pingTimer = setInterval(() => this.exec({Op: 'ping'}), 30 * 1000);
+    this.pingTimer = setInterval(() => this.volley({Op: 'ping'}), 30 * 1000);
 
     this.ws = new WebSocket(this.endpoint);
     this.ws.onmessage = msg => {
@@ -203,7 +203,7 @@ class WebsocketSkylinkClient extends SkylinkClient {
     channel: chan.map(entryToJS),
     stop: () => {
       console.log('skylink Requesting stop of chan', obj.Chan);
-      return this.exec({
+      return this.volley({
         Op: 'stop',
         Path: '/chan/'+obj.Chan,
       });
