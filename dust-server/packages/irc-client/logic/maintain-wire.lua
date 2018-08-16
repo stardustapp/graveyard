@@ -146,11 +146,6 @@ function getQuery(name)
   return table
 end
 
-function writeToServerLog(msg)
-  writeToLog(serverLog, msg)
-  return true
-end
-
 -- Detect, store, and indicate any mention of the current user
 function isDirectMention(message)
   local nick = string.lower(ctx.read(persist, "current-nick"))
@@ -195,6 +190,19 @@ function listChannelsWithUser(nick)
     end
   end
   return chans
+end
+
+-- simply log the message to the server
+function writeToServerLog(msg)
+  writeToLog(serverLog, msg)
+  return true
+end
+
+-- For numerics that include a relevant channel in param 2
+function writeToChannelLog(msg)
+  local chan = getChannel(msg.params["2"])
+  writeToLog(chan.log, msg)
+  return true
 end
 
 -- Helpers to 'build up' a block of lines and eventually store them as one event
@@ -773,7 +781,7 @@ local handlers = {
   ["401"] = writeToServerLog, -- ERR_NOSUCHNICK missing recipient error
   ["402"] = writeToServerLog, -- ERR_NOSUCHSERVER missing server error (from e.g. /whois a <nick>)
   ["403"] = writeToServerLog, -- ERR_NOSUCHCHANNEL
-  ["404"] = writeToServerLog, -- ERR_CANNOTSENDTOCHAN
+  ["404"] = writeToChannelLog, -- ERR_CANNOTSENDTOCHAN
   ["411"] = writeToServerLog, -- ERR_NORECIPIENT no recipient error
   ["412"] = writeToServerLog, -- ERR_NOTEXTTOSEND privmsg without a body
   ["421"] = writeToServerLog, -- ERR_UNKNOWNCOMMAND no such command, or it's hidden
@@ -796,11 +804,7 @@ local handlers = {
   end,
 
   ["481"] = writeToServerLog, -- ERR_NOPRIVILEGES - just flavor - from /map on freenode
-  ["482"] = function(msg) -- ERR_CHANOPRIVSNEEDED - chan, flavor
-    local chan = getChannel(msg.params["2"])
-    writeToLog(chan.log, msg)
-    return true
-  end,
+  ["482"] = writeToChannelLog, -- ERR_CHANOPRIVSNEEDED - chan, flavor
 
   ["341"] = function(msg) -- RPL_INVITING /invite success msg - nick, chan
     local chan = getChannel(msg.params["3"])
@@ -813,8 +817,8 @@ local handlers = {
     return true
   end,
 
-  -- WHOIS stuff - should be bundled together tbh
-  ["301"] = appendPartial("whois-partial", "3", true), -- RPL_AWAY - nick, message
+  -- WHOIS stuff, bundle everything together
+  ["301"] = writeToServerLog, -- RPL_AWAY - nick, message -- seems this is emited when you reference an away user, incl. /whois
   ["307"] = appendPartial("whois-partial", "3", true), -- RPL_WHOISREGNICK - nick, flavor - is registered - mozilla
   ["311"] = appendPartial("whois-partial", "3", true), -- RPL_WHOISUSER - nick, user, host, '*', realname
   ["312"] = appendPartial("whois-partial", "3", true), -- RPL_WHOISSERVER - nick, server, serverinfo
@@ -830,9 +834,6 @@ local handlers = {
 
   ["324"] = writeToServerLog, -- RPL_CHANNELMODEIS - channel, modes, params... - from /mode
   ["329"] = writeToServerLog, -- RPL_CREATIONTIME - channel, epoch seconds - sent with /mode resp
-
-  --[""] = writeToServerLog, --
-  --[""] = writeToServerLog, --
 
   -- SASL stuff i think
   ["900"] = writeToServerLog, -- [Mozilla] <nick!user@host> <account> :You are now logged in as <account>.
@@ -895,7 +896,6 @@ local handlers = {
   ["331"] = function(msg) -- NO topic - me, chan, text
     local chan = getChannel(msg.params["2"])
     writeToLog(chan.log, msg)
-    writeToServerLog(msg) -- this came from a command i guess
     return true
   end,
   ["332"] = function(msg) -- topic - me, chan, topic
