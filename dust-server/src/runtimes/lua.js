@@ -47,13 +47,20 @@ const StateEnvs = new LoaderCache(id => {
   return env;
 });
 
-class Workload {
+const jsObj = Symbol.for('raw js object');
+
+class Workload extends PlatformApi {
   constructor({basePath, spec, wid}) {
+    super('workload '+wid);
     this.basePath = basePath;
     this.spec = spec;
     this.wid = wid;
 
-    this.env = new Environment();
+    this.function('/start', {
+      input: jsObj,
+      impl: this.start,
+    });
+
     this.ready = this.init();
   }
 
@@ -112,7 +119,6 @@ class Workload {
 class LuaRuntime extends PlatformApi {
   constructor() {
     super('lua runtime');
-    const jsObj = Symbol.for('raw js object');
 
     this.workloads = new Map;
 
@@ -138,7 +144,9 @@ class LuaRuntime extends PlatformApi {
 
   async startDaemon(input) {
     const workload = new Workload(input);
+    this.env.bind(`/wid/${input.wid}`, workload);
     this.workloads.set(input.wid, workload);
+
     await workload.ready;
     workload.start();
   }
@@ -152,7 +160,10 @@ class LuaRuntime extends PlatformApi {
 
   async loadFunction(input) {
     const workload = new Workload(input);
+    this.env.bind(`/wid/${input.wid}`, workload);
     this.workloads.set(input.wid, workload);
+
+    await workload.ready;
   }
   async runFunction(input) {
     const workload = this.workloads.get(input.wid);

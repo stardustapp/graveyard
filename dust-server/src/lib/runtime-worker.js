@@ -57,4 +57,8 @@ class RuntimeWorker extends Worker {
     });
     return (response.Output != null) ? response.Output.Data : null
   }
+
+  deviceForRuntimePath(path) {
+    return new ImportedSkylinkDevice(this, path);
+  }
 }
