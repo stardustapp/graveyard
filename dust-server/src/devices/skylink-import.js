@@ -50,21 +50,13 @@ class ImportedSkylinkEntry {
     return response.Output;
   }
 
-  async invoke(input) {
-    const response = await this.remote.volley({
-      Op: 'invoke',
-      Path: this.path,
-      Input: input,
-    });
-    return response.Output;
-  }
-
   async enumerate(enumer) {
     const response = await this.remote.volley({
       Op: 'enumerate',
-      Path: this.path,
+      Path: this.path||'/',
       Depth: enumer.remainingDepth(),
     });
+    if (!response.Ok) throw new Error(`Remote Skylink enumerate() call failed`);
 
     // transclude the remote enumeration
     enumer.visitEnumeration(response.Output);
@@ -88,6 +80,7 @@ class ImportedSkylinkEntry {
       Path: this.path,
       Input: value,
     });
+    if (!response.Ok) throw new Error(`Remote Skylink invoke() call failed`);
     return response.Output;
   }
 

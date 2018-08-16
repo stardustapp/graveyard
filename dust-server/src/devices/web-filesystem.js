@@ -19,7 +19,7 @@ class WebFilesystemMount {
     const subPath = path.slice(1);
     // Use trailing slash to signal for a directory instead
     // TODO: how annoying is that?
-    if (path.endsWith('/')) {
+    if (path.endsWith('/') || path.length === 0) {
       return await new Promise((resolve, reject) =>
           this.entry.getDirectory(this.prefix+subPath, {create: false}, resolve, reject))
         .then(d => {
@@ -37,7 +37,7 @@ class WebFilesystemMount {
         }, err => {
           if (err.name === 'NotFoundError')
             return null;
-          return err;
+          throw err;
         });
     }
   }
@@ -69,6 +69,8 @@ class WebFsDirectoryEntry {
     });
     return new FolderLiteral(this.entry.name, children);
   }
+
+  // TODO: enumerate()
 }
 
 class WebFsFileEntry {
