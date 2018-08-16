@@ -65,7 +65,7 @@ class EnumerationWriter {
         outputStack.pop();
       }
       if (parts.length === outputStack.length) {
-        entry.Name = parts[parts.length-1] || '';
+        entry.Name = decodeURIComponent(parts[parts.length-1] || '');
         const parent = outputStack[outputStack.length - 1]
         if (parent) {
           if (parent.Type !== 'Folder')

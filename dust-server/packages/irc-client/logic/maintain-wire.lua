@@ -188,11 +188,10 @@ function listChannelsWithUser(nick)
   local chans = {}
   local allChans = ctx.readDir(channelsCtx)
   for chanName in pairs(allChans) do
-    local realName = decodeURIComponent(chanName)
-    local chan = getChannel(realName)
+    local chan = getChannel(chanName)
 
     if ctx.read(chan.members, nick, "nick") ~= "" then
-      chans[realName] = chan
+      chans[chanName] = chan
     end
   end
   return chans

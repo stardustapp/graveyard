@@ -117,7 +117,7 @@ class LuaContext {
     const n = lua.lua_gettop(L);
     const paths = new Array(n);
     for (let i = 0; i < n; i++) {
-      paths[i] = fengari.to_jsstring(lauxlib.luaL_checkstring(L, i+1));
+      paths[i] = encodeURIComponent(fengari.to_jsstring(lauxlib.luaL_checkstring(L, i+1)));
     }
     lua.lua_settop(L, 0);
 
