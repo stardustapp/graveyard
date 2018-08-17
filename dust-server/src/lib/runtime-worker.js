@@ -55,7 +55,10 @@ class RuntimeWorker extends Worker {
         Data: input,
       }
     });
-    return (response.Output != null) ? response.Output.Data : null
+
+    if (!response.Ok)
+      throw new Error(`RuntimeWorker API ${path} didn't invoke cleanly`);
+    return (response.Output != null) ? response.Output.Data : null;
   }
 
   deviceForRuntimePath(path) {
