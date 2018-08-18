@@ -638,36 +638,39 @@ class IdbSubNode {
   // Process events on this nid
   // Currently, the only mutable aspect of a nid is a Folder's child listing
   async processEvent(sub, txn, event) {
+    // only pay attention if we aren't ground-level
+    // (if we are, the sub itself will just restart)
+    if (this.height <= 0) return;
+
     switch (event.op) {
       case 'remove-child':
-        if (this.children.has(event.child)) {
-          const child = this.children.get(event.child);
-          child.retractEntry(sub);
-          this.children.delete(event.child);
-        }
-        break;
+      this.abandonChild(sub, event.child, true);
+      break;
 
-      case 'assign-child':
-        // only pay attention if we aren't ground-level
-        if (this.height > 0) {
-          const childNode = new IdbSubNode(event.nid,
-              this.childPrefix+encodeURIComponent(event.child), this.height - 1);
-          this.children.set(event.child, childNode);
-          await childNode.transmitEntry(sub, txn, false);
-        }
-        break;
+    // We don't want to break the sub state based on existing children being wrong,
+    // so these actions are effectively handled the same way
+    case 'assign-child':
+    case 'replace-child':
+      const alreadyExists = this.abandonChild(sub, event.child, false);
 
-      case 'replace-child':
-        if (this.height > 0) {
-          const childNode = new IdbSubNode(event.nid,
-              this.childPrefix+encodeURIComponent(event.child), this.height - 1);
-          this.children.set(event.child, childNode);
-          await childNode.transmitEntry(sub, txn, true);
-        }
-        break;
+      const childNode = new IdbSubNode(event.nid,
+          this.childPrefix+encodeURIComponent(event.child), this.height - 1);
+      this.children.set(event.child, childNode);
+      await childNode.transmitEntry(sub, txn, alreadyExists);
+      break;
 
       default:
         console.warn('idb subnode', this, 'got unimpl event', event);
+    }
+  }
+
+  // @return true if child was present
+  abandonChild(sub, name, andRetract) {
+    if (this.children.has(name)) {
+      const child = this.children.get(name);
+      child.retractEntry(sub, andRetract);
+      this.children.delete(name);
+      return true;
     }
   }
 }
