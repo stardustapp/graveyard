@@ -52,9 +52,9 @@ function sendPacket(command, params)
     })
 end
 
-function sendSplittablePacket(command, fullMsg, maxLength)
+function sendSplittablePacket(command, target, fullMsg, maxLength)
   for i,line in ipairs(splitMessage(fullMsg, maxLength)) do
-    sendPacket(command, {["1"]=input.target, ["2"]=line})
+    sendPacket(command, {["1"]=target, ["2"]=line})
     ctx.sleep(1000)
   end
 end
@@ -64,12 +64,56 @@ local aliases = {
   j = "join",
   p = "part",
   q = "quit",
+  msg = "message",
+  raw = "quote",
+  cs = "chanserv",
+  ns = "nickserv",
 }
+
+function sendGenericPayload (arg, command)
+  -- TODO: proper argument parsing (detect trailing quoting?)
+  sendPacket(command, {["1"]=arg})
+end
+function sendGenericPayloadForTarget (arg, command)
+  if #arg > 0 then
+    sendPacket(command, {["1"]=arg})
+  else
+    sendPacket(command, {["1"]=input.target})
+  end
+end
 
 local commands
 commands = {
-  say = function (arg) sendSplittablePacket("PRIVMSG", arg, 400) end,
-  me = function (arg) sendPacket("CTCP", {["1"]=input.target, ["2"]="ACTION", ["3"]=arg}) end,
+  -- primitive message sends
+  message = function (arg)
+    local target = ctx.splitString(arg, " ")[1]
+    local body = arg:sub(#target + 1)
+    sendSplittablePacket("PRIVMSG", target, body, 400)
+  end,
+  notice = function (arg)
+    local target = ctx.splitString(arg, " ")[1]
+    local body = arg:sub(#target + 1)
+    sendSplittablePacket("NOTICE", target, body, 400)
+  end,
+  ctcp = function (arg)
+    local target = ctx.splitString(arg, " ")[1]
+    local method = ctx.splitString(arg, " ")[2]:upper()
+    local body = arg:sub(#target + 1 + #method + 1)
+    sendPacket("CTCP", {["1"]=target, ["2"]=method, ["3"]=body})
+  end,
+
+  -- conversational message sends
+  say = function (arg)
+    sendSplittablePacket("PRIVMSG", input.target, arg, 400)
+  end,
+  me = function (arg)
+    for i,line in ipairs(splitMessage(arg, 400)) do
+      sendPacket("CTCP", {["1"]=input.target, ["2"]="ACTION", ["3"]=line})
+      ctx.sleep(1000)
+    end
+  end,
+
+  -- message macros
   shrug = function (arg)
     local emote = "¯\\_(ツ)_/¯"
     if #arg > 0 then
@@ -81,100 +125,62 @@ commands = {
     if #arg == 0 then
       arg = "ChanServ"
     end
-    commands.me("slaps "..arg.." ".."around a bit with a large trout")
+    commands.me("slaps "..arg.." around a bit with a large trout")
   end,
   hi5 = function (arg)
     commands.say("_o/\\o_ "..arg)
   end,
 
+  -- context utilities
   join = function (arg) sendPacket("JOIN", {["1"]=arg or input.target}) end,
   part = function (arg) sendPacket("PART", {["1"]=input.target, ["2"]=(arg or "Leaving")}) end,
   quit = function (arg) sendPacket("QUIT", {["1"]=arg or "Issued /quit"}) end,
+  cycle = function (arg)
+    sendPacket("PART", {["1"]=input.target, ["2"]=(arg or "Cycling")})
+    sendPacket("JOIN", {["1"]=input.target})
+  end,
+  invite = function (arg) sendPacket("INVITE", {["1"]=arg, ["2"]=input.target}) end,
 
---[[ #TODO
+  -- raw commands that pass as-is to IRC server
+  whois = sendGenericPayload,
+  whowas = sendGenericPayload,
+  who = sendGenericPayload,
+  links = sendGenericPayload,
+  map = sendGenericPayload,
+  accept = sendGenericPayload,
+  help = sendGenericPayload,
+  userhost = sendGenericPayload,
+  ison = sendGenericPayload,
+  motd = sendGenericPayload,
+  time = sendGenericPayload,
+  nick = sendGenericPayload,
+  mode = sendGenericPayload,
+  stats = sendGenericPayload,
+  ping = sendGenericPayload,
 
-  // commands that pass as-is to IRC server
-  case 'whois':
-  case 'whowas':
-  case 'who':
-  case 'links':
-  case 'map':
-  case 'accept':
-  case 'help':
-  case 'userhost':
-  case 'ison':
-  case 'motd':
-  case 'time':
-  case 'nick':
-  case 'mode':
-  case 'stats':
-  case 'ping':
-  // and also some of these i guess
-  case 'chanserv':
-  case 'nickserv':
-  case 'cs':
-  case 'ns':
-    promise = this.sendGenericPayload(cmd, args);
-    break;
+  -- and also some of these i guess
+  chanserv = sendGenericPayload,
+  nickserv = sendGenericPayload,
 
-  case 'invite':
-    promise = this
-      .sendGenericPayload(cmd, [args[0], args[1] || this.context]);
-    break;
+  -- some raw commands are wrapped a bit
 
-  case 'who':
-  case 'topic':
-  case 'names':
-    promise = this
-      .sendGenericPayload(cmd, [args[0] || this.context]);
-    break;
+  away = function (arg)
+    if #arg then
+      sendPacket("AWAY", {["1"]=arg})
+    else
+      sendPacket("AWAY", {})
+    end
+  end,
 
-  case 'cycle':
-    promise = this
-      .sendGenericPayload('PART', [this.context, args.join(' ') || 'Cycling'])
-      .then(() => this.sendGenericPayload('JOIN', [this.context]));
-    break;
+  who = sendGenericPayloadForTarget,
+  topic = sendGenericPayloadForTarget,
+  names = sendGenericPayloadForTarget,
 
-  case 'away':
-    if (args.length) {
-      promise = this.sendGenericPayload(cmd, [args.join(' ')]);
-    } else {
-      promise = this.sendGenericPayload(cmd, []);
-    }
-    break;
-
-  case 'msg':
-    promise = this
-      .sendPrivateMessage(args[0], args.slice(1).join(' '));
-    break;
-
-  case 'notice':
-    promise = this
-      .sendGenericPayload(cmd, [args[0], args.slice(1).join(' ')]);
-    break;
-
-  case 'ctcp':
-    promise = this
-      .sendGenericPayload("CTCP", [args[0], args[1], args.slice(2).join(' ')]);
-    break;
-
-  case 'raw':
-  case 'quote':
-    local trailingIdx = args.findIndex(x => x.startsWith(':'));
-    if (trailingIdx != -1) {
-      local trailing = args.slice(trailingIdx).join(' ').slice(1);
-      args.splice(trailingIdx, args.length-trailingIdx, trailing);
-    }
-
-    promise = this
-      .sendGenericPayload(args[0], args.slice(1));
-    break;
-
-]]--
+  -- #TODO: parse and send IRC protocol for /quote
 }
 
 local command = aliases[input.command] or input.command
 
 local impl = commands[command]
 assert(impl, "/"..command.." is not implemented")
-impl(input.argument)
+impl(input.argument, command)
