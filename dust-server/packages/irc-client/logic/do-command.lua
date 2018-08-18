@@ -46,7 +46,8 @@ local aliases = {
   q = "quit",
 }
 
-local commands = {
+local commands
+commands = {
   say = function (arg) sendPacket("PRIVMSG", {["1"]=input.target, ["2"]=arg}) end,
   me = function (arg) sendPacket("CTCP", {["1"]=input.target, ["2"]="ACTION", ["3"]=arg}) end,
   shrug = function (arg)
@@ -54,18 +55,16 @@ local commands = {
     if #arg > 0 then
       emote = arg.." "..emote
     end
-    sendPacket("PRIVMSG", {["1"]=input.target, ["2"]=emote})
+    commands.say(emote)
   end,
   slap = function (arg)
-    local emote = "_o/\\o_"
-    if #arg > 0 then
-      emote = emote.." "..arg
+    if #arg == 0 then
+      arg = "ChanServ"
     end
-    sendPacket("PRIVMSG", {["1"]=input.target, ["2"]=emote})
+    commands.me("slaps "..arg.." ".."around a bit with a large trout")
   end,
   hi5 = function (arg)
-    local emote = "_o/\\o_".." "..arg
-    sendPacket("PRIVMSG", {["1"]=input.target, ["2"]=emote})
+    commands.say("_o/\\o_ "..arg)
   end,
 
   join = function (arg) sendPacket("JOIN", {["1"]=arg or input.target}) end,
