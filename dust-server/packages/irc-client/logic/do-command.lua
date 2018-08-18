@@ -1,3 +1,49 @@
+function splitMessage(msg, maxLength)
+  local lines = {}
+  local maxLength = maxLength or 400
+  for i,remainingText in ipairs(ctx.splitString(msg, "\n")) do
+    while #remainingText > 0 do
+      local line = remainingText
+      local lineOffset = 2
+      if #line > maxLength then
+        line = ""
+        for i,word in ipairs(ctx.splitString(remainingText, " ")) do
+          --print(word, #word, #line, #word + #line + 1 > maxLength)
+          if #word + #line > maxLength then
+            break
+          end
+          if #line > 0 then
+            line = line.." "..word
+          else
+            line = word
+          end
+        end
+        if #line == 0 then
+          line = remainingText:sub(0, maxLength)
+          lineOffset = 1
+        end
+      end
+
+      print(#line, maxLength, line)
+      table.insert(lines, line)
+      remainingText = remainingText:sub(#line + lineOffset)
+    end
+  end
+  return lines
+end
+
+--[[ some tests
+print(dump(splitMessage("The quick brown fox jumps over the lazy dog",4)))
+print(dump(splitMessage("The quick brown fox jumps over the lazy dog",5)))
+print(dump(splitMessage("The quick brown fox jumps over the lazy dog",6)))
+print(dump(splitMessage("The\nquick\nbrown fox jumps over the lazy dog",18)))
+print(dump(splitMessage("The quick brown fox jumps over the lazy dog",10)))
+print(dump(splitMessage("The quick brown fox jumps over the lazy dog",30)))
+print(dump(splitMessage("The quick brownbrownbrownbrownbrownbrownbrownbrownbrownbrownbrownbrownbrownbrownbrown fox jumps over the lazy dog",22)))
+print(dump(splitMessage("The quick    brown fox jumps over     the lazy dog",19)))
+]]--
+
+
 -- Queue an IRC payload for transmission to server
 function sendPacket(command, params)
   ctx.invoke("state", "networks", input.network, "wire", "send", {
@@ -6,39 +52,13 @@ function sendPacket(command, params)
     })
 end
 
---[[ #TODO: send simple PRIVMSG with word wrap
-function sendComplexMessage(target, msg)
-  -- wrap messages to prevent truncation at 512
-  -- TODO: smarter message cutting based on measured prefix
-  local maxLength = 400 - #target
-  local msgCount = 0
-  local offset = 0
-  local 
-  local thisMessage
-  while 
-  local sendNextChunk = () => {
-    local thisChunk = msg.substr(offset, maxLength);
-    if (thisChunk.length === 0) {
-      return Promise.resolve(msgCount);
-    }
-    msgCount++;
-
-    // not the last message? try chopping at a space
-    local lastSpace = thisChunk.lastIndexOf(' ');
-    if ((offset + thisChunk.length) < msg.length && lastSpace > 0) {
-      thisChunk = thisChunk.slice(0, lastSpace);
-      offset += thisChunk.length + 1;
-    } else {
-      offset += thisChunk.length;
-    }
-
-    return this
-      .sendGenericPayload('PRIVMSG', [target, thisChunk])
-      .then(sendNextChunk);
-  };
-  return sendNextChunk();
+function sendSplittablePacket(command, fullMsg, maxLength)
+  for i,line in ipairs(splitMessage(fullMsg, maxLength)) do
+    sendPacket(command, {["1"]=input.target, ["2"]=line})
+    ctx.sleep(1000)
+  end
 end
-]]--
+
 
 local aliases = {
   j = "join",
@@ -48,7 +68,7 @@ local aliases = {
 
 local commands
 commands = {
-  say = function (arg) sendPacket("PRIVMSG", {["1"]=input.target, ["2"]=arg}) end,
+  say = function (arg) sendSplittablePacket("PRIVMSG", arg, 400) end,
   me = function (arg) sendPacket("CTCP", {["1"]=input.target, ["2"]="ACTION", ["3"]=arg}) end,
   shrug = function (arg)
     local emote = "¯\\_(ツ)_/¯"

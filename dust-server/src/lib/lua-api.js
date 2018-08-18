@@ -310,7 +310,6 @@ const LUA_API = {
 
   // ctx.splitString(fulldata string, knife string) []string
   splitString(L, T) {
-    //extras.MetricIncr("runtime.syscall", "call:splitString", "app:"+p.App.AppName)
     const str = lua.lua_tojsstring(L, 1);
     const knife = lua.lua_tojsstring(L, 2);
     lua.lua_settop(L, 0);
