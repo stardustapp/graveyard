@@ -92,6 +92,13 @@ class Skylink {
     }).then(x => x.Output);
   }
 
+  readValue(path) {
+    return this.exec({
+      Op: 'get',
+      Path: (this.prefix + path) || '/',
+    }).then(x => entryToJS(x.Output));
+  }
+
   enumerate(path, opts={}) {
     const maxDepth = opts.maxDepth == null ? 1 : +opts.maxDepth;
     const shapes = opts.shapes || [];
@@ -241,23 +248,25 @@ class Skylink {
     };
   }
 
-  static File(name, data) {
-    // use native base64 when in nodejs
+  static Blob(Name, Data, Mime='text/plain') {
+    let wireData;
+
     if (typeof Buffer != 'undefined') {
-      return {
-        Name: name,
-        Type: 'File',
-        FileData: new Buffer(data).toString('base64'),
-      };
+      // use native base64 when in nodejs
+      wireData = new Buffer(Data).toString('base64');
     } else {
       // polyfil + TextEncoder needed to support emoji
-      const encodedData = new TextEncoder('utf-8').encode(data);
-      return {
-        Name: name,
-        Type: 'File',
-        FileData: base64js.fromByteArray(encodedData),
-      };
+      if (Data.constructor === String) {
+        Data = new TextEncoder('utf-8').encode(Data);
+      }
+      wireData = base64js.fromByteArray(Data);
     }
+
+    return {
+      Type: 'Blob',
+      Name, Mime,
+      Data: wireData,
+    };
   }
 
   static Folder(name, children) {

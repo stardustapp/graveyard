@@ -16,7 +16,16 @@ function entryToJS (ent) {
       return ent.StringValue;
 
     case 'Blob':
-      return ent; // TODO: wrap with helpers to await as string
+      // use native base64 when in nodejs
+      if (typeof Buffer != 'undefined') {
+        ent.Data = new Buffer(x.Data || '', 'base64').toString('utf8');
+      } else {
+        ent.Data = base64js.toByteArray(ent.Data);
+        ent.asText = function() {
+          return new TextDecoder('utf-8').decode(this.Data);
+        }
+      }
+      return ent;
 
     default:
       throw new Error(`Received wire literal of unhandled type ${JSON.stringify(ent.Type)}`);

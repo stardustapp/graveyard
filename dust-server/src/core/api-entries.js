@@ -81,14 +81,17 @@ function InflateSkylinkLiteral(raw) {
   switch (raw.Type) {
 
     case 'String':
-      return new StringLiteral(raw.Name || 'input', raw.StringValue);
+      return new StringLiteral(raw.Name || '', raw.StringValue);
 
     case 'Folder':
-      const folder = new FolderLiteral(raw.Name || 'input');
+      const folder = new FolderLiteral(raw.Name || '');
       (raw.Children || []).forEach(child => {
         folder.append(InflateSkylinkLiteral(child))
       });
       return folder;
+
+    case 'Blob':
+      return new BlobLiteral(raw.Name || '', raw.Data, raw.Mime);
 
     case 'JS':
       return raw.Data;

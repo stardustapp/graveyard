@@ -4,16 +4,24 @@ class Channel {
     this.id = id;
     this.queue = ['waiting'];
     this.callbacks = {};
+    this.alive = true;
 
     this.burnBacklog = this.burnBacklog.bind(this);
   }
 
   // add a packet to process after all other existing packets process
   handle(packet) {
+    if (!this.alive)
+      throw new Error(`Channel isn't alive`);
+
     this.queue.push(packet);
     if (this.queue.length == 1 && this.callbacks) {
       // if we're alone at the front, let's kick it off
       this.burnBacklog();
+    }
+
+    if (packet.Status !== 'Next') {
+      this.alive = false;
     }
   }
 
@@ -57,7 +65,7 @@ class Channel {
         console.log('Channel #', this.id, 'came to an end. No one cared.');
       };
     }
-    
+
     this.start({
       onNext: effect,
       onError(x) {
@@ -1087,6 +1095,13 @@ class Skylink {
     }).then(x => x.Output);
   }
 
+  readValue(path) {
+    return this.exec({
+      Op: 'get',
+      Path: (this.prefix + path) || '/',
+    }).then(x => entryToJS(x.Output));
+  }
+
   enumerate(path, opts={}) {
     const maxDepth = opts.maxDepth == null ? 1 : +opts.maxDepth;
     const shapes = opts.shapes || [];
@@ -1236,23 +1251,25 @@ class Skylink {
     };
   }
 
-  static File(name, data) {
-    // use native base64 when in nodejs
+  static Blob(Name, Data, Mime='text/plain') {
+    let wireData;
+
     if (typeof Buffer != 'undefined') {
-      return {
-        Name: name,
-        Type: 'File',
-        FileData: new Buffer(data).toString('base64'),
-      };
+      // use native base64 when in nodejs
+      wireData = new Buffer(Data).toString('base64');
     } else {
       // polyfil + TextEncoder needed to support emoji
-      const encodedData = new TextEncoder('utf-8').encode(data);
-      return {
-        Name: name,
-        Type: 'File',
-        FileData: base64js.fromByteArray(encodedData),
-      };
+      if (Data.constructor === String) {
+        Data = new TextEncoder('utf-8').encode(Data);
+      }
+      wireData = base64js.fromByteArray(Data);
     }
+
+    return {
+      Type: 'Blob',
+      Name, Mime,
+      Data: wireData,
+    };
   }
 
   static Folder(name, children) {
@@ -1324,7 +1341,16 @@ function entryToJS (ent) {
       return ent.StringValue;
 
     case 'Blob':
-      return ent; // TODO: wrap with helpers to await as string
+      // use native base64 when in nodejs
+      if (typeof Buffer != 'undefined') {
+        ent.Data = new Buffer(x.Data || '', 'base64').toString('utf8');
+      } else {
+        ent.Data = base64js.toByteArray(ent.Data);
+        ent.asText = function() {
+          return new TextDecoder('utf-8').decode(this.Data);
+        }
+      }
+      return ent;
 
     default:
       throw new Error(`Received wire literal of unhandled type ${JSON.stringify(ent.Type)}`);
@@ -1593,4 +1619,4 @@ class SkylinkHttpTransport {
 
 if (typeof module !== "undefined" && module !== null) {
   module.exports = SkylinkWsTransport;
-}window.ALL_OPS = 'get enumerate subscribe store storeRandom invoke copy unlink putFile loadFile putString loadString'.split(' ');
+}window.ALL_OPS = 'get readValue enumerate subscribe store storeRandom invoke copy unlink putFile loadFile putString loadString'.split(' ');

@@ -103,9 +103,9 @@ Vue.component('entry-item', {
           this.load();
           break;
 
-        case 'File':
+        case 'Blob':
           editorApp.openEditor({
-            type: 'edit-file',
+            type: 'edit-blob',
             label: this.name,
             icon: 'edit',
             path: this.path,
@@ -190,7 +190,7 @@ Vue.component('create-name', {
   data() {
     return {
       name: '',
-      type: 'File',
+      type: 'Blob',
     };
   },
   computed: {
@@ -204,10 +204,10 @@ Vue.component('create-name', {
       const fullPath = this.tab.path + '/' + this.name;
 
       switch (this.type) {
-      case "File":
+      case "Blob":
         // Don't actually create yet, just open a buffer
         editorApp.openEditor({
-          type: "edit-file",
+          type: "edit-blob",
           icon: "edit",
           label: this.name,
           path: fullPath,
@@ -331,8 +331,8 @@ Vue.component('invoke-function', {
   },
 });
 
-Vue.component('edit-file', {
-  template: '#edit-file',
+Vue.component('edit-blob', {
+  template: '#edit-blob',
   props: {
     tab: Object,
   },
@@ -340,6 +340,7 @@ Vue.component('edit-file', {
     const pathParts = this.tab.path.split('/');
     return {
       source: '',
+      mimeType: '',
       editorOptions: {
         tabSize: 2,
         mode: {
@@ -403,7 +404,8 @@ Vue.component('edit-file', {
         console.log('Updated buffer to cleaned version of source');
       }
 
-      skylink.putFile(this.tab.path, source).then(x => {
+      const blob = Skylink.Blob('codemirror', source, this.mimeType);
+      skylink.store(this.tab.path, blob).then(x => {
         alert('Saved');
 
         // update the dirty marker
@@ -432,8 +434,11 @@ Vue.component('edit-file', {
 
     if (!this.tab.isNew) {
       skylink
-        .loadFile(this.tab.path)
-        .then(x => this.source = x);
+        .readValue(this.tab.path)
+        .then(x => {
+          this.source = x.asText();
+          this.mimeType = x.Mime;
+        });
     }
   },
 });
