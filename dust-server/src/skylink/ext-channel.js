@@ -12,6 +12,7 @@ class ChannelExtension {
 
   attachTo(skylink) {
     skylink.shutdownHandlers.push(this.handleShutdown.bind(this));
+    skylink.ops.set('stop', this.stopOpImpl.bind(this));
     skylink.env.mount('/channels/new', 'function', {
       invoke: this.newChannelFunc.bind(this),
     });
@@ -58,5 +59,15 @@ class ChannelExtension {
       },
     });
     return channel;
+  }
+
+  stopOpImpl(request) {
+    const chanId = parseInt(request.Path.split('/')[2]);
+    if (!this.channels.has(chanId)) {
+      throw new Error(`Channel at ${request.Path} not found`);
+    }
+
+    const input = request.Input || new StringLiteral('reason', 'Client called `stop`');
+    return this.channels.get(chanId).triggerStop(input);
   }
 }
