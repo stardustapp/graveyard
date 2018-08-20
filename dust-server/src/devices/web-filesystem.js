@@ -15,31 +15,25 @@ class WebFilesystemMount {
     //this.api = DirectoryEntryApi.construct(this.root);
   }
 
-  async getEntry(path) {
+  getEntry(path) {
     const subPath = path.slice(1);
-    // Use trailing slash to signal for a directory instead
-    // TODO: how annoying is that?
-    if (path.endsWith('/') || path.length === 0) {
-      return await new Promise((resolve, reject) =>
-          this.entry.getDirectory(this.prefix+subPath, {create: false}, resolve, reject))
-        .then(d => {
-          return new WebFsDirectoryEntry(d)
-        }, err => {
-          if (err.name === 'NotFoundError')
-            return null;
-          return err;
-        });
-    } else {
-      return await new Promise((resolve, reject) =>
-          this.entry.getFile(this.prefix+subPath, {create: false}, resolve, reject))
-        .then(f => {
-          return new WebFsFileEntry(f)
-        }, err => {
-          if (err.name === 'NotFoundError')
-            return null;
-          throw err;
-        });
-    }
+    // Try as directory first, fallback to file
+    return new Promise((resolve, reject) =>
+        this.entry.getDirectory(this.prefix+subPath, {create: false}, resolve, reject))
+      .then(d => new WebFsDirectoryEntry(d))
+      .catch(err => {
+        if (err.name === 'TypeMismatchError') {
+          return new Promise((resolve, reject) =>
+              this.entry.getFile(this.prefix+subPath, {create: false}, resolve, reject))
+            .then(f => new WebFsFileEntry(f));
+        }
+        return Promise.reject(err);
+      })
+      .catch(err => {
+        if (err.name === 'NotFoundError')
+          return null;
+        return Promise.reject(err);
+      });
   }
 }
 
