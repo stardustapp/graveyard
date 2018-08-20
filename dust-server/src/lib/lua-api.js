@@ -20,7 +20,7 @@ const LUA_API = {
     }
 
     const thread = this.machine.startThread();
-    thread.compile(atob(source.Data));
+    thread.compileFrom(source);
     const completion = thread.run(input);
 
     console.log("started routine", thread);

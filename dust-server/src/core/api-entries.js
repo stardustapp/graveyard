@@ -60,7 +60,9 @@ class BlobLiteral {
   }
 
   static fromString(raw, mime='text/plain') {
-    return new BlobLiteral('blob', btoa(raw), mime);
+    const encodedBytes = new TextEncoder('utf-8').encode(raw);
+    const dataString = base64js.fromByteArray(encodedBytes);
+    return new BlobLiteral('blob', dataString, mime);
   }
 
   inspect() {

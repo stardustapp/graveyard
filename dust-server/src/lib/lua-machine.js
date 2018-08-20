@@ -230,6 +230,12 @@ class LuaThread extends LuaContext {
     T.endStep();
   }
 
+  compileFrom(sourceEntry) {
+    const encodedBytes = base64js.toByteArray(sourceEntry.Data);
+    const sourceText = new TextDecoder('utf-8').decode(encodedBytes);
+    this.compile(sourceText);
+  }
+
   compile(sourceText) {
     if (this.status !== 'Idle')
       throw new Error(`Cannot compile thread while it's ${this.status}`);

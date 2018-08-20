@@ -28,6 +28,7 @@ importScripts(
   '/src/lib/path-fragment.js',
   '/src/lib/datadog.js',
 
+  '/vendor/libraries/base64.js',
   '/vendor/libraries/fengari.js',
   '/vendor/libraries/moment.js',
   //'/vendor/libraries/bugsnag.js',
@@ -77,8 +78,7 @@ class Workload extends PlatformApi {
       await new Promise(resolve => {
         const sub = new SingleSubscription(rawSub);
         sub.forEach(literal => {
-          const source = atob(literal.Data);
-          this.thread.compile(source);
+          this.thread.compileFrom(literal);
 
           resolve && resolve();
           resolve = null;
@@ -87,8 +87,7 @@ class Workload extends PlatformApi {
 
     } else {
       const literal = await sourceEntry.get();
-      const source = atob(literal.Data);
-      this.thread.compile(source);
+      this.thread.compileFrom(literal);
     }
     return this;
   }

@@ -233,13 +233,9 @@ class Skylink {
   }
 
   static Blob(Name, Data, Mime='text/plain') {
-    let wireData;
-
     // polyfil + TextEncoder needed to support emoji
-    if (Data.constructor === String) {
-      Data = new TextEncoder('utf-8').encode(Data);
-    }
-    wireData = base64js.fromByteArray(Data);
+    Data = new TextEncoder('utf-8').encode(Data);
+    const wireData = base64js.fromByteArray(Data);
 
     return {
       Type: 'Blob',
