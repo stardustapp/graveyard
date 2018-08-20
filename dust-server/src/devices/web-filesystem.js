@@ -121,8 +121,7 @@ class WebFsFileEntry {
 
   async put(entry) {
     const dataUrl = `data:${entry.Mime};base64,${entry.Data}`;
-    const blobFetch = await fetch(dataUrl);
-    const realBlob = await blobFetch.blob();
+    const realBlob = await entry.asRealBlob();
 
     const writer = await new Promise((resolve, reject) =>
       this.entry.createWriter(resolve, reject));

@@ -65,6 +65,12 @@ class BlobLiteral {
     return new BlobLiteral('blob', dataString, mime);
   }
 
+  async asRealBlob() {
+    const dataUrl = `data:${this.Mime};base64,${this.Data}`;
+    const blobFetch = await fetch(dataUrl);
+    return blobFetch.blob();
+  }
+
   inspect() {
     return `<Blob ${JSON.stringify(this.Name)} ${JSON.stringify(this.Mime)}>`;
   }

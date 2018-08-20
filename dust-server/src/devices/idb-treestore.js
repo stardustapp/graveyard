@@ -135,7 +135,10 @@ class IdbPath {
   }
 
   async put(obj) {
-    //console.log('putting', obj, 'to', this.path);
+    // TODO: better, centralized place for this logic
+    if (obj.Type === 'Blob') {
+      obj.Blob = await obj.asRealBlob();
+    }
 
     const txn = new IdbTransaction(this.mount, 'readwrite');
     const newNid = (obj === null) ? null : await txn.createNode(obj);
@@ -204,14 +207,7 @@ class IdbTransaction {
   // These are bare Skylink literals and don't know where they are from.
   async getEntryByNid(nid) {
     const node = await this.getNodeByNid(nid);
-    switch (node.type) {
-      case 'Folder':
-        return new FolderLiteral(node.name, node.children);
-      case 'String':
-        return new StringLiteral(node.name, node.raw);
-      default:
-        throw new Error(`Failed to map IDB type ${node.type} for getEntryByNid()`);
-    }
+    return node.shallowExport();
   }
 
   makeRandomNid() {
@@ -250,6 +246,11 @@ class IdbTransaction {
 
       case 'String':
         newNode.raw = literal.StringValue || '';
+        break;
+
+      case 'Blob':
+        // 'Blob' is added before createNode (since async)
+        newNode.raw = literal.Blob;
         break;
 
       default:
@@ -444,6 +445,8 @@ class IdbExtantNode extends IdbNode {
         return new FolderLiteral(this.obj.name, this.obj.children.map(x => ({Name: x[0]})));
       case 'String':
         return new StringLiteral(this.obj.name, this.obj.raw);
+      case 'Blob':
+        return makeBlobLiteralFromActual(this.obj.name, this.obj.raw);
       default:
         throw new Error(`Failed to map IDB type ${this.obj.type} for '${this.name}'.shallowExport()`);
     }
@@ -597,7 +600,7 @@ class IdbSubNode {
 
     // transmit self
     const notifType = asChanged ? 'Changed' : 'Added';
-    const entry = node.shallowExport();
+    const entry = await node.shallowExport();
     entry.Name = 'entry';
     delete entry.Children;
     sub.channel.next(new FolderLiteral('notif', [
@@ -673,4 +676,18 @@ class IdbSubNode {
       return true;
     }
   }
+}
+
+async function makeBlobLiteralFromActual(name, blob) {
+  var reader = new FileReader();
+  const base64 = await new Promise((resolve, reject) => {
+    reader.onloadend = function(evt) {
+      if (this.error)
+        return reject(this.error);
+      const dataIdx = this.result.indexOf(',')+1;
+      resolve(this.result.slice(dataIdx));
+    };
+    reader.readAsDataURL(blob);
+  });
+  return new BlobLiteral(name, base64, blob.type);
 }
