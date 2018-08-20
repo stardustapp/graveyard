@@ -2,6 +2,7 @@ class Package {
   constructor(record) {
     this.record = record;
     this.webroot = null;
+    this.sourceDevice = null;
     this.ready = this.load();
   }
 
@@ -13,6 +14,10 @@ class Package {
       this.webroot = new WebFilesystemMount({
         entry: pkgRoot,
         prefix: `packages/${parts[1]}/webapp/`,
+      });
+      this.sourceDevice = new WebFilesystemMount({
+        entry: pkgRoot,
+        prefix: `packages/${parts[1]}/`,
       });
     } else {
       throw new Error(`Package used unrecognized source ${this.record.sourceUri}`);
