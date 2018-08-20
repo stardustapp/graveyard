@@ -42,29 +42,56 @@ class WebFsDirectoryEntry {
     this.entry = entry;
   }
 
-  async get() {
+  async forEachChildEntry(cb) {
     const reader = this.entry.createReader();
-    const entries = await new Promise((resolve, reject) => {
-      let entries = [];
-      const getEntries = function() {
-        reader.readEntries(results => {
+    return new Promise((resolve, reject) => {
+      function getEntries() {
+        reader.readEntries(async results => {
           if (!results.length)
-            return resolve(entries);
-          entries = entries.concat(results);
+            return resolve();
+          for (const entry of results)
+            await cb(entry);
           getEntries();
         }, reject);
       };
       getEntries();
     });
+  }
 
-    const children = entries.map(e => {
-      if (e.isDirectory) return new FolderLiteral(e.name);
-      if (e.isFile) return new StringLiteral(e.name);
+  async get() {
+    const children = new Array;
+    await this.forEachChildEntry(e => {
+      if (e.isDirectory) {
+        children.push(new FolderLiteral(e.name));
+      }
+      if (e.isFile) {
+        children.push(new BlobLiteral(e.name));
+      }
     });
     return new FolderLiteral(this.entry.name, children);
   }
 
-  // TODO: enumerate()
+  async enumerate(enumer) {
+    enumer.visit({Type: 'Folder'});
+    if (!enumer.canDescend()) return;
+
+    await this.forEachChildEntry(async e => {
+      enumer.descend(e.name);
+      if (e.isDirectory) {
+        if (enumer.canDescend()) {
+          // Simple recursion if desired
+          const child = new WebFsDirectoryEntry(e);
+          await child.enumerate(enumer);
+        } else {
+          enumer.visit(new FolderLiteral(e.name));
+        }
+      }
+      if (e.isFile) {
+        enumer.visit(new BlobLiteral());
+      }
+      enumer.ascend();
+    });
+  }
 }
 
 class WebFsFileEntry {
