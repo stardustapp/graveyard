@@ -253,7 +253,7 @@ class IdbTransaction {
         break;
 
       default:
-        throw new Error(`Failed to map IDB type ${this.node.type} for createNode()`);
+        throw new Error(`Failed to map IDB type ${literal.Type} for createNode()`);
     }
     await this.objectStore.add(newNode); // throws if exists
     return newNode.nid;

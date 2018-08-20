@@ -92,11 +92,19 @@ class Skylink {
     }).then(x => x.Output);
   }
 
-  readValue(path) {
+  readValue(path, expectedType=null) {
     return this.exec({
       Op: 'get',
       Path: (this.prefix + path) || '/',
-    }).then(x => entryToJS(x.Output));
+    }).then(x => {
+      if (expectedType !== null) {
+        const outType = x.Output ? x.Output.Type : 'Null';
+        if (outType !== expectedType)
+          throw new Error(`readValue() got a ${outType} back, expected ${expectedType}.`);
+      }
+
+      return entryToJS(x.Output)
+    });
   }
 
   enumerate(path, opts={}) {
@@ -165,30 +173,6 @@ class Skylink {
     });
   }
 
-  // File-based API
-
-  putFile(path, data) {
-    const nameParts = path.split('/');
-    const name = nameParts[nameParts.length - 1];
-    return this.store(path, Skylink.File(name, data));
-  }
-
-  loadFile(path) {
-    return this.get(path).then(x => {
-      if (x.Type !== 'File') {
-        return Promise.reject(`Expected ${path} to be a File but was ${x.Type}`);
-      } else {
-        // use native base64 when in nodejs
-        if (typeof Buffer != 'undefined') {
-          return new Buffer(x.FileData || '', 'base64').toString('utf8');
-        } else {
-          const encoded = base64js.toByteArray(x.FileData || '');
-          return new TextDecoder('utf-8').decode(encoded);
-        }
-      }
-    });
-  }
-
   // String-based API
 
   putString(path, value) {
@@ -251,16 +235,11 @@ class Skylink {
   static Blob(Name, Data, Mime='text/plain') {
     let wireData;
 
-    if (typeof Buffer != 'undefined') {
-      // use native base64 when in nodejs
-      wireData = new Buffer(Data).toString('base64');
-    } else {
-      // polyfil + TextEncoder needed to support emoji
-      if (Data.constructor === String) {
-        Data = new TextEncoder('utf-8').encode(Data);
-      }
-      wireData = base64js.fromByteArray(Data);
+    // polyfil + TextEncoder needed to support emoji
+    if (Data.constructor === String) {
+      Data = new TextEncoder('utf-8').encode(Data);
     }
+    wireData = base64js.fromByteArray(Data);
 
     return {
       Type: 'Blob',
