@@ -118,6 +118,25 @@ class WebFsFileEntry {
       : typeGuesses[this.entry.name.split('.').slice(-1)[0]];
     return new BlobLiteral(this.entry.name, base64, mimeType);
   }
+
+  async put(entry) {
+    const dataUrl = `data:${entry.Mime};base64,${entry.Data}`;
+    const blobFetch = await fetch(dataUrl);
+    const realBlob = await blobFetch.blob();
+
+    const writer = await new Promise((resolve, reject) =>
+      this.entry.createWriter(resolve, reject));
+
+    await new Promise((resolve, reject) => {
+      writer.onwriteend = function(evt) {
+        // TODO: errors supposedly via .onerror=evt=>{}
+        if (this.error)
+          return reject(this.error);
+        resolve();
+      };
+      writer.write(realBlob);
+    });
+  }
 }
 
 const typeGuesses = {
