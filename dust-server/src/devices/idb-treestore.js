@@ -136,7 +136,7 @@ class IdbPath {
 
   async put(obj) {
     // TODO: better, centralized place for this logic
-    if (obj.Type === 'Blob') {
+    if (obj && obj.Type === 'Blob') {
       obj.Blob = await obj.asRealBlob();
     }
 
