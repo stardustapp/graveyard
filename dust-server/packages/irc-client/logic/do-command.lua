@@ -52,10 +52,13 @@ function sendPacket(command, params)
     })
 end
 
+-- Sleep between packets, but not when there's only one packet
+local alreadySentSomething = false
 function sendSplittablePacket(command, target, fullMsg, maxLength)
   for i,line in ipairs(splitMessage(fullMsg, maxLength)) do
+    if alreadySentSomething then ctx.sleep(1000) end
     sendPacket(command, {["1"]=target, ["2"]=line})
-    ctx.sleep(1000)
+    alreadySentSomething = true
   end
 end
 
