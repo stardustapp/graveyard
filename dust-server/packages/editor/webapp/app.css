@@ -277,8 +277,56 @@ form p {
   flex: 1;
 }
 
-.cm-panel > .CodeMirror {
+.panel-parent .CodeMirror {
   flex: 1;
   font-family: 'Fira Code', monospace;
   /*font-variant-ligatures: contextual;*/
+}
+
+.editor-toolbar {
+  display: flex;
+  font-size: 0.9em;
+}
+.editor-toolbar .button-group {
+  margin: 0 0.5em;
+  border-left: 1px solid #444;
+}
+.editor-toolbar .button-group button {
+  background: none;
+  border: 0px solid #444;
+  color: #ddd;
+  padding: 0.3em 0.5em;
+  border-right-width: 1px;
+}
+.editor-toolbar .button-group button:hover {
+  color: #fff;
+  border-color: #999;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-left-width: 1px;
+  margin-left: -1px;
+  cursor: pointer;
+}
+.editor-toolbar .input-group {
+  margin: 0 0.3em;
+  display: flex;
+}
+.editor-toolbar .input-group:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.editor-toolbar .input-group:hover * {
+  color: #fff;
+}
+.editor-toolbar .label-text {
+  align-self: center;
+  padding: 0 0.5em;
+  color: #888;
+}
+.editor-toolbar [type=text] {
+  background-color: transparent;
+  border: 1px solid #555;
+  border-width: 0 1px 0 1px;
+  color: #ccc;
+  padding: 0 0.5em;
+  font-size: 1em;
+  align-self: stretch;
 }

@@ -208,6 +208,24 @@
 
 <script type="text/x-template" id="edit-blob">
   <div class="panel-parent cm-panel">
+    <div class="editor-toolbar">
+      <div class="button-group">
+        <button @click="save" title="Store new version">
+          <i class="material-icons">save</i>
+        </button>
+      </div>
+
+      <label class="input-group">
+        <div class="label-text">MIME type:</div>
+        <input
+            type="text"
+            name="mimeType"
+            v-model="mimeType"
+            required
+          >
+      </label>
+    </div>
+
     <codemirror
         ref="editor"
         :code="source"
