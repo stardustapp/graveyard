@@ -60,11 +60,52 @@ class BlobLiteral {
   }
 
   static fromString(raw, mime='text/plain') {
-    return new BlobLiteral('blob', btoa(raw), mime);
+    const encodedBytes = new TextEncoder('utf-8').encode(raw);
+    const dataString = base64js.fromByteArray(encodedBytes);
+    return new BlobLiteral('blob', dataString, mime);
+  }
+
+  async asRealBlob() {
+    const dataUrl = `data:${this.Mime};base64,${this.Data}`;
+    const blobFetch = await fetch(dataUrl);
+    return blobFetch.blob();
   }
 
   inspect() {
     return `<Blob ${JSON.stringify(this.Name)} ${JSON.stringify(this.Mime)}>`;
+  }
+}
+
+function InflateSkylinkLiteral(raw) {
+  if (!raw) {
+    return null;
+  }
+  if (raw.constructor !== Object) {
+    throw new Error(`Raw skylink literal wasn't an Object, please read the docs`);
+  }
+  if (!raw.Type) {
+    throw new Error(`Raw skylink literal ${JSON.stringify(raw.Name||raw)} didn't have a Type, please check your payload`);
+  }
+  switch (raw.Type) {
+
+    case 'String':
+      return new StringLiteral(raw.Name || '', raw.StringValue);
+
+    case 'Folder':
+      const folder = new FolderLiteral(raw.Name || '');
+      (raw.Children || []).forEach(child => {
+        folder.append(InflateSkylinkLiteral(child))
+      });
+      return folder;
+
+    case 'Blob':
+      return new BlobLiteral(raw.Name || '', raw.Data, raw.Mime);
+
+    case 'JS':
+      return raw.Data;
+
+    default:
+      throw new Error(`skylink literal had unimpl Type ${raw.Type}`);
   }
 }
 
@@ -73,5 +114,6 @@ if (typeof module !== 'undefined') {
     FolderLiteral,
     StringLiteral,
     BlobLiteral,
+    InflateSkylinkLiteral,
   };
 }

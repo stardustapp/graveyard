@@ -65,7 +65,7 @@ class EnumerationWriter {
         outputStack.pop();
       }
       if (parts.length === outputStack.length) {
-        entry.Name = parts[parts.length-1] || '';
+        entry.Name = decodeURIComponent(parts[parts.length-1] || '');
         const parent = outputStack[outputStack.length - 1]
         if (parent) {
           if (parent.Type !== 'Folder')
@@ -102,7 +102,7 @@ function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
     c.next(new FolderLiteral('notif', [
       new StringLiteral('type', 'Ready'),
     ]));
-    c.stop(new StringLiteral('nosub',
+    c.error(new StringLiteral('nosub',
         `This entry does not implement reactive subscriptions`));
   });
 }

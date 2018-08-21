@@ -217,14 +217,8 @@ class Responder {
     }
     this.addHeader('Content-Type', type);
 
-    // write the bytes of the string to an ArrayBuffer
-    const decoded = atob(blob.Data);
-    var ab = new ArrayBuffer(decoded.length);
-    var ia = new Uint8Array(ab);
-    for (var i = 0; i < decoded.length; i++) {
-        ia[i] = decoded.charCodeAt(i);
-    }
-    this.emitResponse(status, ab);
+    const rawBytes = base64js.toByteArray(blob.Data);
+    this.emitResponse(status, rawBytes.buffer);
   }
 
   redirectTo(target, status=303) {

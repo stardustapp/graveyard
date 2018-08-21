@@ -15,31 +15,25 @@ class WebFilesystemMount {
     //this.api = DirectoryEntryApi.construct(this.root);
   }
 
-  async getEntry(path) {
+  getEntry(path) {
     const subPath = path.slice(1);
-    // Use trailing slash to signal for a directory instead
-    // TODO: how annoying is that?
-    if (path.endsWith('/')) {
-      return await new Promise((resolve, reject) =>
-          this.entry.getDirectory(this.prefix+subPath, {create: false}, resolve, reject))
-        .then(d => {
-          return new WebFsDirectoryEntry(d)
-        }, err => {
-          if (err.name === 'NotFoundError')
-            return null;
-          return err;
-        });
-    } else {
-      return await new Promise((resolve, reject) =>
-          this.entry.getFile(this.prefix+subPath, {create: false}, resolve, reject))
-        .then(f => {
-          return new WebFsFileEntry(f)
-        }, err => {
-          if (err.name === 'NotFoundError')
-            return null;
-          return err;
-        });
-    }
+    // Try as directory first, fallback to file
+    return new Promise((resolve, reject) =>
+        this.entry.getDirectory(this.prefix+subPath, {create: false}, resolve, reject))
+      .then(d => new WebFsDirectoryEntry(d))
+      .catch(err => {
+        if (err.name === 'TypeMismatchError') {
+          return new Promise((resolve, reject) =>
+              this.entry.getFile(this.prefix+subPath, {create: false}, resolve, reject))
+            .then(f => new WebFsFileEntry(f));
+        }
+        return Promise.reject(err);
+      })
+      .catch(err => {
+        if (err.name === 'NotFoundError')
+          return null;
+        return Promise.reject(err);
+      });
   }
 }
 
@@ -48,26 +42,55 @@ class WebFsDirectoryEntry {
     this.entry = entry;
   }
 
-  async get() {
+  async forEachChildEntry(cb) {
     const reader = this.entry.createReader();
-    const entries = await new Promise((resolve, reject) => {
-      let entries = [];
-      const getEntries = function() {
-        reader.readEntries(results => {
+    return new Promise((resolve, reject) => {
+      function getEntries() {
+        reader.readEntries(async results => {
           if (!results.length)
-            return resolve(entries);
-          entries = entries.concat(results);
+            return resolve();
+          for (const entry of results)
+            await cb(entry);
           getEntries();
         }, reject);
       };
       getEntries();
     });
+  }
 
-    const children = entries.map(e => {
-      if (e.isDirectory) return new FolderLiteral(e.name);
-      if (e.isFile) return new StringLiteral(e.name);
+  async get() {
+    const children = new Array;
+    await this.forEachChildEntry(e => {
+      if (e.isDirectory) {
+        children.push(new FolderLiteral(e.name));
+      }
+      if (e.isFile) {
+        children.push(new BlobLiteral(e.name));
+      }
     });
     return new FolderLiteral(this.entry.name, children);
+  }
+
+  async enumerate(enumer) {
+    enumer.visit({Type: 'Folder'});
+    if (!enumer.canDescend()) return;
+
+    await this.forEachChildEntry(async e => {
+      enumer.descend(e.name);
+      if (e.isDirectory) {
+        if (enumer.canDescend()) {
+          // Simple recursion if desired
+          const child = new WebFsDirectoryEntry(e);
+          await child.enumerate(enumer);
+        } else {
+          enumer.visit(new FolderLiteral(e.name));
+        }
+      }
+      if (e.isFile) {
+        enumer.visit(new BlobLiteral());
+      }
+      enumer.ascend();
+    });
   }
 }
 
@@ -94,6 +117,24 @@ class WebFsFileEntry {
     const mimeType = file.type ? file.type
       : typeGuesses[this.entry.name.split('.').slice(-1)[0]];
     return new BlobLiteral(this.entry.name, base64, mimeType);
+  }
+
+  async put(entry) {
+    const dataUrl = `data:${entry.Mime};base64,${entry.Data}`;
+    const realBlob = await entry.asRealBlob();
+
+    const writer = await new Promise((resolve, reject) =>
+      this.entry.createWriter(resolve, reject));
+
+    await new Promise((resolve, reject) => {
+      writer.onwriteend = function(evt) {
+        // TODO: errors supposedly via .onerror=evt=>{}
+        if (this.error)
+          return reject(this.error);
+        resolve();
+      };
+      writer.write(realBlob);
+    });
   }
 }
 

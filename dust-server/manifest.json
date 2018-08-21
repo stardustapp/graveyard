@@ -12,11 +12,16 @@
       "scripts": [
         "vendor/libraries/bugsnag.js", "vendor/libraries/bcrypt.js", "vendor/libraries/wsc-chrome.js",
           "vendor/libraries/idb.js", "vendor/libraries/moment.js", "vendor/libraries/common-tags.js",
+          "vendor/libraries/base64.js",
         "src/core/utils.js", "src/core/api-entries.js", "src/core/enumeration.js", "src/core/environment.js",
-          "src/core/http-server.js", "src/core/nsexport.js", "src/core/wsc-skylink.js", "src/core/platform-api.js",
+          "src/core/http-server.js", "src/core/wsc-skylink.js", "src/core/platform-api.js",
+        "src/skylink/client.js", "src/skylink/server.js", "src/skylink/core-ops.js",
+          "src/skylink/ext-channel.js", "src/skylink/ext-reversal.js",
+          "src/skylink/channel-client.js", "src/skylink/channel-server.js",
+          "src/skylink/messageport.js",
         "src/daemon/database.js", "src/daemon/kernel.js",
-        "src/devices/idb-treestore.js", "src/devices/fs-string-dict.js", "src/devices/network-import.js",
-          "src/devices/tmp.js", "src/devices/web-filesystem.js",
+        "src/devices/idb-treestore.js", "src/devices/fs-string-dict.js",
+          "src/devices/tmp.js", "src/devices/web-filesystem.js", "src/devices/skylink-import.js",
           "src/devices/app-api.js", "src/devices/sessions-api.js",
         "src/lib/datadog.js", "src/lib/caching.js", "src/lib/path-fragment.js", "src/lib/runtime-worker.js",
         "src/daemon/model/account-manager.js", "src/daemon/model/account.js",
@@ -25,11 +30,13 @@
           "src/daemon/model/session-manager.js", "src/daemon/model/session.js",
           "src/daemon/model/workload-manager.js", "src/daemon/model/workload.js",
         "src/daemon/default-site.js", "src/daemon/gate-site.js", "src/daemon/gate-api.js", "src/daemon/domain-api.js",
-        "src/webapp/core/skylink/client.js", "src/webapp/core/skylink/ns-convert.js",
+        "src/webapp/core/data/channel.js", "src/webapp/core/skylink/client.js", "src/webapp/core/skylink/ns-convert.js",
         "src/daemon/background.js"]
     }
   },
   "permissions": [
+    "*://*/~~export*",
+
     "unlimitedStorage",
     "storage",
     {"fileSystem": ["write", "retainEntries", "directory"]},

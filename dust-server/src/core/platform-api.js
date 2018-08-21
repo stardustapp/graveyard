@@ -167,6 +167,20 @@ class PlatformApiTypeNull {
   }
 }
 
+// Never put this on the network, it's a no-op, only for intra-process message passing.
+class PlatformApiTypeJs {
+  constructor(name) {
+    this.name = name;
+    this.type = 'JS';
+  }
+  serialize(value) {
+    return value;
+  }
+  deserialize(literal) {
+    return literal;
+  }
+}
+
 class PlatformApiTypeFolder {
   constructor(name, fields=[]) {
     this.name = name;
@@ -251,6 +265,12 @@ class PlatformApiType {
           throw new Error(`PlatformApi must be passed as a created instance`);
         return givenValue.structType;
 
+      case Symbol:
+        switch (givenValue) {
+          case Symbol.for('raw js object'):
+            return new PlatformApiTypeJs(name);
+
+        }
       default:
         throw new Error(`Unable to implement type for field ${JSON.stringify(name)}`);
     }

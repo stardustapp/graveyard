@@ -77,10 +77,10 @@ async function boot(launchData) {
   });
 
   // expose the entire system environment on the network
-  const nsExport = new NsExport(kernel.systemEnv);
-  nsExport.mount(webServer);
+  ExposeSkylinkOverHttp(kernel.systemEnv, webServer);
+
   webServer.startServer(9237);
-  console.debug('BOOT: HTTP server is started');
+  console.debug('BOOT: HTTP server is listening');
 
   await kernel.boot();
   console.debug('BOOT: User services have started');

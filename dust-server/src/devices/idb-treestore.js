@@ -16,6 +16,13 @@ class IdbTreestoreMount {
     this.ready = this.init();
   }
 
+  metricTags(tags={}) {
+    tags.db = this.db.name;
+    tags.store = this.store;
+    tags.treeroot = `idb-${this.db.name}-${this.store}`;
+    return tags;
+  };
+
   async init() {
     const txn = new IdbTransaction(this, 'readwrite');
 
@@ -28,6 +35,18 @@ class IdbTreestoreMount {
       txn.createNode(new FolderLiteral('root'), 'root');
       console.warn('Seeded IDB mount with root node');
     }
+
+    setInterval(() => {
+      Datadog.Instance.gauge('idbtree.reactivity.active_nodes',
+          this.nidSubs.size, this.metricTags());
+    }, 10*1000);
+    setInterval(async () => {
+      const typeMap = await this.tallyAllNodeTypes();
+      for (const [type, count] of typeMap) {
+        Datadog.Instance.gauge('idbtree.total_nodes',
+            count, this.metricTags({entryType: type}));
+      }
+    }, 60*1000);
 
     await txn.innerTxn.complete;
     console.debug('Done initing IDB mount', this.store);
@@ -58,14 +77,15 @@ class IdbTreestoreMount {
       const subs = this.nidSubs.get(nid);
       subs.delete(sub);
       if (subs.size === 0) {
-        console.log('Nothing is watching nid', nid, 'anymore, removing from nidSubs');
         this.nidSubs.delete(nid);
       }
     }
   }
 
   async routeNidEvent(nid, event) {
+    Datadog.Instance.count('idbtree.reactivity.triggered_events', 1, this.metricTags({nidOp: event.op}));
     console.log('nid event', nid, event);
+
     if (this.nidSubs.has(nid)) {
       const txn = new IdbTransaction(this, 'readonly');
       const subs = this.nidSubs.get(nid);
@@ -75,8 +95,22 @@ class IdbTreestoreMount {
     }
   }
 
-  unregisterSub(sub) {
-    // TODO
+  async tallyAllNodeTypes() {
+    const self = this;
+    const types = new Map;
+    function countType(n) {
+      types.set(n.type, (types.get(n.type) || 0) + 1);
+    }
+
+    const tx = this.db.transaction(this.store, 'readonly');
+    await tx.objectStore(this.store)
+      .openCursor()
+      .then(function cursorIterate(cursor) {
+        if (!cursor) return;
+        countType(cursor.value);
+        return cursor.continue().then(cursorIterate);
+      });
+    return types;
   }
 }
 
@@ -101,7 +135,10 @@ class IdbPath {
   }
 
   async put(obj) {
-    //console.log('putting', obj, 'to', this.path);
+    // TODO: better, centralized place for this logic
+    if (obj && obj.Type === 'Blob') {
+      obj.Blob = await obj.asRealBlob();
+    }
 
     const txn = new IdbTransaction(this.mount, 'readwrite');
     const newNid = (obj === null) ? null : await txn.createNode(obj);
@@ -112,6 +149,7 @@ class IdbPath {
       // TODO: implement this like mkdirp?
       throw new Error(`Failed to put to ${this.path} because the direct parent doesn't exist`);
     }
+
     await handle.replaceCurrent(txn, newNid);
     await txn.innerTxn.complete;
   }
@@ -124,7 +162,11 @@ class IdbPath {
 
   async subscribe(depth, newChannel) {
     return await newChannel.invoke(async c => {
+      // bind a new sub to the channel
       const sub = new IdbSubscription(this, depth, c);
+      c.onStop(sub.stop.bind(sub));
+
+      // send the initial state
       await sub.start();
       c.next(new FolderLiteral('notif', [
         new StringLiteral('type', 'Ready'),
@@ -140,6 +182,7 @@ class IdbTransaction {
     this.mount = mount;
     this.innerTxn = mount.db.transaction(mount.store, mode);
     this.objectStore = this.innerTxn.objectStore(mount.store);
+    Datadog.Instance.count('idbtree.reactivity.created_txns', 1, this.mount.metricTags({idbMode: mode}));
   }
 
   async walkTree() {
@@ -164,14 +207,7 @@ class IdbTransaction {
   // These are bare Skylink literals and don't know where they are from.
   async getEntryByNid(nid) {
     const node = await this.getNodeByNid(nid);
-    switch (node.type) {
-      case 'Folder':
-        return new FolderLiteral(node.name, node.children);
-      case 'String':
-        return new StringLiteral(node.name, node.raw);
-      default:
-        throw new Error(`Failed to map IDB type ${node.type} for getEntryByNid()`);
-    }
+    return node.shallowExport();
   }
 
   makeRandomNid() {
@@ -187,6 +223,8 @@ class IdbTransaction {
   // The transaction must be opened in 'readwrite' mode.
   // The new NID is returned.
   async createNode(literal, forcedNid=null) {
+    Datadog.Instance.count('idbtree.reactivity.created_nodes', 1, this.mount.metricTags({entryType: literal.Type}));
+
     const newNode = {
       name: literal.Name,
       type: literal.Type,
@@ -210,11 +248,15 @@ class IdbTransaction {
         newNode.raw = literal.StringValue || '';
         break;
 
+      case 'Blob':
+        // 'Blob' is added before createNode (since async)
+        newNode.raw = literal.Blob;
+        break;
+
       default:
-        throw new Error(`Failed to map IDB type ${this.node.type} for createNode()`);
+        throw new Error(`Failed to map IDB type ${literal.Type} for createNode()`);
     }
     await this.objectStore.add(newNode); // throws if exists
-    //console.log('Created IDB node:', newNode);
     return newNode.nid;
   }
 }
@@ -403,6 +445,8 @@ class IdbExtantNode extends IdbNode {
         return new FolderLiteral(this.obj.name, this.obj.children.map(x => ({Name: x[0]})));
       case 'String':
         return new StringLiteral(this.obj.name, this.obj.raw);
+      case 'Blob':
+        return makeBlobLiteralFromActual(this.obj.name, this.obj.raw);
       default:
         throw new Error(`Failed to map IDB type ${this.obj.type} for '${this.name}'.shallowExport()`);
     }
@@ -443,9 +487,10 @@ class IdbSubscription {
     this.depth = depth;
     this.channel = channel;
 
-    // If any of these change, we might restart the whole sub
+    // If the path from the parent to us changes, we restart the whole sub
     this.parentNids = new Set;
     this.parentStack = new Array;
+    this.parentNames = new Array;
     // IDB-side root node - when this changes, the sub basically restarts
     this.currentNode = null;
     // A copy of the root IdbSubNode sent to the client
@@ -463,6 +508,7 @@ class IdbSubscription {
     // Register the path down to the sub's root node
     this.parentNids = new Set;
     this.parentStack = handle.stack;
+    this.parentNames = handle.names;
     handle.nids
       .filter(nid => nid)
       .forEach(nid => {
@@ -476,10 +522,10 @@ class IdbSubscription {
     }
   }
 
-  reset() {
+  reset(andRemove=true) {
     // delete everything from the client & clean up
     if (this.rootNode) {
-      this.rootNode.retractEntry(this);
+      this.rootNode.retractEntry(this, andRemove);
     }
     this.rootNode = null;
 
@@ -490,9 +536,16 @@ class IdbSubscription {
 
     // structure reset
     this.parentStack.length = [];
+    this.parentNames.length = [];
     this.parentNids.clear();
     this.currentNode = null;
     this.nidMap.clear();
+  }
+
+  stop(reason) {
+    console.log('stopping IDB subscription due to', reason);
+    this.reset(false); // don't send anything further
+    this.channel.done();
   }
 
   registerNidNotifs(nid, node) {
@@ -525,8 +578,8 @@ class IdbSubscription {
     if (!this.parentNids.has(nid)) return false;
     for (let idx = 0; idx < this.parentStack.length - 1; idx++) {
       const parent = this.parentStack[idx];
-      const child = this.parentStack[idx+1];
-      if (parent.nid === nid && child.name === event.child) return true;
+      const childName = this.parentNames[idx+1];
+      if (parent.nid === nid && childName === event.child) return true;
     }
   }
 }
@@ -547,8 +600,9 @@ class IdbSubNode {
 
     // transmit self
     const notifType = asChanged ? 'Changed' : 'Added';
-    const entry = node.shallowExport();
+    const entry = await node.shallowExport();
     entry.Name = 'entry';
+    delete entry.Children;
     sub.channel.next(new FolderLiteral('notif', [
       new StringLiteral('type', notifType),
       new StringLiteral('path', this.path),
@@ -568,7 +622,6 @@ class IdbSubNode {
   }
 
   retractEntry(sub, andRemove=true) {
-    console.log('Retracting IDB node', this.nid, 'path', this.path, 'and remove:', andRemove);
     sub.unregisterNidNotifs(this.nid);
 
     // remove children first
@@ -588,36 +641,53 @@ class IdbSubNode {
   // Process events on this nid
   // Currently, the only mutable aspect of a nid is a Folder's child listing
   async processEvent(sub, txn, event) {
+    // only pay attention if we aren't ground-level
+    // (if we are, the sub itself will just restart)
+    if (this.height <= 0) return;
+
     switch (event.op) {
       case 'remove-child':
-        if (this.children.has(event.child)) {
-          const child = this.children.get(event.child);
-          child.retractEntry(sub);
-          this.children.delete(event.child);
-        }
-        break;
+      this.abandonChild(sub, event.child, true);
+      break;
 
-      case 'assign-child':
-        // only pay attention if we aren't ground-level
-        if (this.height > 0) {
-          const childNode = new IdbSubNode(event.nid,
-              this.childPrefix+encodeURIComponent(event.child), this.height - 1);
-          this.children.set(event.child, childNode);
-          await childNode.transmitEntry(sub, txn, false);
-        }
-        break;
+    // We don't want to break the sub state based on existing children being wrong,
+    // so these actions are effectively handled the same way
+    case 'assign-child':
+    case 'replace-child':
+      const alreadyExists = this.abandonChild(sub, event.child, false);
 
-      case 'replace-child':
-        if (this.height > 0) {
-          const childNode = new IdbSubNode(event.nid,
-              this.childPrefix+encodeURIComponent(event.child), this.height - 1);
-          this.children.set(event.child, childNode);
-          await childNode.transmitEntry(sub, txn, true);
-        }
-        break;
+      const childNode = new IdbSubNode(event.nid,
+          this.childPrefix+encodeURIComponent(event.child), this.height - 1);
+      this.children.set(event.child, childNode);
+      await childNode.transmitEntry(sub, txn, alreadyExists);
+      break;
 
       default:
         console.warn('idb subnode', this, 'got unimpl event', event);
     }
   }
+
+  // @return true if child was present
+  abandonChild(sub, name, andRetract) {
+    if (this.children.has(name)) {
+      const child = this.children.get(name);
+      child.retractEntry(sub, andRetract);
+      this.children.delete(name);
+      return true;
+    }
+  }
+}
+
+async function makeBlobLiteralFromActual(name, blob) {
+  var reader = new FileReader();
+  const base64 = await new Promise((resolve, reject) => {
+    reader.onloadend = function(evt) {
+      if (this.error)
+        return reject(this.error);
+      const dataIdx = this.result.indexOf(',')+1;
+      resolve(this.result.slice(dataIdx));
+    };
+    reader.readAsDataURL(blob);
+  });
+  return new BlobLiteral(name, base64, blob.type);
 }

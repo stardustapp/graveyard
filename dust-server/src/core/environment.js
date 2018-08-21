@@ -71,9 +71,6 @@ class Environment {
       case 'tmp':
         mount = new TemporaryMount(opts);
         break;
-      case 'network-import':
-        mount = new NetworkImportMount(opts);
-        break;
       case 'bind':
         // just use the specified (already existing) mount
         mount = opts.source;
@@ -281,10 +278,12 @@ class VirtualEnvEntry {
             throw new Error(`Root entry was null`);
           }
 
-          if (enumer.canDescend() && rootEntry.enumerate) {
+          if (rootEntry.enumerate) {
             await rootEntry.enumerate(enumer);
-          } else {
+          } else if (rootEntry.get) {
             enumer.visit(await rootEntry.get());
+          } else {
+            throw new Error(`Environment found a device that it can't describe`);
           }
         } catch (err) {
           console.warn('Enumeration had a failed node @', JSON.stringify(child.name), err);

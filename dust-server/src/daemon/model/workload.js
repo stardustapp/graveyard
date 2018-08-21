@@ -78,6 +78,8 @@ class Workload extends PlatformApi  {
         console.warn('"Started" unknown app workload type', spec.type);
     }
 
+    this.env.bind('/runtime', this.runtime.deviceForRuntimePath('/api/wid/'+wid));
+
     return this;
   }
 

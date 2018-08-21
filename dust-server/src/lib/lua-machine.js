@@ -117,7 +117,7 @@ class LuaContext {
     const n = lua.lua_gettop(L);
     const paths = new Array(n);
     for (let i = 0; i < n; i++) {
-      paths[i] = fengari.to_jsstring(lauxlib.luaL_checkstring(L, i+1));
+      paths[i] = encodeURIComponent(fengari.to_jsstring(lauxlib.luaL_checkstring(L, i+1)));
     }
     lua.lua_settop(L, 0);
 
@@ -194,11 +194,27 @@ class LuaThread extends LuaContext {
     const L = this.lua;
     lua.lua_createtable(L, 0, 1);
 
-    const copiedGlobals = ['tonumber', 'tostring', 'type', 'string', 'pairs', 'ipairs', 'ctx', 'assert', 'error'];
+    const copiedGlobals = ['tonumber', 'tostring', 'type', 'string', 'pairs', 'ipairs', 'ctx', 'assert', 'error', 'table'];
     for (const name of copiedGlobals) {
       lua.lua_getglobal(L, name);
       lua.lua_setfield(L, -2, fengari.to_luastring(name));
     }
+
+    lua.lua_pushjsfunction(L, L => {
+      const input = lua.lua_tojsstring(L, -1);
+      lua.lua_pop(L, 1);
+      lua.lua_pushliteral(L, encodeURIComponent(input));
+      return 1;
+    });
+    lua.lua_setfield(L, -2, 'encodeURIComponent');
+
+    lua.lua_pushjsfunction(L, L => {
+      const input = lua.lua_tojsstring(L, -1);
+      lua.lua_pop(L, 1);
+      lua.lua_pushliteral(L, decodeURIComponent(input));
+      return 1;
+    });
+    lua.lua_setfield(L, -2, 'decodeURIComponent');
 
     lua.lua_getglobal(L, 'ctx');
     lua.lua_getfield(L, -1, 'log');
@@ -212,6 +228,12 @@ class LuaThread extends LuaContext {
     this.luaEnv = lua.lua_toproxy(L, -1);
     lua.lua_pop(L, 1);
     T.endStep();
+  }
+
+  compileFrom(sourceEntry) {
+    const encodedBytes = base64js.toByteArray(sourceEntry.Data);
+    const sourceText = new TextDecoder('utf-8').decode(encodedBytes);
+    this.compile(sourceText);
   }
 
   compile(sourceText) {

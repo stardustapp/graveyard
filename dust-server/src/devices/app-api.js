@@ -11,6 +11,7 @@ window.AppApiDriver = class AppApiDriver extends PlatformApi {
     this.getter('/mounts', String, () => JSON.stringify(appRec.mounts));
     this.getter('/pid', String, () => pkg.record.pid);
 
+    this.env.bind('/source', pkg.sourceDevice);
     this.ready = this.init();
   }
 
