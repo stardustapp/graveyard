@@ -346,6 +346,7 @@ Vue.component('edit-blob', {
         mode: {
           filename: pathParts[pathParts.length - 1],
         },
+        readOnly: true, // unset after load
         styleActiveLine: true,
         lineWrapping: true,
         lineNumbers: true,
@@ -432,12 +433,20 @@ Vue.component('edit-blob', {
   created() {
     this.onChange = debounce(this.onChange, 250);
 
-    if (!this.tab.isNew) {
+    if (this.tab.isNew) {
+      this.editor.setOption("readOnly", false);
+      this.editor.focus();
+    } else {
       skylink
         .readValue(this.tab.path)
         .then(x => {
           this.source = x.asText();
           this.mimeType = x.Mime;
+          setTimeout(() => {
+            this.editor.setOption("readOnly", false);
+            this.editor.clearHistory();
+            this.editor.focus();
+          }, 1);
         });
     }
   },
