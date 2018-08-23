@@ -48,6 +48,9 @@ class IdbTreestoreMount {
       }
     }, 60*1000);
 
+    // GC every hour
+    setInterval(this.collectGarbage.bind(this), 60 * 60 * 1000);
+
     await txn.innerTxn.complete;
     console.debug('Done initing IDB mount', this.store);
   }
@@ -111,6 +114,74 @@ class IdbTreestoreMount {
         return cursor.continue().then(cursorIterate);
       });
     return types;
+  }
+
+  async collectGarbage() {
+    if (this.isCollectingGarbage)
+      throw new Error(`Already collecting garbage, won't do it in parallel!`);
+    this.isCollectingGarbage = true;
+    console.log('Collecting garbage...');
+
+    const allNids = await this.gcListAllNids();
+    const rootTree = await this.gcWalkTreeNids();
+    const orphans = await this.gcFilterWithTree(allNids, rootTree);
+    await this.gcDeleteOrphans(orphans);
+
+    console.log('Done collecting garbage');
+    this.isCollectingGarbage = false;
+  }
+
+  async gcListAllNids() {
+    const nids = new Set;
+    const tx = this.db.transaction(this.store, 'readonly');
+    await tx.objectStore(this.store)
+      .openCursor()
+      .then(function cursorIterate(cursor) {
+        if (!cursor) return;
+        nids.add(cursor.value.nid);
+        return cursor.continue().then(cursorIterate);
+      });
+    console.log('gc scanned', nids.size, 'nids in store');
+    return nids;
+  }
+
+  async gcWalkTreeNids() {
+    const nids = new Set;
+    const txn = new IdbTransaction(this, 'readonly');
+    const readTree = async (nid) => {
+      nids.add(nid);
+      const node = await txn.getNodeByNid(nid);
+      if (node.type === 'Folder') {
+        for (const [childName, childNid] of node.obj.children) {
+          if (nids.has(childNid)) continue;
+          await readTree(childNid);
+        }
+      }
+    }
+    await readTree('root');
+    console.log('gc walked', nids.size, 'nids in tree');
+    return nids;
+  }
+
+  gcFilterWithTree(allNids, goodNids) {
+    const badNids = new Set;
+    for (const nid of allNids) {
+      if (!goodNids.has(nid))
+        badNids.add(nid);
+    }
+    console.log('gc found', badNids.size, 'orphans in store');
+    return badNids;
+  }
+
+  async gcDeleteOrphans(nids) {
+    const tx = this.db.transaction(this.store, 'readwrite');
+    const store = tx.objectStore(this.store);
+    for (const nid of nids) {
+      store.delete(nid);
+    }
+    await tx.complete;
+    Datadog.Instance.count('idbtree.deleted_nodes', nids.size, this.metricTags());
+    console.log('gc deleted', nids.size, 'nodes');
   }
 }
 
@@ -223,7 +294,7 @@ class IdbTransaction {
   // The transaction must be opened in 'readwrite' mode.
   // The new NID is returned.
   async createNode(literal, forcedNid=null) {
-    Datadog.Instance.count('idbtree.reactivity.created_nodes', 1, this.mount.metricTags({entryType: literal.Type}));
+    Datadog.Instance.count('idbtree.created_nodes', 1, this.mount.metricTags({entryType: literal.Type}));
 
     const newNode = {
       name: literal.Name,
