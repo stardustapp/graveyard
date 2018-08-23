@@ -80,7 +80,7 @@ class GateApi {
     }
 
     // load account and check access
-    const account = await this.accountManager.getAccount(accountId);
+    const account = await this.accountManager.getById(accountId);
     await account.assertPassword(password);
     console.log('launching', account);
 
