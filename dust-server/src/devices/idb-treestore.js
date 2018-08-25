@@ -48,8 +48,8 @@ class IdbTreestoreMount {
       }
     }, 60*1000);
 
-    // GC every hour
-    setInterval(this.collectGarbage.bind(this), 60 * 60 * 1000);
+    // GC twice a day
+    setInterval(this.collectGarbage.bind(this), 12 * 60 * 60 * 1000);
 
     await txn.innerTxn.complete;
     console.debug('Done initing IDB mount', this.store);
