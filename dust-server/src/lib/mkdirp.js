@@ -31,9 +31,7 @@ async function mkdirp(device, path, justEnsure=false) {
       throw new Error('Failed to auto-create folder', curPath, `because it wasn't writable`);
 
     console.log('mkdirp creating folder', curPath);
-    const ok = await entry.put(new FolderLiteral(decodeURIComponent(part)));
-    if (!ok)
-      throw new Error('Failed to auto-create folder', curPath, `- just didn't work`);
+    await entry.put(new FolderLiteral(decodeURIComponent(part)));
   }
   return true;
 }

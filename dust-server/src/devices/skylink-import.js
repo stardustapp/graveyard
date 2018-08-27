@@ -47,6 +47,7 @@ class ImportedSkylinkEntry {
       Op: 'get',
       Path: this.path,
     });
+    if (!response.Ok) throw response;
     return response.Output;
   }
 
@@ -56,7 +57,7 @@ class ImportedSkylinkEntry {
       Path: this.path||'/',
       Depth: enumer.remainingDepth(),
     });
-    if (!response.Ok) throw new Error(`Remote Skylink enumerate() call failed`);
+    if (!response.Ok) throw response;
 
     // transclude the remote enumeration
     enumer.visitEnumeration(response.Output);
@@ -71,7 +72,7 @@ class ImportedSkylinkEntry {
       Dest: this.path,
       Input: value,
     });
-    return response.Ok;
+    if (!response.Ok) throw response;
   }
 
   async invoke(value) {
@@ -80,7 +81,7 @@ class ImportedSkylinkEntry {
       Path: this.path,
       Input: value,
     });
-    if (!response.Ok) throw new Error(`Remote Skylink invoke() call failed`);
+    if (!response.Ok) throw response;
     return response.Output;
   }
 

@@ -109,7 +109,7 @@ const LUA_API = {
     T.startStep({name: 'lookup entry'});
     const entry = await device.getEntry(path, true);
     T.endStep();
-    if (!entry) throw new Error(`Couldn't find path to readDir() on`);
+    if (!entry) return 0;
 
     if (entry.enumerate) {
       const enumer = new EnumerationWriter(2); // TODO
