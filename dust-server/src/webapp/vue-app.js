@@ -42,11 +42,6 @@ Vue.component('sky-form', {
   }},
   methods: {
     submit(evt) {
-      if (this.action != 'store-child-folder') {
-        alert('invalid form action '+this.action);
-        throw new Error('invalid form action');
-      }
-
       // check for double-submit racing
       if (this.status == 'Pending') {
         console.warn('rejecting concurrent submission in sky-form');
@@ -88,7 +83,7 @@ Vue.component('sky-form', {
               }, (err) => {
                 setReadonly(false);
                 this.status = 'Failed';
-                 throw err;
+                throw err;
               });
           });
           break;
@@ -97,7 +92,7 @@ Vue.component('sky-form', {
           setReadonly(true);
           console.log('submitting', input, 'to', '/'+this.path);
           promise.then(skylink => {
-            skylink.invoke('/'+this.path, input)
+            skylink.invoke('/'+this.path, Skylink.toEntry('input', input))
               .then((id) => {
                 setReadonly(false);
                 evt.target.reset();
@@ -112,6 +107,8 @@ Vue.component('sky-form', {
 
         default:
           alert('bad sky-form action ' + this.action);
+          this.status = 'Failed';
+          throw new Error('invalid form action');
       }
     },
   },

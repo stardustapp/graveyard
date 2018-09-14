@@ -20,6 +20,23 @@ const DEFAULT_PACKAGES = [
     },
   },
   {
+    sourceUri: 'platform://journal',
+    defaultKey: 'journal',
+    displayName: 'Journal',
+    mounts: {
+      '/config': { type: 'scoped', flavor: 'config' },
+      '/persist': { type: 'scoped', flavor: 'persist' },
+    },
+    workloads: {
+      'write entry': {
+        displayName: 'Entry writer',
+        type: 'function',
+        sourceUri: 'logic/write-entry.lua',
+        runtime: 'lua',
+      },
+    },
+  },
+  {
     sourceUri: 'platform://irc-client',
     defaultKey: 'irc',
     displayName: 'IRC Client',
