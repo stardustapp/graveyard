@@ -54,7 +54,7 @@ async function MigrateDatabase(upgradeDB) {
       upgradeDB.transaction.objectStore('workloads')
           .createIndex('type', 'spec.type', { unique: false });
 
-    case 9:
+/*  TODO: 'framedriver' schema to store connected external devices (aka network endpoints)
       const frames = upgradeDB.createObjectStore('frames', { keyPath: 'fid' });
       frames.createIndex('type', 'spec.type', { unique: false });
       // type is 'data', 'api', 'adapter', 'operator', 'virtual'
@@ -63,9 +63,10 @@ async function MigrateDatabase(upgradeDB) {
       const handles = upgradeDB.createObjectStore('handles', { keyPath: 'hid' });
       handles.createIndex('aid', 'aid', { unique: false });
       handles.createIndex('fid', 'fid', { unique: false });
+*/
   }
 }
-const HardCodedDatabaseVersion = 9; // the last case statement, plus one
+const HardCodedDatabaseVersion = 8; // the last case statement, plus one
 
 function OpenSystemDatabase() {
   return idb.open('system', HardCodedDatabaseVersion, MigrateDatabase);
