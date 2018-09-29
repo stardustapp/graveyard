@@ -36,20 +36,23 @@ class IdbTreestoreMount {
       console.warn('Seeded IDB mount with root node');
     }
 
+    // tally state with full grain
     setInterval(() => {
       Datadog.Instance.gauge('idbtree.reactivity.active_nodes',
           this.nidSubs.size, this.metricTags());
     }, 10*1000);
+
+    // tally nodes hourly
     setInterval(async () => {
       const typeMap = await this.tallyAllNodeTypes();
       for (const [type, count] of typeMap) {
         Datadog.Instance.gauge('idbtree.total_nodes',
             count, this.metricTags({entryType: type}));
       }
-    }, 60*1000);
+    }, 1 * 60 * 60 * 1000);
 
-    // GC every hour
-    setInterval(this.collectGarbage.bind(this), 60 * 60 * 1000);
+    // GC twice a day
+    setInterval(this.collectGarbage.bind(this), 12 * 60 * 60 * 1000);
 
     await txn.innerTxn.complete;
     console.debug('Done initing IDB mount', this.store);
