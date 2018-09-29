@@ -66,7 +66,7 @@ async function MigrateDatabase(upgradeDB) {
 */
   }
 }
-const HardCodedDatabaseVersion = 8; // the last case statement, plus one
+const HardCodedDatabaseVersion = 9; // the last case statement, plus one
 
 function OpenSystemDatabase() {
   return idb.open('system', HardCodedDatabaseVersion, MigrateDatabase);
