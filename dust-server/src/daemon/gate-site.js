@@ -58,6 +58,12 @@ class GateSite {
       case path === '/style.css':
         return new GateSiteStyle();
 
+      // install serviceworkers that give real content
+      case parts[0] === 'apps':
+        // serviceworkers can only fuck with things in the same subfolder
+        // for now the sw.js gets overlaid at a higher level
+        return new GateSiteServiceWorker();
+
       default:
         console.log(`path ${path} doesn't exist`);
         return null;
@@ -552,6 +558,22 @@ class GateSiteRequest {
   }
 }
 
+function parseAppReferer(referer) {
+  const parts = referer.split('/').slice(3);
+  if (parts[0] === '~') {
+    const appParts = parts.slice(2); // TODO: assumes we are at /~/apps
+    const hasUsername = appParts[0].startsWith('~');
+    const username = hasUsername ? appParts.shift().slice(1) : null;
+    const appKey = appParts[0];
+    return {username, appKey};
+  } else {
+    const parts = referer.split('/~')[1].split('/');
+    const username = parts[0];
+    const appKey = parts[1];
+    return {username, appKey};
+  }
+}
+
 class GateSiteAppSessionApi {
   constructor(site) {
     this.site = site;
@@ -567,8 +589,7 @@ class GateSiteAppSessionApi {
     }
 
     const {referer} = state.req.headers;
-    const parts = referer.split('/~')[1].split('/');
-    const appKey = parts[1];
+    const {username, appKey} = parseAppReferer(referer);
     if (!appKey) {
       throw new Error('app-session needs an appKey (did you block Referer?)');
     }
@@ -723,6 +744,26 @@ class GateSiteAbout {
         <a href="/~/register" class="action">Register</a>
         <a href="/~/about" class="action alt-action">About</a>
       </nav>`);
+  }
+}
+
+class GateSiteServiceWorker {
+  async get() {
+    return wrapGatePage('webapp bootstrapper', commonTags.html`
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async function() {
+    try {
+      const registration = await navigator.serviceWorker.register('/~/apps/sw.js');
+      console.log('ServiceWorker registration successful with scope: ', registration.scope);
+    } catch (err) {
+      console.log(err);
+      alert('failed to install serviceWorker');
+    }
+  });
+} else alert('ServiceWorkers are required');
+</script>
+`);
   }
 }
 

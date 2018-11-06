@@ -29,7 +29,10 @@
           "src/daemon/model/package-manager.js", "src/daemon/model/package.js",
           "src/daemon/model/session-manager.js", "src/daemon/model/session.js",
           "src/daemon/model/workload-manager.js", "src/daemon/model/workload.js",
-        "src/daemon/default-site.js", "src/daemon/gate-site.js", "src/daemon/gate-api.js", "src/daemon/domain-api.js",
+        "src/daemon/default-site.js",
+          "src/daemon/apps-api.js",
+          "src/daemon/gate-site.js", "src/daemon/gate-api.js",
+          "src/daemon/domain-api.js",
         "src/webapp/core/data/channel.js", "src/webapp/core/skylink/client.js", "src/webapp/core/skylink/ns-convert.js",
         "src/daemon/background.js"]
     }

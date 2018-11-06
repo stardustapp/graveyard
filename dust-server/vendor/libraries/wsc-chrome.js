@@ -6511,8 +6511,9 @@ WSC.Buffer = Buffer
             var ct = req.headers['content-type']
             var default_charset = 'utf-8'
             if (ct) {
+                const multipartMarker = 'multipart/form-data; boundary='
                 ct = ct.toLowerCase()
-                if (ct.toLowerCase().startsWith('application/x-www-form-urlencoded')) {
+                if (ct.startsWith('application/x-www-form-urlencoded')) {
                     var charset_i = ct.indexOf('charset=')
                     if (charset_i != -1) {
                         var charset = ct.slice(charset_i + 'charset='.length,
@@ -6530,6 +6531,10 @@ WSC.Buffer = Buffer
                         bodyparams[ decodeURIComponent(kv[0]) ] = decodeURIComponent(kv[1])
                     }
                     req.bodyparams = bodyparams
+
+                } else if (ct.startsWith(multipartMarker)) {
+                    const boundary = ct.slice(multipartMarker.length);
+                    // TODO: implement part splitting, port from https://github.com/mscdex/dicer/blob/master/lib/Dicer.js
                 }
             }
             this.curRequest.body = body

@@ -57,6 +57,7 @@ class VirtualHost {
     }
 
     // If we don't have a target yet just get it directly
+    // TODO: redirect to add slash for Folders. this broke when trailing slash became meaningless
     if (!target) {
       const entry = await this.webEnv.getEntry(reqPath);
       if (!entry || (!entry.get && !entry.invoke)) {
@@ -192,6 +193,7 @@ class Responder {
     handler.responseLength = payload.length || payload.byteLength;
     handler.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
     handler.setHeader('Server', HttpServer.SERVER_HEADER);
+    handler.isDirectoryListing = true; // disables forced auto-MIME functionality
     handler.writeHeaders(statusCode);
     handler.write(payload);
     handler.finish();

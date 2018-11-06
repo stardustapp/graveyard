@@ -60,6 +60,12 @@ async function boot(launchData) {
     console.debug('loading host', hostname, domain);
 
     const webEnv = await kernel.domainManager.getWebEnvironment(domain);
+    webEnv.bind('/~/apps', new AppsApi(kernel, domain, {
+      workerSource: new WebFilesystemMount({
+        entry: pkgRoot,
+        prefix: 'src/apps-sw/sw.js',
+      }),
+    }));
     webEnv.bind('/~', new GateSite(hostname, domain.record.did, kernel));
     webEnv.bind('/~~libs/vendor', new WebFilesystemMount({
       entry: pkgRoot,
@@ -72,6 +78,10 @@ async function boot(launchData) {
     webEnv.bind('/~~libs/vue', new WebFilesystemMount({
       entry: pkgRoot,
       prefix: 'src/webapp/',
+    }));
+    webEnv.bind('/~~src', new WebFilesystemMount({
+      entry: pkgRoot,
+      prefix: 'src/',
     }));
     return new VirtualHost(hostname, webEnv);
   });
