@@ -863,23 +863,26 @@ footer {
   margin: 1em auto;
   padding: 1em 1em;
 }
-.modal-form input, .modal-form button {
+.modal-form input, .modal-form select, .modal-form button {
   font-size: 1.3em;
   margin: 0.25em 1em;
   padding: 0.5em 1em;
   display: block;
   border: 3px solid #ccc;
 }
-.modal-form input:focus, .modal-form button:focus {
+.modal-form input:focus, .modal-form select:focus, .modal-form button:focus {
   border-color: #666;
   box-shadow: 0 0 4px 1px rgba(50, 50, 50, 0.3);
   outline: none;
 }
-.modal-form input:hover, .modal-form button:hover {
+.modal-form input:hover, .modal-form select:hover, .modal-form button:hover {
   border-color: #999;
   outline: none;
 }
 .modal-form input {
+  background-color: #fff;
+}
+.modal-form select {
   background-color: #fff;
 }
 .modal-form button {

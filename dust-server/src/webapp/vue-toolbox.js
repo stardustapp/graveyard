@@ -692,3 +692,16 @@ Vue.component('sky-menu-toggle', {
     <i class="material-icons">menu</i>
   </a>`,
 });
+
+Vue.mixin({
+  methods: {
+    // TODO: the sidebar should handle this itself probably, close-on-navigate
+    closeNav(evt) {
+      const {classList} = document.querySelector('#left-menu');
+      if (classList.contains('open')) {
+        classList.add('animate');
+        classList.remove('open');
+      }
+    },
+  }
+});

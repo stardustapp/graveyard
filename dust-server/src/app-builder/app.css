@@ -1,0 +1,207 @@
+body {
+  top: 0;
+}
+
+#app {
+  height: 100%;
+  font-family: 'Roboto', sans-serif;
+  display: flex;
+  flex: 1;
+}
+
+#navbar {
+  background-color: #E5F1EA;
+  border-right: 2px solid #B9D9CE;
+  color: #689384;
+}
+
+#edit-pane {
+  flex: 1;
+}
+
+#main-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  background-color: #E5F1EA;
+  padding: 0 1em;
+  border-bottom: 2px solid #B9D9CE;
+  
+  height: 3em;
+}
+
+#main-header .star-icon {
+  height: 32px;
+  width: 32px;
+  margin: 0 0.2em;
+  fill: #689384;
+}
+
+#main-header h1, #main-header h2, #main-header h3 {
+  font-size: 1.5em;
+  color: #689384;
+  margin: 0 0.1em;
+}
+#main-header h1, #main-header h3 { font-weight: 300; }
+#main-header h2 { font-weight: 400; }
+#main-header h3 { font-size: 1.2em; }
+
+#main-header a {
+  text-decoration: none;
+  color: #689384;
+}
+#main-header a:not(.action):hover {
+  text-decoration: underline;
+}
+
+#main-header .package-icon {
+  height: 16px;
+  width: 16px;
+  margin: 0 0.2em;
+}
+
+#main-header .seperator {
+  font-size: 1.2em;
+  color: #689384;
+  margin: 0 0.3em;
+}
+
+#main-header .action {
+   display: flex;
+  align-items: center;
+  margin: 0.2em;
+  padding: 0.2em 0.2em;
+
+  background-color: rgba(255, 255, 255, 0.7);
+  border-width: 2px;
+  border-style: solid;
+  border-color: transparent #B9D9CE #B9D9CE transparent;
+  border-radius: 5px;
+}
+
+#main-header .action .material-icons {
+  font-size: 1.5em;
+}
+
+#main-header .action span {
+  font-size: 0.9em;
+  color: #689384;
+  margin: 0.2em 0.4em;
+  font-weight: 300;
+  text-transform: uppercase;
+}
+
+#main-header .action:hover {
+  border-color: #fff #689384 #689384 #fff;
+}
+#main-header .action:hover .material-icons,
+#main-header .action:hover span {
+  color: #5A4741;
+}
+
+/* from "UI Toolkit"*/
+.card {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  background-color: #fff;
+  box-shadow: 0 4px 5px 0 rgba(0,0,0,0.14), 0 1px 10px 0 rgba(0,0,0,0.12), 0 2px 4px -1px rgba(0,0,0,0.3);
+
+  margin: 0.5em;
+}
+
+.card .CodeMirror {
+  flex: 1;
+}
+
+.card > .titlebar {
+  flex-shrink: 0;
+  padding: 0.1em 1em;
+  background-color: #f9f9f9;
+  border-bottom: 1px solid #ccc;
+}
+
+.card > .titlebar h5 {
+  margin: 0;
+  font-weight: 300;
+  letter-spacing: 1px;
+}
+
+.card > .titlebar a:not(:hover) {
+  color: inherit;
+}
+
+
+
+.folder-name {
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  transition: background-color 0.1s;
+}
+.folder-name:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+.folder-name span {
+  flex: 1;
+}
+
+.tree-icon {
+  margin-right: 5px;
+}
+.launch-icon {
+  color: #ccc;
+  text-decoration: none;
+}
+.launch-icon:hover {
+  color: #9f9;
+  padding-right: 5px;
+}
+
+.folder-name .ctxlist-icon {
+  color: #034e6e;
+  opacity: 0;
+  transition: color 0.2s, opacity 0.2s;
+  float: right;
+  font-size: 20px;
+  padding: 2px;
+  margin: -2px;
+}
+.folder-name:hover .ctxlist-icon {
+  color: #999;
+  opacity: 0.8;
+}
+.folder-name .ctxlist-icon:hover {
+  color: #999;
+  opacity: 1;
+  background-color: #111;
+  border-radius: 5px;
+}
+.folder-name .delete-btn:hover {
+  color: #f33;
+}
+.folder-name .reload-btn:hover {
+  color: #66f;
+}
+
+.res-list {
+  min-width: 5em;
+  margin: 0;
+  padding: 1em;
+  flex: 2;
+}
+
+.sub-tree {
+  padding-left: 0.6em;
+  margin-left: 0.8em;
+  border-left: 1px dashed #999;
+  border-radius: 0 0 0 10px;
+}
+
+.create-res-item .folder-name {
+  color: #666;
+  transition: color 0.3s;
+}
+.create-res-item:hover .folder-name {
+  color: inherit;
+}

@@ -278,15 +278,6 @@ Vue.mixin({
     skyStoreString(path, value) {
       return promise.then(x => x.putString('/'+path, value));
     },
-
-    // TODO: the sidebar should handle this itself probably, close-on-navigate
-    closeNav(evt) {
-      const {classList} = document.querySelector('#left-menu');
-      if (classList.contains('open')) {
-        classList.add('animate');
-        classList.remove('open');
-      }
-    },
   }
 });
 

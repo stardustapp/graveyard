@@ -60,7 +60,26 @@ class PathFragment {
     return {
       scheme, host, hostname, port, path, query, fragment,
       path: PathFragment.parse(path || ''),
+      queryParams: this.parseQueryString(query),
     };
+  }
+
+  // TODO: doesn't belong in this file
+  static parseQueryString(query) {
+    const formData = new FormData;
+    if (query && query.startsWith('?')) {
+      for (const part of query.slice(1).split('&')) {
+        if (part.includes('=')) {
+          const idx = part.indexOf('=');
+          const key = decodeURIComponent(part.slice(0, idx));
+          const val = decodeURIComponent(part.slice(idx+1));
+          formData.append(key, val);
+        } else {
+          formData.append('', decodeURIComponent(part));
+        }
+      }
+    }
+    return formData;
   }
 
   pushName(name) {
@@ -148,7 +167,7 @@ class PathFragment {
         // :name@\d+@.txt   does not match thing1.txt but does match 1234.txt
         //               TODO: said regex support!
         if (patternPart.includes('@')) {
-          console.log('regex not impl yet:', patternPart, thisPart, thisIdx);
+          console.warn('regex not impl yet:', patternPart, thisPart, thisIdx);
           match.ok = false;
         }
 
@@ -158,6 +177,12 @@ class PathFragment {
         }
 
         const thisPart = this.parts[thisIdx];
+
+        // don't match a trailing slash as a named child
+        if (thisPart === '') {
+          match.ok = false;
+          break;
+        }
 
         // break if ext is wanted and isn't provided
         const wantsExt = patternPart.includes('.');
@@ -185,11 +210,11 @@ class PathFragment {
       patternIdx++;
     }
     if (match.ok && thisIdx < this.parts.length) {
-      console.warn('had extra parts after match was done');
+      //console.warn('had extra parts after match was done');
       match.ok = false;
     }
 
-    console.log(this.parts, pattern.parts, match);
+    //console.log(this.parts, pattern.parts, match);
     return match;
   }
 

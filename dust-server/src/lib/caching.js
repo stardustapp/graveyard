@@ -1,6 +1,6 @@
 class LoaderCache {
   constructor(loaderFunc) {
-    if (!loaderFunc || loaderFunc.prototype instanceof Function)
+    if (!loaderFunc || typeof loaderFunc !== 'function')
       throw new Error(`LoaderCache requires a loader Function`);
     this.loader = loaderFunc;
 
@@ -14,7 +14,7 @@ class LoaderCache {
     if (this.promises.has(id))
       return this.promises.get(id);
 
-    const promise = this.loadOne(input).then(value => {
+    const promise = Promise.resolve(this.loader(input)).then(value => {
       this.promises.delete(id);
       this.entities.set(id, value);
       console.debug(`Successfully loaded value`, id, 'as', value);
@@ -28,10 +28,6 @@ class LoaderCache {
 
     this.promises.set(id, promise);
     return promise;
-  }
-
-  async loadOne(id, input=null) {
-    return this.loader(id, input);
   }
 
   async delete(id, input=null) {

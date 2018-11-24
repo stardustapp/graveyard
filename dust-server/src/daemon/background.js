@@ -60,6 +60,10 @@ async function boot(launchData) {
     console.debug('loading host', hostname, domain);
 
     const webEnv = await kernel.domainManager.getWebEnvironment(domain);
+    webEnv.bind('/~/apps/builder', new WebFilesystemMount({
+      entry: pkgRoot,
+      prefix: 'src/app-builder/',
+    }));
     webEnv.bind('/~/apps', new AppsApi(kernel, domain, {
       workerSource: new WebFilesystemMount({
         entry: pkgRoot,
