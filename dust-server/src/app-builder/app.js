@@ -1,28 +1,68 @@
+Vue.component('resource-menu', {
+  template: '#resource-menu',
+  data: () => ({
+  }),
+  computed: {
+    types: () => Object.keys(packageContext.resourceTypes),
+  },
+  methods: {
+    ofType(type) {
+      return packageContext.resources.filter(x => x.type === type);
+    },
+  },
+});
+
+Vue.component('app-header', {
+  template: '#app-header',
+  data: () => ({
+    pkgMeta: packageContext.metadata,
+  }),
+});
 
 Vue.component('res-item', {
   template: '#res-item',
   props: {
-    network: String,
+    id: String,
     type: String,
-    context: String,
+    name: String,
   },
 });
 
 const EditResource = Vue.component('edit-resource', {
   template: '#edit-resource',
   props: {
-    network: String,
     type: String,
-    context: String,
+    name: String,
   },
 });
 
 const CreateResource = Vue.component('create-resource', {
   template: '#create-resource',
   props: {
-    network: String,
-    type: String,
-    context: String,
+  },
+  data: () => ({
+    resTypes: packageContext.resourceTypes,
+    name: '',
+    type: '',
+    engineChoices: [],
+    engine: null,
+  }),
+  watch: {
+    '$route': {
+      immediate: true,
+      handler(to, from) {
+        this.name = '';
+        this.type = to.query.type;
+        this.engineChoices = AllEngineChoices[this.type] || [];
+        this.engine = (this.engineChoices[0] || {}).key;
+      },
+    },
+  },
+  methods: {
+    submit(evt) {
+      const {name, type} = evt.target;
+      console.log(name.value, type.value);
+    },
   },
 });
 
@@ -30,18 +70,8 @@ const EditMetadata = Vue.component('edit-metadata', {
   template: '#edit-metadata',
 });
 
-const MissingRouteHandler = Vue.component('missing-route', {
-  template: `
-<div id="missing-route">
-  <h2>
-    <sky-menu-toggle ref="menuToggle" />
-    <span>Welcome to Skychat!</span>
-  </h2>
-  <p>Select a channel to get started :)</p>
-  <p><a href="config.html">Settings & Network Configuration</a></p>
-  <p>Built and hosted by <a href="http://danopia.net" target="_blank">Daniel Lamando</a></p>
-  <p class="ps-note">PS: No channels? Your profile might not be provisioned for IRC.</p>
-</div>`,
+const MissingRoute = Vue.component('missing-route', {
+  template: '#missing-route',
   mounted() {
     const {menuToggle} = this.$refs;
     menuToggle.openMenu();
@@ -51,10 +81,10 @@ const MissingRouteHandler = Vue.component('missing-route', {
 const router = new VueRouter({
   mode: 'hash',
   routes: [
-    { name: 'edit-resource', path: '/resource/:resName', component: EditResource, props: true },
-    { name: 'create-resource', path: '/create-resource', component: CreateResource, props: true },
+    { name: 'edit-resource', path: '/resource/:type/:name', component: EditResource },
+    { name: 'create-resource', path: '/create-resource', component: CreateResource },
     { name: 'edit-metadata', path: '/edit-metadata', component: EditMetadata },
-    { name: 'missing-route', path: "*", component: MissingRouteHandler },
+    { name: 'missing-route', path: "*", component: MissingRoute },
   ],
 });
 
@@ -62,15 +92,5 @@ var app = new Vue({
   el: '#app',
   router,
   data: {
-    resTypes: ['CustomRecord', 'Dependency', 'Publication', 'RouteTable', 'ServerMethod', 'Template'],
-  },
-  methods: {
-    resources(type) {
-      return [];
-    }
-  },
-  mounted () {
-  },
-  created() {
   },
 });

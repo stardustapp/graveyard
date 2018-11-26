@@ -83,7 +83,7 @@ class PathFragment {
   }
 
   pushName(name) {
-    if (part === '') throw new Error(`Paths cannot include zero-length names`);
+    if (name === '') throw new Error(`Paths cannot include zero-length names`);
     this.parts.push(encodeURIComponent(name));
   }
   pushPart(part) {

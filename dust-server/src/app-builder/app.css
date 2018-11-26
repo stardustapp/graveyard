@@ -4,7 +4,8 @@ body {
 
 #app {
   height: 100%;
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Miriam Libre', 'Roboto', sans-serif;
+  background-color: #eee;
   display: flex;
   flex: 1;
 }
@@ -13,6 +14,11 @@ body {
   background-color: #E5F1EA;
   border-right: 2px solid #B9D9CE;
   color: #689384;
+}
+#navbar h3 {
+  font-weight: 600;
+  margin: 0.5em;
+  border-bottom: 2px solid #B9D9CE;
 }
 
 #edit-pane {
@@ -132,17 +138,29 @@ body {
 }
 
 
+#navbar .reslist {
+  line-height: 1.5em;
+  list-style: none;
+  margin-bottom: 1em;
+}
+.reslist .res-header {
+  margin: 0 0.5em;
+}
 
-.folder-name {
+#navbar .res-item a {
   cursor: pointer;
   white-space: nowrap;
   display: flex;
+  padding: 0 0.5em;
   transition: background-color 0.1s;
 }
-.folder-name:hover {
-  background-color: rgba(255, 255, 255, 0.12);
+#navbar li a:hover {
+  background-color: rgba(0, 0 ,0, 0.12);
 }
-.folder-name span {
+#navbar .router-link-active a {
+  background-color: rgba(0, 0 ,0, 0.12);
+}
+.res-item a span {
   flex: 1;
 }
 
@@ -158,7 +176,7 @@ body {
   padding-right: 5px;
 }
 
-.folder-name .ctxlist-icon {
+.res-item .ctxlist-icon {
   color: #034e6e;
   opacity: 0;
   transition: color 0.2s, opacity 0.2s;
@@ -167,20 +185,20 @@ body {
   padding: 2px;
   margin: -2px;
 }
-.folder-name:hover .ctxlist-icon {
+.res-item:hover .ctxlist-icon {
   color: #999;
   opacity: 0.8;
 }
-.folder-name .ctxlist-icon:hover {
+.res-item .ctxlist-icon:hover {
   color: #999;
   opacity: 1;
   background-color: #111;
   border-radius: 5px;
 }
-.folder-name .delete-btn:hover {
+.res-item .delete-btn:hover {
   color: #f33;
 }
-.folder-name .reload-btn:hover {
+.res-item .reload-btn:hover {
   color: #66f;
 }
 
@@ -191,17 +209,52 @@ body {
   flex: 2;
 }
 
-.sub-tree {
-  padding-left: 0.6em;
-  margin-left: 0.8em;
-  border-left: 1px dashed #999;
-  border-radius: 0 0 0 10px;
+.create-res-item span {
+  opacity: 1;
+  transition: opacity 0.3s;
 }
-
-.create-res-item .folder-name {
-  color: #666;
-  transition: color 0.3s;
+.create-res-item span:not(:hover) {
+  opacity: 0.7;
 }
-.create-res-item:hover .folder-name {
+.create-res-item:hover span {
   color: inherit;
 }
+
+
+
+
+.create-resource {
+  max-width: 20em;
+}
+  .create-resource .card-body {
+    margin: 1em;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .create-resource .resource-type {
+    display: block;
+    padding: 0.7em;
+    margin: 0.5em 0;
+    background-color: #f7f7f7;
+    box-shadow: 0 2px 2px 0 rgba(0,0,0,0.14), 0 1px 5px 0 rgba(0,0,0,0.12), 0 3px 1px -2px rgba(0,0,0,0.2);
+  }
+    .create-resource .resource-type input {
+      transform: scale(1.4);
+    }
+
+  .create-resource h6 {
+    margin: 0.5em 0 0.2em;
+    font-weight: 400;
+    font-size: 1em;
+  }
+
+  .create-resource input[type=text] {
+    font-size: 1.2em;
+    margin-bottom: 0.5em;
+  }
+
+  .create-resource button {
+    font-size: 1.2em;
+    margin-top: 0.5em;
+  }

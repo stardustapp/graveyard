@@ -8,80 +8,91 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <div id="app">
-  <sky-side-menu :fixed-width="250">
-    <ul
-      v-for="type in resTypes"
-      class="res-list"
-      :key="type">
-      <h5>{{type}}</h5>
-      <res-item
-        v-for="res in resources(type)"
-        :key="res.id"
-        :data="res"
-      ></res-item>
-      <li class="create-res-item">
-        <router-link
-          :to="{ name: 'create-resource', query: {type} }"
-          class="folder-name">
-          <i class="material-icons tree-icon">add</i>
-          create...
-        </router-link>
-      </li>
-    </ul>
-  </sky-side-menu>
-
-  <div id="edit-pane">
-    <header id="main-header">
-      <svg viewBox="0 0 500 500" class="star-icon">
-        <path d="M 194.62 148.583 L 237.105 270.807 L 366.475 273.443 L 263.362 351.618 L 300.832 475.471 L 194.62 401.562 L 88.408 475.471 L 125.878 351.618 L 22.765 273.443 L 152.135 270.807 Z" transform="matrix(0.894426, -0.447216, 0.447216, 0.894426, -131.26448, 91.127755)"></path>
-        <path d="M 194.62 268.243 L 208.971 309.529 L 252.672 310.42 L 217.841 336.827 L 230.498 378.664 L 194.62 353.698 L 158.742 378.664 L 171.399 336.827 L 136.568 310.42 L 180.269 309.529 Z" transform="matrix(0.125241, -0.992126, 0.992127, 0.125242, -47.915505, 226.024722)"></path>
-        <path d="M 194.62 246.688 L 214.039 302.554 L 273.172 303.759 L 226.041 339.491 L 243.168 396.102 L 194.62 362.32 L 146.072 396.102 L 163.199 339.491 L 116.068 303.759 L 175.201 302.554 Z" transform="matrix(0.741254, -0.671224, 0.671224, 0.741255, 43.802714, 125.863451)"></path>
-      </svg>
-
-      <h1>stardust</h1>
-      <h2><a href="..">build</a></h2>
-      <i class="material-icons seperator">chevron_right</i>
-      <a href="package/shout">
-        <img class="package-icon" src="https://i.imgur.com/0UkUtuD.png">
-      </a>
-      <h3>
-        <a href="package/shout">Shouter</a>
-      </h3>
-
-      <div style="flex: 1;"></div>
-      <a href="package/shout/edit-metadata" class="action" title="Edit package metadata">
-        <i class="material-icons">mode_edit</i>
-      </a>
-      <a href="package/shout/diff" class="action" title="Compare package metadata against the Market version">
-        <i class="material-icons">compare_arrows</i>
-      </a>
-      <a href="#" class="action" title="Publish local version to Stardust Market">
-        <i class="material-icons">publish</i><span>Publish</span>
-      </a>
-      <a href="#" class="action" title="Download new app code from Stardust Market">
-        <i class="material-icons">file_download</i><span>Upgrade</span>
-      </a>
-    </header>
-
+  <resource-menu></resource-menu>
+  <div style="flex: 1;">
+    <app-header></app-header>
     <router-view></router-view>
   </div>
 </div>
 
+<script type="text/x-template" id="resource-menu">
+<sky-side-menu :fixed-width="250">
+  <h3>Resources</h3>
+  <ul
+    v-for="type in types"
+    class="reslist"
+    :key="type">
+    <li class="res-header">{{type}}s</li>
+    <res-item
+      v-for="res in ofType(type)"
+      :key="res.id"
+      :id="res.id"
+      :name="res.name"
+      :type="res.type"
+    ></res-item>
+    <router-link tag="li" class="res-item create-res-item"
+        :to="{ name: 'create-resource', query: {type} }"
+        exact
+        @click.native="closeNav">
+      <a>
+        <i class="material-icons tree-icon">add</i>
+        <span class="name">create...</span>
+      </a>
+    </router-link>
+  </ul>
+</sky-side-menu>
+</script>
+
+<script type="text/x-template" id="app-header">
+<header id="main-header">
+  <svg viewBox="0 0 500 500" class="star-icon">
+    <path d="M 194.62 148.583 L 237.105 270.807 L 366.475 273.443 L 263.362 351.618 L 300.832 475.471 L 194.62 401.562 L 88.408 475.471  L 125.878 351.618 L 22.765 273.443  L 152.135 270.807 Z" transform="matrix(0.894426, -0.447216, 0.447216, 0.894426, -131.26448, 91.127755)"></path>
+    <path d="M 194.62 268.243 L 208.971 309.529 L 252.672 310.42  L 217.841 336.827 L 230.498 378.664 L 194.62 353.698 L 158.742 378.664 L 171.399 336.827 L 136.568 310.42  L 180.269 309.529 Z" transform="matrix(0.125241, -0.992126, 0.992127, 0.125242, -47.915505, 226.024722)"></path>
+    <path d="M 194.62 246.688 L 214.039 302.554 L 273.172 303.759 L 226.041 339.491 L 243.168 396.102 L 194.62 362.32  L 146.072 396.102 L 163.199 339.491 L 116.068 303.759 L 175.201 302.554 Z" transform="matrix(0.741254, -0.671224, 0.671224, 0.741255, 43.802714, 125.863451)"></path>
+  </svg>
+
+  <h1>stardust</h1>
+  <h2><a href="..">build</a></h2>
+  <i class="material-icons seperator">chevron_right</i>
+  <a href="#/">
+    <img class="package-icon" :src="pkgMeta.iconUrl">
+  </a>
+  <h3>
+    <a href="#/">{{pkgMeta.displayName}}</a>
+  </h3>
+
+  <div style="flex: 1;"></div>
+  <!--
+    <a href="package/shout/edit-metadata" class="action" title="Edit package metadata">
+      <i class="material-icons">mode_edit</i>
+    </a>
+    <a href="package/shout/diff" class="action" title="Compare package metadata against the Market version">
+      <i class="material-icons">compare_arrows</i>
+    </a>
+    <a href="#" class="action" title="Publish local version to Stardust Market">
+      <i class="material-icons">publish</i><span>Publish</span>
+    </a>
+    <a href="#" class="action" title="Download new app code from Stardust Market">
+      <i class="material-icons">file_download</i><span>Upgrade</span>
+    </a>
+  -->
+</header>
+</script>
+
 <script type="text/x-template" id="res-item">
-  <li class="res-item">
-    <div
-      class="folder-name"
-      @click="activate">
-      <i class="material-icons tree-icon">{{icon}}</i>
-      <span class="name">{{name}}</span>
-      <a v-if="canLaunch" class="material-icons launch-icon"
-          :href="launchUri" @click.stop.prevent="launch"
-          >launch</a>
-      <i class="material-icons ctxlist-icon delete-btn"
-         @click.stop="deleteEntry"
-         title="remove entry from this folder">delete</i>
-    </div>
-  </li>
+<router-link tag="li" class="res-item"
+    :to="{ name: 'edit-resource', params: {name, type} }">
+  <a @click.native="closeNav">
+    <i class="material-icons tree-icon">web_asset</i>
+    <span class="name">{{name}}</span>
+    <!--a v-if="canLaunch" class="material-icons launch-icon"
+        :href="launchUri" @click.stop.prevent="launch"
+        >launch</a-->
+    <i class="material-icons reslist-icon delete-btn"
+       @click.stop="deleteEntry"
+       title="delete resource from this package">delete</i>
+  </a>
+</router-link>
 </script>
 
 <script type="text/x-template" id="edit-resource">
@@ -112,6 +123,43 @@
 </div>
 </script>
 
+<script type="text/x-template" id="create-resource">
+<div class="card create-resource">
+  <div class="titlebar">
+    <h5>Create Resource</h5>
+  </div>
+  <form class="card-body" @submit.prevent="submit">
+    <input type="text" name="name" v-model="name" placeholder="Friendly Name" required autofocus>
+    <h6>Resource Type</h6>
+    <label class="resource-type">
+      <input type="radio" name="type" :value="type" checked>
+      {{type}}
+    </label>
+    <h6 v-if="engineChoices.length">Resource Engine</h6>
+    <label class="resource-type"
+        v-for="opt in engineChoices"
+        :key="opt.key">
+      <input type="radio" name="engine" :value="opt.key" v-model="engine">
+      {{opt.name}}
+    </label>
+    <button type="submit">Create</button>
+  </form>
+</div>
+</script>
+
+<script type="text/x-template" id="missing-route">
+<div id="missing-route">
+  <h2>
+    <sky-menu-toggle ref="menuToggle" />
+    <span>Welcome to Skychat!</span>
+  </h2>
+  <p>Select a channel to get started :)</p>
+  <p><a href="config.html">Settings & Network Configuration</a></p>
+  <p>Built and hosted by <a href="http://danopia.net" target="_blank">Daniel Lamando</a></p>
+  <p class="ps-note">PS: No channels? Your profile might not be provisioned for IRC.</p>
+</div>
+</script>
+
 <link rel="stylesheet" href="/~~libs/vendor/codemirror/codemirror.css">
 <link rel="stylesheet" href="/~~libs/vendor/codemirror/themes/tomorrow-night-bright.css">
 <script src="/~~libs/vendor/codemirror/codemirror.js"></script>
@@ -127,4 +175,7 @@
 <script src="/~~libs/core/combined.js"></script>
 
 <script src="/~~libs/vue/vue-toolbox.js"></script>
+
+<script src="/~~src/lib/path-fragment.js"></script>
+<script src="service.js"></script>
 <script src="app.js"></script>

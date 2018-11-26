@@ -77,6 +77,8 @@ self.addEventListener('install', function(event) {
       '/~~libs/vendor/codemirror/modes/htmlmixed.js',
       '/~~libs/vendor/codemirror/modes/vue.js',
 
+      '/~~src/lib/path-fragment.js',
+
       '/~/style.css',
     ]);
 
@@ -91,7 +93,8 @@ self.addEventListener('activate', function(event) {
   event.waitUntil(async function() {
 
     // Bring up the 'system'
-    await kernel.init();
+    kernel.ready = kernel.init();
+    await kernel.ready;
 
     // Clear out old caches
     const cacheWhitelist = [SHELL_CACHE];
@@ -271,17 +274,39 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/', async match =>
   */
 });
 
+const softwareApi = new PathRouter;
+
+softwareApi.registerHandler('/get%20package/:pkgId', async (match) => {
+  const pkgId = match.params.get('pkgId');
+  const pkg = await kernel.softwareDB.getPackage(pkgId);
+  return new Response(JSON.stringify(pkg));
+});
+softwareApi.registerHandler('/list%20resources/:pkgId', async (match) => {
+  const pkgId = match.params.get('pkgId');
+  const pkg = await kernel.softwareDB.getPackage(pkgId);
+  return new Response(JSON.stringify(pkg.meta));
+});
+
 self.addEventListener('fetch', event => {
   event.respondWith(async function() {
+    await kernel.ready;
     const {destination, method, url} = event.request;
+
+    const uri = PathFragment.parseUri(url);
+    //console.log(uri, event.request);
+
+    // intercept the api
+    if (uri.host === 'software-api') {
+      return softwareApi.routeInput(uri.path, {
+        request: event.request,
+        uri: uri,
+      }, () => new Response('404', {status: 404}))
+    }
 
     // no interception for cross-domain stuff!
     if (!url.startsWith(location.origin)) {
       return fetch(event.request);
     }
-
-    const uri = PathFragment.parseUri(url);
-    //console.log(uri, event.request);
 
     // pass apps API requests directly upstream to help debugging
     if (uri.path.startsWith('/~/apps/~~')) {
