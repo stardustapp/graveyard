@@ -5,10 +5,13 @@ class Kernel {
 
   async init() {
     console.group('ServiceWorker boot');
+    try {
 
-    this.softwareDB = await OpenSoftwareDatabase();
-    console.log('BOOT: Opened software database');
+      this.softwareDB = await OpenSoftwareDatabase();
+      console.log('BOOT: Opened software database');
 
-    console.groupEnd();
+    } finally {
+      console.groupEnd();
+    }
   }
 }

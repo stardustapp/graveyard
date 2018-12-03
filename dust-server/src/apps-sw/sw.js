@@ -4,7 +4,7 @@ importScripts(
   '/~~src/core/environment.js',
   '/~~src/core/enumeration.js',
   '/~~src/core/utils.js',
-
+/*
   '/~~src/devices/tmp.js',
   '/~~src/devices/skylink-import.js',
 
@@ -21,19 +21,19 @@ importScripts(
   '/~~src/skylink/channel-client.js',
   '/~~src/skylink/channel-server.js',
   '/~~src/skylink/messageport.js',
-
+*/
   '/~~src/lib/caching.js',
-  '/~~src/lib/tracing.js',
-  '/~~src/lib/mkdirp.js',
+  //'/~~src/lib/tracing.js',
+  //'/~~src/lib/mkdirp.js',
   '/~~src/lib/path-fragment.js',
-  '/~~src/lib/datadog.js',
+  //'/~~src/lib/datadog.js',
 
-  '/~~libs/vendor/libraries/base64.js',
+  //'/~~libs/vendor/libraries/base64.js',
   '/~~libs/vendor/libraries/moment.js',
   '/~~libs/vendor/libraries/common-tags.js',
   '/~~libs/vendor/libraries/idb.js',
 
-  '/~~src/core/platform-api.js',
+  //'/~~src/core/platform-api.js',
 
   '/~~src/apps-sw/software-db.js',
   '/~~src/apps-sw/kernel.js',
@@ -46,6 +46,7 @@ const SHELL_CACHE = 'shell-cache-v1';
 
 self.addEventListener('install', function(event) {
   event.waitUntil(async function boot() {
+    /*
     const shellCache = await caches.open(SHELL_CACHE);
     await shellCache.addAll([
       '/~~libs/vendor/fonts/material-icons.css',
@@ -81,6 +82,7 @@ self.addEventListener('install', function(event) {
 
       '/~/style.css',
     ]);
+    */
 
     // take new pageloads immediately
     await self.skipWaiting();
