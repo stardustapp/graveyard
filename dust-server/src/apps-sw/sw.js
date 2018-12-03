@@ -28,25 +28,47 @@ importScripts(
   '/~~src/lib/path-fragment.js',
   //'/~~src/lib/datadog.js',
 
-  //'/~~libs/vendor/libraries/base64.js',
+  '/~~libs/vendor/libraries/base64.js',
   '/~~libs/vendor/libraries/moment.js',
   '/~~libs/vendor/libraries/common-tags.js',
   '/~~libs/vendor/libraries/idb.js',
 
   //'/~~src/core/platform-api.js',
 
-  '/~~src/apps-sw/software-db.js',
-  '/~~src/apps-sw/kernel.js',
+  '/~~src/vcs/test.js',
+  '/~~src/vcs/database.js',
+  //'/~~src/vcs/version-control.js',
+  //'/~~src/vcs/workdir.js',
+
+  //'/~~src/apps-sw/software-db.js',
+  //'/~~src/apps-sw/kernel.js',
 );
 delete this.window;
 
-//fetch('/~/apps/~~/list%20accounts', {method:'post',body:'asdf=34',headers:{'content-type':'application/x-www-form-urlencoded'}})
+const testSuite = vcsTests;
 
-const SHELL_CACHE = 'shell-cache-v1';
+self.addEventListener('install', function(event) {
+  self.skipWaiting();
+});
+self.addEventListener('activate', function(event) {
+  console.log('sw activated');
+});
+self.addEventListener('fetch', function(event) {
+  event.respondWith(async function() {
+    if (event.request.destination == 'document') {
+      setTimeout(() => testSuite.runAll(), 100);
+    }
+    return fetch(event.request);
+  }());
+});
+
+
+//fetch('/~/apps/~~/list%20accounts', {method:'post',body:'asdf=34',headers:{'content-type':'application/x-www-form-urlencoded'}})
+/*
+const SHELL_CACHE = 'shell-cache-v1'; 
 
 self.addEventListener('install', function(event) {
   event.waitUntil(async function boot() {
-    /*
     const shellCache = await caches.open(SHELL_CACHE);
     await shellCache.addAll([
       '/~~libs/vendor/fonts/material-icons.css',
@@ -82,7 +104,6 @@ self.addEventListener('install', function(event) {
 
       '/~/style.css',
     ]);
-    */
 
     // take new pageloads immediately
     await self.skipWaiting();
@@ -245,7 +266,6 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/', async match =>
   const pkg = await kernel.softwareDB.getPackage(appId);
   return new Response(JSON.stringify(pkg, null, 2));
 
-  /*
   console.log('loading application', appId);
 
   const {accounts} = await fetch('/~/apps/~~/list%20accounts').then(x => x.json());
@@ -273,7 +293,6 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/', async match =>
       'Content-Type': 'text/html; charset=utf-8',
     },
   });
-  */
 });
 
 const softwareApi = new PathRouter;
@@ -372,3 +391,4 @@ function wrapGatePage(title, inner) {
     },
   });
 }
+*/
