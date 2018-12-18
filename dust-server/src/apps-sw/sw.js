@@ -35,8 +35,10 @@ importScripts(
 
   //'/~~src/core/platform-api.js',
 
-  '/~~src/vcs/test.js',
-  '/~~src/vcs/database.js',
+  '/~~src/model/test.js',
+  '/~~src/model/core.js',
+  '/~~src/model/impl/application.js',
+  '/~~src/model/impl/application_test.js',
   //'/~~src/vcs/version-control.js',
   //'/~~src/vcs/workdir.js',
 
