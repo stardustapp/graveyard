@@ -31,7 +31,7 @@ class ObjectDataBase {
         resources.createIndex('pidPath', ['pid', 'path'], { unique: true });
         const datums = upgradeDB.createObjectStore('datums', { keyPath: 'did' });
         datums.createIndex('pid', 'pid', { unique: false });*/
-        const timeline = upgradeDB.createObjectStore('timeline', { keyPath: ['projectId', 'timestamp'] });
+        const events = upgradeDB.createObjectStore('events', { keyPath: ['projectId', 'timestamp'] });
     }
   }
 

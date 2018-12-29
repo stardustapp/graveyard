@@ -32,6 +32,8 @@ importScripts(
   '/~~libs/vendor/libraries/moment.js',
   '/~~libs/vendor/libraries/common-tags.js',
   '/~~libs/vendor/libraries/idb.js',
+  '/~~libs/vendor/libraries/aws-sdk.js',
+  '/~~libs/vendor/libraries/sw-xhr.js',
 
   //'/~~src/core/platform-api.js',
 
