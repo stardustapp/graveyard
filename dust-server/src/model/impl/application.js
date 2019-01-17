@@ -1,31 +1,420 @@
 
 class BaseObject {
-  constructor(db, record) {
-    this.db = db;
+  constructor(project, record) {
+    this.project = project;
     this.record = record;
   }
 }
 
 const OBJECT_TYPES = {
   'external-script': class ExternalScriptObject extends BaseObject {
-    constructor(db, record) {
-      super(db, record);
+    constructor(project, record) {
+      super(project, record);
     }
   },
-  'web-bundle': class WebBundleObject extends BaseObject {
-    constructor(db, record) {
-      super(db, record);
+  'vue-app': class WebBundleObject extends BaseObject {
+    constructor(project, record) {
+      super(project, record);
+    }
+
+    async renderHtmlResponse() {
+      const collectionSrc = Array
+        .from(this.project.objects.values())
+        .filter(x => x.record.config.type === 'collection')
+        .map(x => x.record.config)
+        .map(res => {
+          const fieldLines = [];
+          const behaviors = [];
+          for (const fieldKey in res.fields) {
+            const field = res.fields[fieldKey];
+            let bareType = {
+              'core/string': 'String',
+              'core/number': 'Number',
+              'core/boolean': 'Boolean',
+              'core/date': 'Date',
+              'core/timestamp': 'Date',
+              'core/object': 'Object',
+            //TODO: }[field.type] || JSON.stringify(field.type);
+            }[field.type] || 'Object';
+            if (field.isList) bareType = `[${bareType}]`;
+            fieldLines.push(`    ${fieldKey}: {
+      type: ${bareType},
+      optional: ${!field.required},
+      immutable: ${!field.mutable},${field.default && `
+      default: function() { return ${JSON.stringify(JSON.parse(field.default))}; },`||''}
+    },`);
+          }
+          return `DUST.resources[${JSON.stringify(res.name)}] = BaseRecord.inherit({
+  name: ${JSON.stringify(res.name)},
+  fields: {\n${fieldLines.join('\n')}
+  },
+  behaviors: ${JSON.stringify(behaviors)},
+});`;
+        }).join('\n');
+
+      return new Response(commonTags.html`<!doctype html>
+<title></title>
+<link href="/~~libs/vendor/fonts/roboto.css" type="text/css" rel="stylesheet">
+<link href="/~~libs/vendor/fonts/material-icons.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  __meteor_runtime_config__ = {
+    DDP_DEFAULT_CONNECTION_URL: 'http://ddp',
+    meteorEnv: {},
+  };
+</script>
+<script src="/~~libs/vendor/libraries/meteor-bundle.js"></script>
+<script>
+  const ReactiveVar = Package['reactive-var'].ReactiveVar;
+  const Tracker = Package.tracker.Tracker;
+  const Blaze = Package.ui.Blaze;
+  const SpacebarsCompiler = Package['spacebars-compiler'].SpacebarsCompiler;
+  const UI = Package.ui.UI;
+  const Router = Package['iron:router'].Router;
+  const Template = Package['templating-runtime'].Template;
+  const Astro = Package['jagi:astronomy'].Astro;
+  const Mongo = Package.mongo.Mongo;
+  const Session = Package.session.Session;
+  const HTML = Package.htmljs.HTML;
+  const Spacebars = Package.spacebars.Spacebars;
+  const Meteor = Package.meteor.Meteor;
+
+  Template.registerHelper('eq', function(a, b) {
+    return a === b;
+  });
+  Template.registerHelper('renderTemplate', function() {
+    try {
+      return DUST.get(this.name, 'Template');
+    } catch (err) {
+      console.log("Failed to render template", this.name, err.message);
+      return null;
+    }
+  });
+
+  DUST = scriptHelpers = {
+    _liveTemplates: new Map,
+    triggerHook: function(hookName, ...args) {
+      var instance, instances, liveSet;
+      if (liveSet = DUST._liveTemplates.get(DUST._mainTemplate)) {
+        liveSet.dep.depend();
+        ({instances} = liveSet);
+        if (instances.size === 1) {
+          if (instance = instances.values().next().value) {
+            return instance.hook(hookName, ...args);
+          }
+        } else if (instances.size === 0) {
+          return console.warn("Hook", hookName, "can't be called - no live template");
+        } else {
+          return console.warn("Hook", hookName, "can't be called -", instances.size, "live templates");
+        }
+      }
+    },
+    resources: {},
+    get(name, type) {
+      console.log('DUST.get', name, type);
+      if (name in DUST.resources) {
+        return DUST.resources[name];
+      }
+      throw new Error('Dust resource '+name+' '+type+' not found');
+    },
+    params: new ReactiveVar({}),
+    navigateTo(path) {
+      const APP_ROOT = "/~/apps/by-id/${this.record.projectId}";
+      Router.go(APP_ROOT + path);
+    },
+  };
+
+  // Astronomy minimongo collections
+  const Records = new Mongo.Collection('records');
+  const BaseRecord = Astro.Class.create({
+    name: 'Record',
+    collection: Records,
+    typeField: 'type',
+    fields: {
+      objectId  : { type: String, immutable: true },
+      packageId : { type: String, immutable: true },
+      recordId  : { type: String, immutable: true },
+      version   : { type: Number, default: 0 },
+    },
+    helpers: {
+      commit(cb) {
+        // TODO: validate locally
+        console.log('Saving record version', this.version, 'of', this.type, this._id);
+        Meteor.call('/records/commit', this.raw(), (err, res) => {
+          if (err) {
+            alert(err);
+            return typeof cb === "function" ? cb(err) : void 0;
+          } else {
+            this.version = res.version;
+            this._id = res.id;
+            return typeof cb === "function" ? cb(null, res) : void 0;
+          }
+        });
+      },
+    },
+  });
+  ${collectionSrc}
+
+  // Data publications
+  // (no-op for the moment)
+${Array
+    .from(this.project.objects.values())
+    .filter(x => x.record.config.type === 'record-publication')
+    .map(x => x.record.config)
+    .map(pub => `  DUST.resources[${JSON.stringify(pub.name)}] = {subscribe: console.log};`)
+    .join('\n')}
+
+  // Call a hook on an instance
+  Blaze.TemplateInstance.prototype.hook = function(key, ...args) {
+    var hooks, ref;
+    check(key, String);
+    ({hooks} = this.view.template);
+    return (ref = hooks[key]) != null ? ref.apply(this, args) : void 0;
+  };
+  // Register hooks on a template
+  Blaze.Template.prototype.registerHook = function(key, hook) {
+    if (key in this.hooks) {
+      throw new Meteor.Error('hook-exists', "Template hook already exists");
+    }
+    return this.hooks[key] = hook;
+  };
+
+  // patch in our extra spacebars tags
+  const indexOf = [].indexOf;
+  const RenderSmartTag = function(view, name) {
+    var injector, template;
+    if (indexOf.call(name, ':') < 0) {
+      return HTML.getTag(name);
+    }
+    // remove arbitrary pkglocal prefix from spacebars
+    if (name.slice(0, 3) === 'my:') {
+      name = name.slice(3);
+    } else {
+      name = name.split(':').map(function(str) {
+        return str.slice(0, 1).toUpperCase() + str.slice(1).replace(/-([a-z])/g, function(d) {
+          return d[1].toUpperCase();
+        });
+      }).join(':');
+    }
+    injector = view.template.injector;
+    template = injector.get(name, 'Template');
+    return function(...args) {
+      var attrs, contents, parentData, ref, ref1;
+      attrs = null;
+      contents = null;
+      if ((ref = (ref1 = args[0]) != null ? ref1.constructor : void 0) === HTML.Attrs || ref === Object) {
+        [attrs, ...contents] = args;
+      } else {
+        contents = args;
+      }
+      //if attrs?.constructor is HTML.Attrs
+      // TODO: flatten the attrs
+      console.log('Providing tag', name, 'with', attrs); //, contents
+      parentData = Template.currentData();
+      if (attrs) {
+        return Blaze.With(function() {
+          var data, key, val, val2;
+          data = {};
+          RenderSmartTag.inSmartTag = true;
+          for (key in attrs) {
+            val = attrs[key];
+            if (val.constructor === Function) {
+              val2 = val();
+              if ((val2 != null ? val2.constructor : void 0) === Array) {
+                // TODO: when is this an array?
+                val2 = val2[0];
+              }
+              if ((val2 != null ? val2.constructor : void 0) === Function) {
+                // this is not a function when the value is a helper tag
+                val2 = val2();
+              }
+              data[key] = val2;
+            } else {
+              data[key] = val;
+            }
+          }
+          RenderSmartTag.inSmartTag = false;
+          return data;
+        }, function() {
+          return Spacebars.include(template, function() {
+            return Blaze.With((function() {
+              return parentData;
+            }), (function() {
+              return contents;
+            }));
+          });
+        });
+      } else {
+        return Spacebars.include(template, function() {
+          return contents;
+        });
+      }
+    };
+  };
+  const realMustache = Spacebars.mustache.bind(Spacebars);
+  RenderSmartTag.inSmartTag = false;
+  Spacebars.mustache = function(...thing) {
+    if (RenderSmartTag.inSmartTag) {
+      return thing;
+    } else {
+      return realMustache(...thing);
+    }
+  };
+  HTML.getSmartTag = RenderSmartTag.bind(this);
+
+  // Blaze templates
+  const templates = ${JSON.stringify(Array
+    .from(this.project.objects.values())
+    .filter(x => x.record.config.type === 'blaze-component')
+    .map(x => x.record.config))};
+  for (const template of templates) {
+    const {name} = template;
+    const parts = [template.template];
+    if (template.style.css) {
+      parts.push(\`<style type='text/css'>\${template.style.css}</style>\`);
+    }
+    const source = parts.join('\\n\\n');
+    const compiled = SpacebarsCompiler
+      .compile(source, {isTemplate: true})
+      .replace(/HTML\\.getTag\\("/g, 'HTML.getSmartTag(view, "');
+    const renderer = eval(compiled);
+    UI.Template.__define__(name, renderer);
+
+    // register template for outside hooking
+    if (!DUST._liveTemplates.has(name)) {
+      DUST._liveTemplates.set(name, {
+        dep: new Tracker.Dependency(),
+        instances: new Set()
+      });
+    }
+    const liveSet = DUST._liveTemplates.get(name);
+
+    // init hook system
+    Template[name].hooks = {};
+    Template[name].onCreated(function() {
+      liveSet.instances.add(this);
+      return liveSet.dep.changed();
+    });
+    Template[name].onDestroyed(function() {
+      liveSet.instances.delete(this);
+      return liveSet.dep.changed();
+    });
+    //Template[name].injector = this;
+
+    template.scripts.forEach(function({key, type, param, js}) {
+      var err, func, inner, raw;
+      try {
+        raw = eval(js);
+        if (!js.endsWith('.call();\\n')) {
+          raw = raw.apply(window.scriptHelpers);
+        }
+        inner = raw.apply(); // .apply(window.scriptHelpers) # TODO: used?
+      } catch (error) {
+        err = error;
+        console.log("Couldn't compile", key, "for", name, '-', err);
+        return;
+      }
+      func = function() {
+        var _, charNum, line, lineNum, ref, ref1, ref2, stack;
+        try {
+          return inner.apply(this, arguments);
+        } catch (error) {
+          err = error;
+          stack = (ref = err.stack) != null ? ref.split('Object.eval')[0] : void 0;
+          [_, lineNum, charNum] = (ref1 = (ref2 = err.stack) != null ? ref2.match(/<anonymous>:(\d+):(\d+)/) : void 0) != null ? ref1 : [];
+          if (lineNum != null) {
+            stack += \`\${key} (\${lineNum}:\${charNum} for view \${name})\`;
+            console.log(err.message, stack);
+            line = js.split('\\n')[lineNum - 1];
+            return console.log('Responsible line:', line);
+          } else {
+            return console.log(err);
+          }
+        }
+      };
+      // TODO: report error
+      switch (type) {
+        case 'helper':
+          return Template[name].helpers({
+            [\`\${param}\`]: func
+          });
+        case 'event':
+          return Template[name].events({
+            [\`\${param}\`]: func
+          });
+        case 'hook':
+          return Template[name].registerHook(param, func);
+        case 'on-create':
+          return Template[name].onCreated(func);
+        case 'on-render':
+          return Template[name].onRendered(func);
+        case 'on-destroy':
+          return Template[name].onDestroyed(func);
+      }
+    });
+
+    Template[name].baseName = name;
+    Template[name].dynName = name;
+    DUST.resources[name] = Template[name];
+  }
+
+  // Iron routers
+  function runRoute(route) {
+    console.log('running route', route, this);
+    const defaultLayout = ${JSON.stringify(this.record.config.defaultLegacyLayoutId||null)};
+    if (defaultLayout) {
+      this.layout(defaultLayout);
+    }
+    DUST.params.set(this.params);
+    const ctx = {
+      params: this.params,
+      render: (templateName, opts={}) => {
+        const template = DUST.get(templateName || route.name, 'Template');
+        opts.data = opts.data || {params: this.params};
+        DUST._mainTemplate = templateName;
+        this.render(template.dynName, opts);
+      },
+    };
+    switch (route.type) {
+      case 'blaze-template':
+        ctx.render(route.action, route.params); // TODO: fix action to be an object
+        break;
+      case 'inline-script':
+        // Compile the route action
+        try {
+          inner = eval(route.action.js).apply(window.scriptHelpers);
+        } catch (err) {
+          console.log("Couldn't compile custom code for route", route, '-', err);
+          return;
+          // TODO: 500
+        }
+        inner.apply(ctx);
+        break;
+      default:
+        throw new Error('weird route '+JSON.stringify(route));
+    }
+  }
+  ${this.record.config.routes.map(route =>
+  `Router.route(${JSON.stringify('/~/apps/by-id/:appId'+route.path)}, function() {
+  runRoute.call(this, ${JSON.stringify(route)});
+});`).join('\n')}
+</script>
+      `, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+        },
+      });
     }
   },
   'collection': class CollectionObject extends BaseObject {
-    constructor(db, record) {
-      super(db, record);
+    constructor(project, record) {
+      super(project, record);
     }
     async insert(data) {
       //console.log('inserting', data, this.record);
       const {projectId, objectId} = this.record;
       const recordId = randomString(3);
-      const tx = this.db.idb.transaction(['records'], 'readwrite');
+      const tx = this.project.db.idb.transaction(['records'], 'readwrite');
       tx.objectStore('records').add({
         projectId, objectId, recordId,
         version: 1,
@@ -50,7 +439,7 @@ const OBJECT_TYPES = {
     async getAll() {
       const {projectId, objectId} = this.record;
       const recordId = randomString(3);
-      const tx = this.db.idb.transaction(['records'], 'readwrite');
+      const tx = this.project.db.idb.transaction(['records'], 'readwrite');
       const data = await tx.objectStore('records').getAll(IDBKeyRange.bound(
         [projectId, objectId, '#'],
         [projectId, objectId, '~']));
@@ -58,17 +447,17 @@ const OBJECT_TYPES = {
     }
   },
 
-  'web/router': class WebRouterObject extends BaseObject {
-    constructor(db, record) {
-      super(db, record);
-      console.log('created web/router', this);
+  'record-publication': class DocumentPublicationObject extends BaseObject {
+    constructor(project, record) {
+      super(project, record);
+      console.log('created record-publication', record);
     }
   },
 
   'blaze-component': class BlazeComponentObject extends BaseObject {
-    constructor(db, record) {
-      super(db, record);
-      console.log('created blaze-component', this);
+    constructor(project, record) {
+      super(project, record);
+      console.log('created blaze-component', record);
     }
   },
 };
@@ -87,7 +476,7 @@ class S3ApplicationRepository {
   }
   async listPackages() {
     const {IsTruncated, Contents} = await this.bucket.
-      listObjectsV2({
+      makeUnauthenticatedRequest('listObjectsV2', {
         Delimiter: '/',
         Prefix: 'packages/',
       }).promise();
@@ -105,7 +494,7 @@ class S3ApplicationRepository {
   }
   async getPackageMeta(packageId) {
     const {Body} = await this.bucket
-      .getObject({
+      .makeUnauthenticatedRequest('getObject', {
         Key: `packages/${packageId}.meta.json`,
       }).promise();
     return JSON.parse(Body);
@@ -113,7 +502,7 @@ class S3ApplicationRepository {
   async fetchPackage(packageId) {
     console.info('Fetching package contents for', packageId);
     const resp = await this.bucket.
-      getObject({
+      makeUnauthenticatedRequest('getObject', {
         Key: `packages/${packageId}.json`,
       }).promise();
     console.log()
@@ -129,9 +518,11 @@ class S3ApplicationRepository {
 }
 
 async function ImportLegacyStardustApplication(db, manifest) {
-  if (manifest._platform !== 'stardust') throw 'invalid stardust manifest';
+  if (manifest._platform !== 'stardust') throw new Error(
+    'invalid stardust manifest');
 
   const project = await db.createProject({
+    forceId: manifest.packageId,
     metadata: {
       Type: {'App': 'Application'}[manifest.meta.type],
       Name: manifest.meta.name,
@@ -143,12 +534,12 @@ async function ImportLegacyStardustApplication(db, manifest) {
         case 'RouteTable':
           return {
             name: {'RootRoutes': 'Application'}[resource.name] || resource.name,
-            type: 'web/router',
+            type: 'vue-app',
             version: resource.version,
             //input: {type: 'http/path'},
-            defaultLegacyLayoutId: manifest.meta.layoutId,
+            defaultLegacyLayoutId: resource.layout,
             //output: {type: 'web/virtual-dom'},
-            entries: resource.entries.map(entry => {
+            routes: resource.entries.map(entry => {
               switch (entry.type) {
                 case 'customAction':
                   return {
@@ -159,8 +550,8 @@ async function ImportLegacyStardustApplication(db, manifest) {
                 case 'template':
                   return {
                     path: entry.path,
-                    type: 'object-handler',
-                    action: `my/${entry.template}.Component`
+                    type: 'blaze-template',
+                    action: entry.template,
                   };
               }
               throw new Error('no type '+entry.type);
@@ -181,9 +572,11 @@ async function ImportLegacyStardustApplication(db, manifest) {
             fields.createdAt = {type: 'core/timestamp', insertionDefault: 'now'};
             fields.updatedAt = {type: 'core/timestamp', updateDefault: 'now'};
           }
+          console.log(resource);
           return {
             name: resource.name,
-            type: (resource.base === 'core:Record') ? 'collection' : base, // TODO
+            //type: (resource.base === 'core:Record') ? 'collection' : resource.base, // TODO
+            type: 'collection',
             version: resource.version,
             fields,
           };
@@ -214,8 +607,20 @@ async function ImportLegacyStardustApplication(db, manifest) {
             },
             injects: resource.injects,
           };
+        case 'Publication':
+          return {
+            name: resource.name,
+            type: 'record-publication',
+            version: resource.version,
+            children: resource.children,
+            fields: resource.fields,
+            filterBy: resource.filterBy,
+            limitTo: resource.limitTo,
+            recordType: resource.recordType,
+            sortBy: resource.sortBy,
+          };
         default:
-          console.warn('Skipping', resource.type, resource.name);
+          console.warn('Skipping', resource.type, resource.name, resource);
           return false;
       }
     }).filter(x => x),

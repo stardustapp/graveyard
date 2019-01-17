@@ -7,7 +7,9 @@ class Kernel {
     console.group('ServiceWorker boot');
     try {
 
-      this.softwareDB = await OpenSoftwareDatabase();
+      this.graphStore = new ObjectDataBase('graph');
+      await this.graphStore.ready;
+      //this.softwareDB = await OpenSoftwareDatabase();
       console.log('BOOT: Opened software database');
 
     } finally {

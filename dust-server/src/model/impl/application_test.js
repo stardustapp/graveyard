@@ -12,6 +12,10 @@ function vcsTest(cb) {
   };
 }
 
+vcsTests.addSuite('cleanup', vcsTest(async function(db) {
+  await db.deleteEverything();
+}));
+
 vcsTests.addSuite('personal blog generator', vcsTest(async function(db) {
   const blog = await db
     .createProject({
@@ -117,12 +121,15 @@ vcsTests.addSuite('todo list datastore', vcsTest(async function(db) {
 
 vcsTests.addSuite('legacy app import', vcsTest(async function(db) {
   const repo = new S3ApplicationRepository();
-  const pkg = await repo.fetchPackage('shout');
 
-  const project = await ImportLegacyStardustApplication(db, pkg);
+  const bartendPkg = await repo.fetchPackage('bartend');
+  const bartendApp = await ImportLegacyStardustApplication(db, bartendPkg);
+
+  const shoutPkg = await repo.fetchPackage('shout');
+  const shoutApp = await ImportLegacyStardustApplication(db, shoutPkg);
 
   // create a new shout
-  const shoutHandle = await project
+  const shoutHandle = await shoutApp
     .get('my/shout.collection')
     .insert({
       Message: 'is this thing on',
@@ -130,8 +137,9 @@ vcsTests.addSuite('legacy app import', vcsTest(async function(db) {
     });
 
   // retrieve the shout and check fields
-  const shout = await project
-    .get('my/shout.collection/find-one', shoutHandle);
+  const shout = await shoutApp
+    .get('my/shout.collection')
+    .findOne(shoutHandle);
   this.assertEq(shout.Message, 'is this thing on');
   this.assertEq(shout.FromPlace, 'rooftops');
 

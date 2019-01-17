@@ -45,7 +45,7 @@ importScripts(
   //'/~~src/vcs/workdir.js',
 
   //'/~~src/apps-sw/software-db.js',
-  //'/~~src/apps-sw/kernel.js',
+  '/~~src/apps-sw/kernel.js',
 );
 delete this.window;
 
@@ -54,9 +54,10 @@ const testSuite = vcsTests;
 self.addEventListener('install', function(event) {
   self.skipWaiting();
 });
-self.addEventListener('activate', function(event) {
-  console.log('sw activated');
-});
+//self.addEventListener('activate', function(event) {
+//  console.log('sw activated');
+//});
+/*
 self.addEventListener('fetch', function(event) {
   event.respondWith(async function() {
     if (event.request.destination == 'document') {
@@ -65,6 +66,7 @@ self.addEventListener('fetch', function(event) {
     return fetch(event.request);
   }());
 });
+*/
 
 
 //fetch('/~/apps/~~/list%20accounts', {method:'post',body:'asdf=34',headers:{'content-type':'application/x-www-form-urlencoded'}})
@@ -113,7 +115,7 @@ self.addEventListener('install', function(event) {
     await self.skipWaiting();
   }());
 });
-
+*/
 const kernel = new Kernel();
 
 self.addEventListener('activate', function(event) {
@@ -123,6 +125,7 @@ self.addEventListener('activate', function(event) {
     kernel.ready = kernel.init();
     await kernel.ready;
 
+    /*
     // Clear out old caches
     const cacheWhitelist = [SHELL_CACHE];
     const cacheNames = await caches.keys();
@@ -132,6 +135,7 @@ self.addEventListener('activate', function(event) {
         await caches.delete(cacheName);
       }
     }
+    */
   }());
 });
 
@@ -150,7 +154,8 @@ class PathRouter {
     for (const route of this.routes) {
       const match = path.matchWith(route.path);
       if (match.ok) {
-        console.log(`Matched ${path} to ${route.path} with`, match.params);
+        if (!route.path.toString().includes('xhr'))
+          console.debug(`Matched ${path} to ${route.path} with`, match.params);
         input.params = match.params;
         try {
           return await route.handler(match, input);
@@ -175,7 +180,7 @@ const destinations = {
   //styleGET: new PathRouter,
   //unknownGET: new PathRouter,
 }
-
+/*
 destinations.documentGET.registerHandler('/~/apps/', async match => {
   const allPkgs = await kernel.softwareDB.listAllPackages();
   let pkgListing = allPkgs.map(record => commonTags.safeHtml`
@@ -259,25 +264,48 @@ destinations.documentPOST.registerHandler('/~/apps/new-package', async (_, {requ
   });
   return Response.redirect(`/~/apps/builder/?id=${pkg.pid}`);
 });
+*/
+
+destinations.documentGET.registerHandler('/~/apps/test-suite', match => {
+  setTimeout(() => testSuite.runAll(), 100);
+  return new Response('test suite');
+});
 
 destinations.documentGET.registerHandler('/~/apps/by-id/:appId', match => {
   const appId = match.params.get('appId');
-  return Response.redirect(`/~/apps/${appId}/`);
+  return Response.redirect(`/~/apps/by-id/${appId}/home`);
 });
 
-destinations.documentGET.registerHandler('/~/apps/by-id/:appId/', async match => {
+destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (match, input) => {
   const appId = match.params.get('appId');
-  const pkg = await kernel.softwareDB.getPackage(appId);
-  return new Response(JSON.stringify(pkg, null, 2));
+  let project;
+  try {
+    await kernel.graphStore.deleteProject(appId);
+    project = await kernel.graphStore.loadProject(appId);
+  } catch (err) {
+    console.error('Project failed to load, attempting to install:', err);
+    const repo = new S3ApplicationRepository();
+    const package = await repo.fetchPackage(appId);
+    await ImportLegacyStardustApplication(kernel.graphStore, package);
+    project = await kernel.graphStore.loadProject(appId);
+  }
+  const application = Array
+    .from(project.objects.values())
+    .find(x => x.record.config.name === 'Application');
+  if (!application) throw new Error(`app-missing:
+    Project '${appId}' does not contain a web application.`);
+  //return new Response(JSON.stringify(res, null, 2));
+  return application.renderHtmlResponse(input);
 
-  console.log('loading application', appId);
+  //console.log('loading application', appId, application.record.config);
 
-  const {accounts} = await fetch('/~/apps/~~/list%20accounts').then(x => x.json());
+  /*const {accounts} = await fetch('/~/apps/~~/list%20accounts').then(x => x.json());
   if (accounts.length === 0) {
     return new Response('please sign in');
   }
-  console.log('account', accounts[0]);
+  console.log('account', accounts[0]);*/
 
+/*
   return new Response(commonTags.html`<!doctype html>
 <title></title>
 <link href="/~~libs/vendor/fonts/roboto.css" type="text/css" rel="stylesheet">
@@ -297,8 +325,126 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/', async match =>
       'Content-Type': 'text/html; charset=utf-8',
     },
   });
+  */
 });
 
+const ddpApi = new PathRouter;
+
+ddpApi.registerHandler('/sockjs/info', async match => {
+  var array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return new Response(JSON.stringify({
+    websocket: false,
+    origins: ['*:*'],
+    cookie_needed: false,
+    entropy: array[0],
+  }));
+});
+
+ddpApi.registerHandler('/sockjs/:server/:session/xhr', async ({params}, {request}) => {
+  const sessionId = params.get('session');
+  if (ddpSessions.has(sessionId)) {
+    const session = ddpSessions.get(sessionId);
+    return session.nextPollResponse();
+  } else {
+    const session = new DDPSession(params.get('server'), sessionId);
+    ddpSessions.set(sessionId, session);
+    return new Response('o\n');
+  }
+});
+
+ddpApi.registerHandler('/sockjs/:server/:session/xhr_send', async ({params}, {request}) => {
+  const sessionId = params.get('session');
+  //console.log(Array.from(ddpSessions.keys()), sessionId, ddpSessions.has(sessionId));
+  if (ddpSessions.has(sessionId)) {
+    const session = ddpSessions.get(sessionId);
+    await session.processPollSend(await request.json());
+    return new Response(null, {status: 204});
+  } else {
+    return new Response('no such session', {status: 400});
+  }
+});
+
+class DDPSession {
+  constructor(serverId, sessionId) {
+    this.serverId = serverId;
+    this.sessionId = sessionId;
+    this.outboundQueue = [];
+    this.waitingPoll = null;
+    this.closePacket = null; // [1000, 'Normal closure']
+  }
+
+  queueResponses(...packets) {
+    console.log('>>>', packets);
+    packets = packets.map(p => JSON.stringify(p));
+    if (this.waitingPoll) {
+      const resolve = this.waitingPoll;
+      this.waitingPoll = null;
+      resolve(new Response(`a${JSON.stringify(packets)}\n`));
+    } else {
+      packets.forEach(packet => {
+        this.outboundQueue.push(packet);
+      });
+    }
+  }
+
+  async processPollSend(input) {
+    input.map(JSON.parse).forEach(packet => {
+      console.log('xhr input', packet);
+      switch (packet.msg) {
+        case 'connect':
+          // get version and support array
+          if (packet.version !== '1') throw new Error(
+            `bad sockjs version ${packet.version}`);
+          this.queueResponses(
+            {server_id: "0"},
+            {msg: "connected", session: "GH3zpGwZpCTyXQMgg"},
+          );
+          break;
+        case 'ping':
+          this.queueResponses({msg: 'pong'});
+          break;
+        default:
+          console.warn('weird sockjs packet', packet);
+      }
+    });
+  }
+
+  async nextPollResponse() {
+    // immediate return if closed
+    if (this.closePacket && this.outboundQueue.length === 0) {
+      return new Response(`c${this.closePacket}\n`);
+    }
+
+    // immediate return if data is queued
+    if (this.outboundQueue.length) {
+      const queue = this.outboundQueue;
+      this.outboundQueue = [];
+      return new Response(`a${JSON.stringify(queue)}\n`);
+    }
+
+    // wait for new stuff
+    return new Promise(resolve => {
+      setTimeout(() => {
+        if (this.waitingPoll === resolve) {
+          this.waitingPoll = null;
+          resolve(new Response('h\n'));
+          console.debug('keeping alive xhr');
+        }
+      }, 5000);
+      if (this.waitingPoll) throw new Error(
+        `concurrent xhr polling??`);
+      this.waitingPoll = resolve;
+    });
+
+    //const sleep = m => new Promise(r => setTimeout(r, m));
+    //await sleep(30000);
+    //return new Response('h\n');
+  }
+}
+const ddpSessions = new Map;
+
+/*
 const softwareApi = new PathRouter;
 
 softwareApi.registerHandler('/get%20package/:pkgId', async (match) => {
@@ -311,6 +457,7 @@ softwareApi.registerHandler('/list%20resources/:pkgId', async (match) => {
   const pkg = await kernel.softwareDB.getPackage(pkgId);
   return new Response(JSON.stringify(pkg.meta));
 });
+*/
 
 self.addEventListener('fetch', event => {
   event.respondWith(async function() {
@@ -321,8 +468,8 @@ self.addEventListener('fetch', event => {
     //console.log(uri, event.request);
 
     // intercept the api
-    if (uri.host === 'software-api') {
-      return softwareApi.routeInput(uri.path, {
+    if (uri.host === 'ddp') {
+      return ddpApi.routeInput(uri.path, {
         request: event.request,
         uri: uri,
       }, () => new Response('404', {status: 404}))
@@ -332,7 +479,7 @@ self.addEventListener('fetch', event => {
     if (!url.startsWith(location.origin)) {
       return fetch(event.request);
     }
-
+/*
     // pass apps API requests directly upstream to help debugging
     if (uri.path.startsWith('/~/apps/~~')) {
       return fetch(event.request);
@@ -347,7 +494,7 @@ self.addEventListener('fetch', event => {
         return cacheHit;
       }
     }
-
+*/
     // the fallback is proxying to the server
     function fallback() {
       console.warn('passing upstream', destination, method, `upstream: ${uri.path}`);
@@ -395,4 +542,3 @@ function wrapGatePage(title, inner) {
     },
   });
 }
-*/

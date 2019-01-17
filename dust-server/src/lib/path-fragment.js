@@ -153,8 +153,9 @@ class PathFragment {
     while (match.ok && pattern.count() > patternIdx) {
       const patternPart = pattern.parts[patternIdx];
       if (patternPart.startsWith(':*')) {
+        //console.log(this.parts, pattern.parts, match);
         const restParts = this.parts.slice(thisIdx);
-        thisIdx = this.parts.length-1;
+        thisIdx = this.parts.length;
         match.params.set(patternPart.slice(2), restParts);
 
       } else if (patternPart.startsWith(':')) {

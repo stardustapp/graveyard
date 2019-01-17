@@ -50,6 +50,26 @@ class ObjectDataBase {
     }
   }
 
+  async deleteEverything() {
+    const tx = this.idb.transaction(
+        ['projects', 'objects', 'records', 'events'], 'readwrite');
+    tx.objectStore('projects').clear();
+    tx.objectStore('objects').clear();
+    tx.objectStore('records').clear();
+    tx.objectStore('events').clear();
+    await tx.complete;
+  }
+
+  async deleteProject(projectId) {
+    const tx = this.idb.transaction(
+        ['projects', 'objects', 'records', 'events'], 'readwrite');
+    tx.objectStore('projects').delete(projectId);
+    tx.objectStore('objects').delete(IDBKeyRange.bound([projectId, '#'], [projectId, '~']));
+    tx.objectStore('records').delete(IDBKeyRange.bound([projectId, '#', '#'], [projectId, '~', '~']));
+    tx.objectStore('events').delete(IDBKeyRange.bound([projectId, '#'], [projectId, '~']));
+    await tx.complete;
+  }
+
   async getAllProjects() {
     return await this.idb
       .transaction('projects')
@@ -57,20 +77,29 @@ class ObjectDataBase {
       .getAll();
   }
 
-  async createProject({metadata, objects}) {
+  async createProject({forceId, metadata, objects}) {
     const tx = this.idb.transaction(
-        ['projects', 'objects', 'timeline'], 'readwrite');
+        ['projects', 'objects', 'events'], 'readwrite');
 
-    const projectId = randomString(3);
+    const projectId = forceId || randomString(3);
     const currentDate = new Date;
 
     // write out the project itself
     metadata.createdAt = currentDate;
-    tx.objectStore('projects').add({
-      projectId,
-      version: 1,
-      metadata,
-    });
+    try {
+      await tx.objectStore('projects').add({
+        projectId,
+        version: 1,
+        metadata,
+      });
+    } catch (err) {
+      tx.complete.catch(() => {}); // throw away tx failure
+      if (err.name === 'ConstraintError') throw new Error(
+        `Project ID '${projectId}' already exists`);
+      throw err;
+    }
+
+    // TODO: check for existing objects and events, fail or clean
 
     // optionally create some initial objects
     const objActions = [];
@@ -94,8 +123,8 @@ class ObjectDataBase {
       });
     }
 
-    // seed the timeline
-    tx.objectStore('timeline').add({
+    // seed the events
+    tx.objectStore('events').add({
       projectId,
       timestamp: currentDate,
       entries: [{
@@ -110,6 +139,10 @@ class ObjectDataBase {
     // finish it out
     await tx.complete;
     return await Project.load(this, projectId);
+  }
+
+  loadProject(projectId) {
+    return Project.load(this, projectId);
   }
 
   /*async getStore(project, key) {
@@ -153,6 +186,8 @@ class Project {
     const record = await tx
       .objectStore('projects')
       .get(projectId);
+    if (!record) throw new Error(`project-missing:
+      Project '${projectId}' not found.`);
     const objects = await tx
       .objectStore('objects')
       .getAll(IDBKeyRange.bound([projectId, '#'], [projectId, '~']));
@@ -174,7 +209,7 @@ class Project {
     if (!config) throw new Error(`Null object config given`);
     const {projectId} = this.record;
     const tx = this.db.idb.transaction(
-        ['objects', 'timeline'], 'readwrite');
+        ['objects', 'events'], 'readwrite');
 
     // check for name conflicts
     if (config.name) {
@@ -193,7 +228,7 @@ class Project {
       config,
     };
     tx.objectStore('objects').add(record);
-    tx.objectStore('timeline').add({
+    tx.objectStore('events').add({
       projectId,
       timestamp: new Date,
       entries: [{
@@ -210,13 +245,13 @@ class Project {
   }
 
   loadObjectFromRecord(record) {
-    console.log('config', record);
+    //console.log('config', record);
     if (this.objects.has(record.objectId)) throw new Error(
       `Object ${record.objectId} is already loaded`);
     const objClass = OBJECT_TYPES[record.config.type];
     if (!objClass) throw new Error(
       `Object type '${record.config.type}' not found`);
-    const object = new objClass(this.db, record);
+    const object = new objClass(this, record);
     this.objects.set(record.objectId, object);
     return object;
   }

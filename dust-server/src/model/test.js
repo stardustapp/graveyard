@@ -41,7 +41,7 @@ class TestRunner {
         console.group('Suite:', suite.name);
         await suite.cb.call(this);
       } catch (ex) {
-        if (ex.constructor !== AssertFailure) {
+        if (!ex || ex.constructor !== AssertFailure) {
           console.error('Test suite crashed:', ex);
           this.crashes++;
         }
