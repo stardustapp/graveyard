@@ -21,17 +21,17 @@ class ObjectDataBase {
     // it allows for each case to build on the previous.
     switch (upgradeDB.oldVersion) {
       case 0:
-        const projects = upgradeDB.createObjectStore('projects', { keyPath: 'projectId' });
-        //projects.createIndex('repoIds', 'repoIds', { unique: true, multiEntry: true });
-        const objects = upgradeDB.createObjectStore('objects', { keyPath: ['projectId', 'objectId'] });
-        objects.createIndex('by parent', ['projectId', 'parentObject', 'name'], { unique: true });
-        //objects.createIndex('projectId', 'projectId', { unique: false });
-        const records = upgradeDB.createObjectStore('records', { keyPath: ['projectId', 'objectId', 'recordId'] });
+        const graphs = upgradeDB.createObjectStore('graphs', { keyPath: 'graphId' });
+        //graphs.createIndex('repoIds', 'repoIds', { unique: true, multiEntry: true });
+        const objects = upgradeDB.createObjectStore('objects', { keyPath: ['graphId', 'objectId'] });
+        objects.createIndex('by parent', ['graphId', 'parentObject', 'name'], { unique: true });
+        //objects.createIndex('graphId', 'graphId', { unique: false });
+        const records = upgradeDB.createObjectStore('records', { keyPath: ['graphId', 'objectId', 'recordId'] });
         /*resources.createIndex('pid', 'pid', { unique: false });
         resources.createIndex('pidPath', ['pid', 'path'], { unique: true });
         const datums = upgradeDB.createObjectStore('datums', { keyPath: 'did' });
         datums.createIndex('pid', 'pid', { unique: false });*/
-        const events = upgradeDB.createObjectStore('events', { keyPath: ['projectId', 'timestamp'] });
+        const events = upgradeDB.createObjectStore('events', { keyPath: ['graphId', 'timestamp'] });
     }
   }
 
@@ -52,50 +52,50 @@ class ObjectDataBase {
 
   async deleteEverything() {
     const tx = this.idb.transaction(
-        ['projects', 'objects', 'records', 'events'], 'readwrite');
-    tx.objectStore('projects').clear();
+        ['graphs', 'objects', 'records', 'events'], 'readwrite');
+    tx.objectStore('graphs').clear();
     tx.objectStore('objects').clear();
     tx.objectStore('records').clear();
     tx.objectStore('events').clear();
     await tx.complete;
   }
 
-  async deleteProject(projectId) {
+  async deleteGraph(graphId) {
     const tx = this.idb.transaction(
-        ['projects', 'objects', 'records', 'events'], 'readwrite');
-    tx.objectStore('projects').delete(projectId);
-    tx.objectStore('objects').delete(IDBKeyRange.bound([projectId, '#'], [projectId, '~']));
-    tx.objectStore('records').delete(IDBKeyRange.bound([projectId, '#', '#'], [projectId, '~', '~']));
-    tx.objectStore('events').delete(IDBKeyRange.bound([projectId, '#'], [projectId, '~']));
+        ['graphs', 'objects', 'records', 'events'], 'readwrite');
+    tx.objectStore('graphs').delete(graphId);
+    tx.objectStore('objects').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
+    tx.objectStore('records').delete(IDBKeyRange.bound([graphId, '#', '#'], [graphId, '~', '~']));
+    tx.objectStore('events').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
     await tx.complete;
   }
 
-  async getAllProjects() {
+  async getAllGraphs() {
     return await this.idb
-      .transaction('projects')
-      .objectStore('projects')
+      .transaction('graphs')
+      .objectStore('graphs')
       .getAll();
   }
 
-  async createProject({forceId, metadata, objects}) {
+  async createGraph({forceId, fields, objects}) {
     const tx = this.idb.transaction(
-        ['projects', 'objects', 'events'], 'readwrite');
+        ['graphs', 'objects', 'events'], 'readwrite');
 
-    const projectId = forceId || randomString(3);
+    const graphId = forceId || randomString(3);
     const currentDate = new Date;
 
-    // write out the project itself
-    metadata.createdAt = currentDate;
+    // write out the graph itself
+    fields.createdAt = currentDate;
     try {
-      await tx.objectStore('projects').add({
-        projectId,
+      await tx.objectStore('graphs').add({
+        graphId,
         version: 1,
-        metadata,
+        fields,
       });
     } catch (err) {
       tx.complete.catch(() => {}); // throw away tx failure
       if (err.name === 'ConstraintError') throw new Error(
-        `Project ID '${projectId}' already exists`);
+        `Graph ID '${graphId}' already exists`);
       throw err;
     }
 
@@ -110,7 +110,7 @@ class ObjectDataBase {
       delete objectConfig.version;
 
       tx.objectStore('objects').add({
-        projectId,
+        graphId,
         objectId,
         version: objVersion,
         config: objectConfig,
@@ -125,35 +125,35 @@ class ObjectDataBase {
 
     // seed the events
     tx.objectStore('events').add({
-      projectId,
+      graphId,
       timestamp: currentDate,
       entries: [{
         type: 'initial horizon',
       }, {
-        type: 'update project metadata',
+        type: 'update graph fields',
         version: 1,
-        metadata,
+        fields,
       }, ...objActions],
     });
 
     // finish it out
     await tx.complete;
-    return await Project.load(this, projectId);
+    return await Graph.load(this, graphId);
   }
 
-  loadProject(projectId) {
-    return Project.load(this, projectId);
+  loadGraph(graphId) {
+    return Graph.load(this, graphId);
   }
 
-  /*async getStore(project, key) {
-    if (repoName in project.repos) {
-      const repoId = project.repos[repoName];
+  /*async getStore(graph, key) {
+    if (repoName in graph.repos) {
+      const repoId = graph.repos[repoName];
       return this.getStore(repoId, engine);
     }
 
     // doesn't exist; make the repo
     const document = {
-      projectId: projectId,
+      graphId: graphId,
       repoName: 
       createdAt: new Date,
       engine: engine.engineId,
@@ -161,38 +161,38 @@ class ObjectDataBase {
     };
 
     const tx = this.idb
-      .transaction(['projects', 'repos'], 'readwrite');
+      .transaction(['graphs', 'repos'], 'readwrite');
     tx.objectStore('repos').add(document);
 
-    const latestProject = await this.idb
-      .objectStore('projects').get(projectId);
-    if (latestProject.version )
+    const latestGraph = await this.idb
+      .objectStore('graphs').get(graphId);
+    if (latestGraph.version )
 
     await tx.complete;
-    return document.projectId;
+    return document.graphId;
   }
-  async getStore(projectId, repoName, engine) {
-    const project = this.getProject(projectId);
-    if (repoName in project.repos) {
-      return new engine(new ItemStore(this, projectId, project.repos[repoName]));
+  async getStore(graphId, repoName, engine) {
+    const graph = this.getGraph(graphId);
+    if (repoName in graph.repos) {
+      return new engine(new ItemStore(this, graphId, graph.repos[repoName]));
     }
   }*/
 }
 
-class Project {
-  static async load(db, projectId) {
+class Graph {
+  static async load(db, graphId) {
     const tx = await db.idb
-      .transaction(['projects', 'objects']);
+      .transaction(['graphs', 'objects']);
     const record = await tx
-      .objectStore('projects')
-      .get(projectId);
-    if (!record) throw new Error(`project-missing:
-      Project '${projectId}' not found.`);
+      .objectStore('graphs')
+      .get(graphId);
+    if (!record) throw new Error(`graph-missing:
+      Graph '${graphId}' not found.`);
     const objects = await tx
       .objectStore('objects')
-      .getAll(IDBKeyRange.bound([projectId, '#'], [projectId, '~']));
-      //.index('projectId').getAll(projectId);
-    return new Project(db, record, objects);
+      .getAll(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
+      //.index('graphId').getAll(graphId);
+    return new Graph(db, record, objects);
   }
 
   constructor(db, record, objects) {
@@ -207,7 +207,7 @@ class Project {
 
   async createObject(config) {
     if (!config) throw new Error(`Null object config given`);
-    const {projectId} = this.record;
+    const {graphId} = this.record;
     const tx = this.db.idb.transaction(
         ['objects', 'events'], 'readwrite');
 
@@ -215,21 +215,21 @@ class Project {
     if (config.name) {
       const allObjects = await tx
         .objectStore('objects')
-        .getAll(IDBKeyRange.bound([projectId, '#'], [projectId, '~']));
+        .getAll(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
       if (allObjects.find(obj => obj.config.name === config.name))
-        throw new Error(`An object named '${config.name}' already exists in this project`);
+        throw new Error(`An object named '${config.name}' already exists in this graph`);
     }
 
     const objectId = randomString(3);
     const record = {
-      projectId,
+      graphId,
       objectId,
       version: 1,
       config,
     };
     tx.objectStore('objects').add(record);
     tx.objectStore('events').add({
-      projectId,
+      graphId,
       timestamp: new Date,
       entries: [{
         type: 'create object',

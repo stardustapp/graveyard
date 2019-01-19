@@ -18,8 +18,8 @@ vcsTests.addSuite('cleanup', vcsTest(async function(db) {
 
 vcsTests.addSuite('personal blog generator', vcsTest(async function(db) {
   const blog = await db
-    .createProject({
-      metadata: {
+    .createGraph({
+      fields: {
         //owner: 'root',
         displayName: 'Personal Blog',
       },
@@ -54,8 +54,8 @@ vcsTests.addSuite('personal blog generator', vcsTest(async function(db) {
       }],*/
     });
 
-  console.debug('Got blog project:', blog);
-  this.assertEq(blog.record.metadata.displayName, 'Personal Blog');
+  console.debug('Got blog graph:', blog);
+  this.assertEq(blog.record.fields.displayName, 'Personal Blog');
   this.assertEq(blog.record.version, 1);
 
   const posts = await blog.createObject({
@@ -66,21 +66,21 @@ vcsTests.addSuite('personal blog generator', vcsTest(async function(db) {
   //blog.repos.getObject('config').store('')
   //blog.getEntry('/source/README').store()
 
-  //const bucket = await db.openStore(projectId, 'resources', BucketStore);
+  //const bucket = await db.openStore(graphId, 'resources', BucketStore);
   //console.debug('Opened resource repo');
   //this.assertEq(resStore.)
 }));
 
 vcsTests.addSuite('todo list datastore', vcsTest(async function(db) {
-  const project = await db
-    .createProject({
-      metadata: {
+  const graph = await db
+    .createGraph({
+      fields: {
         displayName: 'To-DONE!',
       },
     });
-  console.debug('Got todo project:', project);
+  console.debug('Got todo graph:', graph);
 
-  const themesColl = await project.createObject({
+  const themesColl = await graph.createObject({
     name: 'themes',
     type: 'collection',
     fields: {
@@ -89,7 +89,7 @@ vcsTests.addSuite('todo list datastore', vcsTest(async function(db) {
       name: {type: 'core/string', mutable: true},
     },
   });
-  const entriesColl = await project.createObject({
+  const entriesColl = await graph.createObject({
     name: 'entries',
     type: 'collection',
     fields: {
@@ -147,16 +147,16 @@ vcsTests.addSuite('legacy app import', vcsTest(async function(db) {
 
   a from-scratch shouter subset
 
-  const project = await db.createProject({
-    metadata: {
+  const graph = await db.createGraph({
+    fields: {
       type: 'application',
       name: 'To-DONE!',
       iconUrl: 'https://i.imgur.com/0UkUtuD.png',
     },
   });
-  console.debug('Created project:', project);
+  console.debug('Created graph:', graph);
 
-  const collection = await project.createObject({
+  const collection = await graph.createObject({
     name: 'Shouts',
     type: 'collection',
     fields: {
@@ -171,7 +171,7 @@ vcsTests.addSuite('legacy app import', vcsTest(async function(db) {
   });
   console.log(await collection.getAll());
 
-  const router = await project.createObject({
+  const router = await graph.createObject({
     name: 'Public',
     type: 'web/router',
     //input: {type: 'http/path'},
@@ -187,7 +187,7 @@ vcsTests.addSuite('legacy app import', vcsTest(async function(db) {
     }],
   });
 
-  await project.createObject({
+  await graph.createObject({
     name: 'Home',
     type: 'vue/component',
     //input: {type: 'http/path'},

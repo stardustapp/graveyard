@@ -1,25 +1,25 @@
 
 class BaseObject {
-  constructor(project, record) {
-    this.project = project;
+  constructor(graph, record) {
+    this.graph = graph;
     this.record = record;
   }
 }
 
 const OBJECT_TYPES = {
   'external-script': class ExternalScriptObject extends BaseObject {
-    constructor(project, record) {
-      super(project, record);
+    constructor(graph, record) {
+      super(graph, record);
     }
   },
   'vue-app': class WebBundleObject extends BaseObject {
-    constructor(project, record) {
-      super(project, record);
+    constructor(graph, record) {
+      super(graph, record);
     }
 
     async renderHtmlResponse() {
       const collectionSrc = Array
-        .from(this.project.objects.values())
+        .from(this.graph.objects.values())
         .filter(x => x.record.config.type === 'collection')
         .map(x => x.record.config)
         .map(res => {
@@ -78,6 +78,7 @@ const OBJECT_TYPES = {
   const HTML = Package.htmljs.HTML;
   const Spacebars = Package.spacebars.Spacebars;
   const Meteor = Package.meteor.Meteor;
+  const moment = Package['momentjs:moment'].moment;
 
   Template.registerHelper('eq', function(a, b) {
     return a === b;
@@ -119,7 +120,7 @@ const OBJECT_TYPES = {
     },
     params: new ReactiveVar({}),
     navigateTo(path) {
-      const APP_ROOT = "/~/apps/by-id/${this.record.projectId}";
+      const APP_ROOT = "/~/apps/by-id/${this.record.graphId}";
       Router.go(APP_ROOT + path);
     },
   };
@@ -158,7 +159,7 @@ const OBJECT_TYPES = {
   // Data publications
   // (no-op for the moment)
 ${Array
-    .from(this.project.objects.values())
+    .from(this.graph.objects.values())
     .filter(x => x.record.config.type === 'record-publication')
     .map(x => x.record.config)
     .map(pub => `  DUST.resources[${JSON.stringify(pub.name)}] = {subscribe: console.log};`)
@@ -264,7 +265,7 @@ ${Array
 
   // Blaze templates
   const templates = ${JSON.stringify(Array
-    .from(this.project.objects.values())
+    .from(this.graph.objects.values())
     .filter(x => x.record.config.type === 'blaze-component')
     .map(x => x.record.config))};
   for (const template of templates) {
@@ -407,16 +408,16 @@ ${Array
     }
   },
   'collection': class CollectionObject extends BaseObject {
-    constructor(project, record) {
-      super(project, record);
+    constructor(graph, record) {
+      super(graph, record);
     }
     async insert(data) {
       //console.log('inserting', data, this.record);
-      const {projectId, objectId} = this.record;
+      const {graphId, objectId} = this.record;
       const recordId = randomString(3);
-      const tx = this.project.db.idb.transaction(['records'], 'readwrite');
+      const tx = this.graph.db.idb.transaction(['records'], 'readwrite');
       tx.objectStore('records').add({
-        projectId, objectId, recordId,
+        graphId, objectId, recordId,
         version: 1,
         data: this.validate(data, 'insert'),
       });
@@ -437,26 +438,26 @@ ${Array
       return output;
     }
     async getAll() {
-      const {projectId, objectId} = this.record;
+      const {graphId, objectId} = this.record;
       const recordId = randomString(3);
-      const tx = this.project.db.idb.transaction(['records'], 'readwrite');
+      const tx = this.graph.db.idb.transaction(['records'], 'readwrite');
       const data = await tx.objectStore('records').getAll(IDBKeyRange.bound(
-        [projectId, objectId, '#'],
-        [projectId, objectId, '~']));
+        [graphId, objectId, '#'],
+        [graphId, objectId, '~']));
       return data;
     }
   },
 
   'record-publication': class DocumentPublicationObject extends BaseObject {
-    constructor(project, record) {
-      super(project, record);
+    constructor(graph, record) {
+      super(graph, record);
       console.log('created record-publication', record);
     }
   },
 
   'blaze-component': class BlazeComponentObject extends BaseObject {
-    constructor(project, record) {
-      super(project, record);
+    constructor(graph, record) {
+      super(graph, record);
       console.log('created blaze-component', record);
     }
   },
@@ -521,9 +522,9 @@ async function ImportLegacyStardustApplication(db, manifest) {
   if (manifest._platform !== 'stardust') throw new Error(
     'invalid stardust manifest');
 
-  const project = await db.createProject({
+  const graph = await db.createGraph({
     forceId: manifest.packageId,
-    metadata: {
+    fields: {
       Type: {'App': 'Application'}[manifest.meta.type],
       Name: manifest.meta.name,
       License: manifest.meta.license,
@@ -625,7 +626,7 @@ async function ImportLegacyStardustApplication(db, manifest) {
       }
     }).filter(x => x),
   });
-  console.debug('Created project:', project);
+  console.debug('Created graph:', graph);
 /*
       {
         "_isNew": false,
@@ -668,7 +669,7 @@ async function ImportLegacyStardustApplication(db, manifest) {
   });
 
   // create a new shout
-  const shoutHandle = await project
+  const shoutHandle = await graph
     .get('my/shout.collection')
     .insert({
       Message: 'is this thing on',
@@ -676,7 +677,7 @@ async function ImportLegacyStardustApplication(db, manifest) {
     });
 
   // retrieve the shout and check fields
-  const shout = await project
+  const shout = await graph
     .get('my/shout.collection/find-one', shoutHandle);
   this.assertEq(shout.Message, 'is this thing on');
   this.assertEq(shout.FromPlace, 'rooftops');

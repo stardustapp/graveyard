@@ -278,22 +278,22 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId', match => {
 
 destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (match, input) => {
   const appId = match.params.get('appId');
-  let project;
+  let graph;
   try {
-    await kernel.graphStore.deleteProject(appId);
-    project = await kernel.graphStore.loadProject(appId);
+    await kernel.graphStore.deleteGraph(appId);
+    graph = await kernel.graphStore.loadGraph(appId);
   } catch (err) {
-    console.error('Project failed to load, attempting to install:', err);
+    console.error('Graph failed to load, attempting to install:', err);
     const repo = new S3ApplicationRepository();
     const package = await repo.fetchPackage(appId);
     await ImportLegacyStardustApplication(kernel.graphStore, package);
-    project = await kernel.graphStore.loadProject(appId);
+    graph = await kernel.graphStore.loadGraph(appId);
   }
   const application = Array
-    .from(project.objects.values())
+    .from(graph.objects.values())
     .find(x => x.record.config.name === 'Application');
   if (!application) throw new Error(`app-missing:
-    Project '${appId}' does not contain a web application.`);
+    Graph '${appId}' does not contain a web application.`);
   //return new Response(JSON.stringify(res, null, 2));
   return application.renderHtmlResponse(input);
 

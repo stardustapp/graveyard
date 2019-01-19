@@ -3,7 +3,7 @@ cd /tmp/tmp.K2EjRTOVOJ/bundle/programs/web.browser/packages
 cat \
   underscore.js meteor.js modules-runtime.js modules.js jquery.js \
   base64.js ejson.js check.js tracker.js id-map.js ordered-dict.js \
-  promise.js ecmascript-runtime.js babel-runtime.js \
+  promise.js ecmascript-runtime.js babel-runtime.js momentjs_moment.js \
   random.js diff-sequence.js geojson-utils.js mongo-id.js minimongo.js \
   observe-sequence.js reactive-var.js htmljs.js blaze.js reactive-dict.js \
   session.js spacebars.js templating-runtime.js ui.js \
