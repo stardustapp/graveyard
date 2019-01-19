@@ -55,7 +55,9 @@ class DDPSession {
     this.session = randomString();
     this.outboundQueue = [];
     this.waitingPoll = null;
-    this.closePacket = null; // [1000, 'Normal closure']
+    this.closePacket = null;
+    // [1000, 'Normal closure']
+    // [3000, 'No response from heartbeat']
 
     this.packetFuncs = {
       async connect(packet) {
@@ -63,7 +65,7 @@ class DDPSession {
         if (packet.version !== '1') throw new Error(
           `bad sockjs version ${packet.version}`);
         this.queueResponses(
-          {server_id: this.serverId},
+          {server_id: "0"},
           {msg: 'connected', session: this.session},
         );
 
@@ -75,7 +77,6 @@ class DDPSession {
         }
 
         const appId = match.params.get('appId');
-        console.log(this.manager);
         this.context = await this.manager.contexts.getOne(appId, appId);
         this.context.connectSession(this);
       },
@@ -86,8 +87,12 @@ class DDPSession {
   }
 
   queueResponses(...packets) {
-    packets.forEach(pkt => console.log('>>', pkt));
-    packets = packets.map(p => JSON.stringify(p));
+    packets
+      .filter(pkt => pkt.msg !== 'pong')
+      .forEach(pkt => console.log('>>', pkt));
+    packets = packets
+      .map(p => JSON.stringify(p));
+
     if (this.waitingPoll) {
       const resolve = this.waitingPoll;
       this.waitingPoll = null;
@@ -100,17 +105,18 @@ class DDPSession {
   }
 
   async processPollSend(input) {
-    for (const packet of input.map(JSON.parse)) {
-      console.log('<<', packet);
-      const func = this.packetFuncs[packet.msg];
+    for (const pkt of input.map(JSON.parse)) {
+      if (pkt.msg !== 'ping')
+        console.log('<<', pkt);
+      const func = this.packetFuncs[pkt.msg];
       if (func) {
         try {
-          await func.call(this, packet);
+          await func.call(this, pkt);
         } catch (err) {
-          console.error('DDP packet failure:', packet, err);
+          console.error('DDP packet failure:', pkt, err);
         }
       } else {
-        console.warn('weird sockjs packet', packet);
+        console.warn('weird sockjs packet', pkt);
       }
     }
   }

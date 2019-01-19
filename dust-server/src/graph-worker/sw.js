@@ -45,6 +45,7 @@ importScripts(
   //'/~~src/model/impl/application_test.js',
 
   '/~~src/graph-worker/lib.js',
+  '/~~src/graph-worker/dust-app/compile.js',
   '/~~src/graph-worker/ddp.js',
 );
 delete this.window;
@@ -206,7 +207,7 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
   if (!application) throw new Error(`app-missing:
     Graph '${appId}' does not contain a web application.`);
 
-  return application.renderHtmlResponse(input);
+  return CompileDustApp(application, input);
 });
 
 self.addEventListener('fetch', event => {

@@ -6,7 +6,7 @@ cat \
   promise.js ecmascript-runtime.js babel-runtime.js momentjs_moment.js \
   random.js diff-sequence.js geojson-utils.js mongo-id.js minimongo.js \
   observe-sequence.js reactive-var.js htmljs.js blaze.js reactive-dict.js \
-  session.js spacebars.js templating-runtime.js ui.js \
+  session.js spacebars.js templating-runtime.js ui.js check.js \
   iron_core.js iron_controller.js iron_url.js iron_location.js \
   iron_middleware-stack.js iron_dynamic-template.js iron_layout.js iron_router.js \
   html-tools.js blaze-tools.js spacebars-compiler.js \
