@@ -112,7 +112,6 @@ const OBJECT_TYPES = {
     },
     resources: {},
     get(name, type) {
-      console.log('DUST.get', name, type);
       if (name in DUST.resources) {
         return DUST.resources[name];
       }
@@ -451,14 +450,14 @@ ${Array
   'record-publication': class DocumentPublicationObject extends BaseObject {
     constructor(graph, record) {
       super(graph, record);
-      console.log('created record-publication', record);
+      //console.log('created record-publication', record);
     }
   },
 
   'blaze-component': class BlazeComponentObject extends BaseObject {
     constructor(graph, record) {
       super(graph, record);
-      console.log('created blaze-component', record);
+      //console.log('created blaze-component', record);
     }
   },
 };
@@ -627,59 +626,4 @@ async function ImportLegacyStardustApplication(db, manifest) {
     }).filter(x => x),
   });
   console.debug('Created graph:', graph);
-/*
-      {
-        "_isNew": false,
-        "type": "Template",
-        "name": "PublicFeed",
-        "version": 48,
-        "html": "{{#each shouts}}\n\t<div class=\"feed-item\">\n    <h5>From the {{FromPlace}} &mdash;</h5>\n\t\t<div class=\"past-shout\">{{Message}}</div>\n    <time datetime={{strDate Time}}>{{strDate Time 'LT'}}</time>\n\t</div>\n{{/each}}",
-        "css": ".feed-item {\n  margin: 0.5em 0; }\n\n.feed-item h5 {\n  margin: 0;\n  font-weight: 400;\n  color: #C98A3B;\n  padding: 0.2em 2em;\n  text-transform: uppercase; }\n\n.past-shout {\n  background-color: #FFFCFC;\n  padding: 0.7em 1em 0.5em;\n  border-radius: 10px;\n  font-family: 'Arima Madurai', cursive;\n  font-size: 1.4em;\n  line-height: 1.2;\n  text-transform: uppercase;\n  white-space: pre-line; }\n\n.feed-item time {\n  margin: 0;\n  font-weight: 400;\n  font-size: 0.8em;\n  color: #C98A3B;\n  padding: 0.2em 2em;\n  text-align: right;\n  display: block;\n  text-transform: uppercase; }\n",
-        "scss": ".feed-item {\n  margin: 0.5em 0;\n}\n\n.feed-item h5 {\n  margin: 0;\n  font-weight: 400;\n  color: #C98A3B;\n  padding: 0.2em 2em;\n  text-transform: uppercase;\n}\n\n.past-shout {\n  background-color: #FFFCFC;\n  padding: 0.7em 1em 0.5em;\n  border-radius: 10px;\n  \n  font-family: 'Arima Madurai', cursive;\n  font-size: 1.4em;\n  line-height: 1.2;\n  text-transform: uppercase;\n  white-space: pre-line;\n}\n\n.feed-item time {\n  margin: 0;\n  font-weight: 400;\n  font-size: 0.8em;\n  color: #C98A3B;\n  padding: 0.2em 2em;\n  text-align: right;\n  display: block;\n  text-transform: uppercase;\n}\n",
-        "scripts": [
-          {
-            "key": "helper:shouts",
-            "type": 3,
-            "param": "shouts",
-            "coffee": "Shout = DUST.get 'Shout'\n\n() ->\n  Shout.find {},\n    sort: Time: -1\n    limit: 25",
-            "js": "(function() {\n  return function() {\n    var Shout;\n    Shout = DUST.get('Shout');\n    return function() {\n      return Shout.find({}, {\n        sort: {\n          Time: -1\n        },\n        limit: 25\n      });\n    };\n  };\n\n}).call();\n"
-          },
-          {
-            "key": "helper:strDate",
-            "type": 3,
-            "param": "strDate",
-            "coffee": "(time, format) ->\n  if format.length\n    moment(time).format(format)\n  else moment(time).toJSON()",
-            "js": "(function() {\n  return function() {\n    return function(time, format) {\n      if (format.length) {\n        return moment(time).format(format);\n      } else {\n        return moment(time).toJSON();\n      }\n    };\n  };\n\n}).call();\n"
-          }
-        ]
-      },
-      {
-        "_isNew": false,
-        "type": "Publication",
-        "name": "Default",
-        "version": 3,
-        "recordType": "Shout",
-        "filterBy": "{}",
-        "sortBy": "{}",
-        "fields": null,
-        "limitTo": null,
-        "children": []
-      }
-    ]
-  });
-
-  // create a new shout
-  const shoutHandle = await graph
-    .get('my/shout.collection')
-    .insert({
-      Message: 'is this thing on',
-      FromPlace: 'rooftops',
-    });
-
-  // retrieve the shout and check fields
-  const shout = await graph
-    .get('my/shout.collection/find-one', shoutHandle);
-  this.assertEq(shout.Message, 'is this thing on');
-  this.assertEq(shout.FromPlace, 'rooftops');
-*/
 }

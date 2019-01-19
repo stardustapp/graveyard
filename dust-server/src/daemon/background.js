@@ -67,7 +67,7 @@ async function boot(launchData) {
     webEnv.bind('/~/apps', new AppsApi(kernel, domain, {
       workerSource: new WebFilesystemMount({
         entry: pkgRoot,
-        prefix: 'src/apps-sw/sw.js',
+        prefix: 'src/graph-worker/sw.js',
       }),
     }));
     webEnv.bind('/~', new GateSite(hostname, domain.record.did, kernel));
