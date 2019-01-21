@@ -1,3 +1,5 @@
+// outdated test for dust apps
+// at least partially depends on app-profile (for data storage)
 
 function vcsTest(cb) {
   return async function runVcsTest() {

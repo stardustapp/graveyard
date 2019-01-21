@@ -1,29 +1,4 @@
-this.window = this;
 importScripts(
-/*
-  '/~~src/core/api-entries.js',
-  '/~~src/core/environment.js',
-  '/~~src/core/enumeration.js',
-  '/~~src/core/utils.js',
-*/
-/*
-  '/~~src/devices/tmp.js',
-  '/~~src/devices/skylink-import.js',
-
-  '/~~src/webapp/core/data/channel.js',
-  '/~~src/webapp/core/data/subs/_base.js',
-  '/~~src/webapp/core/data/subs/single.js',
-  '/~~src/webapp/core/skylink/ns-convert.js',
-
-  '/~~src/skylink/client.js',
-  '/~~src/skylink/server.js',
-  '/~~src/skylink/core-ops.js',
-  '/~~src/skylink/ext-channel.js',
-  '/~~src/skylink/ext-reversal.js',
-  '/~~src/skylink/channel-client.js',
-  '/~~src/skylink/channel-server.js',
-  '/~~src/skylink/messageport.js',
-*/
   '/~~src/lib/caching.js',
   //'/~~src/lib/tracing.js',
   //'/~~src/lib/mkdirp.js',
@@ -37,18 +12,16 @@ importScripts(
   '/~~libs/vendor/libraries/aws-sdk.js',
   '/~~libs/vendor/libraries/sw-xhr.js',
 
-  //'/~~src/core/platform-api.js',
-
-  //'/~~src/model/test.js',
-  '/~~src/model/core.js',
-  '/~~src/model/impl/application.js',
-  //'/~~src/model/impl/application_test.js',
-
   '/~~src/graph-worker/lib.js',
-  '/~~src/graph-worker/dust-app/compile.js',
   '/~~src/graph-worker/ddp.js',
+  
+  '/~~src/model/core.js',
+  '/~~src/model/graph.js',
+  '/~~src/model/impl/app-profile/model.js',
+  '/~~src/model/impl/dust-app/model.js',
+  '/~~src/model/impl/dust-app/import.js',
+  '/~~src/model/impl/dust-app/compile.js',
 );
-delete this.window;
 
 class GraphContext {
   constructor(worker, graph) {
@@ -116,7 +89,7 @@ class GraphContext {
 
 class GraphWorker {
   constructor() {
-    this.graphStore = new ObjectDataBase('graph');
+    this.graphStore = new GraphStore();
     this.ddp = new DDPManager(async appId => {
       console.warn('Creating context for', appId);
       const graph = await this.graphStore.loadGraph(appId);
