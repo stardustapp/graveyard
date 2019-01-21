@@ -12,7 +12,7 @@ const OBJECT_TYPES = {
       super(graph, record);
     }
   },
-  'vue-app': class WebBundleObject extends BaseObject {
+  'dust-app': class WebBundleObject extends BaseObject {
     constructor(graph, record) {
       super(graph, record);
     }
@@ -145,11 +145,9 @@ async function ImportLegacyStardustApplication(db, manifest) {
         case 'RouteTable':
           return {
             name: {'RootRoutes': 'Application'}[resource.name] || resource.name,
-            type: 'vue-app',
+            type: 'dust-app',
             version: resource.version,
-            //input: {type: 'http/path'},
             defaultLegacyLayoutId: resource.layout,
-            //output: {type: 'web/virtual-dom'},
             routes: resource.entries.map(entry => {
               switch (entry.type) {
                 case 'customAction':

@@ -37,6 +37,8 @@ DUST = scriptHelpers = {
     if (name in DUST.resources) {
       return DUST.resources[name];
     }
+    if (name === 'core:Record' && type === 'CustomRecord') return BaseRecord;
+    if (name === 'core:Class' && type === 'CustomRecord') return BaseClass;
     throw new Error('Dust resource '+name+' '+type+' not found');
   },
   params: new ReactiveVar({}),
@@ -318,6 +320,14 @@ class DustPublication {
     return this.res.children.map((c) => {
       return new DustPublication(this.context, c);
     });
+  }
+}
+
+// curried function
+// args includes the callback for sure
+function DustMethod(context, name) {
+  return function (...args) {
+    Meteor.call('/dust/method', context, name, ...args);
   }
 }
 
