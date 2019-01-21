@@ -25,6 +25,8 @@ function unwrapJs(input) {
 }
 
 async function CompileDustApp(application, input) {
+  const {graphId} = application.record;
+
   const collectionSrc = Array
     .from(application.graph.objects.values())
     .filter(x => x.record.config.type === 'collection')
@@ -56,8 +58,8 @@ async function CompileDustApp(application, input) {
       }
       let resBase = 'BaseRecord';
       switch (res.base) {
-        case 'core:Record': resBase = 'BaseRecord';
-        case 'core:Class': resBase = 'BaseClass';
+        case 'core:Record': resBase = 'BaseRecord'; break;
+        case 'core:Class':  resBase = 'BaseClass';  break;
         default: if (res.base)
           resBase = `DUST.get(${Js(res.base)}, 'CustomRecord')`;
       }
@@ -102,6 +104,13 @@ async function CompileDustApp(application, input) {
 `;
     }).join('\n');
 
+  const publicationSrc = Array
+    .from(application.graph.objects.values())
+    .filter(x => x.record.config.type === 'record-publication')
+    .map(x => x.record.config)
+    .map(pub => `DUST.resources[${Js(pub.name)}] = new DustPublication(${Js(graphId)}, ${Js(pub)});`)
+    .join('\n');
+
   const routeSrc = Array
     .from(application.record.config.routes)
     .map(route => {
@@ -133,7 +142,7 @@ async function CompileDustApp(application, input) {
 <link href="/~~libs/vendor/fonts/material-icons.css" type="text/css" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>
-  const APP_ROOT = "/~/apps/by-id/${application.record.graphId}";
+  const APP_ROOT = "/~/apps/by-id/${graphId}";
   __meteor_runtime_config__ = {
     DDP_DEFAULT_CONNECTION_URL: 'http://ddp',
     meteorEnv: {},
@@ -142,6 +151,8 @@ async function CompileDustApp(application, input) {
 <script src="/~~libs/vendor/libraries/meteor-bundle.js"></script>
 <script src="/~~src/graph-worker/dust-app/runtime.js"></script>
 <script>
+
+  const appSub = Meteor.subscribe("/app-runtime", ${Js(graphId)});
 
   /***********************************
    ***      Mongo Collections      ***
@@ -152,14 +163,10 @@ async function CompileDustApp(application, input) {
   /***********************************
    ***      DDP Publications       ***
    ***********************************/
-  // (no-op for the moment)
 
-  ${Array
-    .from(application.graph.objects.values())
-    .filter(x => x.record.config.type === 'record-publication')
-    .map(x => x.record.config)
-    .map(pub => `DUST.resources[${Js(pub.name)}] = {subscribe: console.log};`)
-    .join('\n')}
+  ${publicationSrc}
+
+  // TODO: Server Methods
 
   /***********************************
    ***      Blaze Templates        ***
@@ -168,10 +175,11 @@ async function CompileDustApp(application, input) {
   ${templateSrc}
 
   /***********************************
-   ***      Iron Router            ***
+   ***      Iron Router Config     ***
    ***********************************/
 
   ${routerSrc}
+
 </script>
   `, {
     headers: {

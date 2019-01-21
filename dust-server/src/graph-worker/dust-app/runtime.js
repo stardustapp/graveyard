@@ -264,6 +264,62 @@ function InflateBlazeTemplate(template) {
   return Template[name];
 }
 
+class DustPublication {
+  constructor(context, res) {
+    this.context = context;
+    this.res = res;
+    this.injector = DUST;
+    this.recordType = this.injector.get(this.res.recordType, 'CustomRecord');
+  }
+
+  find(params = {}, parents = []) {
+    var ary, filterBy, key, key2, opts, ref, ref1, ref2, ref3, ref4, ref5, val;
+    opts = {};
+    if (((ref = this.res.sortBy) != null ? ref.length : void 0) > 2) {
+      opts.sort = JSON.parse(this.res.sortBy);
+    }
+    if (((ref1 = this.res.fields) != null ? ref1.length : void 0) > 2) {
+      opts.fields = JSON.parse(this.res.fields);
+    }
+    if (this.res.limitTo) {
+      opts.limit = this.res.limitTo;
+    }
+    filterBy = JSON.parse(this.res.filterBy);
+// TODO: recursive
+    for (key in filterBy) {
+      val = filterBy[key];
+      if ((val != null ? val.$param : void 0) != null) {
+        filterBy[key] = params[val.$param];
+      } else if ((val != null ? val.$parent : void 0) != null) {
+        filterBy[key] = ((ref2 = val.$field) != null ? ref2.includes('[].') : void 0) ? ([ary, key2] = val.$field.split('[].'), {
+          $in: (ref3 = (ref4 = parents[val.$parent][ary]) != null ? ref4.map(function(x) {
+            return x[key2];
+          }) : void 0) != null ? ref3 : []
+        }) : parents[val.$parent][(ref5 = val.$field) != null ? ref5 : '_id'];
+      }
+    }
+    console.log('filtering by', filterBy);
+    return this.recordType.find(filterBy, opts);
+  }
+
+  subscribe(params={}) {
+    const args = ['/dust/publication', this.context, this.res.name, params];
+
+    const inst = Template.instance();
+    if (inst) {
+      return inst.subscribe(...args);
+    } else {
+      console.warn('Using application-wide subscribe for', this.res.name);
+      return Meteor.subscribe(...args);
+    }
+  }
+
+  children() {
+    return this.res.children.map((c) => {
+      return new DustPublication(this.context, c);
+    });
+  }
+}
 
 class DustRouter {
   constructor(opts) {

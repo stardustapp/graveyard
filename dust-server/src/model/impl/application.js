@@ -183,12 +183,12 @@ async function ImportLegacyStardustApplication(db, manifest) {
             fields.createdAt = {type: 'core/timestamp', insertionDefault: 'now'};
             fields.updatedAt = {type: 'core/timestamp', updateDefault: 'now'};
           }
-          console.log(resource);
           return {
             name: resource.name,
             //type: (resource.base === 'core:Record') ? 'collection' : resource.base, // TODO
             type: 'collection',
             version: resource.version,
+            base: resource.base,
             fields,
           };
         case 'Template':
