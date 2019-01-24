@@ -17,17 +17,15 @@ class GraphObject {
 
 const GraphEngines = new Map;
 class GraphEngine {
-  constructor(key, objectTypes) {
+  constructor(key, buildCb) {
     if (GraphEngines.has(key)) throw new Error(
       `Graph Engine ${key} is already registered, can't re-register`);
-    GraphEngines.set(key, this);
+
+    const builder = new GraphEngineBuilder(buildCb);
 
     this.engineKey = key;
-    this.objectTypes = objectTypes;
-  }
-
-  buildGraph() {
-    
+    this.objectTypes = builder.objectTypes;
+    GraphEngines.set(key, this);
   }
 }
 
@@ -63,6 +61,8 @@ class GraphStore {
 
   async openIdb() {
     if (this.idb) throw new Error(`Can't reopen IDB`);
+    await idb.delete(this.idbName);
+    this.idb = await idb.open(this.idbName, 1, this.migrateIdb.bind(this));
     console.debug('IDB opened');
   }
 

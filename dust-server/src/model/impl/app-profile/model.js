@@ -1,18 +1,24 @@
-new GraphEngine('app-profile/v1-beta1', {
-  objectTypes: {
+new GraphEngineBuilder('app-profile/v1-beta1', build => {
 
-    Instance: {
-      isGraphRoot: true,
-      implementation: class AppProfileInstance extends GraphObject {}
+  build.node('Instance', {
+    treeRole: 'root',
+    fields: {
+
     },
+  });
 
-    Handle: {
-      implementation: class AppProfileHandle extends GraphObject {}
+  build.node('Handle', {
+    treeRole: 'leaf',
+    fields: {
+      
     },
+  });
 
-    Database: {
-      implementation: class AppProfileDatabase extends GraphObject {}
+  build.node('Database', {
+    treeRole: 'leaf',
+    fields: {
+      
     },
+  });
 
-  }
-});
+}).install();

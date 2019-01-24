@@ -38,73 +38,110 @@ class DustAppRecordSchema extends GraphObject {
 }
 */
 
-new GraphEngine('dust-app/v1-beta1', {
-  objectTypes: {
+new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
-    Application: {
-      isGraphRoot: true,
-      fields: {
-        DefaultLayout: {
-          $reference: 'BlazeTemplate',
+  // much of Application is the old RouteTable 'RootRoutes'
+  build.node('Application', {
+    treeRole: 'root',
+    fields: {
+      DefaultLayout: {
+        optional: true,
+        reference: 'BlazeTemplate',
+      },
+      Routes: {
+        isList: true,
+        fields: {
+          Path: String,
+          Action: {
+            anyOfKeyed: {
+              CustomAction: { fields: {
+                Coffee: String,
+                JS: String,
+              }},
+              RenderTemplate: { fields: {
+                Template: {
+                  reference: 'BlazeTemplate',
+                },
+              }},
+            },
+          },
         },
-        Routes: {
-          list: true,
-          fields: {
-            Path: String,
-            Action: { $anyOfKeyed: {
-              CustomAction: String,
-              RenderTemplate: {
-                $reference: 'BlazeTemplate',
-              },
-            }},
-          },
-          typeSwitchedFields: {
-          customAction: {
-            customAction: 'String',
-          },
-          template: {
-
-          },
-        }},
-            routes: resource.entries.map(entry => {
-              switch (entry.type) {
-                case 'customAction':
-                  return {
-                    path: entry.path,
-                    type: 'inline-script',
-                    action: entry.customAction,
-                  };
-                case 'template':
-                  return {
-                    path: entry.path,
-                    type: 'blaze-template',
-                    action: entry.template,
-                  };
-              }
-              throw new Error('no type '+entry.type);
-            }),
+      },
     },
+  });
 
-    RecordSchema: {
-      canDependOn: ['RecordSchema'],
-      //implementation: DustAppRecordSchema,
+  build.node('Template', {
+    treeRole: 'leaf',
+    fields: {
+      Html: String,
+      Css: String,
+      Scss: String,
+      Scripts: { isList: true, fields: {
+        // TODO: refactor type/param together for lifecycle typing
+        Type: { type: String, choices: [
+          'Lifecycle', 'Helper', 'Event', 'Hook'
+        ]},
+        Param: String,
+        Coffee: String,
+        JS: String,
+      }},
     },
+  });
 
-    Dependency: {
-      canHaveChildren: true,
+  const RecordField = {
+    Key: String,
+    Type: { anyOf: [
+      { type: String, choices: [
+        'core:string', 'core:number', 'core:boolean', 'core:date', 'core:object',
+      ]},
+      { reference: 'RecordSchema' },
+    ]},
+    IsList: { type: Boolean, default: false },
+    Optional: { type: Boolean, default: false },
+    Immutable: { type: Boolean, default: false },
+    Default: { type: String, optional: true }, // as [E]JSON string
+    // TODO: enum, transient, mapping
+  };
+
+  build.node('RecordSchema', { // was CustomRecord
+    treeRole: 'leaf',
+    fields: {
+      Base: { reference: 'RecordSchema', optional: true },
+      Fields: { fields: RecordField, isList: true },
+      // Behaviors
+      TimestampBehavior: { type: Boolean, default: false },
+      SlugFieldBehavior: { type: String, optional: true },
     },
+  });
 
-    Publication: {
-      canDependOn: ['RecordSchema'],
+  build.node('Dependency', {
+    treeRole: 'parent',
+    fields: {
+      OriginPackage: { type: String, optional: true },
     },
+  });
 
-    ServerMethod: {
-      canDependOn: ['RecordSchema'],
+  const DocLocator = {
+    RecordType: { type: String, default: 'core:Record' },
+    FilterBy: { type: String, optional: true },
+    SortBy: { type: String, optional: true },
+    Fields: { type: String, optional: true },
+    LimitTo: { type: Number, optional: true },
+  };
+  // recursive field just to make things difficult
+  DocLocator.Children = { fields: DocLocator, isList: true };
+
+  build.node('Publication', {
+    treeRole: 'leaf',
+    fields: DocLocator,
+  });
+
+  build.node('ServerMethod', {
+    treeRole: 'leaf',
+    fields: {
+      Coffee: String,
+      JS: String,
     },
+  });
 
-    BlazeTemplate: {
-
-    },
-
-  },
-});
+}).install();

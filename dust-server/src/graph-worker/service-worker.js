@@ -15,9 +15,10 @@ importScripts(
   '/~~src/graph-worker/lib.js',
   '/~~src/graph-worker/ddp.js',
   
-  '/~~src/model/core.js',
+  '/~~src/model/engine.js',
+  '/~~src/model/engine_builder.js',
   '/~~src/model/graph.js',
-  '/~~src/model/impl/app-profile/model.js',
+  //'/~~src/model/impl/app-profile/model.js',
   '/~~src/model/impl/dust-app/model.js',
   '/~~src/model/impl/dust-app/import.js',
   '/~~src/model/impl/dust-app/compile.js',
@@ -87,7 +88,7 @@ class GraphContext {
   }
 }
 
-class GraphWorker {
+class GraphWorker {;
   constructor() {
     this.graphStore = new GraphStore();
     this.ddp = new DDPManager(async appId => {
@@ -132,7 +133,7 @@ self.addEventListener('install', function(event) {
 self.addEventListener('activate', function(event) {
   event.waitUntil(async function() {
 
-    workerInstance = new GraphWorker()
+    workerInstance = new GraphWorker();
     await workerInstance.ready;
 
     // Clear out old caches
