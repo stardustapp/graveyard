@@ -18,9 +18,13 @@ importScripts(
   '/~~src/model/engine.js',
   '/~~src/model/engine_builder.js',
   '/~~src/model/graph.js',
-  //'/~~src/model/impl/app-profile/model.js',
+  '/~~src/model/graph_builder.js',
+
+  '/~~src/model/impl/app-profile/model.js',
+
   '/~~src/model/impl/dust-app/model.js',
-  '/~~src/model/impl/dust-app/import.js',
+  '/~~src/model/impl/dust-app/json-codec.js',
+  '/~~src/model/impl/dust-app/repository.js',
   '/~~src/model/impl/dust-app/compile.js',
 );
 
@@ -103,7 +107,7 @@ class GraphWorker {;
     ]);
   }
 }
-let workerInstance;
+let graphWorker;
 
 const SHELL_CACHE = 'shell-cache-v1';
 
@@ -133,8 +137,8 @@ self.addEventListener('install', function(event) {
 self.addEventListener('activate', function(event) {
   event.waitUntil(async function() {
 
-    workerInstance = new GraphWorker();
-    await workerInstance.ready;
+    graphWorker = new GraphWorker();
+    await graphWorker.ready;
 
     // Clear out old caches
     const cacheWhitelist = [SHELL_CACHE];
@@ -165,14 +169,15 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
 
   let graph;
   try {
-    //await workerInstance.graphStore.deleteGraph(appId);
-    graph = await workerInstance.graphStore.loadGraph(appId);
+    //await graphWorker.graphStore.deleteGraph(appId);
+    graph = await graphWorker.graphStore.loadGraph(appId);
   } catch (err) {
     console.info('Graph failed to load, attempting to install:', err);
-    const repo = new S3ApplicationRepository();
-    const package = await repo.fetchPackage(appId);
-    await ImportLegacyStardustApplication(workerInstance.graphStore, package);
-    graph = await workerInstance.graphStore.loadGraph(appId);
+    const repo = new DustAppS3Repo();
+    const manifest = await repo.fetchPackage(appId);
+    const graphBuilder = DustAppJsonCodec.inflate(manifest);
+    await graphWorker.replaceGraph(appId, graphBuilder);
+    graph = await graphWorker.graphStore.loadGraph(appId);
   }
 
   const application = Array
@@ -186,7 +191,7 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
 
 self.addEventListener('fetch', event => {
   event.respondWith(async function() {
-    await workerInstance.ready;
+    await graphWorker.ready;
     const {destination, method, url} = event.request;
 
     const uri = PathFragment.parseUri(url);
@@ -198,7 +203,7 @@ self.addEventListener('fetch', event => {
 
     // intercept the api
     if (uri.host === 'ddp') {
-      return workerInstance.ddp.api.routeInput(uri.path, {
+      return graphWorker.ddp.api.routeInput(uri.path, {
         request: event.request,
         uri: uri,
       }, () => new Response('404', {status: 404}))

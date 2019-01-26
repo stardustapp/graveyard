@@ -1,5 +1,7 @@
 const GraphEngineBuilder = function() {
 
+  const GraphEngines = new Map;
+
   class GraphEngineBuilder {
     constructor(key, cb) {
       this.key = key;
@@ -17,20 +19,14 @@ const GraphEngineBuilder = function() {
     node(name, conf) {
       if (this.names.has(name)) throw new Error(
         `GraphEngineBuilder was already presented the name ${JSON.stringify(name)}`);
-      this.names.set(name, new NodeBuilder(conf));
-    }
-
-    struct(name, conf) {
-      if (this.names.has(name)) throw new Error(
-        `GraphEngineBuilder was already presented the name ${JSON.stringify(name)}`);
-      this.names.set(name, new StructBuilder(conf));
+      this.names.set(name, new NodeBuilder(name, conf));
     }
 
     install() {
-      for (const entry in this.names.entries()) {
-        entry.compile(this);
-      }
-      throw new Error('TODO 1');
+      //for (const entry in this.names.entries()) {
+      //  entry.compile(this);
+      //}
+      new GraphEngine(this.key, this);
     }
   }
 
@@ -87,7 +83,7 @@ const GraphEngineBuilder = function() {
       pending.final = type;
       TypeCache.set(input, type);
 
-      console.log('type', type);
+      //console.log('type', type);
       return type;
     }
   }
@@ -102,10 +98,19 @@ const GraphEngineBuilder = function() {
   }
 
   const builtins = new Map;
-  builtins.set(String, new FieldType('core', 'String'));
-  builtins.set(Date, new FieldType('core', 'Date'));
-  builtins.set(Number, new FieldType('core', 'Number'));
-  builtins.set(Boolean, new FieldType('core', 'Boolean'));
+
+  class BuiltinFieldType extends FieldType {
+    constructor(name, writeData, readData) {
+      super('core', name);
+      this.writeData = writeData || String;
+      this.readData = readData || String;
+    }
+  }
+  builtins.set(String, new BuiltinFieldType('String'));
+  builtins.set(Blob, new BuiltinFieldType('Blob'));
+  builtins.set(Date, new BuiltinFieldType('Date'));
+  builtins.set(Number, new BuiltinFieldType('Number'));
+  builtins.set(Boolean, new BuiltinFieldType('Boolean'));
 
   class ReferenceFieldType extends FieldType {
     constructor(targetPath) {
@@ -148,20 +153,34 @@ const GraphEngineBuilder = function() {
         this.fields.set(key, FieldType.from(config.fields[key]));
       }
     }
+
+    readData(fields) {
+      console.log("===> reading data", fields, 'with', this);
+      const data = {};
+      for (const key of Object.keys(fields)) {
+        this.setField(data, key, fields[key]);
+      }
+      return data;
+    }
+    setField(data, path, value) {
+      if (!this.fields.has(path)) throw new Error(
+        `Struct setField() called on missing path ${path}`);
+      const field = this.fields.get(path);
+      console.log('setField', field, value);
+      
+      if (!field.readData) throw new Error(
+        `Field ${path} has ${field.constructor.name}, is not readData-capable`);
+      data[path] = field.readData(value);
+      //throw new Error(`not impl: setField(${JSON.stringify(data)}, ${JSON.stringify(path)}, ${JSON.stringify(value)})`);
+    }
   }
 
   class EnginePartBuilder {}
 
-  class StructBuilder extends EnginePartBuilder {
-    constructor(config) {
-      super();
-      this.inner = FieldType.from(config);
-    }
-  }
-
   class NodeBuilder extends EnginePartBuilder {
-    constructor(config) {
+    constructor(name, config) {
       super();
+      this.name = name;
       this.inner = FieldType.from(config);
 
       if (!['root', 'leaf', 'parent'].includes(config.treeRole)) throw new Error(
@@ -172,6 +191,17 @@ const GraphEngineBuilder = function() {
     compile(builder) {
       console.log('making struct', this, builder);
       throw new Error(`TODO 2`);
+    }
+
+    readData(data) {
+      if (!this.inner.readData) throw new Error(
+        `Part ${this.inner.constructor.name} not readData-capable`);
+      return this.inner.readData(data);
+    }
+    setField(data, path, value) {
+      if (!this.inner.setField) throw new Error(
+        `Part ${this.inner.constructor.name} not setField-capable`);
+      return this.inner.setField(data, path, value);
     }
   }
 

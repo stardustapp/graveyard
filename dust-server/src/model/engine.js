@@ -17,22 +17,19 @@ class GraphObject {
 
 const GraphEngines = new Map;
 class GraphEngine {
-  constructor(key, buildCb) {
+  constructor(key, builder) {
     if (GraphEngines.has(key)) throw new Error(
       `Graph Engine ${key} is already registered, can't re-register`);
 
-    const builder = new GraphEngineBuilder(buildCb);
-
     this.engineKey = key;
-    this.objectTypes = builder.objectTypes;
+    this.names = builder.names;
     GraphEngines.set(key, this);
   }
-}
 
-class GraphBuilder {
-  constructor(engine) {
-    this.engine = engine;
-    this.names = new Map;
+  static get(key) {
+    if (!GraphEngines.has(key)) throw new Error(
+      `Graph Engine ${JSON.stringify(key)} is not registered`);
+    return GraphEngines.get(key);
   }
 }
 
@@ -53,7 +50,7 @@ class GraphStore {
         const objects = upgradeDB.createObjectStore('objects', { keyPath: 'objectId' });
         objects.createIndex('by graph', 'graphId', { multiEntry: true });
         objects.createIndex('by parent', ['parentObjId', 'name'], { unique: true });
-        objects.createIndex('deps on', 'depObjIds', { multiEntry: true });
+        objects.createIndex('referenced', 'refObjIds', { multiEntry: true });
         const records = upgradeDB.createObjectStore('records', { keyPath: ['objectId', 'recordId'] });
         const events = upgradeDB.createObjectStore('events', { keyPath: ['graphId', 'timestamp'] });
     }
@@ -62,6 +59,7 @@ class GraphStore {
   async openIdb() {
     if (this.idb) throw new Error(`Can't reopen IDB`);
     await idb.delete(this.idbName);
+    console.warn('Dropped IDB database from previous run');
     this.idb = await idb.open(this.idbName, 1, this.migrateIdb.bind(this));
     console.debug('IDB opened');
   }

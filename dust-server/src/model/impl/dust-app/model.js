@@ -40,31 +40,31 @@ class DustAppRecordSchema extends GraphObject {
 
 new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
-  // much of Application is the old RouteTable 'RootRoutes'
   build.node('Application', {
     treeRole: 'root',
     fields: {
-      DefaultLayout: {
-        optional: true,
-        reference: 'BlazeTemplate',
-      },
-      Routes: {
-        isList: true,
-        fields: {
-          Path: String,
-          Action: {
-            anyOfKeyed: {
-              CustomAction: { fields: {
-                Coffee: String,
-                JS: String,
-              }},
-              RenderTemplate: { fields: {
-                Template: {
-                  reference: 'BlazeTemplate',
-                },
-              }},
+      PackageId: String,
+      License: String,
+      IconUrl: { type: String, optional: true },
+      DefaultLayout: { reference: 'BlazeTemplate', optional: true },
+    },
+  });
+
+  build.node('Route', {
+    treeRole: 'leaf',
+    fields: {
+      Path: String,
+      Action: {
+        anyOfKeyed: {
+          CustomAction: { fields: {
+            Coffee: String,
+            JS: String,
+          }},
+          RenderTemplate: { fields: {
+            Template: {
+              reference: 'BlazeTemplate',
             },
-          },
+          }},
         },
       },
     },
@@ -74,8 +74,8 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     treeRole: 'leaf',
     fields: {
       Html: String,
-      Css: String,
-      Scss: String,
+      CSS: String,
+      SCSS: String,
       Scripts: { isList: true, fields: {
         // TODO: refactor type/param together for lifecycle typing
         Type: { type: String, choices: [
@@ -90,12 +90,13 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   const RecordField = {
     Key: String,
-    Type: { anyOf: [
-      { type: String, choices: [
-        'core:string', 'core:number', 'core:boolean', 'core:date', 'core:object',
+    Type: { anyOfKeyed: {
+      BuiltIns: { type: String, choices: [
+        'string', 'uri', 'secret', 'number', 'boolean', 'moment', 'object', 'graph', 'reference'
       ]},
-      { reference: 'RecordSchema' },
-    ]},
+      SchemaEmbed: { reference: 'RecordSchema' },
+      SchemaRef: { reference: 'RecordSchema' },
+    }},
     IsList: { type: Boolean, default: false },
     Optional: { type: Boolean, default: false },
     Immutable: { type: Boolean, default: false },
@@ -106,7 +107,10 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
   build.node('RecordSchema', { // was CustomRecord
     treeRole: 'leaf',
     fields: {
-      Base: { reference: 'RecordSchema', optional: true },
+      Base: { anyOfKeyed: {
+        BuiltIns: { type: String, choices: [ 'record', 'class' ]},
+        SchemaRef: { reference: 'RecordSchema' },
+      }},
       Fields: { fields: RecordField, isList: true },
       // Behaviors
       TimestampBehavior: { type: Boolean, default: false },
