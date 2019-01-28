@@ -1,3 +1,22 @@
+function getScriptRefs(coffee) {
+  const refs = new Set;
+  const dirRegex = /^( *)%([a-z]+)(?: (.+))?$/img
+  coffee.replace(dirRegex, function (_, ws, dir, args) {
+    switch (dir.toLowerCase()) {
+      case 'inject':
+        for (const arg of args.split(',')) {
+          // TODO: validate name syntax regex!
+          refs.add(arg.trim())
+          return `${ws}${arg} = DUST.get ${JSON.stringify(arg)}`;
+        }
+      default:
+        throw new Error(`invalid-directive: '${dir}' is not a valid DustScript directive`);
+    }
+  });
+  return Array.from(refs)
+    .map(name => new GraphReference(name));
+}
+
 class DustAppJsonCodec {
   static inflate(manifest) {
     if (manifest._platform !== 'stardust') throw new Error(
@@ -34,6 +53,7 @@ class DustAppJsonCodec {
       return {
         Coffee: coffee,
         JS: js,
+        Refs: getScriptRefs(coffee),
       }
     }
 
@@ -50,29 +70,30 @@ class DustAppJsonCodec {
 
     for (const res of resources.CustomRecord) {
       // translate the fields
-      const fields = {};
-      for (const field of res.fields) {
-        fields[field.key] = {
-          Type: field.type.replace(':', '/'), // TODO
-          IsList: !!field.isList,
-          Required: !field.optional,
-          Mutable: !field.immutable,
-          DefaultValue: field.defaultValue,
-        };
-      }
+      const fields = res.fields.map(field => ({
+        Key: field.key,
+        Type: resolveRecordSchema(field.type),
+        IsList: field.isList,
+        Optional: field.optional,
+        Immutable: field.immutable,
+        DefaultValue: field.defaultValue,
+      }));
 
-      // add behaviors
+      // add deps for behaviors
+      // TODO: belongs here?
       if (res.timestamp) {
-        fields.createdAt = {Type: 'core/timestamp', InsertionDefault: 'now', Mutable: false };
-        fields.updatedAt = {Type: 'core/timestamp', UpdateDefaultq: 'now', Mutable: true };
+        fields.createdAt = {Type: resolveRecordSchema('core:timestamp'), Mutable: false };
+        fields.updatedAt = {Type: resolveRecordSchema('core:timestamp'), Mutable: true };
       }
       if (res.slugField) {
-        fields.slug = {Type: 'core/string', InsertionDefault: `slugOf($.${res.slugField})`, Mutable: false }
+        fields.slug = {Type: resolveRecordSchema('core:string'), Mutable: true }
       }
 
       app.withRecordSchema(res.name, res.version, {
         Base: resolveRecordSchema(res.base),
         Fields: fields,
+        TimestampBehavior: res.timestamp,
+        SlugBehavior: res.slugField ? {Field: res.slugField} : null,
       });
     }
 
@@ -96,15 +117,26 @@ class DustAppJsonCodec {
 
     for (const res of resources.Template) {
       app.withTemplate(res.name, res.version, {
-        Template: res.html,
+        Handlebars: res.html,
         Style: {
           SCSS: res.scss,
           CSS: res.css,
         },
         Scripts: res.scripts.map(script => {
-          console.log('script', script);
-          script.Type = ['on-render', 'on-create', 'on-destroy', 'helper', 'event', 'hook'][script.type];
-          return script;
+          const typeMapped = ['LC-Render', 'LC-Create', 'LC-Destroy', 'Helper', 'Event', 'Hook'][script.type];
+          const typeObj = {};
+          if (typeMapped.startsWith('LC-')) {
+            typeObj.Lifecycle = typeMapped.slice(3);
+          } else {
+            typeObj[typeMapped] = script.param;
+          }
+
+          return {
+            Type: typeObj,
+            Coffee: script.coffee,
+            JS: script.js,
+            Refs: getScriptRefs(script.coffee),
+          };
         }),
       });
     }
@@ -121,31 +153,34 @@ class DustAppJsonCodec {
       for (const route of res.entries) {
         switch (route.type) {
           case 'customAction':
-            route = app.withRoute(encodeURIComponent(entry.path), {
-              Path: entry.path,
+            app.withRoute(encodeURIComponent(route.path), res.version, {
+              Path: route.path,
               Action: {
                 Type: 'CustomAction',
-                Coffee: entry.customAction.coffee,
-                JS: entry.customAction.js,
+                Coffee: route.customAction.coffee,
+                JS: route.customAction.js,
+                Refs: getScriptRefs(route.customAction.coffee),
               },
             });
             break;
           case 'template':
-            route = app.withRoute(encodeURIComponent(entry.path), {
-              Path: entry.path,
+            app.withRoute(encodeURIComponent(route.path), res.version, {
+              Path: route.path,
               Action: {
-                RenderTemplate: app.getTemplate(entry.template),
+                Render: {
+                  Template: app.getTemplate(route.template),
+                },
               },
             });
             break;
           default:
-            throw new Error('unknown route type '+entry.type);
+            throw new Error('unknown route type '+route.type);
         }
       }
     }
 
-
     console.log('Inflated manifest', manifest, 'with builder', builder);
+    return builder;
   }
 
   static deflate(graph) {

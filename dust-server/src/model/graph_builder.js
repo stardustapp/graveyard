@@ -7,13 +7,15 @@ class GraphBuilder {
     for (const [name, part] of engine.names.entries()) {
       if (part.treeRole !== 'root') continue;
 
-      this[`with${name}`] = function(objName, objVersion, opts) {
-        // TODO: throw if not first root
-        console.log('building', objName, objVersion, part, 'with', opts);
-        const object = new GraphBuilderNode(this, null, objName, name, part, objVersion, opts);
-        if (this.rootNode) throw new Error(`Graph already has a root node`);
-        return this.rootNode = object;
-      }
+      Object.defineProperty(this, `with${name}`, {
+        value: function(objName, objVersion, opts) {
+          // TODO: throw if not first root
+          console.log('building', objName, objVersion, part, 'with', opts);
+          const object = new GraphBuilderNode(this, null, objName, name, part, objVersion, opts);
+          if (this.rootNode) throw new Error(`Graph already has a root node`);
+          return this.rootNode = object;
+        },
+      });
     }
   }
 
@@ -43,15 +45,18 @@ class GraphBuilderNode {
     this.part = part;
     this.version = version;
 
-    this.data = part.readData(data);
+    this.data = part.fromExt(data);
 
     if (part.inner.origin === 'composite') {
       switch (part.inner.name) {
         case 'Struct':
           for (const [fieldName, field] of part.inner.fields) {
-            this[`set${fieldName}`] = function(value) {
-              return part.setField(this.data, fieldName, value);
-            }
+
+            Object.defineProperty(this, `set${fieldName}`, {
+              value: function(value) {
+                return part.setField(this.data, fieldName, value);
+              },
+            });
           }
           break;
         default: throw new Error(
@@ -66,23 +71,27 @@ class GraphBuilderNode {
       for (const [name, part] of builder.engine.names.entries()) {
         if (part.treeRole === 'root') continue;
 
-        this[`with${name}`] = function(objName, objVersion, opts) {
-          console.log('building', objName, objVersion, type, part, 'with', opts, 'from', this);
-          const object = new GraphBuilderNode(builder, this, objName, name, part, objVersion, opts);
-          this.names.set(objName, object);
-          return object;
-        }
-        this[`get${name}`] = function(objName) {
-          if (!this.names.has(objName)) {
-            const node = new GraphGhostNode(parent, objName);
-            this.ghosts.add(node);
-            this.names.set(objName, node)
-          }
-          const object = this.names.get(objName);
-          if (object.type !== name) throw new Error(
-            `Failed to get ${JSON.stringify(name)} ${JSON.stringify(objName)}, was actually ${JSON.stringify(object.type)}`);
-          return object;
-        }
+        Object.defineProperty(this, `with${name}`, {
+          value: function(objName, objVersion, opts) {
+            console.log('building', objName, objVersion, type, part, 'with', opts, 'from', this);
+            const object = new GraphBuilderNode(builder, this, objName, name, part, objVersion, opts);
+            this.names.set(objName, object);
+            return object;
+          },
+        });
+        Object.defineProperty(this, `get${name}`, {
+          value: function(objName) {
+            if (!this.names.has(objName)) {
+              const node = new GraphGhostNode(parent, objName);
+              this.ghosts.add(node);
+              this.names.set(objName, node)
+            }
+            const object = this.names.get(objName);
+            if (object.type !== name) throw new Error(
+              `Failed to get ${JSON.stringify(name)} ${JSON.stringify(objName)}, was actually ${JSON.stringify(object.type)}`);
+            return object;
+          },
+        });
       }
     }
 

@@ -46,7 +46,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       PackageId: String,
       License: String,
       IconUrl: { type: String, optional: true },
-      DefaultLayout: { reference: 'BlazeTemplate', optional: true },
+      DefaultLayout: { reference: 'Template', optional: true },
     },
   });
 
@@ -59,10 +59,11 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
           CustomAction: { fields: {
             Coffee: String,
             JS: String,
+            Refs: { reference: true, isList: true },
           }},
-          RenderTemplate: { fields: {
+          Render: { fields: {
             Template: {
-              reference: 'BlazeTemplate',
+              reference: 'Template',
             },
           }},
         },
@@ -73,17 +74,22 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
   build.node('Template', {
     treeRole: 'leaf',
     fields: {
-      Html: String,
-      CSS: String,
-      SCSS: String,
+      Handlebars: String,
+      Style: { fields: {
+        CSS: String,
+        SCSS: String,
+      }},
+      // TODO: map of scripts
       Scripts: { isList: true, fields: {
-        // TODO: refactor type/param together for lifecycle typing
-        Type: { type: String, choices: [
-          'Lifecycle', 'Helper', 'Event', 'Hook'
-        ]},
-        Param: String,
+        Type: { anyOfKeyed: {
+          Lifecycle: { type: String, choices: [ 'Render', 'Create', 'Destroy' ] },
+          Helper: { type: String },
+          Event: { type: String },
+          Hook: { type: String },
+        }},
         Coffee: String,
         JS: String,
+        Refs: { reference: true, isList: true },
       }},
     },
   });
@@ -100,7 +106,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     IsList: { type: Boolean, default: false },
     Optional: { type: Boolean, default: false },
     Immutable: { type: Boolean, default: false },
-    Default: { type: String, optional: true }, // as [E]JSON string
+    DefaultValue: { type: String, optional: true }, // as [E]JSON string
     // TODO: enum, transient, mapping
   };
 
@@ -114,7 +120,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       Fields: { fields: RecordField, isList: true },
       // Behaviors
       TimestampBehavior: { type: Boolean, default: false },
-      SlugFieldBehavior: { type: String, optional: true },
+      SlugBehavior: { optional: true, fields: {
+        Field: String,
+      }},
     },
   });
 
@@ -126,7 +134,10 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
   });
 
   const DocLocator = {
-    RecordType: { type: String, default: 'core:Record' },
+    RecordType: { anyOfKeyed: {
+      BuiltIns: { type: String, choices: [ 'record', 'class' ]},
+      SchemaRef: { reference: 'RecordSchema' },
+    }},
     FilterBy: { type: String, optional: true },
     SortBy: { type: String, optional: true },
     Fields: { type: String, optional: true },
@@ -145,6 +156,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     fields: {
       Coffee: String,
       JS: String,
+      Refs: { reference: true, isList: true },
     },
   });
 

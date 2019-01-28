@@ -1,3 +1,4 @@
+//Object.freeze(Object.prototype);
 importScripts(
   '/~~src/lib/caching.js',
   //'/~~src/lib/tracing.js',
@@ -15,6 +16,7 @@ importScripts(
   '/~~src/graph-worker/lib.js',
   '/~~src/graph-worker/ddp.js',
   
+  '/~~src/model/field-types.js',
   '/~~src/model/engine.js',
   '/~~src/model/engine_builder.js',
   '/~~src/model/graph.js',
@@ -176,7 +178,15 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
     const repo = new DustAppS3Repo();
     const manifest = await repo.fetchPackage(appId);
     const graphBuilder = DustAppJsonCodec.inflate(manifest);
-    await graphWorker.replaceGraph(appId, graphBuilder);
+
+    const txn = graphWorker.graphStore.startTransaction('readwrite');
+    await txn.purgeGraph(appId);
+    await txn.createGraph({
+      forceId: appId,
+      heritage: 'stardust-poc',
+    });
+    await txn.createObjects(appId, Array.from(graphBuilder.rootNode.names.values()));
+    await txn.finish();
     graph = await graphWorker.graphStore.loadGraph(appId);
   }
 

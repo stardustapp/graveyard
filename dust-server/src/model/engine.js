@@ -33,6 +33,99 @@ class GraphEngine {
   }
 }
 
+class GraphTxn {
+  constructor(txn) {
+    this.txn = txn;
+    this.currentDate = new Date;
+  }
+
+  async purgeGraph(graphId) {
+    this.txn.objectStore('graphs').delete(graphId);
+    this.txn.objectStore('events').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
+
+    const objIds = await this.txn.objectStore('objects').index('by graph').getAllKeys(graphId);
+    console.warn('Objects to delete:', objIds);
+    //this.txn.objectStore('objects').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
+    //this.txn.objectStore('records').delete(IDBKeyRange.bound([graphId, '#', '#'], [graphId, '~', '~']));
+  }
+
+  async createGraph(options={}) {
+    const graphId = options.forceId || randomString(3);
+
+    // write out the graph itself
+    try {
+      await this.txn.objectStore('graphs').add({
+        graphId,
+        version: 1,
+        createdAt: this.currentDate,
+        updatedAt: this.currentDate,
+        metadata: options.metadata,
+      });
+    } catch (err) {
+      this.txn.complete.catch(() => {}); // throw away tx failure
+      if (err.name === 'ConstraintError') throw new Error(
+        `Graph ID '${graphId}' already exists`);
+      throw err;
+    }
+
+    // seed the events
+    await this.txn.objectStore('events').add({
+      graphId,
+      timestamp: this.currentDate,
+      entries: [{
+        type: 'initial horizon',
+      }, {
+        type: 'update graph metadata',
+        version: 1,
+        data: options.metadata,
+      }],
+    });
+  }
+
+  createObjects(graphId, objects) {
+    const actions = [];
+    const ops = [];
+
+    for (const object of objects) {
+      if (!object) throw new Error(
+        `Null object given`);
+      if (object.constructor !== GraphBuilderNode) throw new Error(
+        `Wasn't given a GraphBuilderNode`);
+
+      const objectId = randomString(3);
+
+      const {type, parent, name, version, data} = object;
+      ops.push(this.txn.objectStore('objects').add({
+        graphId, objectId,
+        refObjIds: [], // TODO
+        parentObjId: object.parentObjId, // TODO from object.paraent
+        type, name, version, data,
+      }));
+
+      actions.push({
+        type: 'create object',
+        objectId,
+        refObjIds: [], // TODO
+        parentObjId: object.parentObjId, // TODO from object.paraent
+        type, name, version, data,
+      });
+    }
+
+    // store the change events
+    ops.push(this.txn.objectStore('events').add({
+      graphId,
+      timestamp: this.currentDate,
+      entries: actions,
+    }));
+
+    return Promise.all(ops);
+  }
+
+  finish() {
+    return this.txn.complete;
+  }
+}
+
 class GraphStore {
   constructor(idbName='graph-worker') {
     this.idbName = idbName;
@@ -73,6 +166,11 @@ class GraphStore {
     await shutdown;
   }
 
+  startTransaction(mode='readonly') {
+    return new GraphTxn(this.idb
+      .transaction(['graphs', 'objects', 'records', 'events'], mode));
+  }
+
   async deleteEverything() {
     const tx = this.idb.transaction(
         ['graphs', 'objects', 'records', 'events'], 'readwrite');
@@ -83,24 +181,27 @@ class GraphStore {
     await tx.complete;
   }
 
-/*
-  async deleteGraph(graphId) {
-    const tx = this.idb.transaction(
-        ['graphs', 'objects', 'records', 'events'], 'readwrite');
-    tx.objectStore('graphs').delete(graphId);
-    tx.objectStore('objects').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
-    tx.objectStore('records').delete(IDBKeyRange.bound([graphId, '#', '#'], [graphId, '~', '~']));
-    tx.objectStore('events').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
-    await tx.complete;
-  }
-
-  async getAllGraphs() {
+  async listAllGraphs() {
     return await this.idb
       .transaction('graphs')
       .objectStore('graphs')
       .getAll();
   }
-*/
+
+  async deleteGraph(graphId) {
+    const tx = this.idb.transaction(
+        ['graphs', 'objects', 'records', 'events'], 'readwrite');
+
+    tx.objectStore('graphs').delete(graphId);
+    tx.objectStore('events').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
+
+    const objIds = await tx.objectStore('objects').index('by graph').getAllKeys(graphId);
+    console.warn('Objects to delete:', objIds);
+    //tx.objectStore('objects').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~']));
+    //tx.objectStore('records').delete(IDBKeyRange.bound([graphId, '#', '#'], [graphId, '~', '~']));
+
+    await tx.complete;
+  }
 
   async createGraph({forceId, fields, objects}) {
     const tx = this.idb.transaction(
