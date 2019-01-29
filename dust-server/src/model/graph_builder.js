@@ -73,7 +73,7 @@ class GraphBuilderNode {
 
         Object.defineProperty(this, `with${name}`, {
           value: function(objName, objVersion, opts) {
-            console.log('building', objName, objVersion, type, part, 'with', opts, 'from', this);
+            //console.log('building', objName, objVersion, type, part, 'with', opts, 'from', this);
             const object = new GraphBuilderNode(builder, this, objName, name, part, objVersion, opts);
             this.names.set(objName, object);
             return object;

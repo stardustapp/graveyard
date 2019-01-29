@@ -21,6 +21,7 @@ importScripts(
   '/~~src/model/engine_builder.js',
   '/~~src/model/graph.js',
   '/~~src/model/graph_builder.js',
+  '/~~src/model/transaction.js',
 
   '/~~src/model/impl/app-profile/model.js',
 
@@ -171,6 +172,7 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
 
   let graph;
   try {
+    throw new Error('TEMP');
     //await graphWorker.graphStore.deleteGraph(appId);
     graph = await graphWorker.graphStore.loadGraph(appId);
   } catch (err) {
@@ -179,14 +181,18 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
     const manifest = await repo.fetchPackage(appId);
     const graphBuilder = DustAppJsonCodec.inflate(manifest);
 
-    const txn = graphWorker.graphStore.startTransaction('readwrite');
-    await txn.purgeGraph(appId);
-    await txn.createGraph({
-      forceId: appId,
-      heritage: 'stardust-poc',
+    await graphWorker.graphStore.transact('readwrite', async txn => {
+      await txn.purgeGraph(appId);
+      await txn.createGraph({
+        forceId: appId,
+        metadata: {
+          engine: graphBuilder.engine.engineKey,
+          heritage: 'stardust-poc',
+        },
+      });
+      await txn.createObjects(appId, Array
+        .from(graphBuilder.rootNode.names.values()));
     });
-    await txn.createObjects(appId, Array.from(graphBuilder.rootNode.names.values()));
-    await txn.finish();
     graph = await graphWorker.graphStore.loadGraph(appId);
   }
 
