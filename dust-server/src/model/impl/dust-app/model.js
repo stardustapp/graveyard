@@ -46,6 +46,13 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       PackageId: String,
       License: String,
       IconUrl: { type: String, optional: true },
+      //DefaultLayout: { reference: 'Template', optional: true },
+    },
+  });
+
+  build.node('Router', {
+    treeRole: 'parent',
+    fields: {
       DefaultLayout: { reference: 'Template', optional: true },
     },
   });
@@ -56,7 +63,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       Path: String,
       Action: {
         anyOfKeyed: {
-          CustomAction: { fields: {
+          Script: { fields: {
             Coffee: String,
             JS: String,
             Refs: { reference: true, isList: true },

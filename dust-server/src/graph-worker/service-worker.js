@@ -190,8 +190,7 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
           heritage: 'stardust-poc',
         },
       });
-      await txn.createObjects(appId, Array
-        .from(graphBuilder.rootNode.names.values()));
+      await txn.createObjects(appId, graphBuilder.flattenAllNodes());
     });
     graph = await graphWorker.graphStore.loadGraph(appId);
   }

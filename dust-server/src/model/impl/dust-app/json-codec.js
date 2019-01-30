@@ -1,14 +1,14 @@
 function getScriptRefs(coffee) {
   const refs = new Set;
-  const dirRegex = /^( *)%([a-z]+)(?: (.+))?$/img
+  const dirRegex = /^( *)%([a-z]+)(?: (.+))?$/img;
   coffee.replace(dirRegex, function (_, ws, dir, args) {
     switch (dir.toLowerCase()) {
       case 'inject':
-        for (const arg of args.split(',')) {
+        return args.split(',').map(arg => {
           // TODO: validate name syntax regex!
           refs.add(arg.trim())
           return `${ws}${arg} = DUST.get ${JSON.stringify(arg)}`;
-        }
+        }).join('\n');
       default:
         throw new Error(`invalid-directive: '${dir}' is not a valid DustScript directive`);
     }
@@ -49,7 +49,7 @@ class DustAppJsonCodec {
     }
 
     function inflateScript(coffee, js) {
-      console.log(coffee.length, 'inflating script', coffee);
+      //console.log(coffee.length, 'inflating script', coffee);
       return {
         Coffee: coffee,
         JS: js,
@@ -99,7 +99,7 @@ class DustAppJsonCodec {
 
 
     for (const res of resources.ServerMethod) {
-      app.withServerMethod(res.name, res.version, inflateScript(res));
+      app.withServerMethod(res.name, res.version, inflateScript(res.coffee, res.js));
     }
 
 
@@ -145,26 +145,29 @@ class DustAppJsonCodec {
     for (const res of resources.RouteTable) {
       if (res.name !== 'RootRoutes') continue;
 
+      const router = app.withRouter('Webapp', res.version, {});
+
       if (res.layout) {
         const layout = app.getTemplate(res.layout);
-        app.setDefaultLayout(layout);
+        router.setDefaultLayout(layout);
       }
 
       for (const route of res.entries) {
         switch (route.type) {
           case 'customAction':
-            app.withRoute(encodeURIComponent(route.path), res.version, {
+            router.withRoute(route.path, 1, {
               Path: route.path,
               Action: {
-                Type: 'CustomAction',
-                Coffee: route.customAction.coffee,
-                JS: route.customAction.js,
-                Refs: getScriptRefs(route.customAction.coffee),
+                Script: {
+                  Coffee: route.customAction.coffee,
+                  JS: route.customAction.js,
+                  Refs: getScriptRefs(route.customAction.coffee),
+                },
               },
             });
             break;
           case 'template':
-            app.withRoute(encodeURIComponent(route.path), res.version, {
+            router.withRoute(route.path, 1, {
               Path: route.path,
               Action: {
                 Render: {

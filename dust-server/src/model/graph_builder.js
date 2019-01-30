@@ -27,11 +27,25 @@ class GraphBuilder {
     console.log('creating graph from', this);
     throw new Error(`#TODO 344`);
   }
+
+  flattenAllNodes() {
+    const nodes = [];
+    function addNode(node) {
+      nodes.push(node);
+      if (node.names) {
+        Array
+          .from(node.names.values())
+          .forEach(addNode);
+      }
+    }
+    addNode(this.rootNode);
+    return nodes;
+  }
 }
 
 class GraphGhostNode {
-  constructor() {
-    this.throwable = new Error(`Failed to get ${JSON.stringify(objName)} ${JSON.stringify(ame)}, doesn't exist`);
+  constructor(parent, child) {
+    this.throwable = new Error(`Failed to get ${JSON.stringify(child)}, doesn't exist`);
     this.final = null;
   }
 }
@@ -68,6 +82,8 @@ class GraphBuilderNode {
 
     if (part.treeRole !== 'leaf') {
       this.names = new Map;
+      this.ghosts = new Set;
+
       for (const [name, part] of builder.engine.names.entries()) {
         if (part.treeRole === 'root') continue;
 
@@ -82,7 +98,7 @@ class GraphBuilderNode {
         Object.defineProperty(this, `get${name}`, {
           value: function(objName) {
             if (!this.names.has(objName)) {
-              const node = new GraphGhostNode(parent, objName);
+              const node = new GraphGhostNode(this, objName);
               this.ghosts.add(node);
               this.names.set(objName, node)
             }

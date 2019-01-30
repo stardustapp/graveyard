@@ -97,14 +97,17 @@ class GraphStore {
     }
   }
 
-  async deleteEverything() {
-    const tx = this.idb.transaction(
-        ['graphs', 'objects', 'records', 'events'], 'readwrite');
-    tx.objectStore('graphs').clear();
-    tx.objectStore('objects').clear();
-    tx.objectStore('records').clear();
-    tx.objectStore('events').clear();
-    await tx.complete;
+  deleteEverything() {
+    return this.transact('readwrite', async txn => {
+      console.warn('!! DELETING ALL GRAPHS AND DATA !!');
+      await txn.txn.objectStore('graphs').clear();
+      await txn.txn.objectStore('objects').clear();
+      await txn.txn.objectStore('records').clear();
+      await txn.txn.objectStore('events').clear();
+      txn._addAction(null, {
+        type: 'purge all',
+      });
+    });
   }
 
   async listAllGraphs() {
@@ -120,7 +123,7 @@ class GraphStore {
 
   async processEvent({timestamp, graphId, entries}) {
     for (const entry of entries) {
-      console.warn('"processing" event', timestamp, graphId, entry);
+      //console.warn('"processing" event', timestamp, graphId, entry);
     }
   }
 }

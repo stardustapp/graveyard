@@ -69,6 +69,9 @@ class GraphTxn {
     console.log('Deleted', objIds.length, 'objects, breaking', brokenObjIds.size, 'other objects')
 
     await Promise.all(ops);
+    this._addAction(graphId, {
+      type: 'delete graph',
+    });
   }
 
   async createGraph(options={}) {
@@ -115,12 +118,29 @@ class GraphTxn {
       const objectId = randomString(3);
       const {type, parent, name, version, data} = object;
 
+      if (parent) {
+        if (!readyObjs.has(parent)) {
+          console.info('Object', name, 'is missing its parent', parent);
+          return false;
+        }
+      }
+
       const refObjIds = new Set;
       const missingRefs = new Set;
       function resolveRef(ref) {
         if (ref.target.constructor === GraphBuilderNode) {
           if (readyObjs.has(ref.target)) {
             const objId = readyObjs.get(ref.target);
+            refObjIds.add(objId);
+            return objId;
+          }
+        } else if (ref.target.constructor === String) {
+          // TODO: better path resolving strategy
+          const target = Array
+            .from(readyObjs.entries())
+            .find(x => x[0].name === ref.target);
+          if (target) {
+            const objId = target[1];
             refObjIds.add(objId);
             return objId;
           }
@@ -132,37 +152,41 @@ class GraphTxn {
       }
 
       const primitives = new Set([String, Date, Array, Boolean, Blob]);
-      function cleanStruct(struct) {
-        const output = struct;
-        Object.keys(struct).forEach(key => {
-          // reserving this shouldn't hurt
-          if (key.startsWith('$')) throw new Error(
-            `Data keys cannot start with $`);
-
-          const val = struct[key];
-          if (val == null) {
-            output[key] = null;
-          } else if (val.constructor === Object) {
-            output[key] = cleanStruct(val);
-          } else if (val.constructor === GraphReference) {
-            output[key] = resolveRef(val);
-          } else if (primitives.has(val.constructor)) {
-            output[key] = val;
-          } else {
-            console.log(key, val.constructor);
-            throw new Error(`Object ${name} had data field with ${val.constructor.name} type`);
-          }
-        });
-        return output;
+      function cleanValue(val) {
+        if (val == null) {
+          return null;
+        } else if (val.constructor === Object) {
+          const output = {};
+          Object.keys(val).forEach(key => {
+            // reserving this shouldn't hurt
+            if (key.startsWith('$')) throw new Error(
+              `Data keys cannot start with $`);
+            output[key] = cleanValue(val[key]);
+          });
+          return output;
+        } else if (val.constructor === Array) {
+          return val.map(cleanValue);
+        } else if (val.constructor === GraphReference) {
+          return resolveRef(val);
+        } else if (primitives.has(val.constructor)) {
+          return val;
+        } else {
+          throw new Error(`Object ${name} had data field with ${val.constructor.name} type`);
+        }
       }
-      const cleanedData = cleanStruct(data);
 
+      const cleanedData = cleanValue(data);
+      if (missingRefs.size > 0) {
+        console.info('Object', name, 'is missing', missingRefs.size, 'refs');
+        console.log(data);
+        return false;
+      }
 
       return {
         graphId,
         objectId,
         refObjIds: Array.from(refObjIds),
-        parentObjId: null, // TODO from object.parent
+        parentObjId: parent ? readyObjs.get(parent) : null,
         name,
         type,
         version,
@@ -181,7 +205,7 @@ class GraphTxn {
           const record = prepareObject(object);
           if (!record) continue;
 
-          console.log('storing', record);
+          //console.log('storing', record);
           await this.txn.objectStore('objects').add(record);
 
           const action = Object.assign({type: 'create object'}, )
