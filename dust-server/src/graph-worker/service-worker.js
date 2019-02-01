@@ -171,30 +171,27 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId', match => {
 destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (match, input) => {
   const appId = match.params.get('appId');
 
-  let graph;
-  try {
-    throw new Error('TEMP');
-    //await graphWorker.graphStore.deleteGraph(appId);
-    graph = await graphWorker.graphStore.loadGraph(appId);
-  } catch (err) {
-    console.info('Graph failed to load, attempting to install:', err);
-    const repo = new DustAppS3Repo();
-    const manifest = await repo.fetchPackage(appId);
-    const graphBuilder = DustAppJsonCodec.inflate(manifest);
+  // get the app
+  const store = graphWorker.graphStore;
+  const engine = GraphEngine.get('dust-app/v1-beta1');
+  let graph = await store.findOrCreateGraph(engine, {
+    fields: {
+      heritage: 'stardust-poc',
+      origin: `https://stardust-repo.s3.amazonaws.com/packages/${encodeURIComponent(appId)}.json`,
+    },
+    async buildCb(engine, {origin}) {
+      // fill out a graphBuilder for the app
+      const repoResp = await fetch(origin);
+      if (repoResp.status !== 200) throw new Error(
+        `Stardust Cloud Repo returned HTTP ${repoResp.status}`);
+      const manifest = await repoResp.json();
+      const graphBuilder = DustAppJsonCodec.inflate(manifest);
+      return graphBuilder;
+    },
+  });
 
-    await graphWorker.graphStore.transact('readwrite', async txn => {
-      await txn.purgeGraph(appId);
-      await txn.createGraph({
-        forceId: appId,
-        metadata: {
-          engine: graphBuilder.engine.engineKey,
-          heritage: 'stardust-poc',
-        },
-      });
-      await txn.createObjects(appId, graphBuilder.flattenAllNodes());
-    });
-    graph = await graphWorker.graphStore.loadGraph(appId);
-  }
+  console.log('have graph', graph);
+  throw new Error('sw todo');
 
   const application = Array
     .from(graph.objects.values())

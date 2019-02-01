@@ -149,6 +149,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     SortBy: { type: String, optional: true },
     Fields: { type: String, optional: true },
     LimitTo: { type: Number, optional: true },
+    //Children: { embed: '@' }, // self recursion
   };
   // recursive field just to make things difficult
   DocLocator.Children = { fields: DocLocator, isList: true };

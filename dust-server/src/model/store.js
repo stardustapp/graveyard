@@ -1,9 +1,26 @@
 class GraphStore {
-  constructor(idbName='graph-worker') {
-    this.idbName = idbName;
-    this.idb = null;
+  constructor(opts={}) {
+    this.opts = opts;
 
-    this.ready = this.openIdb();
+    // database
+    this.idb = null;
+    this.graphs = new Map;
+    this.objects = new Map;
+    // records and events are kept cold by default
+
+    // transaction queue
+    this.readyForTxn = false;
+    this.waitingTxns = new Array;
+
+    this.ready = this.start();
+
+    // TODO
+    self.gs = this;
+    this.warnInterval = setInterval(() => {
+      if (this.waitingTxns.length) {
+        console.warn('GraphStore has', this.waitingTxns.length, 'waiting transactions');
+      }
+    }, 1000);
   }
 
   async migrateIdb(upgradeDB) {
@@ -21,31 +38,104 @@ class GraphStore {
     }
   }
 
-  async openIdb() {
-    if (this.idb) throw new Error(`Can't reopen IDB`);
-    //await idb.delete(this.idbName);
-    //console.warn('Dropped IDB database from previous run');
-    this.idb = await idb.open(this.idbName, 1, this.migrateIdb.bind(this));
-    console.debug('IDB opened');
+  async start() {
+    console.group('GraphStore start');
+    try {
+
+      // open IDB
+      const idbName = this.opts.idbName || 'graph-worker';
+      this.idb = await idb.open(idbName, 1, this.migrateIdb.bind(this));
+      console.debug('Opened IDB');
+
+      // load working dataset
+      const idbTx = this.idb.transaction(['graphs', 'objects']);
+      const allGraphs = await idbTx.objectStore('graphs').getAll();
+      for (const graphData of allGraphs) {
+        const graph = new Graph(this, graphData);
+        this.graphs.set(graphData.graphId, graph);
+
+        // fetch all the objects
+        const objects = await idbTx
+          .objectStore('objects').index('by graph')
+          .getAll(graphData.graphId);
+
+        // construct the objects
+        for (const objData of objects) {
+          const obj = graph.engine.spawnObject(objData);
+          graph.objects.set(objData.objectId, obj);
+          this.objects.set(objData.objectId, obj);
+        }
+      }
+      console.debug('Loaded', this.graphs.size, 'graphs containing', this.objects.size, 'objects');
+
+      // open up shop
+      this.readyForTxn = true;
+      if (this.waitingTxns.length) {
+        console.debug('Processing startup transactions...');
+        await this.runWaitingTxns();
+      }
+      console.info('GraphStore is fully initialized. :)');
+
+    } finally {
+      console.groupEnd();
+    }
   }
 
-  async closeIdb() {
-    this.ready = null;
-    if (!this.idb) return;
-    console.debug('Closing IDB');
-    const shutdown = this.idb.close();
-    this.idb = null;
-    await shutdown;
+  // user entrypoint that either runs immediately or queues for later
+  async transact(mode, cb) {
+    if (this.readyForTxn) {
+      try {
+        this.readyForTxn = false;
+        return await this.immediateTransact(mode, cb);
+      } finally {
+        this.readyForTxn = true;
+        if (this.waitingTxns.length) {
+          console.warn('Scheduling transactions that queued during failed immediate transact');
+          setTimeout(this.runWaitingTxns.bind(this), 0);
+        }
+      }
+    } else {
+      return new Promise((resolve, reject) => {
+        this.waitingTxns.push({
+          mode, cb,
+          out: {resolve, reject},
+        });
+      });
+    }
   }
 
-  async transact(mode='readonly', cb) {
+  // model entrypoint that runs everything that's waiting
+  async runWaitingTxns() {
+    if (!this.readyForTxn) throw new Error(`runWaitingTxns() ran when not actually ready`);
+    try {
+      this.readyForTxn = false;
+      console.group('Processing all queued transactions');
+
+      // process until there's nothing left
+      while (this.waitingTxns.length) {
+        const {mode, cb, out} = this.waitingTxns.shift();
+
+        // pipe result to the original 
+        txnPromise = this.immediateTransact(mode, cb);
+        txnPromise.then(out.resolve, out.reject);
+        await txnPromise;
+      }
+
+    } finally {
+      this.readyForTxn = true;
+      console.groupEnd();
+    }
+  }
+
+  async immediateTransact(mode='readonly', cb) {
     const idbTx = this.idb.transaction(['graphs', 'objects', 'records', 'events'], mode);
     console.group(`${mode} graph transaction`);
 
     try {
       const txn = new GraphTxn(this, idbTx, mode);
-      await cb(txn);
+      const result = await cb(txn);
       await txn.finish();
+      return result;
 
     } catch (err) {
       if (idbTx.error) {
@@ -55,40 +145,92 @@ class GraphStore {
       console.error('GraphTxn crash:', err);
       console.warn('Aborting IDB transaction due to', err.name);
       idbTx.abort();
-      throw new Error(`GraphTxn rolled back due to ${err.stack.split('\n')[0]}`);
+      throw err;//new Error(`GraphTxn rolled back due to ${err.stack.split('\n')[0]}`);
 
     } finally {
       console.groupEnd();
     }
   }
 
-  deleteEverything() {
-    return this.transact('readwrite', async txn => {
-      console.warn('!! DELETING ALL GRAPHS AND DATA !!');
-      await txn.txn.objectStore('graphs').clear();
-      await txn.txn.objectStore('objects').clear();
-      await txn.txn.objectStore('records').clear();
-      await txn.txn.objectStore('events').clear();
-      txn._addAction(null, {
-        type: 'purge all',
-      });
+  /*
+  async close() {
+    this.transact('readonly', async txn => {
+      clearInterval(this.warnInterval);
+      console.warn('Closing IDB');
+      const shutdown = this.idb.close();
+      this.idb = null;
+      await shutdown;
+    });
+  }
+  */
+
+  processEvent({timestamp, graphId, entries}) {
+    return this.immediateTransact('readonly', async txn => {
+      let graph = this.graphs.get(graphId);
+      for (const entry of entries) {
+        switch (entry.type) {
+
+          case 'delete graph':
+            throw new Error('@#TODO DELETE GRAPH');
+
+          case 'create graph':
+            // TODO: event specified 'engine' (immutable for graphId)
+            // set createdAt
+            if (graph) throw new Error(`DESYNC graph double create`);
+            const graphData = await txn.tx.objectStore('graphs').get(graphId);
+            graph = new Graph(this, graphData);
+            this.graphs.set(graphId, graph);
+            break;
+
+          case 'update graph':
+            // TODO: event specifies new 'fields' and 'version'
+            break;
+
+          case 'create object':
+            // seemingly is full event
+            const obj = graph.engine.spawnObject(entry.data);
+            graph.objects.set(objData.objectId, obj);
+            this.objects.set(objData.objectId, obj);
+            break;
+
+          default:
+            console.warn('"processing"', graphId, 'event', entry.type, entry.data);
+        }
+      }
     });
   }
 
-  async listAllGraphs() {
-    return await this.idb
-      .transaction('graphs')
-      .objectStore('graphs')
-      .getAll();
-  }
+  async findOrCreateGraph(engine, {fields, buildCb}) {
+    await this.ready;
 
-  loadGraph(graphId) {
-    return Graph.load(this, graphId);
-  }
+    // return an existing graph if we find it
+    const existingGraph = Array
+      .from(this.graphs.values())
+      .find(({data}) => {
+        if (data.engine !== engine.engineKey) return false;
+        return Object
+          .keys(fields)
+          .every(key => data.fields[key] == fields[key]);
+      });
+    if (existingGraph) return existingGraph;
 
-  async processEvent({timestamp, graphId, entries}) {
-    for (const entry of entries) {
-      //console.warn('"processing" event', timestamp, graphId, entry);
-    }
+    // ok we have to make one
+    console.warn('Creating new graph for', fields);
+    const graphBuilder = await buildCb(engine, fields);
+    console.info('Graph is built');
+
+    // store the new graph
+    const graphId = await this
+      .transact('readwrite', async txn => {
+        //await txn.purgeGraph(appId);
+        const graphId = await txn.createGraph({engine, fields});
+        await txn.createObjectTree(graphId, graphBuilder.rootNode);
+        return graphId;
+      });
+    console.info('Created graph', graphId);
+
+    if (!this.graphs.has(graphId)) throw new Error(
+      `Graph ${graphId} wasn't loaded after creation`);
+    return this.graphs.get(graphId);
   }
 }

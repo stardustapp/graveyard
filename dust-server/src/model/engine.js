@@ -9,9 +9,10 @@ function randomString(bytes=10) { // 32 for a secret
 }
 
 class GraphObject {
-  constructor(graph, record) {
-    this.graph = graph;
-    this.record = record;
+  constructor(type, data) {
+    this.type = type;
+    this.data = data;
+    //console.log('created GraphObject', data, type);
   }
 }
 
@@ -30,5 +31,14 @@ class GraphEngine {
     if (!GraphEngines.has(key)) throw new Error(
       `Graph Engine ${JSON.stringify(key)} is not registered`);
     return GraphEngines.get(key);
+  }
+
+  spawnObject(data) {
+    const type = this.names.get(data.type);
+    if (!type) throw new Error(
+      `Object ${data.objectId} ${JSON.stringify(data.name)
+      } has unimplemented type ${JSON.stringify(data.type)}`);
+    // TODO: support NodeBuilder extending GraphObjects?
+    return new GraphObject(type, data);
   }
 }

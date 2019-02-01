@@ -26,20 +26,22 @@ class GraphTxn {
 
   _onComplete() {
     if (this.graphActions) {
-      console.log(`DESYNC: GraphTxn didn't have a chance to commit its actions`, this.graphActions);
+      console.warn(`DESYNC: GraphTxn didn't have a chance to commit its actions`, this.graphActions);
       throw new Error(`DESYNC: No GraphTxn Completion`);
     }
   }
 
   _onError(err) {
-    console.error(`GraphTxn failed:`, err.constructor, err.code, err.name);
+    // error is null if aborted
+    if (err) console.error(
+      `GraphTxn failed:`, err.constructor, err.code, err.name);
   }
 
 
   async purgeGraph(graphId) {
     const ops = [
       this.txn.objectStore('graphs').delete(graphId),
-      this.txn.objectStore('events').delete(IDBKeyRange.bound([graphId, '#'], [graphId, '~'])),
+      this.txn.objectStore('events').delete(IDBKeyRange.bound([graphId, new Date(0)], [graphId, new Date(1e13)])),
     ];
 
     const objStore = this.txn.objectStore('objects');
@@ -74,6 +76,17 @@ class GraphTxn {
     });
   }
 
+  async purgeEverything() {
+    await this.txn.objectStore('graphs').clear();
+    await this.txn.objectStore('objects').clear();
+    await this.txn.objectStore('records').clear();
+    await this.txn.objectStore('events').clear();
+
+    this._addAction(graphId, {
+      type: 'delete everything',
+    });
+  }
+
   async createGraph(options={}) {
     const graphId = options.forceId || randomString(3);
 
@@ -87,9 +100,10 @@ class GraphTxn {
     await this.txn.objectStore('graphs').add({
       graphId,
       version: 1,
+      engine: options.engine.engineKey,
       createdAt: this.currentDate,
       updatedAt: this.currentDate,
-      metadata: options.metadata,
+      fields: options.fields,
     });
 
     // seed the events
@@ -99,9 +113,25 @@ class GraphTxn {
       type: 'update graph',
       data: {
         version: 1,
-        fields: options.metadata,
+        fields: options.fields,
       },
     });
+
+    return graphId;
+  }
+
+  async createObjectTree(graphId, rootNode) {
+    const nodes = [];
+    function addNode(node) {
+      nodes.push(node);
+      if (node.names) {
+        Array
+          .from(node.names.values())
+          .forEach(addNode);
+      }
+    }
+    addNode(rootNode);
+    return this.createObjects(graphId, nodes);
   }
 
   async createObjects(graphId, objects) {

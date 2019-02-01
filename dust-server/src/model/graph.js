@@ -1,4 +1,14 @@
 class Graph {
+  constructor(store, data) {
+    this.store = store;
+    this.data = data;
+    this.engine = GraphEngine.get(data.engine);
+
+    this.objects = new Map;
+  }
+}
+
+/*
   static async load(db, graphId) {
     const tx = await db.idb
       .transaction(['graphs', 'objects']);
@@ -110,3 +120,4 @@ function readField(key, input, config, context) {
   }
   return null;
 }
+*/

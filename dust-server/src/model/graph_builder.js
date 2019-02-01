@@ -27,20 +27,6 @@ class GraphBuilder {
     console.log('creating graph from', this);
     throw new Error(`#TODO 344`);
   }
-
-  flattenAllNodes() {
-    const nodes = [];
-    function addNode(node) {
-      nodes.push(node);
-      if (node.names) {
-        Array
-          .from(node.names.values())
-          .forEach(addNode);
-      }
-    }
-    addNode(this.rootNode);
-    return nodes;
-  }
 }
 
 class GraphGhostNode {

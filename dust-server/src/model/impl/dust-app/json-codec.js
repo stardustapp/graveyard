@@ -145,7 +145,7 @@ class DustAppJsonCodec {
     for (const res of resources.RouteTable) {
       if (res.name !== 'RootRoutes') continue;
 
-      const router = app.withRouter('Webapp', res.version, {});
+      const router = app.withRouter('Router', res.version, {});
 
       if (res.layout) {
         const layout = app.getTemplate(res.layout);
