@@ -15,13 +15,14 @@ importScripts(
 
   '/~~src/graph-worker/lib.js',
   '/~~src/graph-worker/ddp.js',
-  
+
   '/~~src/model/field-types.js',
   '/~~src/model/engine.js',
   '/~~src/model/engine_builder.js',
   '/~~src/model/graph.js',
   '/~~src/model/graph_builder.js',
   '/~~src/model/transaction.js',
+  '/~~src/model/store.js',
 
   '/~~src/model/impl/app-profile/model.js',
 

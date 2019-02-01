@@ -103,8 +103,11 @@ class GraphBuilderNode {
               this.names.set(objName, node)
             }
             const object = this.names.get(objName);
-            if (object.type !== name) throw new Error(
+            if (object.type !== name) {
+              console.log('-->', object)
+              throw new Error(
               `Failed to get ${JSON.stringify(name)} ${JSON.stringify(objName)}, was actually ${JSON.stringify(object.type)}`);
+            }
             return object;
           },
         });
