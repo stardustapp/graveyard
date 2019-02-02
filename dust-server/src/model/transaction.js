@@ -82,7 +82,7 @@ class GraphTxn {
     await this.txn.objectStore('records').clear();
     await this.txn.objectStore('events').clear();
 
-    this._addAction(graphId, {
+    this._addAction(null, {
       type: 'delete everything',
     });
   }
@@ -97,24 +97,20 @@ class GraphTxn {
     // TODO: check for existing objects
 
     // write out the graph itself
-    await this.txn.objectStore('graphs').add({
+    const record = {
       graphId,
       version: 1,
       engine: options.engine.engineKey,
+      fields: options.fields,
       createdAt: this.currentDate,
       updatedAt: this.currentDate,
-      fields: options.fields,
-    });
+    };
+    await this.txn.objectStore('graphs').add(record);
 
     // seed the events
     this._addAction(graphId, {
       type: 'create graph',
-    }, {
-      type: 'update graph',
-      data: {
-        version: 1,
-        fields: options.fields,
-      },
+      data: record,
     });
 
     return graphId;
@@ -158,30 +154,36 @@ class GraphTxn {
       const refObjIds = new Set;
       const missingRefs = new Set;
       function resolveRef(ref) {
-        if (ref.target.constructor === GraphBuilderNode) {
-          if (readyObjs.has(ref.target)) {
-            const objId = readyObjs.get(ref.target);
+        let {target} = ref;
+        if (target.constructor === GraphGhostNode) {
+          if (target.parent.names.has(target.childName)) {
+            target = target.parent.names.get(target.childName);
+          }
+        }
+        if (target.constructor === GraphBuilderNode) {
+          if (readyObjs.has(target)) {
+            const objId = readyObjs.get(target);
             refObjIds.add(objId);
             return objId;
           }
-        } else if (ref.target.constructor === String) {
+        } else if (target.constructor === String) {
           // TODO: better path resolving strategy
-          const target = Array
+          const newTarget = Array
             .from(readyObjs.entries())
-            .find(x => x[0].name === ref.target);
-          if (target) {
+            .find(x => x[0].name === target);
+          if (newTarget) {
             const objId = target[1];
             refObjIds.add(objId);
             return objId;
           }
         }
 
-        console.warn('Reference for', ref, 'missing');
+        console.debug('Reference for', ref, 'missing');
         missingRefs.add(ref);
         return false;
       }
 
-      const primitives = new Set([String, Date, Array, Boolean, Blob]);
+      const primitives = new Set([String, Date, Array, Boolean, Number, Blob]);
       function cleanValue(val) {
         if (val == null) {
           return null;
@@ -207,8 +209,7 @@ class GraphTxn {
 
       const cleanedData = cleanValue(data);
       if (missingRefs.size > 0) {
-        console.info('Object', name, 'is missing', missingRefs.size, 'refs');
-        console.log(data);
+        console.info('Object', name, 'is missing', missingRefs.size, 'refs.', data);
         return false;
       }
 
@@ -249,13 +250,13 @@ class GraphTxn {
           compiled++;
         }
 
-        console.log('Completed', compiled, 'objects in pass');
+        console.log('Completed', compiled, 'objects in pass', pass);
       } finally {
         console.groupEnd();
       }
     }
 
-    console.log('Stored', actions.length, 'objects');
+    console.log('Stored', readyObjs.size, 'objects');
   }
 
   async finish() {
@@ -278,7 +279,9 @@ class GraphTxn {
     console.log('events:', events);
     // store the events
     const eventStore = this.txn.objectStore('events');
-    const ops = events.map(doc => eventStore.add(doc));
+    const ops = events
+      .filter(doc => doc.graphId) // ignore runtime global events
+      .map(doc => eventStore.add(doc));
 
     // wait for transaction to actually commit
     await Promise.all(ops);
@@ -287,7 +290,11 @@ class GraphTxn {
     // pass events into the reactivity engine
     // this is a bad time to fail!
     for (const event of events) {
-      await this.graphStore.processEvent(event);
+      try {
+        await this.graphStore.processEvent(event);
+      } catch (err) {
+        console.error(`DESYNC: Event failed to process.`, event, err);
+      }
     }
   }
 }

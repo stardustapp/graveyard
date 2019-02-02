@@ -61,10 +61,10 @@ class GraphStore {
 
         // construct the objects
         for (const objData of objects) {
-          const obj = graph.engine.spawnObject(objData);
-          graph.objects.set(objData.objectId, obj);
-          this.objects.set(objData.objectId, obj);
+          graph.populateObject(objData);
         }
+
+        graph.relink();
       }
       console.debug('Loaded', this.graphs.size, 'graphs containing', this.objects.size, 'objects');
 
@@ -170,33 +170,37 @@ class GraphStore {
       for (const entry of entries) {
         switch (entry.type) {
 
+          case 'delete everything':
+            // TODO: graceful shutdown?
+            this.graphs = new Map;
+            this.objects = new Map;
+            break;
+
           case 'delete graph':
             throw new Error('@#TODO DELETE GRAPH');
 
           case 'create graph':
-            // TODO: event specified 'engine' (immutable for graphId)
-            // set createdAt
-            if (graph) throw new Error(`DESYNC graph double create`);
-            const graphData = await txn.tx.objectStore('graphs').get(graphId);
-            graph = new Graph(this, graphData);
+            if (graph) throw new Error(
+              `DESYNC: graph double create`);
+            if (this.graphs.has(graphId)) throw new Error(
+              `DESYNC: graph ${graphId} already registered`);
+            graph = new Graph(this, entry.data);
             this.graphs.set(graphId, graph);
             break;
 
-          case 'update graph':
+          //case 'update graph':
             // TODO: event specifies new 'fields' and 'version'
-            break;
+            //break;
 
           case 'create object':
-            // seemingly is full event
-            const obj = graph.engine.spawnObject(entry.data);
-            graph.objects.set(objData.objectId, obj);
-            this.objects.set(objData.objectId, obj);
+            graph.populateObject(entry.data);
             break;
 
           default:
             console.warn('"processing"', graphId, 'event', entry.type, entry.data);
         }
       }
+      if (graph) graph.relink();
     });
   }
 

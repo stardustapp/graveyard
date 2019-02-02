@@ -30,9 +30,10 @@ class GraphBuilder {
 }
 
 class GraphGhostNode {
-  constructor(parent, child) {
-    this.throwable = new Error(`Failed to get ${JSON.stringify(child)}, doesn't exist`);
-    this.final = null;
+  constructor(parent, childName) {
+    this.throwable = new Error(`Failed to get ${JSON.stringify(childName)}, doesn't exist`);
+    this.parent = parent;
+    this.childName = childName;
   }
 }
 
@@ -89,10 +90,11 @@ class GraphBuilderNode {
               this.names.set(objName, node)
             }
             const object = this.names.get(objName);
-            if (object.type !== name) {
+            // TODO: typecheck at some point!~
+            if (object.constructor !== GraphGhostNode && object.type !== name) {
               console.log('-->', object)
               throw new Error(
-              `Failed to get ${JSON.stringify(name)} ${JSON.stringify(objName)}, was actually ${JSON.stringify(object.type)}`);
+                `Failed to get ${JSON.stringify(name)} ${JSON.stringify(objName)}, was actually ${JSON.stringify(object.type)}`);
             }
             return object;
           },

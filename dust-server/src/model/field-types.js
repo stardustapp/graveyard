@@ -75,6 +75,14 @@ class PendingFieldType extends FieldType {
     this.source = source;
     this.final = null;
   }
+  fromExt(input) {
+    // TODO: best way of doing this?
+    if (this.final) {
+      return this.final.fromExt(input);
+    }
+    throw new FieldTypeError(this,
+      `Still pending`);
+  }
 }
 
 const builtins = new Map;
@@ -119,8 +127,9 @@ class ReferenceFieldType extends FieldType {
     if (!input) throw new FieldTypeError(this,
       `Reference cannot be null`);
     if (input.constructor === GraphReference) return input;
+    if (input.constructor === GraphGhostNode) return new GraphReference(input);
     if (input.constructor !== GraphBuilderNode) throw new FieldTypeError(this,
-      `Reference must be to a GraphBuilderNode or GraphReference (TODO)`);
+      `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode (TODO)`);
     if (input.type !== this.targetPath) throw new FieldTypeError(this,
       `Reference expected to be ${this.targetPath}, was ${input.type}`);
     return new GraphReference(input);
@@ -191,6 +200,9 @@ class StructFieldType extends FieldType {
     //console.log("===> reading data", fields, 'with', this);
     if (!fields) throw new FieldTypeError(this,
       `Given falsey struct, can't read from that!`);
+    if (fields.constructor !== Object) throw new FieldTypeError(this,
+      `Given non-Object ${fields.constructor.name} struct, won't read from that!`);
+
     const data = {};
     const extraKeys = new Set(Object.keys(fields));
     for (const [key, field] of this.fields) {

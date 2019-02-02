@@ -103,15 +103,18 @@ class DustAppJsonCodec {
     }
 
 
+    function mapDocLocator (child) {
+      return {
+        Children: child.children.map(mapDocLocator),
+        Fields: child.fields,
+        FilterBy: child.filterBy,
+        LimitTo: child.limitTo,
+        RecordType: resolveRecordSchema(child.recordType),
+        SortBy: child.sortBy,
+      };
+    }
     for (const res of resources.Publication) {
-      app.withPublication(res.name, res.version, {
-        Children: res.children,
-        Fields: res.fields,
-        FilterBy: res.filterBy,
-        LimitTo: res.limitTo,
-        RecordType: resolveRecordSchema(res.recordType),
-        SortBy: res.sortBy,
-      });
+      app.withPublication(res.name, res.version, mapDocLocator(res));
     }
 
 
@@ -120,7 +123,7 @@ class DustAppJsonCodec {
         Handlebars: res.html,
         Style: {
           SCSS: res.scss,
-          CSS: res.css,
+          CSS: res.css || '',
         },
         Scripts: res.scripts.map(script => {
           const typeMapped = ['LC-Render', 'LC-Create', 'LC-Destroy', 'Helper', 'Event', 'Hook'][script.type];

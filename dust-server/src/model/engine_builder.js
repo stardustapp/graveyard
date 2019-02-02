@@ -10,7 +10,7 @@ const GraphEngineBuilder = function() {
       console.group(`[${key}] Building graph engine...`);
       try {
         cb(this);
-        console.log('Successfully built graph engine!', this);
+        //console.log('Successfully built graph engine!', this);
       } finally {
         console.groupEnd();
       }

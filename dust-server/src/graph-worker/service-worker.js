@@ -174,6 +174,10 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
   // get the app
   const store = graphWorker.graphStore;
   const engine = GraphEngine.get('dust-app/v1-beta1');
+
+  // clear everything if testing installation
+  //await store.transact('readwrite', txn => txn.purgeEverything());
+
   let graph = await store.findOrCreateGraph(engine, {
     fields: {
       heritage: 'stardust-poc',
