@@ -24,7 +24,7 @@ class Graph {
 
   relink() {
     for (const root of this.roots) {
-      console.log('relinking', root);
+      //console.log('relinking', root);
       // TODO
     }
   }

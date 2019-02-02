@@ -30,6 +30,8 @@ importScripts(
   '/~~src/model/impl/dust-app/json-codec.js',
   '/~~src/model/impl/dust-app/repository.js',
   '/~~src/model/impl/dust-app/compile.js',
+
+  '/~~src/model/impl/lua-machine/model.js',
 );
 
 class GraphContext {
@@ -195,15 +197,7 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
   });
 
   console.log('have graph', graph);
-  throw new Error('sw todo');
-
-  const application = Array
-    .from(graph.objects.values())
-    .find(x => x.record.config.name === 'Application');
-  if (!application) throw new Error(`app-missing:
-    Graph '${appId}' does not contain a web application.`);
-
-  return CompileDustApp(application, input);
+  return CompileDustApp(graph, input);
 });
 
 self.addEventListener('fetch', event => {

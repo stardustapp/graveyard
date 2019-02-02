@@ -33,50 +33,94 @@ function unwrapJs(input) {
 class ResourceCompiler {
   constructor(graph) {
     this.readyDeps = new Set;
-    this.resources = Array
-      .from(graph.objects.values())
-      .map(x => x.record.config);
+    this.resources = Array.from(graph.objects.values());
+    // TODO: add extra 'resources' from Depedency resources (probably before this point tho)
+    this.rootNode = Array.from(graph.roots)[0];
+  }
+  processPrelude() {
+    const rootObjId = this.rootNode.data.objectId;
+    const lines = [commonTags.codeBlock`
+      const DUST = scriptHelpers; // TODO
+      DUST.objects = {};
+      DUST.resTree = {
+        core: {
+          Record: BaseRecord,
+          Class: BaseClass,
+          String: String,
+          Number: Number,
+          Object: Object,
+          Date: Date,
+          Boolean: Boolean,
+          Blob: Blob,
+        },`];
+
+    const printObjectTree = (data, indent) => {
+      const children = this.resources
+        .filter(other => other.data.parentObjId === data.objectId);
+      if (children.length) {
+        lines.push(`${indent}${Js(data.name)}: {objectId: ${Js(data.objectId)}, children: {`);
+        for (const child of children) {
+          printObjectTree(child.data, indent+'  ');
+        }
+        lines.push(`${indent}}},`);
+      } else {
+        lines.push(`${indent}${Js(data.name)}: ${Js(data.objectId)},`);
+      }
+    };
+
+    lines.push(`  my: {`);
+    for (const res of this.resources) {
+      if (res.data.parentObjId === rootObjId)
+        printObjectTree(res.data, '    ');
+    }
+    lines.push(`  },`);
+
+    // TODO: add Dependency trees
+
+    lines.push(`};`);
+    return lines.map(x => '  '+x.replace(/\n/g, '\n  ')).join('\n');
   }
   process(type, callback) {
     const readyChunks = new Array;
     const pendingChunks = new Array;
     const {readyDeps} = this;
 
-    function completeDep(name) {
-      if (readyDeps.has(name)) throw new Error(
-        `dep ${Js(name)} completed twice`);
-      readyDeps.add(name);
+    function completeDep(objectId) {
+      if (readyDeps.has(objectId)) throw new Error(
+        `dep ${Js(objectId)} completed twice`);
+      readyDeps.add(objectId);
 
       for (const chunk of pendingChunks) {
         const {script, missingDeps, complete} = chunk;
-        if (complete || !missingDeps.has(name)) continue;
+        if (complete || !missingDeps.has(objectId)) continue;
 
-        missingDeps.delete(name);
+        missingDeps.delete(objectId);
         if (missingDeps.size > 0) continue;
 
         chunk.complete = true;
         readyChunks.push(script);
-        completeDep(chunk.name);
+        completeDep(chunk.objectId);
       }
     }
 
-    for (const res of this.resources.filter(x => x.type === type)) {
-      const {name} = res;
+    for (const obj of this.resources.filter(x => x.data.type === type)) {
+      const {name, objectId} = obj.data;
       const missingDeps = new Set;
       const self = {
-        addDep(name) {
-          if (!readyDeps.has(name))
-            missingDeps.add(name);
+        addDep(objectId) {
+          if (!readyDeps.has(objectId))
+            missingDeps.add(objectId);
         },
       };
 
       const script = `
-  DUST.resources[${Js(name)}] = ${callback.call(self, res)}`;
+  DUST.objects[${Js(objectId)}] =
+  ${callback.call(self, obj.data)}`;
       if (missingDeps.size > 0) {
-        pendingChunks.push({name, script, missingDeps, complete: false});
+        pendingChunks.push({objectId, script, missingDeps, complete: false});
       } else {
         readyChunks.push(script);
-        completeDep(name);
+        completeDep(objectId);
       }
     }
 
@@ -85,7 +129,7 @@ class ResourceCompiler {
       .forEach(x => {
         console.warn(`Resource ${Js(x.name)} never completed!`, x);
         readyChunks.push(`
-  // WARN: ${Js(x.name)} depends on missing deps ${Js(Array.from(x.missingDeps))}`);
+  // WARN: ${Js(x.name)} depends on missing objects ${Js(Array.from(x.missingDeps))}`);
         readyChunks.push(x.script);
       });
 
@@ -93,12 +137,15 @@ class ResourceCompiler {
   }
 }
 
-async function CompileDustApp(application, input) {
-  const {graphId} = application.record;
+async function CompileDustApp(graph, input) {
+  const {graphId} = graph.data;
+  const application = Array.from(graph.roots)[0];
+  if (!application) throw new Error(`app-missing:
+    Graph '${graphId}' does not contain a web application.`);
 
-  const compiler = new ResourceCompiler(application.graph);
-  compiler.readyDeps.add('core:Record');
-  compiler.readyDeps.add('core:Class');
+  const compiler = new ResourceCompiler(graph);
+  //compiler.readyDeps.add('core:Record');
+  //compiler.readyDeps.add('core:Class');
 
   const scriptChunks = new Array('');
   function addChunk(name, code) {
@@ -110,127 +157,142 @@ async function CompileDustApp(application, input) {
     scriptChunks.push(code);
   }
 
-  addChunk('Mongo Collections', compiler.process('collection', function (res) {
+  addChunk('Application Prelude', compiler.processPrelude());
+
+  addChunk('Mongo Collections', compiler.process('RecordSchema', function (res) {
+    const {Fields, Base, SlugBehavior, TimestampBehavior} = res.fields;
+
     const fieldLines = [];
     const behaviors = [];
-    for (const fieldKey in res.fields) {
-      const field = res.fields[fieldKey];
-      let bareType = {
-        'core/string': 'String',
-        'core/number': 'Number',
-        'core/boolean': 'Boolean',
-        'core/date': 'Date',
-        'core/timestamp': 'Date',
-        'core/object': 'Object',
-      }[field.type];
-      if (!bareType) {
-        this.addDep(field.type);
-        bareType = `DUST.get(${Js(field.type)}, "CustomRecord")`
-      };
-      if (field.isList) bareType = `[${bareType}]`;
+    for (const field of Fields) {
+      const {Key, Type, Optional, IsList, Immutable, DefaultValue} = field;
+      let bareType;
+      if (Type.BuiltIn) {
+        bareType = `DUST.get(${Js('core:'+Type.BuiltIn)}, "CustomRecord")`
+      } else if (Type.SchemaRef) {
+        this.addDep(Type.SchemaRef);
+        bareType = `DUST.objects[${Js(Type.SchemaRef)}]`;
+      } else if (Type.SchemaEmbed) {
+        throw new Error(`TODO: SchemaEmbed`);
+      }
+      if (IsList) bareType = `[${bareType}]`;
 
       const bits = [`type: ${bareType}`];
-      if (!field.required) bits.push(`optional: true`);
-      if (!field.mutable) bits.push(`immutable: true`);
-      if (field.default) {
-        bits.push(`default: function() { return ${Js(JSON.parse(field.default))}; }`);
+      if (Optional) bits.push(`optional: true`);
+      if (Immutable) bits.push(`immutable: true`);
+      if (DefaultValue) {
+        bits.push(`default: function() { return ${Js(JSON.parse(DefaultValue))}; }`);
       }
       fieldLines.push(`
-        ${fieldKey}: { ${bits.join(', ')} },`);
+        ${Key}: { ${bits.join(', ')} },`);
     }
 
-    this.addDep(res.base);
-    return `DUST
-    .get(${Js(res.base)}, "CustomRecord")
+    let bareBase;
+    if (Base.BuiltIn) {
+      bareBase = commonTags.source`
+        DUST.get(${Js('core:' + Base.BuiltIn)}, "CustomRecord")`;
+    } else if (Base.SchemaRef) {
+      bareBase = commonTags.source`
+        DUST.objects[${Js(Base.SchemaRef)}]`;
+      this.addDep(Base.SchemaRef);
+    }
+
+    return `${bareBase}
     .inherit({
       name: ${Js(res.name)},
       fields: {${fieldLines.join('')}
       },${(behaviors.length ? `
       behaviors: ${Js(behaviors)},`:'')}
-    });
-`;
+    });\n`;
   }));
 
-  addChunk('DDP Publications', compiler.process('record-publication', function (pub) {
-    return `new DustPublication(${Js(graphId)}, ${Js(pub)});`;
+  addChunk('DDP Publications', compiler.process('Publication', function (res) {
+    return `new DustPublication(${Js(graphId)}, ${Js(res.fields)});`;
   }));
 
-  addChunk('Server Methods', compiler.process('external-script', function (script) {
-    return `DustMethod(${Js(graphId)}, ${Js(script.name)});`;
+  addChunk('Server Methods', compiler.process('ServerMethod', function (res) {
+    return `DustMethod(${Js(graphId)}, ${Js(res.name)});`;
   }));
 
-  addChunk('Blaze Templates', compiler.process('blaze-component', function (res) {
+  addChunk('Blaze Templates', compiler.process('Template', function (res) {
+    const {Handlebars, Scripts, Style} = res.fields;
+
     const scriptLines = [];
-    for (const scriptKey in res.scripts) {
-      const script = res.scripts[scriptKey];
-      let unwrapped = script.js;
-      // modern compiled script, uses 'this' as DUST
-      const prolog1 = "(function() {\n  var DUST;\n\n  DUST = this;\n\n  return ";
-      const epilog1 = ";\n\n});\n";
-      if (unwrapped.startsWith(prolog1) && unwrapped.endsWith(epilog1)) {
-        unwrapped = unwrapped.slice(prolog1.length, unwrapped.length - epilog1.length);
-      }
-      // legacy compiled script, uses 'DUST' from the env
-      const prolog2 = "(function() {\n  return ";
-      const epilog2 = ";\n\n}).call();\n";
-      if (unwrapped.startsWith(prolog2) && unwrapped.endsWith(epilog2)) {
-        unwrapped = unwrapped.slice(prolog2.length, unwrapped.length - epilog2.length);
-      }
+    for (const {Coffee, JS, Refs, Type} of Scripts) {
+      const type = Object.keys(Type)[0];
+      const param = Type[type];
       scriptLines.push(`
-  .addScript(${Js(script.type)}, ${Js(script.param)}, ${unwrapped})`);
+  .addScript(${Js(type)}, ${Js(param)}, ${unwrapJs(JS)})`);
     }
     return `InflateBlazeTemplate({
     name: ${Js(res.name)},
-    template: \`\n${escapeTicks(res.template)}\`,
-    css: \`\n${escapeTicks(res.style.css)}\`,
+    template: \`\n${escapeTicks(Handlebars)}\`,
+    css: \`\n${escapeTicks(Style.CSS)}\`,
   })${scriptLines.join('')};
 `;
   }));
 
-  const routeSrc = Array
-    .from(application.record.config.routes)
-    .map(route => {
-      let callback = '() => {}';
-      switch (route.type) {
-        case 'blaze-template':
-          // TODO: fix action to be an object
-          callback = `function() { this.render(${Js(route.action)}); }`;
-          break;
-        case 'inline-script':
-          // Compile the route action
-          callback = unwrapJs(route.action.js).replace(/\n/g, `\n  `)+`.call(DUST)`;
-          break;
-        default:
-          throw new Error('weird route type '+Js(route.type));
-      }
-      return `
-  router.add(${Js(route.path)}, ${callback});
-`;
-    }).join('');
+  addChunk('Application Router', compiler.process('Router', function (res) {
+    const {DefaultLayout} = res.fields;
+    const lines = [commonTags.source`
+      new DustRouter({
+          baseUrl: APP_ROOT,
+    `];
 
-  addChunk('Application Router', `
-  const router = new DustRouter({
-    baseUrl: APP_ROOT,
-    defaultLayout: ${Js(application.record.config.defaultLegacyLayoutId||null)},
-  });\n`+routeSrc);
+    if (DefaultLayout) {
+      this.addDep(DefaultLayout);
+      lines.push(`    defaultLayout: DUST.objects[${Js(DefaultLayout||null)}],`);
+    }
+
+    lines.push(`  });\n`);
+    return lines.join('\n');
+  }));
+
+  addChunk('App Routes', compiler.process('Route', function (res) {
+    const {Path, Action} = res.fields;
+    let callback = '() => {}';
+    switch (true) {
+
+      case 'Render' in Action:
+        const {Template} = Action.Render;
+        this.addDep(Template);
+        callback = `function() { this.render(DUST.objects[${Js(Template)}]); }`;
+        break;
+
+      case 'Script' in Action:
+        const {JS} = Action.Script;
+        // Compile the route action
+        callback = unwrapJs(JS).replace(/\n/g, `\n  `)+`.call(DUST)`;
+        break;
+      default:
+        throw new Error('weird route type '+Js(route.type));
+    }
+    return `DUST.objects[${Js(res.parentObjId)}]
+    .add(${Js(Path)}, ${callback});\n`;
+  }));
+
+  const appId = input.params.get('appId');
 
   return new Response(commonTags.html`<!doctype html>
 <title></title>
 <link href="/~~libs/vendor/fonts/roboto.css" type="text/css" rel="stylesheet">
 <link href="/~~libs/vendor/fonts/material-icons.css" type="text/css" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<base href="/~/apps/by-id/${encodeURIComponent(graphId)}/">
+<base href="/~/apps/by-id/${encodeURIComponent(appId)}/">
 <script>
-  const APP_ROOT = "/~/apps/by-id/${encodeURIComponent(graphId)}";
+  const APP_ROOT = "/~/apps/by-id/${encodeURIComponent(appId)}";
   __meteor_runtime_config__ = {
     DDP_DEFAULT_CONNECTION_URL: "http://ddp",
     meteorEnv: {},
   };
 </script>
 <script src="/~~libs/vendor/libraries/meteor-bundle.js"></script>
-<script src="/~~src/graph-worker/dust-app/runtime.js"></script>
+<script src="/~~src/model/impl/dust-app/runtime.js"></script>
 <script>
-  const appSub = Meteor.subscribe("/app-runtime", ${Js(graphId)});
+  const appSub = Meteor.subscribe("/app-runtime", {
+    graphId: ${Js(graphId)},
+    appId: ${Js(appId)},
+  });
 `+scriptChunks.join("\n")+`\n\n</script>`, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',

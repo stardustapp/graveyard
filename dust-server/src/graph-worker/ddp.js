@@ -76,9 +76,9 @@ class DDPSession {
           return;
         }
 
-        const appId = match.params.get('appId');
-        this.context = await this.manager.contexts.getOne(appId, appId);
-        this.context.connectSession(this);
+        //const appId = match.params.get('appId');
+        //this.context = await this.manager.contexts.getOne(appId, appId);
+        //this.context.connectSession(this);
       },
       ping(packet) {
         this.queueResponses({msg: 'pong'});

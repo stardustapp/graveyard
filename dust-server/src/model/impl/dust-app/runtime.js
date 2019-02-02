@@ -14,11 +14,11 @@ const Meteor = Package.meteor.Meteor;
 const moment = Package['momentjs:moment'].moment;
 const check = Package.check.check;
 
-DUST = scriptHelpers = {
+const scriptHelpers = {
   _liveTemplates: new Map,
   triggerHook: function(hookName, ...args) {
     var instance, instances, liveSet;
-    if (liveSet = DUST._liveTemplates.get(DUST._mainTemplate)) {
+    if (liveSet = scriptHelpers._liveTemplates.get(scriptHelpers._mainTemplate)) {
       liveSet.dep.depend();
       ({instances} = liveSet);
       if (instances.size === 1) {
@@ -32,15 +32,40 @@ DUST = scriptHelpers = {
       }
     }
   },
-  resources: {},
+  objects: {},
   get(name, type) {
-    if (name in DUST.resources) {
-      return DUST.resources[name];
+    if (!name || name.constructor !== String) {
+      console.warn('Reference:', name);
+      throw new Error(
+        `DUST reference was ${name.constructor.name} instead of String`);
     }
-    if (name === 'core:Record' && type === 'CustomRecord') return BaseRecord;
-    if (name === 'core:Class' && type === 'CustomRecord') return BaseClass;
-    throw new Error('Dust resource '+name+' '+type+' not found');
+    if (!name.includes(':'))
+      name = `my:${encodeURIComponent(name)}`;
+
+    // resolve the scope
+    const [pkg, path] = name.split(':');
+    const pkgTree = this.resTree[pkg];
+    if (!pkgTree) throw new Error(
+      `DUST reference ${JSON.stringify(name)} didn't resolve to a package`);
+    const node = pkgTree[path];
+    if (!node) throw new Error(
+      `DUST reference ${JSON.stringify(name)} didn't resolve to an object`);
+
+    // support built-ins and objects that are already loaded
+    if (node.constructor === String) {
+      if (node in this.objects)
+        return this.objects[node];
+    } else if ('objectId' in node) {
+      if (node.objectId in this.objects)
+        return this.objects[node.objectId];
+    } else {
+      return node;
+    }
+
+    throw new Error(
+      `DUST resource ${JSON.stringify(name)} (${type||'any'}) not found`);
   },
+
   params: new ReactiveVar({}),
   navigateTo(path) {
     Router.go(APP_ROOT + path);
@@ -52,7 +77,7 @@ Template.registerHelper('eq', function(a, b) {
 });
 Template.registerHelper('renderTemplate', function() {
   try {
-    return DUST.get(this.name, 'Template');
+    return scriptHelpers.get(this.name, 'Template');
   } catch (err) {
     console.log("Failed to render template", this.name, err.message);
     return null;
@@ -204,13 +229,13 @@ function InflateBlazeTemplate(template) {
   UI.Template.__define__(name, renderer);
 
   // register template for outside hooking
-  if (!DUST._liveTemplates.has(name)) {
-    DUST._liveTemplates.set(name, {
+  if (!scriptHelpers._liveTemplates.has(name)) {
+    scriptHelpers._liveTemplates.set(name, {
       dep: new Tracker.Dependency(),
       instances: new Set()
     });
   }
-  const liveSet = DUST._liveTemplates.get(name);
+  const liveSet = scriptHelpers._liveTemplates.get(name);
 
   // init hook system
   Template[name].hooks = {};
@@ -222,7 +247,7 @@ function InflateBlazeTemplate(template) {
     liveSet.instances.delete(this);
     return liveSet.dep.changed();
   });
-  Template[name].injector = DUST;
+  Template[name].injector = scriptHelpers;
 
   Template[name].addScript = function(type, param, factory) {
     var err, func;
@@ -235,27 +260,31 @@ function InflateBlazeTemplate(template) {
     }
     // TODO: report error
     switch (type) {
-      case 'helper':
+      case 'Helper':
         Template[name].helpers({
           [`${param}`]: func
         });
         break;
-      case 'event':
+      case 'Event':
         Template[name].events({
           [`${param}`]: func
         });
         break;
-      case 'hook':
+      case 'Hook':
         Template[name].registerHook(param, func);
         break;
-      case 'on-create':
-        Template[name].onCreated(func);
-        break;
-      case 'on-render':
-        Template[name].onRendered(func);
-        break;
-      case 'on-destroy':
-        Template[name].onDestroyed(func);
+      case 'Lifecycle':
+        switch (param) {
+          case 'Create':
+            Template[name].onCreated(func);
+            break;
+          case 'Render':
+            Template[name].onRendered(func);
+            break;
+          case 'Destroy':
+            Template[name].onDestroyed(func);
+            break;
+        }
         break;
     }
     return this;
@@ -270,8 +299,14 @@ class DustPublication {
   constructor(context, res) {
     this.context = context;
     this.res = res;
-    this.injector = DUST;
-    this.recordType = this.injector.get(this.res.recordType, 'CustomRecord');
+    this.injector = scriptHelpers;
+
+    const {BuiltIn, SchemaRef} = res.RecordType;
+    if (BuiltIn) {
+      this.recordType = this.injector.get(`core:${BuiltIn}`, 'CustomRecord');
+    } else if (SchemaRef) {
+      this.recordType = this.injector.objects[SchemaRef];
+    }
   }
 
   find(params = {}, parents = []) {
@@ -346,15 +381,18 @@ class DustRouter {
 
       const ctx = {
         params: this.params,
-        render: (templateName, opts={}) => {
-          const template = DUST.get(templateName, 'Template');
+        render: (template, opts={}) => {
+          // support passing a template directly
+          if (template.constructor !== Template)
+            template = scriptHelpers.get(template, 'Template');
+
           opts.data = opts.data || {params: this.params};
-          DUST._mainTemplate = templateName;
+          scriptHelpers._mainTemplate = template.dynName;
           this.render(template.dynName, opts);
         },
       };
 
-      DUST.params.set(this.params);
+      scriptHelpers.params.set(this.params);
       callback.call(ctx);
     });
   }

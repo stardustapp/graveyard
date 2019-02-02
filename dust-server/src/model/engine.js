@@ -1,11 +1,13 @@
 function randomString(bytes=10) { // 32 for a secret
   var array = new Uint8Array(bytes);
   crypto.getRandomValues(array);
-  return base64js
+  let str = base64js
     .fromByteArray(array)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
+  console.log('random str', bytes, str);
+  return str;
 }
 
 class GraphObject {

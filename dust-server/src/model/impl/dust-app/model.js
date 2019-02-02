@@ -104,8 +104,8 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
   const RecordField = {
     Key: String,
     Type: { anyOfKeyed: {
-      BuiltIns: { type: String, choices: [
-        'string', 'uri', 'secret', 'number', 'boolean', 'moment', 'object', 'graph', 'reference'
+      BuiltIn: { type: String, choices: [
+        'String', 'URI', 'Secret', 'Number', 'Boolean', 'Moment', 'Object', 'Graph', 'Reference'
       ]},
       SchemaEmbed: { reference: 'RecordSchema' },
       SchemaRef: { reference: 'RecordSchema' },
@@ -113,7 +113,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     IsList: { type: Boolean, default: false },
     Optional: { type: Boolean, default: false },
     Immutable: { type: Boolean, default: false },
-    DefaultValue: { type: String, optional: true }, // as [E]JSON string
+    DefaultValue: { type: String, optional: true }, // TODO: as [E]JSON string
     // TODO: enum, transient, mapping
   };
 
@@ -121,7 +121,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     treeRole: 'leaf',
     fields: {
       Base: { anyOfKeyed: {
-        BuiltIns: { type: String, choices: [ 'record', 'class' ]},
+        BuiltIn: { type: String, choices: [ 'Record', 'Class' ]},
         SchemaRef: { reference: 'RecordSchema' },
       }},
       Fields: { fields: RecordField, isList: true },
@@ -142,7 +142,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   const DocLocator = {
     RecordType: { anyOfKeyed: {
-      BuiltIns: { type: String, choices: [ 'record', 'class' ]},
+      BuiltIn: { type: String, choices: [ 'Record', 'Class' ]},
       SchemaRef: { reference: 'RecordSchema' },
     }},
     FilterBy: { type: String, optional: true },

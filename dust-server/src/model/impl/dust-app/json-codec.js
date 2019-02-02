@@ -59,7 +59,7 @@ class DustAppJsonCodec {
 
     function resolveRecordSchema(name) {
       if (name.startsWith('core:')) {
-        return { BuiltIns: name.slice(5) };
+        return { BuiltIn: name[5].toUpperCase() + name.slice(6) };
       } else if (name.includes(':')) {
         throw new Error(`recordSchema ${JSON.stringify(name)} scoping not implemented`);
       } else {
