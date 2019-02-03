@@ -15,11 +15,12 @@ importScripts(
   '/~~libs/vendor/libraries/moment.js',
   '/~~libs/vendor/libraries/common-tags.js',
   '/~~libs/vendor/libraries/idb.js',
-  '/~~libs/vendor/libraries/aws-sdk.js',
-  '/~~libs/vendor/libraries/sw-xhr.js',
+  //'/~~libs/vendor/libraries/aws-sdk.js',
+  //'/~~libs/vendor/libraries/sw-xhr.js',
 
   '/~~src/graph-worker/lib.js',
   '/~~src/graph-worker/ddp.js',
+  '/~~src/graph-worker/shell.js',
 
   '/~~src/model/field-types.js',
   '/~~src/model/engine.js',
@@ -103,8 +104,10 @@ class GraphContext {
   }
 }
 
-class GraphWorker {;
+class GraphWorker {
   constructor() {
+    console.log('==---------------- L O A D ----------------==');
+
     this.graphStore = new GraphStore();
     this.ddp = new DDPManager(this.graphStore, async appId => {
       console.warn('Creating context for', appId);
@@ -116,6 +119,10 @@ class GraphWorker {;
     this.ready = Promise.all([
       this.graphStore.ready,
     ]);
+    this.ready.then(function () {
+      console.log('==-----------------------------------------==');
+      console.log('');
+    });
   }
 }
 let graphWorker;
@@ -167,9 +174,53 @@ self.addEventListener('activate', function(event) {
 const destinations = {
   documentGET: new PathRouter,
   documentPOST: new PathRouter,
-  //styleGET: new PathRouter,
+  styleGET: new PathRouter,
   //unknownGET: new PathRouter,
 }
+
+destinations.documentGET.registerHandler('/~/apps/', (...args) => ShellSiteHome.apply(graphWorker, args));
+destinations.styleGET.registerHandler('/~/apps/style.css', (...args) => ShellSiteStyle.apply(graphWorker, args));
+
+destinations.documentGET.registerHandler('/~/apps/install-app', async (match, input) => {
+  const graphId = input.uri.queryParams.get('graphId');
+  const graph = graphWorker.graphStore.graphs.get(graphId);
+  if (!graph) throw new Error(
+    `graph ${graphId} not found to install`);
+
+  return ShellSiteAddAppForm.call(graphWorker, match, input, graph);
+});
+
+destinations.documentPOST.registerHandler('/~/apps/install-app', async function (match, input) {
+  const graphId = input.uri.queryParams.get('graphId');
+  const graph = graphWorker.graphStore.graphs.get(graphId);
+  if (!graph) throw new Error(
+    `graph ${graphId} not found to install`);
+
+  //const dependencies = graph.selectAllWithType('Dependency');
+  //console.log('dependencies:', dependencies);
+
+  console.log(input);
+
+  const engine = GraphEngine.get('app-profilea/v1-beta1');
+  const appGraph = await this.graphStore.findOrCreateGraph(engine, {
+    fields: {
+      appKey: null,
+    },
+    async buildCb(engine, {originUrl}) {
+      const builder = new GraphBuilder(engine);
+      self.builder = builder;
+
+      // root node from manifest meta
+      const app = builder.withInstance(manifest.meta.name, 1, {
+        PackageKey: manifest.packageId,
+        PackageType: manifest.meta.type,
+        License: manifest.meta.license,
+      });
+    },
+  });
+
+  return wrapGatePage('hi', 'hi');
+});
 
 destinations.documentGET.registerHandler('/~/apps/by-id/:appId', match => {
   const appId = match.params.get('appId');
@@ -190,6 +241,10 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
 self.addEventListener('fetch', event => {
   event.respondWith(async function() {
     try {
+      // TODO: why do we sometimes fetch without activating?
+      if (!graphWorker)
+        graphWorker = new GraphWorker();
+
       await graphWorker.ready;
       const {destination, method, url} = event.request;
 

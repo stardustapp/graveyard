@@ -40,45 +40,37 @@ class GraphStore {
   }
 
   async start() {
-    console.group('GraphStore start');
-    try {
+    // open IDB
+    const idbName = this.opts.idbName || 'graph-worker';
+    this.idb = await idb.open(idbName, 1, this.migrateIdb.bind(this));
+    console.debug('Opened IDB');
 
-      // open IDB
-      const idbName = this.opts.idbName || 'graph-worker';
-      this.idb = await idb.open(idbName, 1, this.migrateIdb.bind(this));
-      console.debug('Opened IDB');
+    // load working dataset
+    const idbTx = this.idb.transaction(['graphs', 'objects']);
+    const allGraphs = await idbTx.objectStore('graphs').getAll();
+    for (const graphData of allGraphs) {
+      const graph = new Graph(this, graphData);
+      this.graphs.set(graphData.graphId, graph);
 
-      // load working dataset
-      const idbTx = this.idb.transaction(['graphs', 'objects']);
-      const allGraphs = await idbTx.objectStore('graphs').getAll();
-      for (const graphData of allGraphs) {
-        const graph = new Graph(this, graphData);
-        this.graphs.set(graphData.graphId, graph);
+      // fetch all the objects
+      const objects = await idbTx
+        .objectStore('objects').index('by graph')
+        .getAll(graphData.graphId);
 
-        // fetch all the objects
-        const objects = await idbTx
-          .objectStore('objects').index('by graph')
-          .getAll(graphData.graphId);
-
-        // construct the objects
-        for (const objData of objects) {
-          graph.populateObject(objData);
-        }
-
-        graph.relink();
+      // construct the objects
+      for (const objData of objects) {
+        graph.populateObject(objData);
       }
-      console.debug('Loaded', this.graphs.size, 'graphs containing', this.objects.size, 'objects');
 
-      // open up shop
-      this.readyForTxn = true;
-      if (this.waitingTxns.length) {
-        console.debug('Processing startup transactions...');
-        await this.runWaitingTxns();
-      }
-      console.info('GraphStore is fully initialized. :)');
+      graph.relink();
+    }
+    console.debug('Loaded', this.graphs.size, 'graphs containing', this.objects.size, 'objects');
 
-    } finally {
-      console.groupEnd();
+    // open up shop
+    this.readyForTxn = true;
+    if (this.waitingTxns.length) {
+      console.debug('Processing startup transactions...');
+      await this.runWaitingTxns();
     }
   }
 
@@ -228,9 +220,7 @@ class GraphStore {
     if (existingGraph) return existingGraph;
 
     // ok we have to build the graph
-    console.warn('Creating new graph for', fields);
     const graphBuilder = await buildCb(engine, fields);
-    //console.info('Graph is built');
 
     // persist the new graph
     const graphId = await this
@@ -240,11 +230,17 @@ class GraphStore {
         await txn.createObjectTree(graphId, graphBuilder.rootNode);
         return graphId;
       });
-    console.info('Created graph', graphId);
+    console.debug('Created graph', graphId, 'for', fields);
 
     // grab the [hopefully] loaded graph
     if (!this.graphs.has(graphId)) throw new Error(
       `Graph ${graphId} wasn't loaded after creation`);
     return this.graphs.get(graphId);
+  }
+
+  getGraphsUsingEngine(engineKey) {
+    return Array
+      .from(this.graphs.values())
+      .filter(x => x.data.engine === engineKey);
   }
 }
