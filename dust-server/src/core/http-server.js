@@ -308,7 +308,7 @@ class HttpWildcardHandler extends WSC.BaseHandler {
       }
 
       const hostMatch = headers.host.match(
-  /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z]+))(?::(\d+))?$/i);
+  /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z][a-z0-9]+))(?::(\d+))?$/i);
       if (!hostMatch) {
         console.log(`${method} //${headers.host}${uri}`, 400);
         return responder.sendJson({

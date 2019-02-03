@@ -37,7 +37,7 @@ class DomainManager {
   }
 
   async registerDomain(domainName, owner) {
-    if (!domainName.match(/(?=^.{1,254}$)(^(?:(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.?)+(?:[a-zA-Z]{2,})$)/)) {
+    if (!domainName.match(/(?=^.{1,254}$)(^(?:(?!\d+\.)[a-z0-9_\-]{1,63}\.?)+(?:[a-z][a-z0-9]+)$)/i)) {
       throw new Error(`Domain name ${JSON.stringify(domainName)} is not a valid FQDN`);
     }
 
