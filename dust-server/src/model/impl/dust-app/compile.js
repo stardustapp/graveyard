@@ -315,11 +315,13 @@ async function CompileDustApp(store, graph, input) {
 </style>
 <script src="/~~libs/vendor/libraries/meteor-bundle.js"></script>
 <script src="/~~src/model/impl/dust-app/runtime.js"></script>
+${appId.startsWith('build-') ? `<script src="/~~src/model/impl/dust-app/runtime-build.js"></script>` : ''}
 <script>
   const appSub = Meteor.subscribe("/app-runtime", {
     graphId: ${Js(graphId)},
     appId: ${Js(appId)},
   });
+  ${appId.startsWith('build-') ? `const buildSub = Meteor.subscribe("/legacy-dust-app-data");` : ''}
 `+scriptChunks.join("\n")+`\n\n</script>`, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
