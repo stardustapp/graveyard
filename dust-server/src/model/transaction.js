@@ -166,6 +166,8 @@ class GraphTxn {
             refObjIds.add(objId);
             return objId;
           }
+        } else if (target.constructor === GraphObject) {
+          return target.data.objectId;
         } else if (target.constructor === String) {
           // TODO: better path resolving strategy
           const newTarget = Array
@@ -178,7 +180,7 @@ class GraphTxn {
           }
         }
 
-        console.debug('Reference for', ref, 'missing');
+        console.debug('Reference for', ref, 'missing.', target);
         missingRefs.add(ref);
         return false;
       }
@@ -255,6 +257,9 @@ class GraphTxn {
         console.groupEnd();
       }
     }
+
+    if (remaining.size > 0) throw new Error(
+      `${remaining.size} objects failed to link after ${pass} passes.`);
 
     console.log('Stored', readyObjs.size, 'objects');
   }

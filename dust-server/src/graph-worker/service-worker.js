@@ -1,3 +1,8 @@
+console.log('');
+console.log('==-----------------------------------------==');
+console.log('==- S E R V I C E W O R K E R L A U N C H -==');
+console.log('==-----------------------------------------==');
+
 //Object.freeze(Object.prototype);
 importScripts(
   '/~~src/lib/caching.js',
@@ -172,32 +177,13 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId', match => {
 
 destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (match, input) => {
   const appId = match.params.get('appId');
-
-  // get the app
   const store = graphWorker.graphStore;
-  const engine = GraphEngine.get('dust-app/v1-beta1');
 
   // clear everything if testing installation
   //await store.transact('readwrite', txn => txn.purgeEverything());
 
-  let graph = await store.findOrCreateGraph(engine, {
-    fields: {
-      heritage: 'stardust-poc',
-      origin: `https://stardust-repo.s3.amazonaws.com/packages/${encodeURIComponent(appId)}.json`,
-    },
-    async buildCb(engine, {origin}) {
-      // fill out a graphBuilder for the app
-      const repoResp = await fetch(origin);
-      if (repoResp.status !== 200) throw new Error(
-        `Stardust Cloud Repo returned HTTP ${repoResp.status}`);
-      const manifest = await repoResp.json();
-      const graphBuilder = DustAppJsonCodec.inflate(manifest);
-      return graphBuilder;
-    },
-  });
-
-  console.log('have graph', graph);
-  return CompileDustApp(graph, input);
+  const graph = await DustAppJsonCodec.installWithDeps(store, appId);
+  return CompileDustApp(store, graph, input);
 });
 
 self.addEventListener('fetch', event => {

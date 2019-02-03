@@ -6,7 +6,8 @@ function randomString(bytes=10) { // 32 for a secret
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
-  console.log('random str', bytes, str);
+  // TODO: debug/account for too-short IDs
+  //console.log('random str', bytes, str);
   return str;
 }
 

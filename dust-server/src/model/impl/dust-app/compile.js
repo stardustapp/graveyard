@@ -31,10 +31,11 @@ function unwrapJs(input) {
 }
 
 class ResourceCompiler {
-  constructor(graph) {
+  constructor(store, graph) {
+    this.graphStore = store;
     this.readyDeps = new Set;
     this.resources = Array.from(graph.objects.values());
-    // TODO: add extra 'resources' from Depedency resources (probably before this point tho)
+    // TODO: add extra 'resources' from Dependency resources (probably before this point tho)
     this.rootNode = Array.from(graph.roots)[0];
   }
   processPrelude() {
@@ -75,7 +76,22 @@ class ResourceCompiler {
     }
     lines.push(`  },`);
 
-    // TODO: add Dependency trees
+    // also include dependency name tree
+    for (const obj of this.resources.filter(x => x.data.type === 'Dependency')) {
+      lines.push(`  ${obj.data.name}: {`);
+      const depRoot = this.graphStore.objects.get(obj.data.fields.ChildRoot);
+      const depGraph = this.graphStore.graphs.get(depRoot.data.graphId);
+      // loop through all objects belonging to the dep
+      const depResources = Array.from(depGraph.objects.values());
+      for (const res of depResources) {
+        // prepend to compiled program
+        this.resources.unshift(res);
+        // print out name map
+        if (res.data.parentObjId === depRoot.data.objectId)
+          printObjectTree(res.data, '    ');
+      }
+      lines.push(`  },`);
+    }
 
     lines.push(`};`);
     return lines.map(x => '  '+x.replace(/\n/g, '\n  ')).join('\n');
@@ -137,15 +153,13 @@ class ResourceCompiler {
   }
 }
 
-async function CompileDustApp(graph, input) {
+async function CompileDustApp(store, graph, input) {
   const {graphId} = graph.data;
   const application = Array.from(graph.roots)[0];
   if (!application) throw new Error(`app-missing:
     Graph '${graphId}' does not contain a web application.`);
 
-  const compiler = new ResourceCompiler(graph);
-  //compiler.readyDeps.add('core:Record');
-  //compiler.readyDeps.add('core:Class');
+  const compiler = new ResourceCompiler(store, graph);
 
   const scriptChunks = new Array('');
   function addChunk(name, code) {
@@ -226,22 +240,24 @@ async function CompileDustApp(graph, input) {
     }
     return `InflateBlazeTemplate({
     name: ${Js(res.name)},
+    objectId: ${Js(res.objectId)},
     template: \`\n${escapeTicks(Handlebars)}\`,
     css: \`\n${escapeTicks(Style.CSS)}\`,
   })${scriptLines.join('')};
 `;
   }));
 
-  addChunk('Application Router', compiler.process('Router', function (res) {
-    const {DefaultLayout} = res.fields;
+  addChunk('Application Router', compiler.process('AppRouter', function (res) {
+    const {DefaultLayout, IconUrl} = res.fields;
     const lines = [commonTags.source`
       new DustRouter({
           baseUrl: APP_ROOT,
+          iconUrl: ${Js(IconUrl || null)},
     `];
 
     if (DefaultLayout) {
       this.addDep(DefaultLayout);
-      lines.push(`    defaultLayout: DUST.objects[${Js(DefaultLayout||null)}],`);
+      lines.push(`    defaultLayout: DUST.objects[${Js(DefaultLayout)}],`);
     }
 
     lines.push(`  });\n`);
@@ -286,6 +302,17 @@ async function CompileDustApp(graph, input) {
     meteorEnv: {},
   };
 </script>
+<style type="text/css">
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+</style>
 <script src="/~~libs/vendor/libraries/meteor-bundle.js"></script>
 <script src="/~~src/model/impl/dust-app/runtime.js"></script>
 <script>

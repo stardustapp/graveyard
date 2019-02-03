@@ -18,7 +18,54 @@ function getScriptRefs(coffee) {
 }
 
 class DustAppJsonCodec {
-  static inflate(manifest) {
+  static async installWithDeps(store, appId) {
+    const engine = GraphEngine.get('dust-app/v1-beta1');
+    const graph = await store.findOrCreateGraph(engine, {
+      fields: {
+        foreignKey: appId,
+        heritage: 'stardust-poc',
+        originUrl: `https://stardust-repo.s3.amazonaws.com/packages/${encodeURIComponent(appId)}.json`,
+      },
+      async buildCb(engine, {originUrl}) {
+        // download the application's source from the repository
+        const repoResp = await fetch(originUrl);
+        if (repoResp.status !== 200) throw new Error(
+          `Stardust Cloud Repo returned HTTP ${repoResp.status} for ${appId}`);
+        const contentType = repoResp.headers.get('content-type');
+        if (!contentType.startsWith('application/octet-stream') &&
+            !contentType.startsWith('application/json')) throw new Error(
+          `Stardust Cloud Repo returned Content-Type ${contentType} for ${appId}`);
+
+        let manifest;
+        try {
+          manifest = await repoResp.json();
+        } catch (err) {
+          if (err instanceof SyntaxError) {
+            throw new Error(`Syntax error in DUST manifest ${appId}: ${err.message}`);
+          } else throw err;
+        }
+
+        // pre-install any dependencies
+        const dependencies = {};
+        for (const res of manifest.resources) {
+          if (res.type !== 'Dependency') continue;
+          if (res.childPackage == appId) continue; // 'Self' dependencies (pre-"my:")
+          console.info('Installing package', res.childPackage, 'for Dependency', res.name, 'of', appId);
+          // store the dep for the codec to reference
+          const depPkg = await DustAppJsonCodec.installWithDeps(store, res.childPackage);
+          dependencies[res.childPackage] = Array.from(depPkg.roots)[0];
+        }
+
+        // fill out a graphBuilder for the app
+        const graphBuilder = DustAppJsonCodec.inflate(manifest, dependencies);
+        return graphBuilder;
+      },
+    });
+
+    return graph;
+  }
+
+  static inflate(manifest, dependencies) {
     if (manifest._platform !== 'stardust') throw new Error(
       'invalid stardust manifest');
     if (manifest._version !== 3) throw new Error(
@@ -29,10 +76,10 @@ class DustAppJsonCodec {
     self.builder = builder;
 
     // root node from manifest meta
-    const app = builder.withApplication(manifest.meta.name, 1, {
-      PackageId: manifest.packageId,
+    const app = builder.withPackage(manifest.meta.name, 1, {
+      PackageKey: manifest.packageId,
+      PackageType: manifest.meta.type,
       License: manifest.meta.license,
-      IconUrl: manifest.meta.iconUrl,
     });
 
     // sort manifest resources for specialized logic
@@ -65,6 +112,24 @@ class DustAppJsonCodec {
       } else {
         return { SchemaRef: app.getRecordSchema(name) };
       }
+    }
+
+
+    for (const res of resources.Dependency) {
+      let otherPkg;
+      if (res.childPackage === manifest.packageId) {
+        // self-reference
+        otherPkg = app;
+      } else {
+        otherPkg = dependencies[res.childPackage];
+        if (!otherPkg) throw new Error(
+          `Package ${manifest.packageId} Dependency couldn't find package ${JSON.stringify(res.childPackage)}`);
+      }
+
+      app.withDependency(res.name, res.version, {
+        PackageKey: res.childPackage,
+        ChildRoot: new GraphReference(otherPkg),
+      });
     }
 
 
@@ -148,7 +213,9 @@ class DustAppJsonCodec {
     for (const res of resources.RouteTable) {
       if (res.name !== 'RootRoutes') continue;
 
-      const router = app.withRouter('Router', res.version, {});
+      const router = app.withAppRouter('Router', res.version, {
+        IconUrl: manifest.meta.iconUrl,
+      });
 
       if (res.layout) {
         const layout = app.getTemplate(res.layout);
@@ -185,7 +252,7 @@ class DustAppJsonCodec {
       }
     }
 
-    console.log('Inflated manifest', manifest, 'with builder', builder);
+    //console.log('Inflated manifest', manifest, 'with builder', builder);
     return builder;
   }
 

@@ -40,19 +40,19 @@ class DustAppRecordSchema extends GraphObject {
 
 new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
-  build.node('Application', {
+  build.node('Package', {
     treeRole: 'root',
     fields: {
-      PackageId: String,
+      PackageKey: String,
+      PackageType: { type: String, choices: [ 'Package', 'Library', 'App' ] },
       License: String,
-      IconUrl: { type: String, optional: true },
-      //DefaultLayout: { reference: 'Template', optional: true },
     },
   });
 
-  build.node('Router', {
+  build.node('AppRouter', {
     treeRole: 'parent',
     fields: {
+      IconUrl: { type: String, optional: true },
       DefaultLayout: { reference: 'Template', optional: true },
     },
   });
@@ -136,7 +136,8 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
   build.node('Dependency', {
     treeRole: 'parent',
     fields: {
-      OriginPackage: { type: String, optional: true },
+      PackageKey: { type: String, optional: false },
+      ChildRoot: { reference: 'Package', optional: false },
     },
   });
 

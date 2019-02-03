@@ -14,6 +14,40 @@ const Meteor = Package.meteor.Meteor;
 const moment = Package['momentjs:moment'].moment;
 const check = Package.check.check;
 
+// Astronomy minimongo collections
+const Records = new Mongo.Collection('records');
+const BaseClass = Astro.Class.create({
+  name: 'core:Class',
+});
+const BaseRecord = Astro.Class.create({
+  name: 'Record',
+  collection: Records,
+  typeField: 'type',
+  fields: {
+    objectId  : { type: String, immutable: true },
+    packageId : { type: String, immutable: true },
+    recordId  : { type: String, immutable: true },
+    version   : { type: Number, default: 0 },
+  },
+  helpers: {
+    commit(cb) {
+      // TODO: validate locally
+      console.log('Saving record version', this.version, 'of', this.type, this._id);
+      Meteor.call('/records/commit', this.raw(), (err, res) => {
+        if (err) {
+          alert(err);
+          return typeof cb === "function" ? cb(err) : void 0;
+        } else {
+          this.version = res.version;
+          this._id = res.id;
+          return typeof cb === "function" ? cb(null, res) : void 0;
+        }
+      });
+    },
+  },
+});
+
+// Global variable shared by all parts of DUST
 const scriptHelpers = {
   _liveTemplates: new Map,
   triggerHook: function(hookName, ...args) {
@@ -33,6 +67,23 @@ const scriptHelpers = {
     }
   },
   objects: {},
+  resTree: {
+    core: {
+      Record: BaseRecord,
+      Class: BaseClass,
+      String: String,
+      Number: Number,
+      Object: Object,
+      Date: Date,
+      Boolean: Boolean,
+      Blob: Blob,
+    }
+  },
+  addResTree(key, nameMap) {
+    if (key in this.resTree) throw new Error(
+      `Resource tree ${key} was already registered`);
+    this.resTree[key] = nameMap;
+  },
   get(name, type) {
     if (!name || name.constructor !== String) {
       console.warn('Reference:', name);
@@ -84,39 +135,6 @@ Template.registerHelper('renderTemplate', function() {
   }
 });
 
-// Astronomy minimongo collections
-const Records = new Mongo.Collection('records');
-const BaseClass = Astro.Class.create({
-  name: 'core:Class',
-});
-const BaseRecord = Astro.Class.create({
-  name: 'Record',
-  collection: Records,
-  typeField: 'type',
-  fields: {
-    objectId  : { type: String, immutable: true },
-    packageId : { type: String, immutable: true },
-    recordId  : { type: String, immutable: true },
-    version   : { type: Number, default: 0 },
-  },
-  helpers: {
-    commit(cb) {
-      // TODO: validate locally
-      console.log('Saving record version', this.version, 'of', this.type, this._id);
-      Meteor.call('/records/commit', this.raw(), (err, res) => {
-        if (err) {
-          alert(err);
-          return typeof cb === "function" ? cb(err) : void 0;
-        } else {
-          this.version = res.version;
-          this._id = res.id;
-          return typeof cb === "function" ? cb(null, res) : void 0;
-        }
-      });
-    },
-  },
-});
-
 // Call a hook on an instance
 Blaze.TemplateInstance.prototype.hook = function(key, ...args) {
   var hooks, ref;
@@ -162,7 +180,7 @@ const RenderSmartTag = function(view, name) {
     }
     //if attrs?.constructor is HTML.Attrs
     // TODO: flatten the attrs
-    console.log('Providing tag', name, 'with', attrs); //, contents
+    //console.log('Providing tag', name, 'with', attrs); //, contents
     parentData = Template.currentData();
     if (attrs) {
       return Blaze.With(function() {
@@ -216,7 +234,7 @@ Spacebars.mustache = function(...thing) {
 HTML.getSmartTag = RenderSmartTag.bind(this);
 
 function InflateBlazeTemplate(template) {
-  const {name} = template;
+  const {name, objectId} = template;
   const parts = [template.template];
   if (template.css) {
     parts.push(`<style type="text/css">${template.css}</style>`);
@@ -226,63 +244,63 @@ function InflateBlazeTemplate(template) {
     .compile(source, {isTemplate: true})
     .replace(/HTML\.getTag\("/g, 'HTML.getSmartTag(view, "');
   const renderer = eval(compiled);
-  UI.Template.__define__(name, renderer);
+  UI.Template.__define__(objectId, renderer);
 
   // register template for outside hooking
-  if (!scriptHelpers._liveTemplates.has(name)) {
-    scriptHelpers._liveTemplates.set(name, {
+  if (!scriptHelpers._liveTemplates.has(objectId)) {
+    scriptHelpers._liveTemplates.set(objectId, {
       dep: new Tracker.Dependency(),
       instances: new Set()
     });
   }
-  const liveSet = scriptHelpers._liveTemplates.get(name);
+  const liveSet = scriptHelpers._liveTemplates.get(objectId);
 
   // init hook system
-  Template[name].hooks = {};
-  Template[name].onCreated(function() {
+  Template[objectId].hooks = {};
+  Template[objectId].onCreated(function() {
     liveSet.instances.add(this);
     return liveSet.dep.changed();
   });
-  Template[name].onDestroyed(function() {
+  Template[objectId].onDestroyed(function() {
     liveSet.instances.delete(this);
     return liveSet.dep.changed();
   });
-  Template[name].injector = scriptHelpers;
+  Template[objectId].injector = scriptHelpers;
 
-  Template[name].addScript = function(type, param, factory) {
+  Template[objectId].addScript = function(type, param, factory) {
     var err, func;
     try {
       func = factory.apply();
     } catch (error) {
       err = error;
-      console.log("Couldn't compile", type, param, "for", name, '-', err);
+      console.log("Couldn't compile", type, param, "for", objectId, name, '-', err);
     return this;
     }
     // TODO: report error
     switch (type) {
       case 'Helper':
-        Template[name].helpers({
+        Template[objectId].helpers({
           [`${param}`]: func
         });
         break;
       case 'Event':
-        Template[name].events({
+        Template[objectId].events({
           [`${param}`]: func
         });
         break;
       case 'Hook':
-        Template[name].registerHook(param, func);
+        Template[objectId].registerHook(param, func);
         break;
       case 'Lifecycle':
         switch (param) {
           case 'Create':
-            Template[name].onCreated(func);
+            Template[objectId].onCreated(func);
             break;
           case 'Render':
-            Template[name].onRendered(func);
+            Template[objectId].onRendered(func);
             break;
           case 'Destroy':
-            Template[name].onDestroyed(func);
+            Template[objectId].onDestroyed(func);
             break;
         }
         break;
@@ -290,9 +308,9 @@ function InflateBlazeTemplate(template) {
     return this;
   };
 
-  Template[name].baseName = name;
-  Template[name].dynName = name;
-  return Template[name];
+  Template[objectId].baseName = name;
+  Template[objectId].dynName = objectId;
+  return Template[objectId];
 }
 
 class DustPublication {
@@ -382,9 +400,10 @@ class DustRouter {
       const ctx = {
         params: this.params,
         render: (template, opts={}) => {
-          // support passing a template directly
-          if (template.constructor !== Template)
+          // support passing a template directly, or a dust name
+          if (template.constructor !== Template) {
             template = scriptHelpers.get(template, 'Template');
+          }
 
           opts.data = opts.data || {params: this.params};
           scriptHelpers._mainTemplate = template.dynName;
@@ -395,5 +414,6 @@ class DustRouter {
       scriptHelpers.params.set(this.params);
       callback.call(ctx);
     });
+    return 'route noop';
   }
 }

@@ -54,10 +54,10 @@ class FieldType {
     }
 
     // opt-in for wrapping with extra single-slot types
-    if ('isList' in config) {
+    if ('isList' in config && config.isList) {
       type = new ListFieldType(config, type);
     }
-    if ('optional' in config) {
+    if ('optional' in config && config.optional) {
       type = new OptionalFieldType(config, type);
     }
 
@@ -129,7 +129,7 @@ class ReferenceFieldType extends FieldType {
     if (input.constructor === GraphReference) return input;
     if (input.constructor === GraphGhostNode) return new GraphReference(input);
     if (input.constructor !== GraphBuilderNode) throw new FieldTypeError(this,
-      `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode (TODO)`);
+      `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode, was ${input.constructor.name} (TODO)`);
     if (input.type !== this.targetPath) throw new FieldTypeError(this,
       `Reference expected to be ${this.targetPath}, was ${input.type}`);
     return new GraphReference(input);

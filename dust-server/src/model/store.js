@@ -204,26 +204,30 @@ class GraphStore {
     });
   }
 
+  async findGraph({engine, engineKey, fields}) {
+    await this.ready;
+
+    const targetEngine = engine ? engine.engineKey : engineKey;
+    return Array
+      .from(this.graphs.values())
+      .filter(x => x.data.engine === targetEngine)
+      .find(x => Object.keys(fields)
+        .every(key => x.data.fields[key] == fields[key]));
+  }
+
   async findOrCreateGraph(engine, {fields, buildCb}) {
     await this.ready;
 
     // return an existing graph if we find it
-    const existingGraph = Array
-      .from(this.graphs.values())
-      .find(({data}) => {
-        if (data.engine !== engine.engineKey) return false;
-        return Object
-          .keys(fields)
-          .every(key => data.fields[key] == fields[key]);
-      });
+    const existingGraph = await this.findGraph({engine, fields});
     if (existingGraph) return existingGraph;
 
-    // ok we have to make one
+    // ok we have to build the graph
     console.warn('Creating new graph for', fields);
     const graphBuilder = await buildCb(engine, fields);
-    console.info('Graph is built');
+    //console.info('Graph is built');
 
-    // store the new graph
+    // persist the new graph
     const graphId = await this
       .transact('readwrite', async txn => {
         //await txn.purgeGraph(appId);
@@ -233,6 +237,7 @@ class GraphStore {
       });
     console.info('Created graph', graphId);
 
+    // grab the [hopefully] loaded graph
     if (!this.graphs.has(graphId)) throw new Error(
       `Graph ${graphId} wasn't loaded after creation`);
     return this.graphs.get(graphId);
