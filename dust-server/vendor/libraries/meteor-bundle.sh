@@ -12,5 +12,6 @@ cat \
   html-tools.js blaze-tools.js spacebars-compiler.js \
   retry.js ddp-common.js ddp-client.js allow-deny.js mongo.js mdg_validation-error.js \
   jagi_astronomy.js jagi_astronomy-timestamp-behavior.js jagi_astronomy-slug-behavior.js \
-| uglifyjs \
+  manuel_reactivearray.js \
+\
 > ~/Code/chrome-profile-server/vendor/libraries/meteor-bundle.js

@@ -106,7 +106,7 @@ class GraphContext {
 class GraphWorker {;
   constructor() {
     this.graphStore = new GraphStore();
-    this.ddp = new DDPManager(async appId => {
+    this.ddp = new DDPManager(this.graphStore, async appId => {
       console.warn('Creating context for', appId);
       const graph = await this.graphStore.loadGraph(appId);
       const context = new GraphContext(this, graph);
@@ -125,6 +125,7 @@ const SHELL_CACHE = 'shell-cache-v1';
 self.addEventListener('install', function(event) {
   event.waitUntil(async function boot() {
 
+    //await caches.delete(SHELL_CACHE); // cache deletion
     // update the cache with every entry needed
     const shellCache = await caches.open(SHELL_CACHE);
     const cachedKeys = await shellCache.keys()
@@ -188,43 +189,55 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
 
 self.addEventListener('fetch', event => {
   event.respondWith(async function() {
-    await graphWorker.ready;
-    const {destination, method, url} = event.request;
+    try {
+      await graphWorker.ready;
+      const {destination, method, url} = event.request;
 
-    const uri = PathFragment.parseUri(url);
-    //console.log(uri, event.request);
+      const uri = PathFragment.parseUri(url);
+      //console.log(uri, event.request);
 
-    const shellCache = await caches.open(SHELL_CACHE);
-    const cachedResp = await shellCache.match(event.request)
-    if (cachedResp) return cachedResp;
+      // serve from local cache if available
+      const shellCache = await caches.open(SHELL_CACHE);
+      const cachedResp = await shellCache.match(event.request)
+      if (cachedResp) return cachedResp;
 
-    // intercept the api
-    if (uri.host === 'ddp') {
-      return graphWorker.ddp.api.routeInput(uri.path, {
-        request: event.request,
-        uri: uri,
-      }, () => new Response('404', {status: 404}))
-    }
+      // intercept the api
+      if (uri.host === 'ddp') {
+        return graphWorker.ddp.api.routeInput(uri.path, {
+          request: event.request,
+          uri: uri,
+        }, () => new Response('404', {status: 404}))
+      }
 
-    // no interception for cross-domain stuff!
-    if (!url.startsWith(location.origin)) {
-      return fetch(event.request);
-    }
-    // the fallback is proxying to the server
-    function fallback() {
-      console.warn('passing upstream', destination, method, `upstream: ${uri.path}`);
-      return fetch(event.request);
-    }
+      // no interception for cross-domain stuff!
+      if (!url.startsWith(location.origin)) {
+        return fetch(event.request);
+      }
+      // the fallback is proxying to the server
+      function fallback() {
+        console.warn('passing upstream', destination, method, `upstream: ${uri.path}`);
+        return fetch(event.request);
+      }
 
-    // route if we have a router, with the server as fallback
-    const destRouter = destinations[destination + method];
-    if (destRouter) {
-      return destRouter.routeInput(uri.path, {
-        request: event.request,
-        uri: uri,
-      }, fallback);
-    } else {
-      return fallback();
+      // route if we have a router, with the server as fallback
+      const destRouter = destinations[destination + method];
+      if (destRouter) {
+        return destRouter.routeInput(uri.path, {
+          request: event.request,
+          uri: uri,
+        }, fallback);
+      } else {
+        return fallback();
+      }
+
+    } catch (err) {
+      console.error('ServiceWorker fetch() crashed:', err);
+      return new Response(err.stack, {
+        status: 500,
+        headers: {
+          'Content-Type': 'text/plain',
+        },
+      });
     }
   }());
 });

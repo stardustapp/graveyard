@@ -28,6 +28,17 @@ class Graph {
       // TODO
     }
   }
+
+  selectNamed(name) {
+    return Array
+      .from(this.objects.values())
+      .find(x => x.data.name === name);
+  }
+  selectAllWithType(type) {
+    return Array
+      .from(this.objects.values())
+      .filter(x => x.data.type === type);
+  }
 }
 
 /*

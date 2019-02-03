@@ -8,9 +8,10 @@ class GraphStore {
     this.objects = new Map;
     // records and events are kept cold by default
 
-    // transaction queue
+    // transaction state
     this.readyForTxn = false;
     this.waitingTxns = new Array;
+    this.eventProcessors = new Array;
 
     this.ready = this.start();
 
@@ -164,44 +165,48 @@ class GraphStore {
   }
   */
 
-  processEvent({timestamp, graphId, entries}) {
-    return this.immediateTransact('readonly', async txn => {
-      let graph = this.graphs.get(graphId);
-      for (const entry of entries) {
-        switch (entry.type) {
+  async processEvent(event) {
+    const {timestamp, graphId, entries} = event;
+    let graph = this.graphs.get(graphId);
 
-          case 'delete everything':
-            // TODO: graceful shutdown?
-            this.graphs = new Map;
-            this.objects = new Map;
-            break;
+    for (const processor of eventProcessors) {
+      processor(graph, event);
+    }
 
-          case 'delete graph':
-            throw new Error('@#TODO DELETE GRAPH');
+    for (const entry of entries) {
+      switch (entry.type) {
 
-          case 'create graph':
-            if (graph) throw new Error(
-              `DESYNC: graph double create`);
-            if (this.graphs.has(graphId)) throw new Error(
-              `DESYNC: graph ${graphId} already registered`);
-            graph = new Graph(this, entry.data);
-            this.graphs.set(graphId, graph);
-            break;
+        case 'delete everything':
+          // TODO: graceful shutdown?
+          this.graphs = new Map;
+          this.objects = new Map;
+          break;
 
-          //case 'update graph':
-            // TODO: event specifies new 'fields' and 'version'
-            //break;
+        case 'delete graph':
+          throw new Error('@#TODO DELETE GRAPH');
 
-          case 'create object':
-            graph.populateObject(entry.data);
-            break;
+        case 'create graph':
+          if (graph) throw new Error(
+            `DESYNC: graph double create`);
+          if (this.graphs.has(graphId)) throw new Error(
+            `DESYNC: graph ${graphId} already registered`);
+          graph = new Graph(this, entry.data);
+          this.graphs.set(graphId, graph);
+          break;
 
-          default:
-            console.warn('"processing"', graphId, 'event', entry.type, entry.data);
-        }
+        //case 'update graph':
+          // TODO: event specifies new 'fields' and 'version'
+          //break;
+
+        case 'create object':
+          graph.populateObject(entry.data);
+          break;
+
+        default:
+          console.warn('"processing"', graphId, 'event', entry.type, entry.data);
       }
-      if (graph) graph.relink();
-    });
+    }
+    if (graph) graph.relink();
   }
 
   async findGraph({engine, engineKey, fields}) {

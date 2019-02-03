@@ -1,4 +1,5 @@
 const ReactiveVar = Package['reactive-var'].ReactiveVar;
+const ReactiveArray = Package['manuel:reactivearray'].ReactiveArray;
 const Tracker = Package.tracker.Tracker;
 const Blaze = Package.ui.Blaze;
 const SpacebarsCompiler = Package['spacebars-compiler'].SpacebarsCompiler;

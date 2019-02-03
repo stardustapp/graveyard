@@ -1,8 +1,9 @@
-// Largely sourced and compiled from https://github.com/danopia/stardust/tree/master/poc/lib/_schema
+// Sourced and compiled subset of https://github.com/danopia/stardust/tree/master/poc/lib
+// With some light non-breaking patches to be a better modern citizen
 
 const DB = {};
 
-DB.Packages = new Mongo.Collection('build-packages');
+DB.Packages = new Mongo.Collection('legacy/packages');
 
 DB.Package = Astro.Class.create({
   name: 'Package',
@@ -44,7 +45,7 @@ DB.Library = DB.Package.inherit({
 //# Resources
 // Injectable code and config that defines app behavior
 // Has similar roles to Angular recipes
-DB.Resources = new Mongo.Collection('resources');
+DB.Resources = new Mongo.Collection('legacy/resources');
 
 DB.Resource = Astro.Class.create({
   name: 'Resource',
@@ -358,8 +359,9 @@ DB.Dependency = DB.Resource.inherit({
   }
 });
 
-/*
-//# Data records
+///////////////////////////
+/* Data records
+
 // Actual data stored by the application
 DB.Records = new Mongo.Collection('records');
 
@@ -389,4 +391,46 @@ DB.Record = Astro.Class.create({
 //sortKey   : type: String, optional: true
 // TODO: this should really be a number, date, string, etc
 //data      : type: Object, optional: true
+
 */
+
+///////////////////////////
+// Modification helpers
+
+DB.Resource.extend({
+  helpers: {
+    commit: function(cb) {
+      var isNew;
+      console.log('Saving version', this.version, 'of resource', this.name);
+      isNew = DB.Resource.isNew(this);
+      return this.callMethod('commit', this, (err, res) => {
+        if (err) {
+          alert(err);
+          return typeof cb === "function" ? cb(err) : void 0;
+        } else {
+          res.isNew = isNew;
+          this.version = res.version;
+          return typeof cb === "function" ? cb(null, res) : void 0;
+        }
+      });
+    }
+  }
+});
+
+DB.Resource.extend({
+  helpers: {
+    delete: function(cb) {
+      if (confirm(`Really delete resource ${this.name}?`)) {
+        console.log('Deleting version', this.version, 'of resource', this.name);
+        return this.callMethod('hardDelete', this.version, (err, res) => {
+          if (err) {
+            alert(err);
+            return typeof cb === "function" ? cb(err) : void 0;
+          } else {
+            return typeof cb === "function" ? cb(null) : void 0;
+          }
+        });
+      }
+    }
+  }
+});
