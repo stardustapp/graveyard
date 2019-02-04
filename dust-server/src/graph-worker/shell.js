@@ -238,7 +238,19 @@ async function ShellSiteAddAppAction(match, input) {
       });
 
       switch (location) {
-        //case 'browser-local':
+        case 'browser-local':
+          // create a database
+          const store = instance.withLocalCollection('Database', 1, {
+            Schemas: persistedSchemas,
+          });
+          // point to the database
+          instance.withLink('Records', 1, {
+            Target: {
+              LocalCollection: store,
+            },
+          });
+          break;
+
         case 'legacy-poc':
           instance.withLink('Records', 1, {
             Target: {

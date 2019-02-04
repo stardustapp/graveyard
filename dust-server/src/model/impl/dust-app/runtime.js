@@ -341,7 +341,7 @@ class DustPublication {
     if (this.res.limitTo) {
       opts.limit = this.res.limitTo;
     }
-    filterBy = JSON.parse(this.res.filterBy);
+    filterBy = JSON.parse(this.res.filterBy || '{}');
 // TODO: recursive
     for (key in filterBy) {
       val = filterBy[key];

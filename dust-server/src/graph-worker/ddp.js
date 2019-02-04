@@ -200,7 +200,7 @@ class DDPSession {
           resolve(new Response('h\n'));
           console.debug('keeping alive xhr');
         }
-      }, 1000);
+      }, 5000);
       if (this.waitingPoll) throw new Error(
         `concurrent xhr polling??`);
       this.waitingPoll = resolve;

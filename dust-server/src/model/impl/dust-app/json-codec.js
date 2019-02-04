@@ -26,9 +26,9 @@ class DustAppJsonCodec {
         heritage: 'stardust-poc',
         originUrl: `https://stardust-repo.s3.amazonaws.com/packages/${encodeURIComponent(appId)}.json`,
       },
-      async buildCb(engine, {originUrl}) {
+      async buildCb(engine, fields) {
         // download the application's source from the repository
-        const repoResp = await fetch(originUrl);
+        const repoResp = await fetch(fields.originUrl);
         if (repoResp.status !== 200) throw new Error(
           `Stardust Cloud Repo returned HTTP ${repoResp.status} for ${appId}`);
         const contentType = repoResp.headers.get('content-type');
@@ -44,6 +44,10 @@ class DustAppJsonCodec {
             throw new Error(`Syntax error in DUST manifest ${appId}: ${err.message}`);
           } else throw err;
         }
+
+        // also store version info
+        fields.originETag = repoResp.headers.get('ETag');
+        fields.originVersionId = repoResp.headers.get('x-amz-version-id');
 
         // pre-install any dependencies
         const dependencies = {};

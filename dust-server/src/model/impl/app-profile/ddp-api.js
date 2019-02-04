@@ -68,38 +68,98 @@ class PoCRecordClient {
 
 GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
 
-  init(request) {
+  async init(request) {
     const recordObj = this.context.selectNamed('Records');
     console.log('initing app profile', recordObj);
 
     this.recordMode = Object.keys(recordObj.Target)[0];
-    if (this.recordMode == 'LegacyDDP') {
-      const {SocketBaseUrl, AppId, Schemas} = recordObj.Target.LegacyDDP;
-      this.pocClient = new PoCRecordClient(SocketBaseUrl, AppId, this.queueResponses.bind(this));
+    switch (this.recordMode) {
+      case 'LegacyDDP':
+        const {SocketBaseUrl, AppId, Schemas} = recordObj.Target.LegacyDDP;
+        this.pocClient = new PoCRecordClient(SocketBaseUrl, AppId, this.queueResponses.bind(this));
+        break;
+      case 'LocalCollection':
+        this.database = this.context.objects.get(recordObj.Target.LocalCollection);
+        if (!this.database) throw new Error(
+          `LocalCollection database ${recordObj.Target.LocalCollection} not found`);
+
+        const records = await this.database.getAll();
+        for (const record of records) {
+          this.queueResponses({
+            msg: 'added',
+            collection: 'records',
+            id: record.recordId,
+            fields: record.fields,
+          });
+        }
+        console.log('finished sync of', records.length, 'records');
+
+        // TODO: subscribe to record events
+        // a["{\"msg\":\"changed\",\"collection\":\"resources\",\"id\":\"WnPZDyh3T7MmmgMRq\",\"fields\":{\"version\":5}}"]	
+
+        break;
     }
   },
 
   async subPkt(packet) {
-    if (packet.name === '/dust/publication') {
-      if (this.pocClient) {
-        await this.pocClient.subscribe(packet.id, ...packet.params.slice(1));
-        return true;
-      }
+    if (packet.name !== '/dust/publication')
+      return false;
+
+    if (this.pocClient) {
+      await this.pocClient.subscribe(packet.id, ...packet.params.slice(1));
+      return true;
+    } else if (this.database) {
+      console.log('local pub', packet);
+      return false;
     }
-    return false;
   },
 
   async methodPkt(packet) {
-    // update the first arg to be the foreign ID before sending
-    if (['/records/commit', '/dust/method'].includes(packet.method)) {
-      if (this.pocClient) {
-        await this.pocClient.ready;
-        // fill in the packageId
-        const outPkt = JSON.parse(JSON.stringify(packet));
-        outPkt.params[0] = this.pocClient.appId;
-        this.pocClient.sendNow(outPkt);
+    if (this.pocClient) {
+      await this.pocClient.ready;
+      // use a copy of the packet
+      packet = JSON.parse(JSON.stringify(packet));
+
+      if (packet.method === '/records/commit') {
+        packet.params[0] = this.pocClient.appId;
+        this.pocClient.sendNow(packet);
         return true;
       }
+      if (packet.method === '/dust/method') {
+        const record = packet.params[0];
+        record.packageId = this.pocClient.appId;
+        this.pocClient.sendNow(packet);
+        return true;
+      }
+
+    } else if (this.database) {
+      if (packet.method === '/records/commit') {
+        const record = packet.params[0];
+        let result;
+        if (record.version > 0) {
+          result = await this.database.update(record);
+        } else {
+          result = await this.database.insert(record);
+        }
+
+        this.queueResponses({
+          msg: 'result',
+          id: packet.id,
+          result,
+        });
+        // TODO: don't delay once reactivity works
+        setTimeout(() => {
+          this.queueResponses({
+            msg: 'updated',
+            methods: [packet.id],
+          });
+        }, 2000);
+        return true;
+
+      } else {
+        console.log('local method', packet.method, method.params);
+      }
+
     }
     return false;
   },
@@ -107,20 +167,6 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
 };
 
 /*
-  this.queueResponses({
-    msg: 'added',
-    collection: 'records',
-    id: 'CZevr7ikH6AGhvDc5',
-    fields: {
-      type: 'Sentiment',
-      packageId: 'diary',
-      version: 1,
-      scope: 'global',
-      Code: 'fantastic',
-      Label: 'amazing, fantastic day',
-      Color: 'pink',
-    }
-  });
   this.queueResponses({
     msg: 'added',
     collection: 'records',
