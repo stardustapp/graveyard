@@ -243,7 +243,7 @@ async function ShellSiteAddAppAction(match, input) {
           instance.withLink('Records', 1, {
             Target: {
               LegacyDDP: {
-                OriginUrl: 'https://stardustapp.run',
+                SocketBaseUrl: 'wss://stardustapp.run',
                 AppId: pkgGraph.data.fields.foreignKey,
                 Schemas: persistedSchemas,
               },

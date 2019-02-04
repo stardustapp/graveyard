@@ -1,11 +1,10 @@
 class DDPManager {
-  constructor(graphStore, contextFunc) {
+  constructor(graphStore, graphFetcher) {
     this.graphStore = graphStore;
-    this.contexts = new LoaderCache(contextFunc);
+    this.fetchGraphFor = graphFetcher;
 
     this.sessions = new Map; // id -> DDPSession
-    this.subscriptions = new Set; // of DDPSubscription
-
+    //this.subscriptions = new Set; // of DDPSubscription
     this.api = new PathRouter;
 
     this.api.registerHandler('/sockjs/info', async match => {
@@ -58,8 +57,7 @@ const DdpPacketFuncs = {
     if (version !== '1') throw new Error(
       `bad sockjs version ${JSON.stringify(version)}, expected '1'`);
 
-    await this.ready;
-    this.context.connectSession(this);
+    await this.ready; // why not?
 
     this.queueResponses(
       {server_id: "0"},
@@ -69,6 +67,7 @@ const DdpPacketFuncs = {
 
   async sub(packet) {
     const {id, name, params} = packet;
+
     switch (name) {
       case '/legacy-dust-app-data':
         const subscription = new DDPLegacyDustAppDataSub(this, packet);
@@ -119,9 +118,18 @@ class DDPSession {
 
     this.ready = (async () => {
       // get a context on the relevant graph
-      const {referrer} = request;
-      this.context = await this.manager.contexts
-        .getOne(referrer, referrer);
+      this.context = await this.manager
+        .fetchGraphFor(request.referrer);
+      this.api = this.context.engine.extensions.ddpApi;
+      if (!this.api) {
+        console.warn(`DDPSession for ${this.context.engine.engineKey} missing ddp api`);
+        this.api = {};
+      }
+
+      if ('init' in this.api) {
+        await this.api.init.call(this, request);
+      }
+
     })();
   }
 
@@ -147,6 +155,17 @@ class DDPSession {
     for (const pkt of input.map(JSON.parse)) {
       if (pkt.msg !== 'ping')
         console.debug('<<', pkt);
+
+      const apiName = `${pkt.msg}Pkt`;
+      try {
+        if (apiName in this.api) {
+          const ok = await this.api[apiName].call(this, pkt);
+          if (ok) continue;
+        }
+      } catch (err) {
+        console.error('DDP packet failure:', pkt, err);
+      }
+
       const func = DdpPacketFuncs[pkt.msg];
       if (func) {
         try {

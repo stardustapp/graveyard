@@ -29,6 +29,8 @@ class GraphObject {
 }
 
 const GraphEngines = new Map;
+const EngineExtensions = new Map;
+
 class GraphEngine {
   constructor(key, builder) {
     if (GraphEngines.has(key)) throw new Error(
@@ -37,6 +39,10 @@ class GraphEngine {
     this.engineKey = key;
     this.names = builder.names;
     GraphEngines.set(key, this);
+
+    if (!EngineExtensions.has(key))
+      EngineExtensions.set(key, {});
+    this.extensions = EngineExtensions.get(key);
   }
 
   static get(key) {
@@ -45,12 +51,20 @@ class GraphEngine {
     return GraphEngines.get(key);
   }
 
+  static extend(key) {
+    let exts = EngineExtensions.get(key);
+    if (!EngineExtensions.has(key)) {
+      exts = {};
+      EngineExtensions.set(key, exts);
+    }
+    return exts;
+  }
+
   spawnObject(data) {
     const type = this.names.get(data.type);
     if (!type) throw new Error(
       `Object ${data.objectId} ${JSON.stringify(data.name)
       } has unimplemented type ${JSON.stringify(data.type)}`);
-    // TODO: support NodeBuilder extending GraphObjects?
-    return new GraphObject(type, data);
+    return new type.behavior(type, data);
   }
 }

@@ -1,5 +1,4 @@
-console.log('');
-console.log('==-----------------------------------------==');
+console.log('%c==-----------------------------------------==', 'margin-top: 5em;');
 console.log('==- S E R V I C E W O R K E R L A U N C H -==');
 console.log('==-----------------------------------------==');
 
@@ -31,6 +30,7 @@ importScripts(
   '/~~src/model/store.js',
 
   '/~~src/model/impl/app-profile/model.js',
+  '/~~src/model/impl/app-profile/ddp-api.js',
 
   '/~~src/model/impl/dust-app/model.js',
   '/~~src/model/impl/dust-app/json-codec.js',
@@ -40,74 +40,8 @@ importScripts(
   '/~~src/model/impl/lua-machine/model.js',
 );
 
-class GraphContext {
-  constructor(worker, graph) {
-    this.worker = worker;
-    this.graph = graph;
-    this.sessions = [];
-  }
-
-  connectSession(session) {
-    this.sessions.push(session);
-    /*
-    session.queueResponses({
-      msg: 'added',
-      collection: 'records',
-      id: 'CZevr7ikH6AGhvDc5',
-      fields: {
-        type: 'Sentiment',
-        packageId: 'diary',
-        version: 1,
-        scope: 'global',
-        Code: 'fantastic',
-        Label: 'amazing, fantastic day',
-        Color: 'pink',
-      }
-    });
-    session.queueResponses({
-      msg: 'added',
-      collection: 'records',
-      id: 'E35kkKwQSLQa72wsH',
-      fields: {
-        type: 'DayOverview',
-        packageId: 'diary',
-        version: 23,
-        scope: 'global',
-        createdAt: {$date: 1546405175948},
-        updatedAt: {$date: 1547535604661},
-        Date: '2019-01-01',
-        SentimentCode: [ 'stressed' ],
-        Highlight: 'Diary creation sprint',
-      }
-    });
-    session.queueResponses({
-      msg: 'added',
-      collection: 'records',
-      id: 'QbthKyNHjeCoxuhWR',
-      fields: {
-        type: 'MealEntry',
-        createdAt: {$date: 1546419753713},
-        updatedAt: {$date: 1546832841093},
-        packageId: 'diary',
-        version:10,
-        scope: 'global',
-        Timestamp: {$date: 1546378200000},
-        SentimentCode: 'fantastic',
-        Foods: ['brown rice', 'garlic naan', 'chana masala', 'daal', 'spicy veggie chicken'],
-        Drinks: ['water'],
-        MealSize: 'Large meal',
-        Origin: 'samosa house',
-      },
-      cleared: ['EndTime'],
-    });
-    */
-  }
-}
-
 class GraphWorker {
   constructor() {
-    console.log('==---------------- L O A D ----------------==');
-
     this.graphStore = new GraphStore();
     this.ddp = new DDPManager(this.graphStore, async reqUri => {
       const {path} = PathFragment.parseUri(reqUri);
@@ -136,25 +70,22 @@ class GraphWorker {
           `DDP request URI not recognized`);
       }
 
-      if (!graph) throw new Error(
+      if (graph) return graph;
+      throw new Error(
         `DDP request URI didn't resolve to a graph`);
-
-      console.info('Creating DDP context for', graph);
-      return new GraphContext(this, graph);
     });
 
     this.ready = Promise.all([
       this.graphStore.ready,
     ]);
     this.ready.then(function () {
-      console.log('==-----------------------------------------==');
-      console.log('');
+      console.log('%c==-----------------------------------------==', 'margin-bottom: 2em;');
     });
   }
 }
 let graphWorker;
 
-const SHELL_CACHE = 'shell-cache-v1';
+const SHELL_CACHE = 'shell-cache-v3';
 
 self.addEventListener('install', function(event) {
   event.waitUntil(async function boot() {
@@ -171,6 +102,7 @@ self.addEventListener('install', function(event) {
         '/~~libs/vendor/fonts/woff2/roboto-latin.woff2',
         //'/~~libs/vendor/fonts/fira-code.css',
 
+        '/~~src/model/impl/dust-app/runtime.js',
         '/~~libs/vendor/libraries/meteor-bundle.js',
       ]);
     }
@@ -186,6 +118,7 @@ self.addEventListener('activate', function(event) {
     if (!graphWorker)
       graphWorker = new GraphWorker();
     await graphWorker.ready;
+    console.log('ready!!!!');
 
     // Clear out old caches
     const cacheWhitelist = [SHELL_CACHE];
@@ -220,20 +153,24 @@ destinations.documentGET.registerHandler('/~/apps/my/:appKey/:*rest', async (mat
     .redirect(`/~/apps/my/${appKey}/home`);
 
   const store = graphWorker.graphStore;
+
   const appGraph = await store.findGraph({
     engineKey: 'app-profile/v1-beta1',
     fields: { appKey },
   });
+  if (!appGraph) throw new Error(
+    `App installation ${JSON.stringify(appKey)} not found`);
+
   const appInst = Array.from(appGraph.roots)[0];
 
   const appRouter = store.objects.get(appInst.Source.DustApp);
-  console.log('appRouter', appRouter);
   if (!appRouter) throw new Error(
     `AppRouter not found`);
 
   const dustGraph = store.graphs.get(appRouter.data.graphId);
   if (!dustGraph) throw new Error(
     `dust-app graph not found`);
+
   return CompileDustApp(store, dustGraph, {
     appRoot: `/~/apps/my/${encodeURIComponent(appKey)}`,
   });

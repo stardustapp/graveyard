@@ -1,3 +1,10 @@
+class AppProfileLink extends GraphObject {
+  constructor(type, data) {
+    super(type, data);
+    console.log('constructing AppProfileLink', data);
+  }
+}
+
 new GraphEngineBuilder('app-profile/v1-beta1', build => {
 
   build.node('Instance', {
@@ -21,12 +28,13 @@ new GraphEngineBuilder('app-profile/v1-beta1', build => {
 
   build.node('Link', {
     treeRole: 'leaf',
+    behavior: AppProfileLink,
     fields: {
       Target: { anyOfKeyed: {
         // TODO: LocalTree: { reference: 'TreeStore' },
         // TODO: LocalCollection: { reference: 'DocumentStore' },
         LegacyDDP: { fields: {
-          OriginUrl: String,
+          SocketBaseUrl: String,
           AppId: String,
           Schemas: { reference: {
             engine: 'dust-app/v1-beta1',

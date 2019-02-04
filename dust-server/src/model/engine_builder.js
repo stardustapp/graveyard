@@ -41,6 +41,7 @@ const GraphEngineBuilder = function() {
       if (!['root', 'leaf', 'parent'].includes(config.treeRole)) throw new Error(
         `Tree role ${JSON.stringify(config.treeRole)} is not valid`);
       this.treeRole = config.treeRole;
+      this.behavior = config.behavior || GraphObject;
     }
 
     compile(builder) {

@@ -221,7 +221,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   }));
 
   addChunk('DDP Publications', compiler.process('Publication', function (res) {
-    return `new DustPublication(${Js(graphId)}, ${Js(res.fields)});`;
+    return `new DustPublication(${Js(graphId)}, ${Js(res.name)}, ${Js(res.fields)});`;
   }));
 
   addChunk('Server Methods', compiler.process('ServerMethod', function (res) {
@@ -286,6 +286,13 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
     return `DUST.objects[${Js(res.parentObjId)}]
     .add(${Js(Path)}, ${callback});\n`;
   }));
+
+  addChunk('Default Subscription', commonTags.source`
+    if (DUST.resTree.my.Default) {
+      const defaultPub = DUST.objects[DUST.resTree.my.Default];
+      const defaultSub = defaultPub.subscribe();
+    }
+  `);
 
   return new Response(commonTags.html`<!doctype html>
 <title></title>

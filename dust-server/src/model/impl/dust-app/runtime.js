@@ -315,8 +315,9 @@ function InflateBlazeTemplate(template) {
 }
 
 class DustPublication {
-  constructor(context, res) {
+  constructor(context, resName, res) {
     this.context = context;
+    this.resName = resName;
     this.res = res;
     this.injector = scriptHelpers;
 
@@ -359,13 +360,13 @@ class DustPublication {
   }
 
   subscribe(params={}) {
-    const args = ['/dust/publication', this.context, this.res.name, params];
+    const args = ['/dust/publication', this.context, this.resName, params];
 
     const inst = Template.instance();
     if (inst) {
       return inst.subscribe(...args);
     } else {
-      console.warn('Using application-wide subscribe for', this.res.name);
+      console.warn('Using application-wide subscribe for', this.resName);
       return Meteor.subscribe(...args);
     }
   }
