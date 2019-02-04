@@ -65,6 +65,7 @@ class DefaultSiteIndex {
     header em {
       font-weight: 400;
       font-style: normal;
+      color: #ddd;
     }
     a {
       color: #ccc;

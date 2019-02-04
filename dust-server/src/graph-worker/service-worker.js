@@ -109,11 +109,38 @@ class GraphWorker {
     console.log('==---------------- L O A D ----------------==');
 
     this.graphStore = new GraphStore();
-    this.ddp = new DDPManager(this.graphStore, async appId => {
-      console.warn('Creating context for', appId);
-      const graph = await this.graphStore.loadGraph(appId);
-      const context = new GraphContext(this, graph);
-      return context;
+    this.ddp = new DDPManager(this.graphStore, async reqUri => {
+      const {path} = PathFragment.parseUri(reqUri);
+
+      let match, graph;
+      switch (true) {
+
+        case (match = path.matchWith('/~/apps/by-id/:appId/:*rest')).ok:
+          // it's a raw dust app, no data, nothing to really do
+          const foreignKey = match.params.get('appId');
+          graph = await this.graphStore.findGraph({
+            engineKey: 'dust-app/v1-beta1',
+            fields: { foreignKey },
+          });
+          break;
+
+        case (match = path.matchWith('/~/apps/my/:appKey/:*rest')).ok:
+          const appKey = match.params.get('appKey');
+          graph = await this.graphStore.findGraph({
+            engineKey: 'app-profile/v1-beta1',
+            fields: { appKey },
+          });
+          break;
+
+        default: throw new Error(
+          `DDP request URI not recognized`);
+      }
+
+      if (!graph) throw new Error(
+        `DDP request URI didn't resolve to a graph`);
+
+      console.info('Creating DDP context for', graph);
+      return new GraphContext(this, graph);
     });
 
     this.ready = Promise.all([
@@ -156,7 +183,8 @@ self.addEventListener('install', function(event) {
 self.addEventListener('activate', function(event) {
   event.waitUntil(async function() {
 
-    graphWorker = new GraphWorker();
+    if (!graphWorker)
+      graphWorker = new GraphWorker();
     await graphWorker.ready;
 
     // Clear out old caches
@@ -181,46 +209,36 @@ const destinations = {
 destinations.documentGET.registerHandler('/~/apps/', (...args) => ShellSiteHome.apply(graphWorker, args));
 destinations.styleGET.registerHandler('/~/apps/style.css', (...args) => ShellSiteStyle.apply(graphWorker, args));
 
-destinations.documentGET.registerHandler('/~/apps/install-app', async (match, input) => {
-  const graphId = input.uri.queryParams.get('graphId');
-  const graph = graphWorker.graphStore.graphs.get(graphId);
-  if (!graph) throw new Error(
-    `graph ${graphId} not found to install`);
+destinations.documentGET.registerHandler('/~/apps/install-app', (...args) => ShellSiteAddAppForm.apply(graphWorker, args));
+destinations.documentPOST.registerHandler('/~/apps/install-app', (...args) => ShellSiteAddAppAction.apply(graphWorker, args));
 
-  return ShellSiteAddAppForm.call(graphWorker, match, input, graph);
-});
+destinations.documentGET.registerHandler('/~/apps/my/:appKey/:*rest', async (match, input) => {
+  const appKey = match.params.get('appKey');
+  const rest = match.params.get('rest');
 
-destinations.documentPOST.registerHandler('/~/apps/install-app', async function (match, input) {
-  const graphId = input.uri.queryParams.get('graphId');
-  const graph = graphWorker.graphStore.graphs.get(graphId);
-  if (!graph) throw new Error(
-    `graph ${graphId} not found to install`);
+  if (!rest[0]) return Response
+    .redirect(`/~/apps/my/${appKey}/home`);
 
-  //const dependencies = graph.selectAllWithType('Dependency');
-  //console.log('dependencies:', dependencies);
-
-  console.log(input);
-
-  const engine = GraphEngine.get('app-profilea/v1-beta1');
-  const appGraph = await this.graphStore.findOrCreateGraph(engine, {
-    fields: {
-      appKey: null,
-    },
-    async buildCb(engine, {originUrl}) {
-      const builder = new GraphBuilder(engine);
-      self.builder = builder;
-
-      // root node from manifest meta
-      const app = builder.withInstance(manifest.meta.name, 1, {
-        PackageKey: manifest.packageId,
-        PackageType: manifest.meta.type,
-        License: manifest.meta.license,
-      });
-    },
+  const store = graphWorker.graphStore;
+  const appGraph = await store.findGraph({
+    engineKey: 'app-profile/v1-beta1',
+    fields: { appKey },
   });
+  const appInst = Array.from(appGraph.roots)[0];
 
-  return wrapGatePage('hi', 'hi');
+  const appRouter = store.objects.get(appInst.Source.DustApp);
+  console.log('appRouter', appRouter);
+  if (!appRouter) throw new Error(
+    `AppRouter not found`);
+
+  const dustGraph = store.graphs.get(appRouter.data.graphId);
+  if (!dustGraph) throw new Error(
+    `dust-app graph not found`);
+  return CompileDustApp(store, dustGraph, {
+    appRoot: `/~/apps/my/${encodeURIComponent(appKey)}`,
+  });
 });
+
 
 destinations.documentGET.registerHandler('/~/apps/by-id/:appId', match => {
   const appId = match.params.get('appId');
@@ -235,7 +253,10 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
   //await store.transact('readwrite', txn => txn.purgeEverything());
 
   const graph = await DustAppJsonCodec.installWithDeps(store, appId);
-  return CompileDustApp(store, graph, input);
+  return CompileDustApp(store, graph, {
+    appRoot: `/~/apps/by-id/${encodeURIComponent(appId)}`,
+    usesLegacyDB: appId.startsWith('build-'),
+  });
 });
 
 self.addEventListener('fetch', event => {

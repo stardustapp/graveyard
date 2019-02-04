@@ -153,7 +153,7 @@ class ResourceCompiler {
   }
 }
 
-async function CompileDustApp(store, graph, input) {
+async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   const {graphId} = graph.data;
   const application = Array.from(graph.roots)[0];
   if (!application) throw new Error(`app-missing:
@@ -287,16 +287,14 @@ async function CompileDustApp(store, graph, input) {
     .add(${Js(Path)}, ${callback});\n`;
   }));
 
-  const appId = input.params.get('appId');
-
   return new Response(commonTags.html`<!doctype html>
 <title></title>
 <link href="/~~libs/vendor/fonts/roboto.css" type="text/css" rel="stylesheet">
 <link href="/~~libs/vendor/fonts/material-icons.css" type="text/css" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<base href="/~/apps/by-id/${encodeURIComponent(appId)}/">
+<base href=${Js(appRoot+'/')}>
 <script>
-  const APP_ROOT = "/~/apps/by-id/${encodeURIComponent(appId)}";
+  const APP_ROOT = ${Js(appRoot)};
   __meteor_runtime_config__ = {
     DDP_DEFAULT_CONNECTION_URL: "http://ddp",
     meteorEnv: {},
@@ -315,13 +313,13 @@ async function CompileDustApp(store, graph, input) {
 </style>
 <script src="/~~libs/vendor/libraries/meteor-bundle.js"></script>
 <script src="/~~src/model/impl/dust-app/runtime.js"></script>
-${appId.startsWith('build-') ? `<script src="/~~src/model/impl/dust-app/runtime-build.js"></script>` : ''}
+${usesLegacyDB ? `<script src="/~~src/model/impl/dust-app/runtime-build.js"></script>` : ''}
 <script>
   const appSub = Meteor.subscribe("/app-runtime", {
     graphId: ${Js(graphId)},
-    appId: ${Js(appId)},
+    appPath: APP_ROOT,
   });
-  ${appId.startsWith('build-') ? `const buildSub = Meteor.subscribe("/legacy-dust-app-data");` : ''}
+  ${usesLegacyDB ? `const buildSub = Meteor.subscribe("/legacy-dust-app-data");` : ''}
 `+scriptChunks.join("\n")+`\n\n</script>`, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',

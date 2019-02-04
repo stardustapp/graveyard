@@ -37,6 +37,7 @@ class FieldType {
         type = config.type;
         break;
       case builtins.has(config.type):
+        // TODO: 'choices'
         type = builtins.get(config.type);
         break;
       case 'reference' in config:
@@ -128,8 +129,9 @@ class ReferenceFieldType extends FieldType {
       `Reference cannot be null`);
     if (input.constructor === GraphReference) return input;
     if (input.constructor === GraphGhostNode) return new GraphReference(input);
+    if (input.constructor === GraphObject) return new GraphReference(input);
     if (input.constructor !== GraphBuilderNode) throw new FieldTypeError(this,
-      `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode, was ${input.constructor.name} (TODO)`);
+      `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode or GraphObject, was ${input.constructor.name} (TODO)`);
     if (input.type !== this.targetPath) throw new FieldTypeError(this,
       `Reference expected to be ${this.targetPath}, was ${input.type}`);
     return new GraphReference(input);

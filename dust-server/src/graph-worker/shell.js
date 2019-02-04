@@ -15,10 +15,12 @@ async function ShellSiteHome(match, input) {
     switch (package.PackageType) {
     case 'App':
       localAppListing.push(commonTags.safeHtml`
-        <li>
-          <a href="install-app?graphId=${graph.data.graphId}" class="app">
-            <img src="${appRouter ? appRouter.IconUrl : null}}">
-            <h3>${package.data.name}</h3>
+        <li style="display: flex;">
+          <a href="install-app?graphId=${package.data.graphId}" style="flex: 1;">
+            ${package.data.name}
+          </a>
+          <a href="delete?graphId=${package.data.graphId}">
+            <i class="material-icons">delete</i>
           </a>
         </li>`);
       break;
@@ -31,16 +33,17 @@ async function ShellSiteHome(match, input) {
     }
   }
 
-  let appListing = appGraphs.map(app => commonTags.safeHtml`
-    <li style="display: flex;">
-      <a href="/~${app.data.graphId}/" style="flex: 1;">
-        ${app.data.name}
-      </a>
-      <a href="remove-app?appKey=${app.data.graphId}">
-        <i class="material-icons">delete</i>
-      </a>
-    </li>
-  `).join('\n');
+  let appListing = appGraphs.map(profile => {
+    const app = profile.selectAllWithType('Instance')[0];
+    return commonTags.safeHtml`
+      <li>
+        <a href="my/${profile.data.fields.appKey}/" class="app">
+          <img src="${app.IconUrl}}">
+          <h3>${app.data.name}</h3>
+        </a>
+      </li>
+    `;
+  }).join('\n');
   if (!appGraphs.length) {
     appListing = commonTags.safeHtml`<li>None yet</li>`;
   }
@@ -63,28 +66,33 @@ async function ShellSiteHome(match, input) {
       <ul style="margin: 0; padding: 0 0.5em;" class="app-list">
         ${appListing}
       </ul>
-      <a href="create-app" class="action">
+      <!--a href="create-app" class="action">
         Create application
-      </a>
+      </a-->
     </section>
 
     <section class="compact modal-form">
       <h2>Local packages</h2>
-      <ul style="text-align: left;" class="app-list">
+      <ul style="text-align: left;">
         ${localAppListing}
       </ul>
       <h3>Support libraries</h3>
       <ul style="text-align: left;">
         ${localPkgListing}
       </ul>
-      <a href="download-pkg" class="action">
+      <a href="dust-store" class="action">
         Download DUST packages
       </a>
     </section>
   </div>`);
 }
 
-function ShellSiteAddAppForm(match, input, graph) {
+function ShellSiteAddAppForm(match, input) {
+  const graphId = input.uri.queryParams.get('graphId');
+  const graph = this.graphStore.graphs.get(graphId);
+  if (!graph) throw new Error(
+    `graph ${graphId} not found, to install`);
+
   let installUI = '';
 
   const mountRows = [];/*
@@ -134,14 +142,21 @@ function ShellSiteAddAppForm(match, input, graph) {
 
   return wrapGatePage(`install app`, commonTags.html`
     <div style="display: flex; align-self: center;">
-      <form method="post" class="modal-form">
+      <form action="install-app" method="post" class="modal-form">
         <h1>install as app</h1>
         <div class="row">
-          <label for="packageId" style="margin: 0 0 0 2em; width: 7em;">dust package</label>
-          <select name="packageId" disabled style="width: 12em; flex: 1;">
-            <option selected value="${graph.data.graphId}"
-              >${Array.from(graph.roots)[0].data.name}</option>
+          <label for="packageId" style="margin: 0 0 0 2em; width: 7em;">package</label>
+          <select name="packageId" style="width: 12em; flex: 1;">
+            <optgroup label="Dust Apps">
+              <option selected value="${graph.data.graphId}"
+                >${Array.from(graph.roots)[0].data.name}</option>
+            </optgroup>
           </select>
+        </div>
+        <div class="row">
+          <label for="appName" style="margin: 0 0 0 2em; width: 7em;">app name</label>
+          <input type="text" name="appName" value="${Array.from(graph.roots)[0].data.name}"
+              style="width: 12em;" autofocus required>
         </div>
         <div class="row">
           <label for="appKey" style="margin: 0 0 0 2em; width: 7em;">app key</label>
@@ -162,8 +177,8 @@ function ShellSiteAddAppForm(match, input, graph) {
           <label for="privacy" style="margin: 0 0 0 2em; width: 7em;">privacy</label>
           <select name="privacy" style="width: 12em; flex: 1;" required>
             <option selected>private</option>
-            <option>public read-only</option>
-            <option>public interactive</option>
+            <option disabled>public read-only</option>
+            <option disabled>public interactive</option>
           </select>
         </div>
         ${mountRows}
@@ -175,6 +190,77 @@ function ShellSiteAddAppForm(match, input, graph) {
     </div>`);
 }
 
+async function ShellSiteAddAppAction(match, input) {
+  const formData = await input.request.formData();
+  const packageId = formData.get('packageId');
+  const appKey = formData.get('appKey');
+  const appName = formData.get('appName');
+  const location = formData.get('location');
+  const privacy = formData.get('privacy');
+
+  const pkgGraph = this.graphStore.graphs.get(packageId);
+  if (!pkgGraph) throw new Error(
+    `source package graph ${packageId} not found, can't install nothing`);
+
+  const appRouter = pkgGraph
+    .selectAllWithType('AppRouter')[0];
+
+  // build a list of all the schemas that can be persisted
+  const persistedSchemas = pkgGraph
+    .selectAllWithType('RecordSchema')
+    .filter(schema => {
+      // resolve the root base
+      let base = schema.Base;
+      while (base.SchemaRef)
+        base = this.graphStore.objects.get(base.SchemaRef).Base;
+      // Records are persisted, Classes are not
+      return base.BuiltIn === 'Record';
+    })
+
+  const dependencies = pkgGraph.selectAllWithType('Dependency');
+  console.log('dependencies:', dependencies);
+  // TODO: use dependencies for like drivers and shit
+
+  const engine = GraphEngine.get('app-profile/v1-beta1');
+  const appGraph = await this.graphStore.findOrCreateGraph(engine, {
+    selector: { appKey },
+    fields: { appKey, location },
+    async buildCb(engine, {originUrl}) {
+      const builder = new GraphBuilder(engine);
+      self.builder = builder;
+
+      const instance = builder.withInstance(appName, 1, {
+        IconUrl: appRouter.IconUrl,
+        Source: {
+          DustApp: appRouter,
+        },
+        Privacy: privacy,
+      });
+
+      switch (location) {
+        //case 'browser-local':
+        case 'legacy-poc':
+          instance.withLink('Records', 1, {
+            Target: {
+              LegacyDDP: {
+                OriginUrl: 'https://stardustapp.run',
+                AppId: pkgGraph.data.fields.foreignKey,
+                Schemas: persistedSchemas,
+              },
+            },
+          });
+          break;
+
+        default: throw new Error(
+          `Unrecognized app profile data location ${JSON.stringify(location)}`);
+      }
+
+      return builder;
+    }});
+
+  console.log('Created app profile', appGraph);
+  return Response.redirect(`/~/apps/`);
+}
 
 
 function wrapGatePage(title, inner) {

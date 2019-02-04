@@ -161,9 +161,10 @@ class GraphStore {
     const {timestamp, graphId, entries} = event;
     let graph = this.graphs.get(graphId);
 
-    for (const processor of eventProcessors) {
-      processor(graph, event);
-    }
+    // TODO
+    //for (const processor of eventProcessors) {
+    //  processor(graph, event);
+    //}
 
     for (const entry of entries) {
       switch (entry.type) {
@@ -212,15 +213,20 @@ class GraphStore {
         .every(key => x.data.fields[key] == fields[key]));
   }
 
-  async findOrCreateGraph(engine, {fields, buildCb}) {
+  async findOrCreateGraph(engine, {selector, fields, buildCb}) {
     await this.ready;
 
     // return an existing graph if we find it
-    const existingGraph = await this.findGraph({engine, fields});
+    const existingGraph = await this.findGraph({
+      engine,
+      fields: selector || fields,
+    });
     if (existingGraph) return existingGraph;
 
     // ok we have to build the graph
     const graphBuilder = await buildCb(engine, fields);
+    if (!graphBuilder) throw new Error(
+      `Graph builder for ${engine.engineKey} returned nothing`);
 
     // persist the new graph
     const graphId = await this

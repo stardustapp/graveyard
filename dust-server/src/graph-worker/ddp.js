@@ -58,21 +58,13 @@ const DdpPacketFuncs = {
     if (version !== '1') throw new Error(
       `bad sockjs version ${JSON.stringify(version)}, expected '1'`);
 
+    await this.ready;
+    this.context.connectSession(this);
+
     this.queueResponses(
       {server_id: "0"},
       {msg: 'connected', session: this.session},
     );
-
-    const referrer = PathFragment.parseUri(this.originalReq.referrer);
-    const match = referrer.path.matchWith('/~/apps/by-id/:appId/:*rest');
-    if (!match.ok) {
-      console.warn('DDP session connected from non-app URL');
-      return;
-    }
-
-    //const appId = match.params.get('appId');
-    //this.context = await this.manager.contexts.getOne(appId, appId);
-    //this.context.connectSession(this);
   },
 
   async sub(packet) {
@@ -124,12 +116,19 @@ class DDPSession {
     // Livedata state-keeping
     this.subscriptions = new Map;
     this.collections = new Map;
+
+    this.ready = (async () => {
+      // get a context on the relevant graph
+      const {referrer} = request;
+      this.context = await this.manager.contexts
+        .getOne(referrer, referrer);
+    })();
   }
 
   queueResponses(...packets) {
     packets
       .filter(pkt => pkt.msg !== 'pong')
-      .forEach(pkt => console.log('>>', pkt));
+      .forEach(pkt => console.debug('>>', pkt));
     packets = packets
       .map(p => JSON.stringify(p));
 
@@ -147,7 +146,7 @@ class DDPSession {
   async processPollSend(input) {
     for (const pkt of input.map(JSON.parse)) {
       if (pkt.msg !== 'ping')
-        console.log('<<', pkt);
+        console.debug('<<', pkt);
       const func = DdpPacketFuncs[pkt.msg];
       if (func) {
         try {
