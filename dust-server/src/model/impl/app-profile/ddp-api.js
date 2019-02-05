@@ -74,29 +74,16 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
 
     this.recordMode = Object.keys(recordObj.Target)[0];
     switch (this.recordMode) {
+
       case 'LegacyDDP':
         const {SocketBaseUrl, AppId, Schemas} = recordObj.Target.LegacyDDP;
         this.pocClient = new PoCRecordClient(SocketBaseUrl, AppId, this.queueResponses.bind(this));
         break;
+
       case 'LocalCollection':
         this.database = this.context.objects.get(recordObj.Target.LocalCollection);
         if (!this.database) throw new Error(
           `LocalCollection database ${recordObj.Target.LocalCollection} not found`);
-
-        const records = await this.database.getAll();
-        for (const record of records) {
-          this.queueResponses({
-            msg: 'added',
-            collection: 'records',
-            id: record.recordId,
-            fields: record.fields,
-          });
-        }
-        console.log('finished sync of', records.length, 'records');
-
-        // TODO: subscribe to record events
-        // a["{\"msg\":\"changed\",\"collection\":\"resources\",\"id\":\"WnPZDyh3T7MmmgMRq\",\"fields\":{\"version\":5}}"]	
-
         break;
     }
   },
@@ -109,7 +96,51 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
       await this.pocClient.subscribe(packet.id, ...packet.params.slice(1));
       return true;
     } else if (this.database) {
-      console.log('local pub', packet);
+
+      const subId = packet.id;
+      const pubGraph = self.gs.graphs.get(packet.params[0]);
+      const pubObject = pubGraph.selectNamed(packet.params[1]);
+
+      const recordFilter = pubObject.getRecordFilter();
+      console.log('subscribing to', pubObject, recordFilter);
+
+/*
+      const publication = new DocPublication {
+  constructor({sourceFunc, filterFunc, sort, fields, limit}) {
+
+      const sub = this.database.buildSubscription()
+        
+      {
+        onDocument: doc => {
+          this.queueResponses({
+            msg: 'added',
+            collection: 'records',
+            id: doc.id,
+            fields: doc.fields,
+          });
+
+          //{
+          //  msg: 'changed',
+          //  collection: 'records',
+          //  id: doc.id,
+          //  fields: {
+          //    version: 5,
+          //  }}
+        },
+        onReady: () => {
+          console.log('Database subscription is ready.');
+          this.queueResponses({
+            msg: 'ready',
+            subs: [packet.id],
+          });
+        },
+      });
+      this.registerSub(sub);
+      await sub.ready;
+      console.log('finished sync of', records.length, 'records');
+*/
+      // TODO: subscribe to record events
+
       return false;
     }
   },

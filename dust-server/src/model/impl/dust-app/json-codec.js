@@ -175,11 +175,11 @@ class DustAppJsonCodec {
     function mapDocLocator (child) {
       return {
         Children: child.children.map(mapDocLocator),
-        Fields: child.fields,
         FilterBy: child.filterBy,
-        LimitTo: child.limitTo,
+        Fields: (child.fields||'').length > 2 ? child.fields : null,
+        SortBy: (child.sortBy||'').length > 2 ? child.sortBy : null,
+        LimitTo: child.limitTo || null,
         RecordType: resolveRecordSchema(child.recordType),
-        SortBy: child.sortBy,
       };
     }
     for (const res of resources.Publication) {

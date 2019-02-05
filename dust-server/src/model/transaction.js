@@ -166,7 +166,7 @@ class GraphTxn {
             refObjIds.add(objId);
             return objId;
           }
-        } else if (target.constructor === GraphObject) {
+        } else if (GraphObject.prototype.isPrototypeOf(target)) {
           return target.data.objectId;
         } else if (target.constructor === String) {
           // TODO: better path resolving strategy

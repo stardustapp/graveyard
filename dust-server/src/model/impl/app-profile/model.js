@@ -1,7 +1,7 @@
 class AppProfileLocalCollection extends GraphObject {
   constructor(type, data) {
     super(type, data);
-    console.log('constructing AppProfileLink', data);
+    this.subscriptions = new Set;
   }
 
   async insert(data) {

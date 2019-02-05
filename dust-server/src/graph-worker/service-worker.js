@@ -28,6 +28,7 @@ importScripts(
   '/~~src/model/graph_builder.js',
   '/~~src/model/transaction.js',
   '/~~src/model/store.js',
+  '/~~src/model/record-filter.js',
 
   '/~~src/model/impl/app-profile/model.js',
   '/~~src/model/impl/app-profile/ddp-api.js',

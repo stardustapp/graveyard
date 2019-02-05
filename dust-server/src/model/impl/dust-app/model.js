@@ -91,6 +91,39 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
         Field: String,
       }},
     },
+    behavior: class DustAppRecordSchema extends GraphObject {
+      // walk schema back to BuiltIns, in reverse order
+      getSchemaStack() {
+        const stack = [this];
+        let cursor = this;
+        while (cursor.Base.SchemaRef) {
+          cursor = self.gs.objects.get(cursor.Base.SchemaRef);
+          stack.unshift(cursor);
+        }
+        return stack;
+      }
+      // list off all direct child schemas
+      getChildSchemas() {
+        return self.gs
+          .graphs.get(this.data.graphId)
+          .selectAllWithType('RecordSchema')
+          .filter(x => x.Base.SchemaRef == this.data.objectId);
+      }
+      // list self and any children types, recursively
+      getPossibleTypes() {
+        const seenTypes = new Set;
+        function process(obj) {
+          seenTypes.add(obj);
+          for (const child of obj.getChildSchemas()) {
+            if (seenTypes.has(child)) continue;
+            // we know Base.key is SchemaRef
+            process(child);
+          }
+        }
+        process(this);
+        return Array.from(seenTypes);
+      }
+    },
   });
 
   build.node('Dependency', {
@@ -106,7 +139,8 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       BuiltIn: { type: String, choices: [ 'Record', 'Class' ]},
       SchemaRef: { reference: 'RecordSchema' },
     }},
-    FilterBy: { type: String, optional: true },
+    // TODO: these three 'String' fields should be 'JSON'
+    FilterBy: { type: String, optional: false },
     SortBy: { type: String, optional: true },
     Fields: { type: String, optional: true },
     LimitTo: { type: Number, optional: true },
@@ -118,6 +152,40 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
   build.node('Publication', {
     treeRole: 'leaf',
     fields: DocLocator,
+    behavior: class DustAppPublication extends GraphObject {
+      getRecordFilter() {
+        // empty specs mean every type
+        const sourceSpec = {};
+
+        // but some subs are specific so
+        if (this.RecordType.SchemaRef) {
+          const schemaObj = self.gs.objects.get(this.RecordType.SchemaRef);
+          sourceSpec.types = schemaObj
+            .getPossibleTypes()
+            .map(x => x.data.name);
+        }
+
+        // build the filter
+        const filter = new RecordFilter({
+          sourceSpec,
+          filterFunc: this.FilterBy.length > 2
+            ? (doc, refs) => {
+              console.log('filterFunc()', this, doc, refs);
+              throw new Error('TODO: FilterBy');
+            } : null,
+          sort: this.SortBy && JSON.parse(this.SortBy),
+          fields: this.Fields && JSON.parse(this.Fields),
+          limit: this.LimitTo,
+        });
+
+        for (const childSpec of this.Children) {
+          throw new Error(`TODO: child subs`);
+          // TODO: filter.addChild(pub)
+        }
+
+        return filter.build();
+      }
+    },
   });
 
   build.node('ServerMethod', {

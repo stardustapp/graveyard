@@ -35,6 +35,7 @@ class GraphStore {
         objects.createIndex('referenced', 'refObjIds', { multiEntry: true });
         objects.createIndex('by parent', ['parentObjId', 'name'], { unique: true });
         const records = upgradeDB.createObjectStore('records', { keyPath: ['objectId', 'recordId'] });
+        records.createIndex('by path', 'path', { unique: true });
         const events = upgradeDB.createObjectStore('events', { keyPath: ['graphId', 'timestamp'] });
     }
   }

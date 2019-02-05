@@ -129,7 +129,7 @@ class ReferenceFieldType extends FieldType {
       `Reference cannot be null`);
     if (input.constructor === GraphReference) return input;
     if (input.constructor === GraphGhostNode) return new GraphReference(input);
-    if (input.constructor === GraphObject) return new GraphReference(input);
+    if (GraphObject.prototype.isPrototypeOf(input)) return new GraphReference(input);
     if (input.constructor !== GraphBuilderNode) throw new FieldTypeError(this,
       `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode or GraphObject, was ${input.constructor.name} (TODO)`);
     if (input.type !== this.targetPath) throw new FieldTypeError(this,
