@@ -22,7 +22,7 @@
 </script>
 
 <script type="text/x-template" id="edit-entry">
-  <form @submit.prevent="save">
+  <tr>
     <td><input type="text" v-model="mountPath" placeholder="/n/..." required /></td>
     <td>
       <select v-model="deviceType" required class="browser-default">
@@ -87,10 +87,10 @@
     <td>
     </td>
     <td>
-      <button type="submit">Save</button>
+      <button type="button" @click="save">Save</button>
       <button type="button" @click="cancel">Cancel</button>
     </td>
-  </form>
+  </tr>
 </script>
 
 <script type="text/x-template" id="manage-chart">
@@ -251,7 +251,7 @@
   </div>
 </script>
 
-<script src="https://unpkg.com/vue"></script>
+<script src="https://unpkg.com/vue/dist/vue.js"></script>
 <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
 <script src="/~system/js-core/combined.js"></script>
 <script src="lib.js"></script>

@@ -95,25 +95,26 @@ Vue.component('edit-entry', {
 
   created() {
     var selectedPath = '';
+    const deviceUri = this.entry.deviceUri || '';
 
-    var uriMatch = this.entry.deviceUri.match(/^skylink(?:\+(wss?|https?))?:\/\/([a-z0-9\-:.]+)(\/.*)?$/);
+    var uriMatch = deviceUri.match(/^skylink(?:\+(wss?|https?))?:\/\/([a-z0-9\-:.]+)(\/.*)?$/);
     if (uriMatch) {
       this.deviceSource = 'External';
-      this.externalOrigin = this.entry.deviceUri.split('/', 3).join('/');
+      this.externalOrigin = deviceUri.split('/', 3).join('/');
       selectedPath = (uriMatch[3] || '');
 
-    } else if (this.entry.deviceUri.startsWith('/') || this.entry.deviceUri.length === 0) {
+    } else if (deviceUri.startsWith('/') || deviceUri.length === 0) {
       this.deviceSource = 'Internal';
-      selectedPath = this.entry.deviceUri;
+      selectedPath = deviceUri;
 
     } else {
-      throw new Error(`Device URI ${this.entry.deviceUri} can't be mapped`);
+      throw new Error(`Device URI ${deviceUri} can't be mapped`);
     }
 
     this.loadSource();
     if (selectedPath.length) {
       selectedPath.slice(1).split('/').forEach(name => {
-        this.selectNextName(name)
+        this.selectNextName(name);
       });
     }
 
@@ -175,7 +176,7 @@ Vue.component('edit-entry', {
         parent: part.parent + '/' + name,
         selected: '',
         loaded: '',
-        freetext: part.freetext,
+        freetext: true, // TODO: part.freetext,
         choices: [],
       };
 
