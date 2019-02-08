@@ -153,7 +153,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     treeRole: 'leaf',
     fields: DocLocator,
     behavior: class DustAppPublication extends GraphObject {
-      getRecordFilter() {
+      getRecordFilter(rootPublication=this) {
         // empty specs mean every type
         const sourceSpec = {};
 
@@ -179,8 +179,8 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
         });
 
         for (const childSpec of this.Children) {
-          throw new Error(`TODO: child subs`);
-          // TODO: filter.addChild(pub)
+          filter.addChild(rootPublication
+            .getRecordFilter.call(childSpec, rootPublication));
         }
 
         return filter.build();

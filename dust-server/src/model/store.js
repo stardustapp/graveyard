@@ -110,7 +110,7 @@ class GraphStore {
         const {mode, cb, out} = this.waitingTxns.shift();
 
         // pipe result to the original 
-        txnPromise = this.immediateTransact(mode, cb);
+        const txnPromise = this.immediateTransact(mode, cb);
         txnPromise.then(out.resolve, out.reject);
         await txnPromise;
       }

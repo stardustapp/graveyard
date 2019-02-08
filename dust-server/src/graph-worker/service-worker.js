@@ -30,8 +30,10 @@ importScripts(
   '/~~src/model/store.js',
   '/~~src/model/record-filter.js',
 
-  '/~~src/model/impl/app-profile/model.js',
+  '/~~src/model/impl/app-profile/local-collection.js',
+  '/~~src/model/impl/app-profile/legacy-ddp.js',
   '/~~src/model/impl/app-profile/ddp-api.js',
+  '/~~src/model/impl/app-profile/model.js',
 
   '/~~src/model/impl/dust-app/model.js',
   '/~~src/model/impl/dust-app/json-codec.js',
