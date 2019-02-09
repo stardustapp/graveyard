@@ -64,4 +64,12 @@ class PoCRecordClient {
       params: [ this.appId, pubName, arg ],
     });
   }
+
+  async unsubscribe(id) {
+    await this.ready;
+    this.sendNow({
+      id: id,
+      msg: 'unsub',
+    });
+  }
 }

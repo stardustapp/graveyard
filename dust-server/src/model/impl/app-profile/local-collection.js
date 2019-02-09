@@ -201,8 +201,6 @@ class AppProfileLocalCollection extends GraphObject {
 */
 
   async startSubscription(rootFilter, parameter={}) {
-    console.log('Starting subscription', this.data.name, 'with', parameter);
-
     // unroll children filters, in dependency order (like an encoded DAG)
     // im tired of writing recursive functions
     const allPubs = new Array;
@@ -223,29 +221,104 @@ class AppProfileLocalCollection extends GraphObject {
 
     //return new AppProfileLocalCollectionRecursiveSubscription(this, allPubs)
     return {
-
       listener(event) {
         const {target, type, path, recordId, fields} = event;
         console.log('listener got event', event);
       },
 
+      stop() {
+        this.presenter.collection.purgePresenter(this.presenter);
+        this.presenter = null;
+      },
+
+      // TODO: generic presentTo(sink) {}
       sendToDDP(ddp, subId) {
-        console.log('sending to DDP:', ddp, 'as', subId);
+        console.debug('sending sub to DDP as', subId);
         this.ddp = ddp;
         this.subId = subId;
+
+        // In legacy DUST, all records are in one collection
+        this.presenter = {
+
+          // Reference counting for what's presented
+          refs: new Map,
+          incr(id) {
+            if (this.refs.has(id)) {
+              this.refs.set(id, this.refs.get(id) + 1);
+            } else {
+              this.refs.set(id, 0);
+            }
+          },
+          decr(id) {
+            if (!this.refs.has(id)) throw new Error(
+              `Decrement below 0 of ID ${id}`);
+            const newVal = this.refs.get(id) - 1;
+            if (newVal === 0) {
+              // decr-to-zero triggers cleanup
+              this.refs.delete(id);
+              this._purgeDoc(id);
+            } else {
+              this.refs.set(id, newVal);
+            }
+          },
+
+          // Published viewpoint management
+          docs: new Map,
+          _hasDocChanged(id, doc) {
+            if (!this.docs.has(id))
+              return true;
+            const existingDoc = this.docs.get(id);
+            return Object.keys(doc)
+              .some(key => !_.isEqual(doc[key], existingDoc[key]));
+          },
+          _shouldSendChanges(id, changes) {
+            if (!this.docs.has(id)) return false;
+            return this._hasDocChanged(id, changes);
+          },
+          _updateDocHash(id, changes) {
+            const existingDoc = this.docs.get(id) || {};
+            this.docs.set(id, {...existingDoc, ...changes});
+          },
+
+          // API to feed documents through to DDP
+          collection: this.ddp.getCollection('records'),
+          added(id, fields) {
+            this.incr(id);
+            if (this._hasDocChanged(id, fields)) {
+              this.collection.presentFields(id, this, fields);
+              this._updateDocHash(id, fields);
+            }
+          },
+          changed(id, changes) {
+            if (this._shouldSendChanges(id, changes)) {
+              this.collection.presentFields(id, this, changes);
+              this._updateDocHash(id, changes);
+            }
+          },
+          removed(id) {
+            this.decr(id);
+          },
+          _purgeDoc(id) { // called by ref-counter
+            this.collection.retractFields(id, this);
+            this.docs.delete(id);
+          },
+        };
 
         // send each initial batch
         for (const pub of allPubs) {
           console.log('sending filter:', pub);
           for (const type of pub.types) {
             for (const record of type.records) {
-              console.log('found record', record);
-              ddp.queueResponses({
-                msg: 'added',
-                collection: 'records',
-                id: record.recordId,
-                fields: record.fields,
-              });
+              if (pub.filter.filterFunc) {
+                if (!pub.filter.filterFunc(record, {param: parameter, parent: []}))
+                  continue;
+              }
+              
+              if (pub.filter.Fields) throw new Error(`TODO: filter.Fields`);
+              if (pub.filter.SortBy) throw new Error(`TODO: filter.SortBy`);
+              if (pub.filter.LimitTo) throw new Error(`TODO: filter.LimitTo`);
+
+              this.presenter.added(record.recordId, record.fields);
               // TODO: map Date to {$date: +date}
             }
             type.listeners.set(pub, this.listener.bind(pub));
@@ -258,6 +331,7 @@ class AppProfileLocalCollection extends GraphObject {
           subs: [subId],
         });
 
+        return this;
       },
     };
   }

@@ -93,6 +93,11 @@ const DdpPacketFuncs = {
     }
   },
 
+  unsub({id}) {
+    const sub = this.subs.get(id);
+    return sub.unsub();
+  },
+
   ping(packet) {
     this.queueResponses({msg: 'pong'});
   },
@@ -112,10 +117,96 @@ class DDPSession {
     // [1000, 'Normal closure']
     // [3000, 'No response from heartbeat']
 
-    // Livedata state-keeping
     this.subscriptions = new Map;
-    this.collections = new Map;
 
+    // Livedata state-keeping
+    this.collections = new Map;
+    const ddp = this;
+    this.getCollection = function (collName) {
+      if (this.collections.has(collName))
+        return this.collections.get(collName);
+      const collection = {
+        collName: collName,
+        documents: new Map,
+
+        presentFields(id, presenter, fields) {
+          if (!this.documents.has(id)) {
+            const doc = {
+              presents: new Map,
+              allFields: new Map,
+            };
+            this.documents.set(id, doc);
+
+            doc.presents.set(presenter, fields);
+            for (const key of Object.keys(fields)) {
+              doc.allFields.set(key, fields[key]);
+              // TODO: deep copy?
+            }
+
+            ddp.queueResponses({
+              msg: 'added',
+              collection: collName,
+              id: id,
+              fields: fields,
+            });
+          } else {
+            console.log('this is a repeat doc', id);
+            const doc = this.documents.get(id);
+            if (doc.presents.has(presenter)) throw new Error(
+              `The given presenter already presented a copy of record ${id}`);
+
+            doc.presents.set(presenter, fields);
+            const differs = false;
+            for (const key of Object.keys(fields)) {
+              if (doc.allFields.get(key) === fields[key])
+                continue;
+              console.log('field', key, 'was', doc.allFields.get(key), 'is now', fields[key]);
+              differs = true;
+            }
+            if (differs) throw new Error(
+              `doc multi-present TODO (different field values!)`);
+          }
+        },
+
+        purgePresenter(presenter) {
+          console.log('purging presenter', presenter);
+          let cleaned = 0;
+          let retracted = 0;
+          for (const [id, doc] of this.documents) {
+            if (!doc.presents.has(presenter))
+              continue;
+
+            doc.presents.delete(presenter);
+            cleaned++;
+
+            if (doc.presents.size === 0) {
+              retracted++;
+              ddp.queueResponses({
+                msg: 'removed',
+                collection: collName,
+                id: id,
+              });
+              this.documents.delete(id);
+
+            } else {
+              console.log('doc', id, `is still presented by`, doc.presents.size, 'presenters');
+              // todo: build new allFields and diff that down
+              // todo: how do we know if they're presenting the exact same thing?
+              for (const key of Object.keys(fields)) {
+                console.log('field', key, 'was', doc.allFields.get(key));
+              }
+              throw new Error(`doc multi-present TODO`);
+            }
+          }
+          console.log('cleaned', cleaned, 'docs, retracting', retracted);
+        },
+
+      };
+      this.collections.set(collName, collection);
+      return collection;
+    }
+
+    // grab and init the relevant graph async
     this.ready = (async () => {
       // get a context on the relevant graph
       this.context = await this.manager

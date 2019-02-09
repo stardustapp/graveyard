@@ -37,8 +37,8 @@ class PathRouter {
     for (const route of this.routes) {
       const match = path.matchWith(route.path);
       if (match.ok) {
-        if (!route.path.toString().includes('xhr'))
-          console.debug(`Matched ${path} to ${route.path} with`, match.params);
+        //if (!route.path.toString().includes('xhr'))
+        //  console.debug(`Matched ${path} to ${route.path} with`, match.params);
         input.params = match.params;
         try {
           return await route.handler(match, input);

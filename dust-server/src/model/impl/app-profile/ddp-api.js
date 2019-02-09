@@ -16,6 +16,7 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
         this.database = this.context.objects.get(recordObj.Target.LocalCollection);
         if (!this.database) throw new Error(
           `LocalCollection database ${recordObj.Target.LocalCollection} not found`);
+        this.subs = new Map;
         break;
     }
   },
@@ -27,55 +28,34 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
     if (this.pocClient) {
       await this.pocClient.subscribe(packet.id, ...packet.params.slice(1));
       return true;
-    } else if (this.database) {
+    }
 
-      const subId = packet.id;
+    if (this.database) {
       const [pubGraphId, pubObjName, parameter] = packet.params;
       const pubGraph = self.gs.graphs.get(pubGraphId);
       const pubObject = pubGraph.selectNamed(pubObjName);
 
+      console.log('Starting subscription to', pubObject.data.name, 'with', parameter);
       const recordFilter = pubObject.getRecordFilter();
       const sub = await this.database.startSubscription(recordFilter, parameter);
+      this.subs.set(packet.id, sub);
       sub.sendToDDP(this, packet.id); // don't wait for it
+      return true;
+    }
+  },
 
-/*
-      const publication = new DocPublication {
-  constructor({sourceFunc, filterFunc, sort, fields, limit}) {
+  async unsubPkt(packet) {
+    if (this.pocClient) {
+      await this.pocClient.unsubscribe(packet.id);
+      return true;
+    }
 
-      const sub = this.database.buildSubscription()
-        
-      {
-        onDocument: doc => {
-          this.queueResponses({
-            msg: 'added',
-            collection: 'records',
-            id: doc.id,
-            fields: doc.fields,
-          });
-
-          //{
-          //  msg: 'changed',
-          //  collection: 'records',
-          //  id: doc.id,
-          //  fields: {
-          //    version: 5,
-          //  }}
-        },
-        onReady: () => {
-          console.log('Database subscription is ready.');
-          this.queueResponses({
-            msg: 'ready',
-            subs: [packet.id],
-          });
-        },
-      });
-      this.registerSub(sub);
-      await sub.ready;
-      console.log('finished sync of', records.length, 'records');
-*/
-      // TODO: subscribe to record events
-
-      return false;
+    if (this.database) {
+      if (!this.subs.has(packet.id)) throw new Error(
+        `Subscription ${packet.id} doesn't exist to begin with, can't unsub`);
+      const sub = this.subs.get(packet.id);
+      sub.stop();
+      return true;
     }
   },
 
