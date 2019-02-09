@@ -176,8 +176,17 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   addChunk('Mongo Collections', compiler.process('RecordSchema', function (res) {
     const {Fields, Base, SlugBehavior, TimestampBehavior} = res.fields;
 
+    let bareBase;
+    if (Base.BuiltIn) {
+      bareBase = commonTags.source`
+        DUST.get(${Js('core:' + Base.BuiltIn)}, "CustomRecord")`;
+    } else if (Base.SchemaRef) {
+      bareBase = commonTags.source`
+        DUST.objects[${Js(Base.SchemaRef)}]`;
+      this.addDep(Base.SchemaRef);
+    }
+
     const fieldLines = [];
-    const behaviors = [];
     for (const field of Fields) {
       const {Key, Type, Optional, IsList, Immutable, DefaultValue} = field;
       let bareType;
@@ -201,22 +210,20 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
         ${Key}: { ${bits.join(', ')} },`);
     }
 
-    let bareBase;
-    if (Base.BuiltIn) {
-      bareBase = commonTags.source`
-        DUST.get(${Js('core:' + Base.BuiltIn)}, "CustomRecord")`;
-    } else if (Base.SchemaRef) {
-      bareBase = commonTags.source`
-        DUST.objects[${Js(Base.SchemaRef)}]`;
-      this.addDep(Base.SchemaRef);
-    }
+    const behaviors = {};
+    if (SlugBehavior)
+      behaviors.slug = {
+        fieldName: SlugBehavior.Field,
+      };
+    if (TimestampBehavior)
+      behaviors.timestamp = {};
 
     return `${bareBase}
     .inherit({
       name: ${Js(res.name)},
       fields: {${fieldLines.join('')}
-      },${(behaviors.length ? `
-      behaviors: ${Js(behaviors)},`:'')}
+      },${(Object.keys(behaviors).length ? `
+      behaviors: ${Js(behaviors, null, 2).replace(/\n/g, `\n      `)},`:'')}
     });\n`;
   }));
 
