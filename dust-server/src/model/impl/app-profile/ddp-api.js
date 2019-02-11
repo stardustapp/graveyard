@@ -2,7 +2,7 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
 
   async init(request) {
     const recordObj = this.context.selectNamed('Records');
-    console.log('initing app profile', recordObj);
+    console.log('initing app profile', recordObj, 'for', this.clientId);
 
     this.recordMode = Object.keys(recordObj.Target)[0];
     switch (this.recordMode) {
@@ -100,7 +100,7 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
         return true;
 
       } else {
-        console.log('local method', packet.method, method.params);
+        console.log('local method', packet.method, packet.params);
       }
 
     }

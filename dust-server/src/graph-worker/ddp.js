@@ -17,7 +17,7 @@ class DDPManager {
       }));
     });
 
-    this.api.registerHandler('/sockjs/:server/:session/xhr', async ({params}, {request}) => {
+    this.api.registerHandler('/sockjs/:server/:session/xhr', async ({params}, {request, clientId}) => {
       const sessionId = params.get('session');
       const serverId = params.get('server');
 
@@ -28,7 +28,7 @@ class DDPManager {
       } else {
         const session = new DDPSession({
           manager: this,
-          request, serverId, sessionId,
+          request, serverId, sessionId, clientId,
         });
         session.lastSeen = new Date;
         this.sessions.set(sessionId, session);
@@ -129,17 +129,35 @@ const DdpPacketFuncs = {
     }
   },
 
+  method(packet) {
+    console.warn('Refusing missing method', packet.method, packet.params);
+    this.queueResponses({
+      msg: 'result',
+      id: packet.id,
+      error: {
+        error: 404,
+        reason: `Method '${packet.method}' not found`,
+        message: `Method '${packet.method}' not found [404]`,
+        errorType: 'Meteor.Error',
+      },
+    }, {
+      msg: 'updated',
+      methods: [packet.id],
+    });
+  },
+
   ping(packet) {
     this.queueResponses({msg: 'pong'});
   },
 }
 
 class DDPSession {
-  constructor({manager, request, serverId, sessionId}) {
+  constructor({manager, request, serverId, sessionId, clientId}) {
     this.manager = manager;
     this.originalReq = request;
     this.serverId = serverId;
     this.sessionId = sessionId;
+    this.clientId = clientId.slice(0, 4);
 
     this.session = randomString();
     this.outboundQueue = [];
@@ -205,9 +223,15 @@ class DDPSession {
     if (this.closePacket) throw new Error(
       `Cannot queue packets for a closed DDP session`);
 
-    packets
-      .filter(pkt => pkt.msg !== 'pong')
-      .forEach(pkt => console.debug('>>', pkt));
+    for (const pkt of packets) {
+      if (pkt.msg === 'pong') continue;
+      const interesting = {};
+      ['collection', 'id', 'name', 'subs']
+        .filter(x => x in pkt)
+        .forEach(x => interesting[x] = pkt[x]);
+      console.debug(this.clientId, '<--', pkt.msg, interesting);
+    }
+
     packets = packets
       .map(p => JSON.stringify(p));
 
@@ -224,12 +248,18 @@ class DDPSession {
 
   async processPollSend(input) {
     for (const pkt of input.map(JSON.parse)) {
-      if (pkt.msg !== 'ping')
-        console.debug('<<', pkt);
+      if (pkt.msg !== 'ping') {
+        const interesting = {};
+        ['session', 'id', 'name']
+          .filter(x => x in pkt)
+          .forEach(x => interesting[x] = pkt[x]);
+        console.debug(this.clientId, '-->', pkt.msg, interesting);
+      }
 
+      //s ometimes this happens before the API is ready.
       const apiName = `${pkt.msg}Pkt`;
       try {
-        if (apiName in this.api) {
+        if (this.api && apiName in this.api) {
           const ok = await this.api[apiName].call(this, pkt);
           if (ok) continue;
         }

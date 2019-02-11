@@ -22,6 +22,13 @@ const check = Package.check.check;
   // get out of the way of updates
   registration.addEventListener('updatefound', function () {
     console.warn('SW update found, disconnecting temporarily...');
+    try {
+      // let the server finish out the XHR faster
+      if (Meteor.status().connected)
+        Meteor.connection._send({msg: 'ping'});
+    } catch (err) {
+      console.error('Failed to preping before polling shutdown:', err);
+    }
     Meteor.disconnect();
 
     // listen for update completeness
@@ -35,7 +42,8 @@ const check = Package.check.check;
   });
 
   // reconnect after controller changes
-  navigator.serviceWorker.addEventListener('controllerchange', function() {
+  navigator.serviceWorker.addEventListener('controllerchange', async function() {
+    await new Promise(r => setTimeout(r, 2500));
     console.warn('Controlling SW has changed. Reconnecting to DDP...');
     Meteor.reconnect();
     // PS: actually refreshing here seems to break stuff

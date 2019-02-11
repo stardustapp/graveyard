@@ -223,6 +223,7 @@ self.addEventListener('fetch', event => {
         return graphWorker.ddp.api.routeInput(uri.path, {
           request: event.request,
           uri: uri,
+          clientId: event.clientId,
         }, () => new Response('404', {status: 404}))
       }
 
