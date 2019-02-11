@@ -221,7 +221,29 @@ class AppProfileLocalCollection extends GraphObject {
     return {
       listener(event) {
         const {target, type, path, recordId, fields} = event;
-        console.log('listener got event', event);
+        switch (type) {
+
+          case 'create':
+            console.log('checking', rootFilter, allPubs[0]);
+            const type = allPubs[0].types.find(x => x.typeName === fields.type);
+            if (!type) {
+              console.warn('TODO: event not relevant to root');
+              return;
+            }
+
+            if (rootFilter.filterFunc) {
+              if (!rootFilter.filterFunc(r.fields, {TODO: true}))
+                return;
+            }
+            if (rootFilter.Fields) throw new Error(`TODO: filter.Fields`);
+            if (rootFilter.SortBy) throw new Error(`TODO: filter.SortBy`);
+            if (rootFilter.LimitTo) throw new Error(`TODO: filter.LimitTo`);
+            this.presenter.added(recordId, fields);
+            break;
+
+          default:
+            console.log('listener got unknown event', event);
+        }
       },
 
       stop(andRetract=true) {
