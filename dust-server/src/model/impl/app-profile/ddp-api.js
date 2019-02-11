@@ -16,7 +16,6 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
         this.database = this.context.objects.get(recordObj.Target.LocalCollection);
         if (!this.database) throw new Error(
           `LocalCollection database ${recordObj.Target.LocalCollection} not found`);
-        this.subs = new Map;
         break;
     }
   },
@@ -38,7 +37,6 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
       console.log('Starting subscription to', pubObject.data.name, 'with', parameter);
       const recordFilter = pubObject.getRecordFilter();
       const sub = await this.database.startSubscription(recordFilter, parameter);
-      this.subs.set(packet.id, sub);
       sub.sendToDDP(this, packet.id); // don't wait for it
       return true;
     }
@@ -51,9 +49,9 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
     }
 
     if (this.database) {
-      if (!this.subs.has(packet.id)) throw new Error(
+      if (!this.subscriptions.has(packet.id)) throw new Error(
         `Subscription ${packet.id} doesn't exist to begin with, can't unsub`);
-      const sub = this.subs.get(packet.id);
+      const sub = this.subscriptions.get(packet.id);
       sub.stop();
       return true;
     }

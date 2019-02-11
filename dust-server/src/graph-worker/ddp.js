@@ -4,7 +4,6 @@ class DDPManager {
     this.fetchGraphFor = graphFetcher;
 
     this.sessions = new Map; // id -> DDPSession
-    //this.subscriptions = new Set; // of DDPSubscription
     this.api = new PathRouter;
 
     this.api.registerHandler('/sockjs/info', async match => {
@@ -24,12 +23,14 @@ class DDPManager {
 
       if (this.sessions.has(sessionId)) {
         const session = this.sessions.get(sessionId);
+        session.lastSeen = new Date;
         return session.nextPollResponse();
       } else {
         const session = new DDPSession({
           manager: this,
           request, serverId, sessionId,
         });
+        session.lastSeen = new Date;
         this.sessions.set(sessionId, session);
         return new Response('o\n');
       }
@@ -45,6 +46,33 @@ class DDPManager {
         return new Response('no such session', {status: 400});
       }
     });
+
+    // regular session cleanup
+    setInterval(() => {
+      // time out unattended DDP sessions (rather aggressively tbh)
+      const pingCutoff = new Date() - 15000; // 15 seconds
+      for (const session of this.sessions.values()) {
+        if (session.lastSeen < pingCutoff && !session.closePacket) {
+          console.warn('Closing abandoned DDP session', session);
+          session.close(3000, 'No response from heartbeat');
+        }
+      }
+
+      // delete ancient DDP sessions
+      // once deleted, reusing the ID opens a new session instead of repeating the close packet
+      const curateCutoff = new Date() - 5 * 60000; // 5 minutes
+      const toDelete = new Set;
+      for (const session of this.sessions.values()) {
+        if (session.lastSeen < curateCutoff) {
+          console.warn('Deleting ancient DDP session', session);
+          toDelete.add(session.sessionId);
+        }
+      }
+      // second pass so we don't edit the map while enumerating it
+      for (const sessionId of toDelete) {
+        this.sessions.delete(sessionId);
+      }
+    }, 15000);
   }
 }
 
@@ -88,13 +116,12 @@ const DdpPacketFuncs = {
             error: 'missing-impl',
             reason: `Subscription ${name} is not implemented.`,
             message: `Subscription ${name} is not implemented. [missing-impl]`,
-            isClientSafe: true,
           }});
     }
   },
 
   unsub({id}) {
-    const sub = this.subs.get(id);
+    const sub = this.subscriptions.get(id);
     return sub.unsub();
   },
 
@@ -125,83 +152,7 @@ class DDPSession {
     this.getCollection = function (collName) {
       if (this.collections.has(collName))
         return this.collections.get(collName);
-      const collection = {
-        collName: collName,
-        documents: new Map,
-
-        presentFields(id, presenter, fields) {
-          if (!this.documents.has(id)) {
-            const doc = {
-              presents: new Map,
-              allFields: new Map,
-            };
-            this.documents.set(id, doc);
-
-            doc.presents.set(presenter, fields);
-            for (const key of Object.keys(fields)) {
-              doc.allFields.set(key, fields[key]);
-              // TODO: deep copy?
-            }
-
-            ddp.queueResponses({
-              msg: 'added',
-              collection: collName,
-              id: id,
-              fields: fields,
-            });
-          } else {
-            console.log('this is a repeat doc', id);
-            const doc = this.documents.get(id);
-            if (doc.presents.has(presenter)) throw new Error(
-              `The given presenter already presented a copy of record ${id}`);
-
-            doc.presents.set(presenter, fields);
-            const differs = false;
-            for (const key of Object.keys(fields)) {
-              if (doc.allFields.get(key) === fields[key])
-                continue;
-              console.log('field', key, 'was', doc.allFields.get(key), 'is now', fields[key]);
-              differs = true;
-            }
-            if (differs) throw new Error(
-              `doc multi-present TODO (different field values!)`);
-          }
-        },
-
-        purgePresenter(presenter) {
-          console.log('purging presenter', presenter);
-          let cleaned = 0;
-          let retracted = 0;
-          for (const [id, doc] of this.documents) {
-            if (!doc.presents.has(presenter))
-              continue;
-
-            doc.presents.delete(presenter);
-            cleaned++;
-
-            if (doc.presents.size === 0) {
-              retracted++;
-              ddp.queueResponses({
-                msg: 'removed',
-                collection: collName,
-                id: id,
-              });
-              this.documents.delete(id);
-
-            } else {
-              console.log('doc', id, `is still presented by`, doc.presents.size, 'presenters');
-              // todo: build new allFields and diff that down
-              // todo: how do we know if they're presenting the exact same thing?
-              for (const key of Object.keys(fields)) {
-                console.log('field', key, 'was', doc.allFields.get(key));
-              }
-              throw new Error(`doc multi-present TODO`);
-            }
-          }
-          console.log('cleaned', cleaned, 'docs, retracting', retracted);
-        },
-
-      };
+      const collection = new DDPSessionCollection(this, collName);
       this.collections.set(collName, collection);
       return collection;
     }
@@ -224,7 +175,32 @@ class DDPSession {
     })();
   }
 
+  close(code, message) {
+    if (!code || !message) throw new Error(
+      `Cannot close DDP session without a code and message`);
+    if (this.closePacket) throw new Error(
+      `Cannot close DDP session with code ${code}, already closed`);
+
+    // configure connection as closed
+    this.closePacket = [code, message];
+    if (this.waitingPoll) {
+      const resolve = this.waitingPoll;
+      this.waitingPoll = null;
+      resolve(new Response(`c${JSON.stringify(this.closePacket)}\n`));
+    }
+
+    // shut off subs without retracting
+    console.log('subs on closing sess:', this.subscriptions);
+    for (const [subId, sub] of this.subscriptions.entries()) {
+      sub.stop(false);
+    }
+    this.subscriptions.clear();
+  }
+
   queueResponses(...packets) {
+    if (this.closePacket) throw new Error(
+      `Cannot queue packets for a closed DDP session`);
+
     packets
       .filter(pkt => pkt.msg !== 'pong')
       .forEach(pkt => console.debug('>>', pkt));
@@ -273,7 +249,7 @@ class DDPSession {
   async nextPollResponse() {
     // immediate return if closed
     if (this.closePacket && this.outboundQueue.length === 0) {
-      return new Response(`c${this.closePacket}\n`);
+      return new Response(`c${JSON.stringify(this.closePacket)}\n`);
     }
 
     // immediate return if data is queued
@@ -296,238 +272,5 @@ class DDPSession {
         `concurrent xhr polling??`);
       this.waitingPoll = resolve;
     });
-
-    //const sleep = m => new Promise(r => setTimeout(r, m));
-    //await sleep(30000);
-    //return new Response('h\n');
-  }
-}
-
-class DDPSubscription {
-  constructor(session, {id, name, params}) {
-    this.ddp = session;
-    this.subId = id;
-    this.subName = name;
-    this.params = params;
-  }
-
-  async start() {
-    this.ddp.manager.subscriptions.add(this);
-  }
-
-  async stop() {
-    this.ddp.manager.subscriptions.delete(this);
-  }
-}
-class DDPLegacyDustAppDataSub extends DDPSubscription {
-  async start() {
-    super.start();
-
-    for (const graph of this.ddp.manager.graphStore.graphs.values()) {
-      if (graph.data.engine !== 'dust-app/v1-beta1') continue;
-
-      const rootObj = Array.from(graph.roots)[0];
-      const {PackageKey, PackageType, License} = rootObj.data.fields;
-
-      const appRouter = graph.selectNamed('Router');
-
-      const fields = {
-        type: PackageType,
-        name: rootObj.data.name,
-        license: License,
-        libraries: [],
-        iconUrl: appRouter ? appRouter.IconUrl : null,
-      }
-      this.ddp.queueResponses({
-        msg: 'added',
-        collection: 'legacy/packages',
-        id: PackageKey,
-        fields,
-      });
-
-      if (appRouter) {
-        let layoutName = null;
-        if (appRouter.DefaultLayout) {
-          const layout = graph.objects.get(appRouter.DefaultLayout);
-          layoutName = layout.data.name;
-        }
-
-        this.ddp.queueResponses({
-          msg: 'added',
-          collection: 'legacy/resources',
-          id: appRouter.data.objectId,
-          fields: {
-            type: 'RouteTable',
-            packageId: PackageKey,
-            name: 'RootRoutes',
-            version: appRouter.data.version,
-            layout: layoutName,
-            entries: graph.selectAllWithType('Route').map(({Path, Action}) => {
-              if (Action.Script) {
-                return {
-                  path: Path,
-                  type: 'customAction',
-                  customAction: {
-                    coffee: Action.Script.Coffee,
-                    js: Action.Script.Js,
-                  },
-                };
-              } else if (Action.Render) {
-                const template = graph.objects.get(Action.Render.Template);
-                return {
-                  path: Path,
-                  type: 'template',
-                  template: template.data.name,
-                };
-              }
-            }),
-          },
-        });
-      }
-
-      for (const schema of graph.selectAllWithType('RecordSchema')) {
-        this.ddp.queueResponses({
-          msg: 'added',
-          collection: 'legacy/resources',
-          id: schema.data.objectId,
-          fields: {
-            type: 'CustomRecord',
-            packageId: PackageKey,
-            name: schema.data.name,
-            version: schema.data.version,
-            base: schema.Base.SchemaRef
-              ? graph.objects.get(schema.Base.SchemaRef).data.name
-              : `core:${schema.Base.BuiltIn}`,
-            dataScope: 'global',
-            fields: schema.Fields.map(field => {
-              return {
-                key: field.Key,
-                type: field.Type.SchemaRef
-                  ? graph.objects.get(field.Type.SchemaRef).data.name
-                  : `core:${field.Type.BuiltIn.toLowerCase()}`,
-                isList: field.IsList,
-                optional: field.Optional,
-                immutable: field.Immutable,
-                default: field.DefaultValue,
-              };
-            }),
-          },
-        });
-      }
-
-      for (const template of graph.selectAllWithType('Template')) {
-        this.ddp.queueResponses({
-          msg: 'added',
-          collection: 'legacy/resources',
-          id: template.data.objectId,
-          fields: {
-            type: 'Template',
-            packageId: PackageKey,
-            name: template.data.name,
-            version: template.data.version,
-            html: template.Handlebars,
-            css: template.Style.CSS,
-            scss: template.Style.SCSS,
-            scripts: template.Scripts.map(({Coffee, JS, Refs, Type}) => {
-              let key, type, param;
-              const typeMap = ['LC-Render', 'LC-Create', 'LC-Destroy', 'Helper', 'Event', 'Hook'];
-
-              if (Type.Helper) {
-                key = `helper:${Type.Helper}`;
-                type = typeMap.indexOf('Helper');
-                param = Type.Helper;
-
-              } else if (Type.Event) {
-                key = `event:${Type.Event}`;
-                type = typeMap.indexOf('Event');
-                param = Type.Event;
-
-              } else if (Type.Hook) {
-                key = `hook:${Type.Hook}`;
-                type = typeMap.indexOf('Hook');
-                param = Type.Hook;
-
-              } else if (Type.Lifecycle) {
-                key = `on-${Type.Lifecycle.toLowerCase()}`;
-                type = typeMap.indexOf(`LC-${Type.Lifecycle}`);
-                param = null;
-              }
-
-              return {
-                key, type, param,
-                coffee: Coffee,
-                js: Js,
-              };
-            }),
-          },
-        });
-      }
-
-      for (const dependency of graph.selectAllWithType('Dependency')) {
-        this.ddp.queueResponses({
-          msg: 'added',
-          collection: 'legacy/resources',
-          id: dependency.data.objectId,
-          fields: {
-            type: 'Dependency',
-            packageId: PackageKey,
-            name: dependency.data.name,
-            version: dependency.data.version,
-            childPackage: dependency.PackageKey,
-            isOptional: false,
-          },
-        });
-      }
-
-      function mapChild(child) {
-        return {
-          recordType: child.RecordType.SchemaRef
-            ? graph.objects.get(child.RecordType.SchemaRef).data.name
-            : `core:${child.RecordType.BuiltIn}`,
-          filterBy: child.FilterBy,
-          sortBy: child.SortBy,
-          fields: child.Fields,
-          limitTo: child.LimitTo,
-        }
-      }
-      for (const publication of graph.selectAllWithType('Publication')) {
-        this.ddp.queueResponses({
-          msg: 'added',
-          collection: 'legacy/resources',
-          id: publication.data.objectId,
-          fields: {
-            type: "Publication",
-            packageId: PackageKey,
-            name: publication.data.name,
-            version: publication.data.version,
-            recordType: publication.RecordType.SchemaRef
-              ? graph.objects.get(publication.RecordType.SchemaRef).data.name
-              : `core:${publication.RecordType.BuiltIn}`,
-            filterBy: publication.FilterBy,
-            sortBy: publication.SortBy,
-            fields: publication.Fields,
-            limitTo: publication.LimitTo,
-            children: publication.Children.map(mapChild),
-          },
-        });
-      }
-
-      for (const serverMethod of graph.selectAllWithType('ServerMethod')) {
-        this.ddp.queueResponses({
-          msg: 'added',
-          collection: 'legacy/resources',
-          id: serverMethod.data.objectId,
-          fields: {
-            type: 'ServerMethod',
-            packageId: PackageKey,
-            name: serverMethod.data.name,
-            version: serverMethod.data.version,
-            coffee: serverMethod.Coffee,
-            js: serverMethod.JS,
-            injects: [],
-          },
-        });
-      }
-    }
   }
 }

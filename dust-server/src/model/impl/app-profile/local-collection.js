@@ -58,7 +58,6 @@ class AppProfileLocalCollection extends GraphObject {
           path, recordId, fields,
         });
         for (const listener of this.listeners.values()) {
-          console.debug('invoking listener', listener);
           listener({
             target: this,
             type: 'create',
@@ -97,7 +96,6 @@ class AppProfileLocalCollection extends GraphObject {
     let slugField = null;
     let dataFields = new Map;
     for (const schema of schemaStack) {
-      console.log('stack:', schema);
       if (schema.TimestampBehavior)
         timestamps = true;
       if (schema.SlugBehavior)
@@ -139,8 +137,8 @@ class AppProfileLocalCollection extends GraphObject {
         input = config['updateDefault'];
       }
       */
-      if (input == null && Optional !== true) {
-        throw new Error(`Field '${Key}' isn't Optional, but was null`);
+      if (!input && Optional !== true) {
+        throw new Error(`Field '${Key}' isn't Optional, but was null or falsey`);
       }
 
       // TODO: IsList, Immutable
@@ -226,9 +224,16 @@ class AppProfileLocalCollection extends GraphObject {
         console.log('listener got event', event);
       },
 
-      stop() {
-        this.presenter.collection.purgePresenter(this.presenter);
+      stop(andRetract=true) {
+        if (andRetract)
+          this.presenter.collection.purgePresenter(this.presenter);
         this.presenter = null;
+
+        for (const type of this.relevantTypes) {
+          type.listeners.delete(this);
+        }
+
+        this.ddp.subscriptions.delete(this.subId);
       },
 
       // TODO: generic presentTo(sink) {}
@@ -236,6 +241,7 @@ class AppProfileLocalCollection extends GraphObject {
         console.debug('sending sub to DDP as', subId);
         this.ddp = ddp;
         this.subId = subId;
+        this.ddp.subscriptions.set(this.subId, this);
 
         // In legacy DUST, all records are in one collection
         this.presenter = {
@@ -305,15 +311,18 @@ class AppProfileLocalCollection extends GraphObject {
         };
 
         // send each initial batch
+        this.relevantTypes = new Set;
         for (const pub of allPubs) {
           console.log('sending filter:', pub);
           for (const type of pub.types) {
+            this.relevantTypes.add(type);
+
             for (const record of type.records) {
               if (pub.filter.filterFunc) {
-                if (!pub.filter.filterFunc(record, {param: parameter, parent: []}))
+                if (!pub.filter.filterFunc(record.fields, {param: parameter, parent: []}))
                   continue;
               }
-              
+
               if (pub.filter.Fields) throw new Error(`TODO: filter.Fields`);
               if (pub.filter.SortBy) throw new Error(`TODO: filter.SortBy`);
               if (pub.filter.LimitTo) throw new Error(`TODO: filter.LimitTo`);
@@ -321,8 +330,12 @@ class AppProfileLocalCollection extends GraphObject {
               this.presenter.added(record.recordId, record.fields);
               // TODO: map Date to {$date: +date}
             }
-            type.listeners.set(pub, this.listener.bind(pub));
           }
+        }
+
+        const boundListener = this.listener.bind(this);
+        for (const type of this.relevantTypes) {
+          type.listeners.set(this, boundListener);
         }
 
         console.log('LocalCollection subscription is ready.');

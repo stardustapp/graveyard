@@ -19,6 +19,7 @@ importScripts(
 
   '/~~src/graph-worker/lib.js',
   '/~~src/graph-worker/ddp.js',
+  '/~~src/graph-worker/ddp-livedata.js',
   '/~~src/graph-worker/shell.js',
 
   '/~~src/model/field-types.js',
