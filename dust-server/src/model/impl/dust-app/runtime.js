@@ -15,6 +15,33 @@ const Meteor = Package.meteor.Meteor;
 const moment = Package['momentjs:moment'].moment;
 const check = Package.check.check;
 
+// register our serviceWorker
+(async function() {
+  const registration = await navigator.serviceWorker.register('/~/apps/sw.js');
+
+  // get out of the way of updates
+  registration.addEventListener('updatefound', function () {
+    console.warn('SW update found, disconnecting temporarily...');
+    Meteor.disconnect();
+
+    // listen for update completeness
+    const newWorker = registration.installing;
+    newWorker.addEventListener('statechange', function () {
+      switch (newWorker.state) {
+        case 'installed':
+          // TODO: offer refresh UI
+      }
+    });
+  });
+
+  // reconnect after controller changes
+  navigator.serviceWorker.addEventListener('controllerchange', function() {
+    console.warn('Controlling SW has changed. Reconnecting to DDP...');
+    Meteor.reconnect();
+    // PS: actually refreshing here seems to break stuff
+  });
+})();
+
 // Astronomy minimongo collections
 const Records = new Mongo.Collection('records');
 const BaseClass = Astro.Class.create({

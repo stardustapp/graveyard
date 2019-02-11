@@ -89,7 +89,7 @@ class GraphWorker {
 }
 let graphWorker;
 
-const SHELL_CACHE = 'shell-cache-v4';
+const SHELL_CACHE = 'shell-cache-v5';
 
 self.addEventListener('install', function(event) {
   event.waitUntil(async function boot() {
