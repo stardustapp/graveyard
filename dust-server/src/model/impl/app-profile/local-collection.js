@@ -252,7 +252,7 @@ class AppProfileLocalCollection extends GraphObject {
             if (this.refs.has(id)) {
               this.refs.set(id, this.refs.get(id) + 1);
             } else {
-              this.refs.set(id, 0);
+              this.refs.set(id, 1);
             }
           },
           decr(id) {

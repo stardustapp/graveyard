@@ -121,8 +121,12 @@ const DdpPacketFuncs = {
   },
 
   unsub({id}) {
-    const sub = this.subscriptions.get(id);
-    return sub.unsub();
+    if (this.subscriptions.has(id)) {
+      const sub = this.subscriptions.get(id);
+      return sub.unsub();
+    } else {
+      console.warn('DDP unsubbed', id, 'but not found in', this, '- ignoring');
+    }
   },
 
   ping(packet) {

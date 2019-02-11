@@ -174,7 +174,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
               for (const key of Object.keys(filterBy)) {
                 const val = filterBy[key];
                 if (val && '$param' in val) {
-                  console.log('param diff', key, '-', doc[key], refs.param[val.$param]);
+                  //console.log('param diff', key, '-', doc[key], refs.param[val.$param]);
                   return doc[key] === refs.param[val.$param];
                 } else if (val && '$parent' in val) {
                   console.warn(key, val, doc);
