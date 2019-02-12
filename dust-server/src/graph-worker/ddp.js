@@ -212,6 +212,7 @@ class DDPSession {
 
     for (const pkt of packets) {
       if (pkt.msg === 'pong') continue;
+      if (pkt.msg === 'added') continue;
       const interesting = {};
       ['collection', 'id', 'name', 'subs']
         .filter(x => x in pkt)

@@ -3,7 +3,7 @@
 
 const DB = {};
 
-DB.Packages = new Mongo.Collection('legacy/packages');
+DB.Packages = new Mongo.Collection('packages');
 
 DB.Package = Astro.Class.create({
   name: 'Package',
@@ -45,7 +45,7 @@ DB.Library = DB.Package.inherit({
 //# Resources
 // Injectable code and config that defines app behavior
 // Has similar roles to Angular recipes
-DB.Resources = new Mongo.Collection('legacy/resources');
+DB.Resources = new Mongo.Collection('resources');
 
 DB.Resource = Astro.Class.create({
   name: 'Resource',
@@ -396,6 +396,26 @@ DB.Record = Astro.Class.create({
 
 ///////////////////////////
 // Modification helpers
+
+DB.Package.extend({
+  helpers: {
+    commit: function(cb) {
+      var isNew;
+      console.log('Saving version', this.version, 'of package', this.name);
+      isNew = DB.Package.isNew(this);
+      return this.callMethod('commit', this, (err, res) => {
+        if (err) {
+          alert(err);
+          return typeof cb === "function" ? cb(err) : void 0;
+        } else {
+          res.isNew = isNew;
+          this.version = res.version;
+          return typeof cb === "function" ? cb(null, res) : void 0;
+        }
+      });
+    }
+  }
+});
 
 DB.Resource.extend({
   helpers: {

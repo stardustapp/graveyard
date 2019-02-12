@@ -1,3 +1,5 @@
+set -ex
+
 #cd ~/Code/stardust/poc/; and meteor build --debug --directory /tmp/tmp.K2EjRTOVOJ
 cd /tmp/tmp.K2EjRTOVOJ/bundle/programs/web.browser/packages
 cat \
@@ -15,3 +17,4 @@ cat \
   manuel_reactivearray.js \
 | uglifyjs \
 > ~/Code/chrome-profile-server/vendor/libraries/meteor-bundle.js
+#| sed s/'DDP = void 0'/"DDP = Package['ddp-client'].DDP"/ \

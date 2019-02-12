@@ -241,7 +241,6 @@ class GraphTxn {
           //console.log('storing', record);
           await this.txn.objectStore('objects').add(record);
 
-          const action = Object.assign({type: 'create object'}, )
           this._addAction(graphId, {
             type: 'create object',
             data: record,
@@ -262,6 +261,21 @@ class GraphTxn {
       `${remaining.size} objects failed to link after ${pass} passes.`);
 
     console.log('Stored', readyObjs.size, 'objects');
+  }
+
+  async replaceFields(objectId, version, newFields) {
+    const object = this.txn.objectStore('objects').get(objectId);
+    const {graphId} = object.data;
+
+    if (object.data.version !== version) throw new Error(
+      `CONFLICT: You committed from version ${field.version}, but version ${object.data.version} is latest`);
+    version += 1;
+
+    this._addAction(graphId, {
+      type: 'replace object fields',
+      graphId, objectId, version,
+      fields: newFields,
+    });
   }
 
   async finish() {

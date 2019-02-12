@@ -3,15 +3,89 @@
  * It's used by build-ng and other DUST apps with the `build-` prefix
  */
 
-GraphEngine.extend('dust-app/v1-beta1').ddpApi = {
+const engineKey = 'dust-app/v1-beta1';
+GraphEngine.extend(engineKey).ddpApi = {
 
+  async methodPkt(packet) {
+    if (packet.method === '/Astronomy/execute') {
+      const {
+        className, id,
+        methodName, methodArgs,
+      } = packet.params[0];
+
+      function unwrapArg(arg, ifClass=null) {
+        if (arg && arg.$type === 'Astronomy') {
+          if (ifClass && arg.$value.class !== ifClass) throw new Error(
+            `unwrapArg() got a ${arg.$value.class} but was asked for ${ifClass}`)
+          return JSON.parse(arg.$value.values);
+        }
+        return arg;
+      }
+
+      const isPackage = ['Package', 'App', 'Library'].includes(className);
+      const document = unwrapArg(methodArgs[0], className);
+      const {_id, packageId, version, name, type, ...fields} = document
+      const isUpdate = fields.version > 0;
+
+      if (isPackage) throw new Error(
+        `TODO: astronomy methods on dust packages`);
+      
+      const graph = await this.manager.graphStore.findGraph({
+        engineKey,
+        fields: {
+          foreignKey: packageId,
+        },
+      });
+      
+      
+      const result = await this.manager.graphStore.transact('readwrite', async txn => {
+        if (isUpdate) {
+          const object = graph.objects.get(_id);
+
+          // TODO: make these DDP errors
+          if (!object) throw new Error(
+            `Object ${_id} not found, cannot update`);
+          if (object.data.name !== name) throw new Error(
+            `You tried renaming ${object.data.name} to ${fields.name} which isn't implemented`);
+          if (object.data.type !== type) throw new Error(
+            `You tried changing a${object.data.type} to ${fields.type} which isn't implemented`);
+
+          const newVersion = await txn.replaceFields(object, version, fields);
+          console.log('committed version', newVersion, fields, 'over', object.data.fields);
+          return {version: newVersion};
+
+        } else {
+          console.error('TODO: not creating', className, fields, 'on', graph);
+          return {}
+        }
+      });
+
+      this.queueResponses({
+        msg: 'result',
+        id: packet.id,
+        result,
+      });
+      // TODO: don't delay once reactivity works
+      setTimeout(() => {
+        this.queueResponses({
+          msg: 'updated',
+          methods: [packet.id],
+        });
+      }, 2000);
+      return true;
+
+    } else {
+      console.log('local method', packet.method, packet.params);
+    }
+  },
+  
   async subPkt(packet) {
     if (packet.name !== '/legacy-dust-app-data')
       return false;
 
     const sub = new DDPSubscription(this, packet);
-    const pkgColl = sub.getCollection('legacy/packages');
-    const resColl = sub.getCollection('legacy/resources');
+    const pkgColl = sub.getCollection('packages');
+    const resColl = sub.getCollection('resources');
 
     for (const graph of this.manager.graphStore.graphs.values()) {
       if (graph.data.engine !== 'dust-app/v1-beta1') continue;
