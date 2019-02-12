@@ -37,6 +37,7 @@ importScripts(
   '/~~src/model/impl/app-profile/model.js',
 
   '/~~src/model/impl/dust-app/model.js',
+  '/~~src/model/impl/dust-app/ddp-api.js',
   '/~~src/model/impl/dust-app/json-codec.js',
   '/~~src/model/impl/dust-app/repository.js',
   '/~~src/model/impl/dust-app/compile.js',

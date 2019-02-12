@@ -1,6 +1,6 @@
 GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
 
-  async init(request) {
+  async init() {
     const recordObj = this.context.selectNamed('Records');
     console.log('initing app profile', recordObj, 'for', this.clientId);
 
@@ -45,14 +45,6 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
   async unsubPkt(packet) {
     if (this.pocClient) {
       await this.pocClient.unsubscribe(packet.id);
-      return true;
-    }
-
-    if (this.database) {
-      if (!this.subscriptions.has(packet.id)) throw new Error(
-        `Subscription ${packet.id} doesn't exist to begin with, can't unsub`);
-      const sub = this.subscriptions.get(packet.id);
-      sub.stop();
       return true;
     }
   },

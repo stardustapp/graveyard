@@ -93,40 +93,25 @@ const DdpPacketFuncs = {
     );
   },
 
-  async sub(packet) {
-    const {id, name, params} = packet;
-
-    switch (name) {
-      case '/legacy-dust-app-data':
-        const subscription = new DDPLegacyDustAppDataSub(this, packet);
-        await subscription.start();
-        this.queueResponses({
-          msg: 'ready',
-          subs: [id],
-        });
-        break;
-
-      default:
-        // refuse the subscription by default
-        this.queueResponses({
-          msg: 'nosub',
-          id: id,
-          error: {
-            errorType: 'Meteor.Error',
-            error: 'missing-impl',
-            reason: `Subscription ${name} is not implemented.`,
-            message: `Subscription ${name} is not implemented. [missing-impl]`,
-          }});
-    }
+  async sub({id, name, params}) {
+    // refuse the subscription by default
+    this.queueResponses({
+      msg: 'nosub',
+      id: id,
+      error: {
+        errorType: 'Meteor.Error',
+        error: 'missing-impl',
+        reason: `Subscription ${name} is not implemented.`,
+        message: `Subscription ${name} is not implemented. [missing-impl]`,
+      }});
   },
 
   unsub({id}) {
-    if (this.subscriptions.has(id)) {
-      const sub = this.subscriptions.get(id);
-      return sub.unsub();
-    } else {
-      console.warn('DDP unsubbed', id, 'but not found in', this, '- ignoring');
-    }
+    if (!this.subscriptions.has(id)) throw new Error(
+      `Subscription "${id}" wasn't present, can't unsub`);
+
+    const sub = this.subscriptions.get(id);
+    return sub.unsub();
   },
 
   method(packet) {
@@ -147,7 +132,9 @@ const DdpPacketFuncs = {
   },
 
   ping(packet) {
-    this.queueResponses({msg: 'pong'});
+    this.queueResponses({
+      msg: 'pong',
+    });
   },
 }
 
@@ -166,35 +153,35 @@ class DDPSession {
     // [1000, 'Normal closure']
     // [3000, 'No response from heartbeat']
 
-    this.subscriptions = new Map;
-
     // Livedata state-keeping
+    this.subscriptions = new Map;
     this.collections = new Map;
-    const ddp = this;
-    this.getCollection = function (collName) {
-      if (this.collections.has(collName))
-        return this.collections.get(collName);
-      const collection = new DDPSessionCollection(this, collName);
-      this.collections.set(collName, collection);
-      return collection;
+
+    this.ready = this.init();
+  }
+
+  // grab and init the relevant graph async
+  async init() {
+    // get a context on the relevant graph
+    this.context = await this.manager
+      .fetchGraphFor(this.originalReq.referrer);
+    this.api = this.context.engine.extensions.ddpApi;
+    if (!this.api) {
+      console.warn(`DDPSession for ${this.context.engine.engineKey} missing ddp api`);
+      this.api = {};
     }
 
-    // grab and init the relevant graph async
-    this.ready = (async () => {
-      // get a context on the relevant graph
-      this.context = await this.manager
-        .fetchGraphFor(request.referrer);
-      this.api = this.context.engine.extensions.ddpApi;
-      if (!this.api) {
-        console.warn(`DDPSession for ${this.context.engine.engineKey} missing ddp api`);
-        this.api = {};
-      }
+    if ('init' in this.api) {
+      await this.api.init.call(this);
+    }
+  }
 
-      if ('init' in this.api) {
-        await this.api.init.call(this, request);
-      }
-
-    })();
+  getCollection(collName) {
+    if (this.collections.has(collName))
+      return this.collections.get(collName);
+    const collection = new DDPSessionCollection(this, collName);
+    this.collections.set(collName, collection);
+    return collection;
   }
 
   close(code, message) {
