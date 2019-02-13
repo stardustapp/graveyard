@@ -21,7 +21,7 @@ class DDPSubscription {
     if (this.isReady) throw new Error(
       `BUG: Can't call DDPSubscription#ready() as the sub was already ready`);
     this.isReady = true;
- 
+
     this.ddp.queueResponses({
       msg: 'ready',
       subs: [this.subId],
@@ -51,6 +51,19 @@ class DDPSessionCollection {
     this.documents = new Map;
   }
 
+  convertFieldsForWire(obj) {
+    const fields = {};
+    for (const key of Object.keys(this.fields)) {
+      let val = this.fields[key];
+      if (val && val.constructor === Date)
+        val = {$date: +val};
+      if (val && val.constructor === Object)
+        val = this.convertFieldsForWire(val);
+      fields[key] = val;
+    }
+    return fields;
+  }
+
   presentFields(id, presenter, fields, opts={}) {
     if (this.documents.has(id)) {
       const doc = this.documents.get(id);
@@ -75,7 +88,7 @@ class DDPSessionCollection {
         msg: 'added',
         collection: this.collName,
         id: id,
-        fields: doc.visibleFields(),
+        fields: this.convertFieldsForWire(doc.visibleFields()),
       });
     }
   }
