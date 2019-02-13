@@ -138,9 +138,4 @@ GraphEngine.extend('app-profile/v1-beta1').ddpApi = {
     },
     cleared: ['EndTime'],
   });
-
-  this.queueResponses({
-    msg: 'ready',
-    subs: [packet.id],
-  });
 */

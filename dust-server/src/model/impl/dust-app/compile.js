@@ -153,6 +153,7 @@ class ResourceCompiler {
   }
 }
 
+GraphEngine.extend('dust-app/v1-beta1').compileToHtml =
 async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   const {graphId} = graph.data;
   const application = Array.from(graph.roots)[0];
@@ -339,4 +340,4 @@ ${usesLegacyDB ? `<script src="/~~src/model/impl/dust-app/runtime-build.js"></sc
       'Content-Type': 'text/html; charset=utf-8',
     },
   });
-}
+};

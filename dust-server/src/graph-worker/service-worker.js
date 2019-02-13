@@ -194,8 +194,9 @@ destinations.documentGET.registerHandler('/~/apps/by-id/:appId/:*rest', async (m
   // clear everything if testing installation
   //await store.transact('readwrite', txn => txn.purgeEverything());
 
-  const graph = await DustAppJsonCodec.installWithDeps(store, appId);
-  return CompileDustApp(store, graph, {
+  const {pocRepository, compileToHtml} = GraphEngine.get('dust-app/v1-beta1').extensions;
+  const graph = await pocRepository.installWithDeps(store, appId);
+  return compileToHtml(store, graph, {
     appRoot: `/~/apps/by-id/${encodeURIComponent(appId)}`,
     usesLegacyDB: appId.startsWith('build-'),
   });

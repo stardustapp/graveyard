@@ -17,59 +17,9 @@ function getScriptRefs(coffee) {
     .map(name => new GraphReference(name));
 }
 
-class DustAppJsonCodec {
-  static async installWithDeps(store, appId) {
-    const engine = GraphEngine.get('dust-app/v1-beta1');
-    const graph = await store.findOrCreateGraph(engine, {
-      fields: {
-        foreignKey: appId,
-        heritage: 'stardust-poc',
-        originUrl: `https://stardust-repo.s3.amazonaws.com/packages/${encodeURIComponent(appId)}.json`,
-      },
-      async buildCb(engine, fields) {
-        // download the application's source from the repository
-        const repoResp = await fetch(fields.originUrl);
-        if (repoResp.status !== 200) throw new Error(
-          `Stardust Cloud Repo returned HTTP ${repoResp.status} for ${appId}`);
-        const contentType = repoResp.headers.get('content-type');
-        if (!contentType.startsWith('application/octet-stream') &&
-            !contentType.startsWith('application/json')) throw new Error(
-          `Stardust Cloud Repo returned Content-Type ${contentType} for ${appId}`);
+GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
-        let manifest;
-        try {
-          manifest = await repoResp.json();
-        } catch (err) {
-          if (err instanceof SyntaxError) {
-            throw new Error(`Syntax error in DUST manifest ${appId}: ${err.message}`);
-          } else throw err;
-        }
-
-        // also store version info
-        fields.originETag = repoResp.headers.get('ETag');
-        fields.originVersionId = repoResp.headers.get('x-amz-version-id');
-
-        // pre-install any dependencies
-        const dependencies = {};
-        for (const res of manifest.resources) {
-          if (res.type !== 'Dependency') continue;
-          if (res.childPackage == appId) continue; // 'Self' dependencies (pre-"my:")
-          console.info('Installing package', res.childPackage, 'for Dependency', res.name, 'of', appId);
-          // store the dep for the codec to reference
-          const depPkg = await DustAppJsonCodec.installWithDeps(store, res.childPackage);
-          dependencies[res.childPackage] = Array.from(depPkg.roots)[0];
-        }
-
-        // fill out a graphBuilder for the app
-        const graphBuilder = DustAppJsonCodec.inflate(manifest, dependencies);
-        return graphBuilder;
-      },
-    });
-
-    return graph;
-  }
-
-  static inflate(manifest, dependencies) {
+  inflate(manifest, dependencies) {
     if (manifest._platform !== 'stardust') throw new Error(
       'invalid stardust manifest');
     if (manifest._version !== 3) throw new Error(
@@ -258,9 +208,9 @@ class DustAppJsonCodec {
 
     //console.log('Inflated manifest', manifest, 'with builder', builder);
     return builder;
-  }
+  },
 
-  static deflate(graph) {
+  deflate(graph) {
     throw new Error('#TODO');
-  }
-}
+  },
+};

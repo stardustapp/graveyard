@@ -3,8 +3,7 @@
  * It's used by build-ng and other DUST apps with the `build-` prefix
  */
 
-const engineKey = 'dust-app/v1-beta1';
-GraphEngine.extend(engineKey).ddpApi = {
+GraphEngine.extend('dust-app/v1-beta1').ddpApi = {
 
   async methodPkt(packet) {
     if (packet.method === '/Astronomy/execute') {
@@ -25,18 +24,17 @@ GraphEngine.extend(engineKey).ddpApi = {
       const isPackage = ['Package', 'App', 'Library'].includes(className);
       const document = unwrapArg(methodArgs[0], className);
       const {_id, packageId, version, name, type, ...fields} = document
-      const isUpdate = fields.version > 0;
+      const isUpdate = version > 0;
 
       if (isPackage) throw new Error(
         `TODO: astronomy methods on dust packages`);
       
       const graph = await this.manager.graphStore.findGraph({
-        engineKey,
+        engineKey: 'dust-app/v1-beta1',
         fields: {
           foreignKey: packageId,
         },
       });
-      
       
       const result = await this.manager.graphStore.transact('readwrite', async txn => {
         if (isUpdate) {
@@ -46,9 +44,9 @@ GraphEngine.extend(engineKey).ddpApi = {
           if (!object) throw new Error(
             `Object ${_id} not found, cannot update`);
           if (object.data.name !== name) throw new Error(
-            `You tried renaming ${object.data.name} to ${fields.name} which isn't implemented`);
+            `You tried renaming ${object.data.name} to ${name} which isn't implemented`);
           if (object.data.type !== type) throw new Error(
-            `You tried changing a${object.data.type} to ${fields.type} which isn't implemented`);
+            `You tried changing a ${object.data.type} to ${type} which isn't implemented`);
 
           const newVersion = await txn.replaceFields(object, version, fields);
           console.log('committed version', newVersion, fields, 'over', object.data.fields);
