@@ -53,8 +53,8 @@ class DDPSessionCollection {
 
   convertFieldsForWire(obj) {
     const fields = {};
-    for (const key of Object.keys(this.fields)) {
-      let val = this.fields[key];
+    for (const key of Object.keys(obj)) {
+      let val = obj[key];
       if (val && val.constructor === Date)
         val = {$date: +val};
       if (val && val.constructor === Object)
