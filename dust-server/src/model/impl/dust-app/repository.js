@@ -9,7 +9,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocRepository = {
 
     const rawText = await resp.text();
     const parser = new window.DOMParser();
-    const doc = parser.parseFromString(rawText, "application/xml");
+    const doc = parser.parseFromString(rawText, 'application/xml');
 
     const IsTruncated = doc.querySelector('IsTruncated');
     if (IsTruncated.textContent === 'true') throw new Error(`
@@ -25,6 +25,31 @@ GraphEngine.extend('dust-app/v1-beta1').pocRepository = {
         updatedAt: el.querySelector('LastModified').textContent,
         eTag: el.querySelector('ETag').textContent,
         size: parseInt(el.querySelector('Size').textContent),
+      }));
+  },
+
+  async listPackageVersions(appId) {
+    const resp = await fetch(this.bucketOrigin + `/?versions&prefix=${this.objectPrefix}${encodeURIComponent(appId)}.json`);
+    if (resp.status !== 200) throw new Error(
+      `Stardust Cloud Repo returned HTTP ${resp.status} when listing package versions for ${appId}`);
+
+    const rawText = await resp.text();
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(rawText, 'application/xml');
+
+    const IsTruncated = doc.querySelector('IsTruncated');
+    if (IsTruncated.textContent === 'true') throw new Error(`
+      truncated: More than like 1000 package versions seen`);
+
+    return Array
+      .from(doc.querySelectorAll('Version,DeleteMarker'))
+      .map(el => ({
+        type: el.nodeName,
+        versionId: el.querySelector('Key').textContent.slice(9, -10),
+        isLatest: el.querySelector('IsLatest').textContent === 'true',
+        updatedAt: el.querySelector('LastModified').textContent,
+        eTag: el.nodeName === 'Version' ? el.querySelector('ETag').textContent : null,
+        size: el.nodeName === 'Version' ? parseInt(el.querySelector('Size').textContent) : null,
       }));
   },
 
