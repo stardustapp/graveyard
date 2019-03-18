@@ -1,4 +1,4 @@
-class Session {
+Session = class Session {
   constructor(record, account) {
     this.record = record;
     this.account = account;

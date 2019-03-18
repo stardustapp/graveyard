@@ -1,4 +1,4 @@
-class PlatformApi {
+PlatformApi = class PlatformApi {
   constructor(name) {
     this.name = name;
     this.paths = new Map;
@@ -65,7 +65,7 @@ class PlatformApi {
   }
 }
 
-class PlatformApiGetter {
+PlatformApiGetter = class PlatformApiGetter {
   constructor(self, name, type, impl) {
     this.self = self;
     this.type = PlatformApiType.from(type, name);
@@ -83,7 +83,7 @@ class PlatformApiGetter {
   }
 }
 
-class PlatformApiFunction {
+PlatformApiFunction = class PlatformApiFunction {
   constructor(self, name, {input, output, impl}) {
     this.self = self;
     this.inputType = PlatformApiType.from(input, 'input');
@@ -116,7 +116,7 @@ class PlatformApiFunction {
 }
 
 
-class PlatformTypeError extends ExtendableError {
+PlatformTypeError = class PlatformTypeError extends ExtendableError {
   constructor(fieldName, expectedType, actualType) {
     super(`API field ${JSON.stringify(fieldName)} is supposed to be type ${expectedType} but was actually ${actualType}`);
     this.fieldName = fieldName;
@@ -125,7 +125,7 @@ class PlatformTypeError extends ExtendableError {
   }
 }
 
-class PlatformApiTypeString {
+PlatformApiTypeString = class PlatformApiTypeString {
   constructor(name, defaultValue=null, ser=String, de=String) {
     this.name = name;
     this.type = 'String';
@@ -150,7 +150,7 @@ class PlatformApiTypeString {
   }
 }
 
-class PlatformApiTypeNull {
+PlatformApiTypeNull = class PlatformApiTypeNull {
   constructor(name) {
     this.name = name;
     this.type = 'Null';
@@ -168,7 +168,7 @@ class PlatformApiTypeNull {
 }
 
 // Never put this on the network, it's a no-op, only for intra-process message passing.
-class PlatformApiTypeJs {
+PlatformApiTypeJs = class PlatformApiTypeJs {
   constructor(name) {
     this.name = name;
     this.type = 'JS';
@@ -181,7 +181,7 @@ class PlatformApiTypeJs {
   }
 }
 
-class PlatformApiTypeFolder {
+PlatformApiTypeFolder = class PlatformApiTypeFolder {
   constructor(name, fields=[]) {
     this.name = name;
     this.type = 'Folder';
@@ -221,7 +221,7 @@ class PlatformApiTypeFolder {
   }
 }
 
-class PlatformApiType {
+PlatformApiType = class PlatformApiType {
   static from(source, name) {
     if (source == null)
       return new PlatformApiTypeNull(name);

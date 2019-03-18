@@ -7,7 +7,7 @@
 // - Future bind() calls cascade _down_ the selectPath() tree, but not up.
 // - You can never walk out of any Environment, so this also works for access scoping.
 
-class Environment {
+Environment = class Environment {
   constructor(baseUri='env:') {
     this.baseUri = baseUri;
     this.devices = new Map;

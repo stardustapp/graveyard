@@ -1,4 +1,4 @@
-class Account {
+Account = class Account {
   constructor(record) {
     this.env = new Environment();
     this.webEnv = new Environment();

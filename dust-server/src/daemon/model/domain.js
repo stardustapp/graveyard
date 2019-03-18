@@ -1,5 +1,5 @@
 // meeseeks class for working with domain snapshots
-class Domain {
+Domain = class Domain {
   constructor(data) {
     this.record = data;
   }

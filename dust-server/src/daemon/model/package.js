@@ -1,4 +1,4 @@
-class Package {
+Package = class Package {
   constructor(record) {
     this.record = record;
     this.webroot = null;

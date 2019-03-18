@@ -1,4 +1,4 @@
-window.runMain = (main) => {
+runMain = (main) => {
   console.log(`==> Starting runtime...`);
   Sync(main, (err, ret) => {
     console.log();
@@ -14,7 +14,7 @@ window.runMain = (main) => {
   });
 };
 
-class ExtendableError extends Error {
+ExtendableError = class ExtendableError extends Error {
   constructor(message) {
     super(message);
     this.name = this.constructor.name;

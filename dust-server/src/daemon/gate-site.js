@@ -1,6 +1,6 @@
 // Serves up enough HTML to nicely direct users to the account page
 
-class GateSite {
+GateSite = class GateSite {
   constructor(domainName, domainId, {accountManager, sessionManager, domainManager, packageManager, workloadManager}) {
     if (!domainName || !domainId)
       throw new Error(`GateSite requires a domain name`);
@@ -243,7 +243,7 @@ class GateSiteAddDomain {
   async invoke(input) {
     const request = await new GateSiteRequest(this.site, input).loadState();
     console.log('add domain', input, request);
-    
+
     if (request.req.method === 'GET') {
       return this.renderForm(request);
     }
@@ -256,7 +256,7 @@ class GateSiteAddDomain {
 
       const domain = await this.site.domainManager
           .registerDomain(domainName, request.session.account);
-      
+
       return buildRedirect('/~/my-domains/'+domain.record.did);
     }
   }
@@ -301,7 +301,7 @@ class GateSiteSetPassword {
     if (!request.session) {
       return buildRedirect('/~/login');
     }
-    
+
     if (request.req.method === 'GET') {
       return this.renderForm(request);
     }
@@ -342,7 +342,7 @@ class GateSiteManageDomain {
     if (role !== 'owner') {
       throw new Error(`Only domain owners can manage the domain`);
     }
-    
+
     if (request.req.method === 'GET') {
       return wrapGatePage(`manage domain`, commonTags.safeHtml`
         <section class="modal-form">

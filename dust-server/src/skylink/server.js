@@ -1,4 +1,4 @@
-class SkylinkServer {
+SkylinkServer = class SkylinkServer {
   constructor(env) {
     this.env = env;
     this.ops = new Map(SKYLINK_CORE_OPS);

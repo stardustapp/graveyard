@@ -1,5 +1,5 @@
 /// Presents a personalized API that lets users manager domain ownership and settings
-class DomainsApi {
+DomainsApi = class DomainsApi {
   constructor(manager, chartName) {
     this.env = new Environment();
     this.manager = manager;
@@ -103,7 +103,7 @@ class MyDomainsApi {
     enumer.descend('my-role');
     enumer.visit(new StringLiteral('', domain.highestRoleFor('~'+this.chartName)));
     enumer.ascend();
-    
+
     enumer.descend('webroot');
     enumer.visit(new FolderLiteral(''));
     enumer.ascend();

@@ -1,4 +1,4 @@
-function ExposeSkylinkOverHttp(env, httpd) {
+ExposeSkylinkOverHttp = function ExposeSkylinkOverHttp(env, httpd) {
   // all POSTs run against the same skylink server
   const stateless = new SkylinkServer(env);
   httpd.addRoute('^/~~export$', SkylinkPostHandler.bind(null, stateless));
@@ -11,7 +11,7 @@ function ExposeSkylinkOverHttp(env, httpd) {
 }
 
 // Uses the given SkylinkServer instance for every request
-class SkylinkPostHandler extends WSC.BaseHandler {
+SkylinkPostHandler = class SkylinkPostHandler extends WSC.BaseHandler {
   constructor(skylink) {
     super();
     this.skylink = skylink;
@@ -49,7 +49,7 @@ class SkylinkPostHandler extends WSC.BaseHandler {
   }
 }
 
-class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
+SkylinkWebsocketHandler = class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   constructor(pubEnv) {
     super();
 
@@ -108,7 +108,7 @@ class SkylinkWebsocketHandler extends WSC.WebSocketHandler {
   }
 }
 
-class SkylinkPingHandler extends WSC.BaseHandler {
+SkylinkPingHandler = class SkylinkPingHandler extends WSC.BaseHandler {
   constructor() {
     super();
   }

@@ -1,6 +1,6 @@
 // Serves up a JSON API that has access to the session cookies under /~
 
-class AppsApi {
+AppsApi = class AppsApi {
   constructor(kernel, domain, {workerSource}) {
     const {accountManager, sessionManager} = kernel;
 

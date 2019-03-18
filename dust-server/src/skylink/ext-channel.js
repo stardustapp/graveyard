@@ -1,7 +1,10 @@
 let allOpenChannels = 0;
-setInterval(() => {
+const metricsClock = setInterval(() => {
   Datadog.Instance.gauge('skylink.server.open_channels', allOpenChannels, {});
 }, 10*1000);
+if (metricsClock.unref) {
+  metricsClock.unref();
+}
 
 // for the server
 class ChannelExtension {

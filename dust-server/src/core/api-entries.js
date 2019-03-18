@@ -1,4 +1,4 @@
-class FolderLiteral {
+FolderLiteral = class FolderLiteral {
   constructor(name, children) {
     this.Name = name;
     this.Type = 'Folder';
@@ -31,7 +31,7 @@ class FolderLiteral {
   }
 }
 
-class StringLiteral {
+StringLiteral = class StringLiteral {
   constructor(name, value) {
     this.Name = name;
     this.Type = 'String';
@@ -51,7 +51,7 @@ class StringLiteral {
   }
 }
 
-class BlobLiteral {
+BlobLiteral = class BlobLiteral {
   constructor(name, base64, mime) {
     this.Name = name;
     this.Type = 'Blob';
@@ -76,7 +76,7 @@ class BlobLiteral {
   }
 }
 
-function InflateSkylinkLiteral(raw) {
+InflateSkylinkLiteral = function InflateSkylinkLiteral(raw) {
   if (!raw) {
     return null;
   }

@@ -22,7 +22,7 @@ function appendPoint(map, metric, value, tags) {
   }
 }
 
-class Datadog {
+Datadog = class Datadog {
   constructor(apiKey, hostName, globalTags) {
     this.apiKey = apiKey;
     this.hostName = hostName;
@@ -36,6 +36,10 @@ class Datadog {
 
     this.flushTimer = setInterval(this.flushNow.bind(this),
       this.flushPeriod * 1000);
+    if (this.flushTimer.unref) {
+      this.flushTimer.unref();
+      // TODO: trigger final flush at shutdown
+    }
   }
 
   doHTTP(apiPath, payload) {

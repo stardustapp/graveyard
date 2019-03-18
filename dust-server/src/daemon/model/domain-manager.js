@@ -6,7 +6,7 @@
   domains.createIndex('aid',  'aids',  { unique: false, multiEntry: true });
 */
 
-class DomainManager {
+DomainManager = class DomainManager {
 
   constructor(idb, accountManager) {
     this.idb = idb;

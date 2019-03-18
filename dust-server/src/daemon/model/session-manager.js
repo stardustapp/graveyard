@@ -13,7 +13,7 @@
   }
 */
 
-class SessionManager {
+SessionManager = class SessionManager {
   constructor(idb, accountManager) {
     this.idb = idb;
     this.accountManager = accountManager;
