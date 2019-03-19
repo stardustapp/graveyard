@@ -52,22 +52,23 @@ const yargs = require('yargs');
 const argv = yargs
   .usage('Usage: $0 <command> [options]')
   .option('data-path', {
-    describe: 'a filesystem directory in which to persist the data'
+    describe: 'Persist server memory at this path',
+    type: 'string',
   })
   .option('port', {
-    describe: 'TCP port for the HTTP and Skylink API server',
+    describe: 'Serve HTTP on this TCP port',
     type: 'number',
     default: 9237,
   })
   .command('serve [package]',
-    'launch a service package',
+    'launch a package as a service',
     yargs => { yargs
       .positional('package', {
         describe: 'ID for a package containing the desired Service',
         default: 'profile-server',
       })
     }, runDust)
-  .command('run <package> <method>',
+  .command('run <package> <method> [args...]',
     `execute a server method`,
     yargs => { yargs
       .positional('package', {
