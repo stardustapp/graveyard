@@ -1,4 +1,4 @@
-FolderLiteral = class FolderLiteral {
+class FolderLiteral {
   constructor(name, children) {
     this.Name = name;
     this.Type = 'Folder';
@@ -31,7 +31,7 @@ FolderLiteral = class FolderLiteral {
   }
 }
 
-StringLiteral = class StringLiteral {
+class StringLiteral {
   constructor(name, value) {
     this.Name = name;
     this.Type = 'String';
@@ -51,7 +51,7 @@ StringLiteral = class StringLiteral {
   }
 }
 
-BlobLiteral = class BlobLiteral {
+class BlobLiteral {
   constructor(name, base64, mime) {
     this.Name = name;
     this.Type = 'Blob';

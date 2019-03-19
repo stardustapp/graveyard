@@ -4,6 +4,17 @@ const process = require('process');
 const pkgMeta = require('./package.json');
 const manifest = require('../manifest.json');
 
+// Map well-behaved modules to desired global variables
+const importRules = {
+  'vendor/libraries/bugsnag.js': 'bugsnag',
+  'vendor/libraries/moment.js': 'moment',
+  'src/webapp/core/skylink/client.js': 'Skylink',
+
+  'src/core/api-entries.js': true,
+  'src/core/enumeration.js': true,
+  'src/lib/path-fragment.js': true,
+};
+
 function requirePlatform() {
   require('./shims/scope');
 
@@ -23,15 +34,31 @@ function requirePlatform() {
       if (err.code !== 'MODULE_NOT_FOUND') throw err;
     }
 
-    // load the file
     if (hasShim) {
+      // shims completely replace the module
       require(shimPath);
+
     } else {
-      require('../'+script);
+      const module = require('../'+script);
+
+      // rules support post-processing the module
+      if (script in importRules) {
+        const rule = importRules[script];
+        switch (rule.constructor) {
+          case String:
+            global[rule] = module;
+            break;
+          case Boolean:
+            for (const key in module) {
+              global[key] = module[key];
+            }
+            break;
+        }
+      }
     }
   }
 
-  console.log(`--> Loaded ${scripts.length} base platform modules, including ${shimCount} shims`);
+  console.log(`--> Loaded ${scripts.length} base platform modules, including ${shimCount} shimmed modules`);
 }
 
 function runDust(argv) {

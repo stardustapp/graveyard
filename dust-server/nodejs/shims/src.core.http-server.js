@@ -1,19 +1,14 @@
 const http = require('http');
-const pkgMeta = require('../package.json');
+const url = require('url');
+const querystring = require('querystring');
 
-WSC = {
-  BaseHandler: class BaseHandler {},
-  WebSocketHandler: class WebSocketHandler {},
-}
+const pkgMeta = require('../package.json');
 
 HttpServer = class HttpServer {
   constructor(domainManager, hostLoader) {
     this.domainManager = domainManager;
 
-    this.server = http.createServer((req, res) => {
-      //res.end();
-      this.routeRequest(req, res);
-    });
+    this.server = http.createServer(this.routeRequest.bind(this));
     this.server.on('error', (err) => {
       if (err.syscall === 'listen' && this.listenReject)
         return this.listenReject(err);
@@ -60,12 +55,37 @@ HttpServer = class HttpServer {
     return loader;
   }
 
-  routeRequest(req, res) {
-    console.log(req.connection.remoteAddress, req.method, req.url, req.httpVersion, req.headers, req.upgrade);
-    //const {headers, uri, method, body, bodyparams} = this.request;
-    //const route = this.handlers.find(x => x[1].match)
-    console.log(`TODO: implement HttpServer!`);
-    res.end();
+  async routeRequest(req, res) {
+    const {connection, method, httpVersion, headers, upgrade} = req;
+    const {remoteAddress} = req.connection;
+    console.log(remoteAddress, method, req.url);
+
+    const handler = this.handlers.find(x => x[1].test(req.url));
+    let inst = null;
+    if (handler) {
+      inst = new handler[2]();
+    } else {
+      inst = new this.defaultHandler();
+    }
+
+    if (!req.url.startsWith('/')) {
+      console.log(remoteAddress, 'send bad url', req.url, 'with method', method);
+      return req.end('400 sent non-path http request');
+    }
+    const {pathname, query} = url.parse(req.url, true);
+
+    inst.request = {
+      connection, method, headers,
+      uri: pathname,
+      arguments: query,
+    };
+    inst.response = res;
+
+    if (method !== 'GET' && method !== 'DELETE')
+      await inst.readBody(req);
+
+    await inst[method.toLowerCase()]();
+    //res.end();
   }
 }
 
@@ -295,39 +315,44 @@ class HttpWildcardHandler extends WSC.BaseHandler {
   }
 
   tcpInfo() {
-    return new Promise(r => chrome.sockets.tcp.getInfo(
-            this.request.connection.stream.sockId, r));
+    const conn = this.request.connection;
+    const local = conn.address();
+    return {
+      family: local.family,
+      localAddress: local.address,
+      localPort: local.port,
+      peerAddress: conn.remoteAddress,
+      peerPort: conn.remotePort,
+    };
   }
 
   async get() {
     const {headers, uri, method} = this.request;
-    const {localAddress, localPort, peerAddress, peerPort} = this.tcpInfo();
 
     await this.routeRequest({
       method, uri, headers,
       queryParams: this.request.arguments || {},
-      ip: {localAddress, localPort, peerAddress, peerPort},
+      ip: this.tcpInfo(),
     });
   }
 
   async post() {
     const {headers, uri, method, body, bodyparams} = this.request;
-    const {localAddress, localPort, peerAddress, peerPort} = this.tcpInfo();
 
     await this.routeRequest({
       method, uri, headers, body, bodyparams,
       queryParams: this.request.arguments || {},
-      ip: {localAddress, localPort, peerAddress, peerPort},
+      ip: this.tcpInfo(),
     });
   }
 
   async routeRequest(meta) {
     const responder = new Responder(this);
-    const {headers, method, uri} = meta;
+    const {headers, method, uri, ip} = meta;
 
     try {
       if (!headers.host) {
-        console.log(`${method} //${headers.host}${uri}`, 400);
+        console.log(`${ip.remoteAddress} ${method} //${headers.host}${uri}`, 400);
         return responder.sendJson({
           success: false,
           error: 'bad-request',
