@@ -68,3 +68,10 @@ class GraphEngine {
     return new type.behavior(type, data);
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    GraphObject,
+    GraphEngine,
+  };
+}

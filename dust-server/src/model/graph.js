@@ -40,3 +40,9 @@ class Graph {
       .filter(x => x.data.type === type);
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    Graph,
+  };
+}

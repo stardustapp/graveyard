@@ -69,3 +69,9 @@ class RecordFilter {
     return stream;
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    RecordFilter,
+  };
+}

@@ -10,7 +10,11 @@ Kernel = class Kernel {
 
   async init() {
 
-    this.baseLevel = await OpenSystemDatabase(this.argv);
+    if (this.argv.dataPath) {
+      this.baseDb = await RootServerDatabase.openPersisted(this.argv.dataPath);
+    } else {
+      this.baseDb = await RootServerDatabase.openTemporary();
+    }
     console.debug('Opened system database');
 
     if (this.argv.command === 'serve') {
@@ -31,12 +35,25 @@ Kernel = class Kernel {
 
     console.debug('TODO: construct the local resource graph');
 
+    this.graphStore = new GraphStore(this.baseDb.sub('sys'));
+    await this.graphStore.ready;
+
     console.debug('Kernel initialized');
     return this;
   }
 
   // expected to return within 30 seconds
   async boot() {
+    const appKey = this.argv.package;
+
+    const appGraph = await this.graphStore.findGraph({
+      engineKey: 'app-profile/v1-beta1',
+      fields: { appKey },
+    });
+    if (!appGraph) throw new Error(
+      `App installation ${JSON.stringify(appKey)} not found`);
+
+    const appInst = Array.from(appGraph.roots)[0];
 
     console.debug('TODO: install package:', this.argv.package);
   }
@@ -44,7 +61,6 @@ Kernel = class Kernel {
   // should run for the lifetime of the runtime
   // return to EXIT
   async run() {
-    console.log(`Input arguments:`, this.argv);
     switch (this.argv.command) {
 
       case 'run':

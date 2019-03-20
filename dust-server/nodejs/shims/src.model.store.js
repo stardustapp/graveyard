@@ -1,12 +1,12 @@
+const {promisify} = require('util');
+
 class GraphStore {
-  constructor(opts={}) {
-    this.opts = opts;
+  constructor(database) {
 
     // database
-    this.idb = null;
+    this.database = database;
     this.graphs = new Map;
     this.objects = new Map;
-    // records and events are kept cold by default
 
     // transaction state
     this.readyForTxn = false;
@@ -15,8 +15,6 @@ class GraphStore {
 
     this.ready = this.start();
 
-    // TODO
-    self.gs = this;
     this.warnInterval = setInterval(() => {
       if (this.waitingTxns.length) {
         console.warn('GraphStore has', this.waitingTxns.length, 'waiting transactions');
@@ -24,45 +22,40 @@ class GraphStore {
     }, 1000);
   }
 
-  async migrateIdb(upgradeDB) {
-    // this switch intentionally falls through every case.
-    // it allows for each case to build on the previous.
-    switch (upgradeDB.oldVersion) {
-      case 0:
-        const graphs = upgradeDB.createObjectStore('graphs', { keyPath: 'graphId' });
-        const objects = upgradeDB.createObjectStore('objects', { keyPath: 'objectId' });
-        objects.createIndex('by graph', 'graphId', { multiEntry: true });
-        objects.createIndex('referenced', 'refObjIds', { multiEntry: true });
-        objects.createIndex('by parent', ['parentObjId', 'name'], { unique: true });
-        const records = upgradeDB.createObjectStore('records', { keyPath: ['objectId', 'recordId'] });
-        records.createIndex('by path', 'path', { unique: true });
-        const events = upgradeDB.createObjectStore('events', { keyPath: ['graphId', 'timestamp'] });
-    }
-  }
+  /*
+    const graphs = upgradeDB.createObjectStore('graphs', { keyPath: 'graphId' });
+    const objects = upgradeDB.createObjectStore('objects', { keyPath: 'objectId' });
+    objects.createIndex('by graph', 'graphId', { multiEntry: true });
+    objects.createIndex('referenced', 'refObjIds', { multiEntry: true });
+    objects.createIndex('by parent', ['parentObjId', 'name'], { unique: true });
+    const records = upgradeDB.createObjectStore('records', { keyPath: ['objectId', 'recordId'] });
+    records.createIndex('by path', 'path', { unique: true });
+    const events = upgradeDB.createObjectStore('events', { keyPath: ['graphId', 'timestamp'] });
+  */
 
   async start() {
-    // open IDB
-    const idbName = this.opts.idbName || 'graph-worker';
-    this.idb = await idb.open(idbName, 1, this.migrateIdb.bind(this));
-    console.debug('Opened IDB');
 
     // load working dataset
-    const idbTx = this.idb.transaction(['graphs', 'objects']);
-    const allGraphs = await idbTx.objectStore('graphs').getAll();
+    const allGraphs = await this.database.graph.get({
+      predicate: 'OfType',
+      object: 'graph',
+    });
     for (const graphData of allGraphs) {
       const graph = new Graph(this, graphData);
-      this.graphs.set(graphData.graphId, graph);
+      this.graphs.set(graphData.subject, graph);
 
       // fetch all the objects
-      const objects = await idbTx
-        .objectStore('objects').index('by graph')
-        .getAll(graphData.graphId);
+      const objects = await this.database.graph.get({
+        predicate: 'ObjInGraph',
+        object: graphData.subject,
+      });
 
       // construct the objects
       for (const objData of objects) {
         graph.populateObject(objData);
       }
 
+      // TODO: relink after everything is loaded
       graph.relink();
     }
     console.debug('Loaded', this.graphs.size, 'graphs containing', this.objects.size, 'objects');

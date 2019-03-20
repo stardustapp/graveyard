@@ -13,58 +13,87 @@ const importRules = {
   'src/core/api-entries.js': true,
   'src/core/enumeration.js': true,
   'src/lib/path-fragment.js': true,
+  'src/daemon/database.js': true,
 };
 
-function requirePlatform() {
-  require('./shims/scope');
+// Include things like the graph engine from the service worker
+const extraImports = [
+  'src/model/field-types.js',
+  'src/model/engine.js',
+  'src/model/engine_builder.js',
+  'src/model/graph.js',
+  'src/model/graph_builder.js',
+  'src/model/transaction.js',
+  'src/model/store.js',
+  'src/model/record-filter.js',
 
-  // load all the platform source code
-  const {scripts} = manifest.app.background;
-  let shimCount = 0;
-  for (const script of scripts) {
+  'src/model/impl/dust-app/model.js',
+  'src/model/impl/dust-app/ddp-api.js',
+  'src/model/impl/dust-app/json-codec.js',
+  'src/model/impl/dust-app/repository.js',
+  'src/model/impl/dust-app/compile.js',
+];
 
-    // check for a nodejs replacement impl
-    const shimPath = './shims/'+script.replace(/\//g, '.');
-    let hasShim = false;
-    try {
-      require.resolve(shimPath);
-      hasShim = true;
-      shimCount++;
-    } catch (err) {
-      if (err.code !== 'MODULE_NOT_FOUND') throw err;
-    }
-
-    if (hasShim) {
-      // shims completely replace the module
-      require(shimPath);
-
-    } else {
-      const module = require('../'+script);
-
-      // rules support post-processing the module
-      if (script in importRules) {
-        const rule = importRules[script];
-        switch (rule.constructor) {
-          case String:
-            global[rule] = module;
-            break;
-          case Boolean:
-            for (const key in module) {
-              global[key] = module[key];
-            }
-            break;
-        }
-      }
-    }
+let shimCount = 0;
+function importPlatformModule(path, importRule=false) {
+  // check for a nodejs-targetted wholesale replacement
+  const shimPath = './shims/'+path.replace(/\//g, '.');
+  let hasShim = false;
+  try {
+    require.resolve(shimPath);
+    hasShim = true;
+    shimCount++;
+  } catch (err) {
+    if (err.code !== 'MODULE_NOT_FOUND') throw err;
   }
 
-  console.log(`--> Loaded ${scripts.length} base platform modules, including ${shimCount} shimmed modules`);
+  // bring in the code
+  let module;
+  if (hasShim) {
+    // shims completely replace the module
+    module = require(shimPath);
+  } else {
+    module = require('../'+path);
+  }
+
+  // rules support post-processing the module
+  switch (importRule !== null && importRule.constructor) {
+    case String:
+      global[importRule] = module;
+      break;
+    case Boolean:
+      if (importRule) {
+        for (const key in module) {
+          global[key] = module[key];
+        }
+      }
+      break;
+    default:
+      throw new Error(`Unknown platform importRule "${importRule}"`);
+  }
 }
 
-async function runDust(argv) {
-  argv.command = argv._[0];
+function importPlatform() {
+  require('./shims/scope');
 
-  requirePlatform();
+  // load the chrome's platform source
+  const {scripts} = manifest.app.background;
+  for (const script of scripts) {
+    importPlatformModule(script, importRules[script]);
+  }
+
+  // add extra platform files
+  for (const script of extraImports) {
+    importPlatformModule(script, true);
+  }
+
+  console.log(`--> Loaded ${scripts.length} platform modules, including ${shimCount} shimmed modules`);
+}
+
+function runDust(argv) {
+  argv.command = argv._.shift();
+
+  importPlatform();
   launchDaemon(argv);
 }
 
@@ -103,5 +132,5 @@ const argv = yargs
   .strict()
   .argv;
 
-if (!argv._[0])
+if (!argv.command)
   yargs.showHelp()

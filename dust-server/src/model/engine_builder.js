@@ -63,3 +63,9 @@ const GraphEngineBuilder = function() {
 
   return GraphEngineBuilder;
 }();
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    GraphEngineBuilder,
+  };
+}

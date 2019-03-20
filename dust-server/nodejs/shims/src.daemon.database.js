@@ -39,38 +39,73 @@ function AsssertWritable(fsPath) {
   }
 }
 
+function navWithCb(startAt, setupCb, cb) {
+  setupCb(this.nav(startAt), cb);
+}
+
 class ServerDatabase {
-  constructor(db) {
-    this.rawStore = db;
-    this.graph = levelgraph(sub(db, 'graph'));
+  constructor(baseLevel) {
+    this.baseLevel = baseLevel;
+    this.dataLevel = sub(this.baseLevel, 'data');
+    this.graphLevel = sub(this.baseLevel, 'graph');
+
+    // create promisified levelgraph-alike
+    const graph = levelgraph(this.graphLevel);
+    this.graph = {
+      getStream: graph.getStream.bind(graph),
+      putStream: graph.putStream.bind(graph),
+      searchStream: graph.searchStream.bind(graph),
+
+      get: promisify(graph.get.bind(graph)),
+      put: promisify(graph.put.bind(graph)),
+      search: promisify(graph.search.bind(graph)),
+
+      generateBatch: graph.generateBatch.bind(graph),
+      createQuery: graph.createQuery.bind(graph),
+      nav: promisify(navWithCb.bind(graph)),
+    };
   }
 
-  static async open(dataPath) {
-    AsssertWritable(dataPath);
-    const db = await level(dataPath);
-    return new ServerDatabase(db);
-  }
-
-  close() {
-    const p = this.rawStore.close();
-    this.rawStore = null;
-    return p;
+  sub(key) {
+    const subLevel = sub(this.baseLevel, '-'+key);
+    return new ServerDatabase(subLevel);
   }
 }
 
-let db = null;
-OpenSystemDatabase = async function (argv) {
-  if (db) {
-    console.warn('!-> system DB double-open!');
-    return db;
+let rootLevel = null;
+class RootServerDatabase extends ServerDatabase {
+  constructor(db) {
+    super(db);
   }
 
-  const dbPath = argv.dataPath ||
-    await EstablishTempDir();
+  static async openPersisted(dataPath) {
+    if (rootLevel)
+      throw new Error(`RootServerDatabase double-open!`);
+    AsssertWritable(dataPath);
 
-  db = await ServerDatabase.open(dbPath);
-  return db;
+    rootLevel = await level(dataPath);
+    return new RootServerDatabase(rootLevel);
+  }
+
+  static async openTemporary() {
+    const dataPath = await EstablishTempDir();
+    return await this.openPersisted(dataPath);
+  }
+
+  close() {
+    // TODO: worth closing if we never open more than one?
+    //const p = this.rawStore.close();
+    //this.rawStore = null;
+    //return p;
+  }
 }
 
 //await db.put('name', 'Level');
 //console.log('name=' + await db.get('name'));
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    ServerDatabase,
+    RootServerDatabase,
+  };
+}

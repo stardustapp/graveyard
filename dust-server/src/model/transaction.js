@@ -317,3 +317,9 @@ class GraphTxn {
     }
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    GraphTxn,
+  };
+}

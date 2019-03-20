@@ -107,7 +107,7 @@ function NotImpl() {
   throw new FieldTypeError(this, `Not Impl: ${this.name}`);
 }
 builtins.set(String, new BuiltinFieldType('String', String));
-builtins.set(Blob, new BuiltinFieldType('Blob', Blob));
+if (self.Blob) builtins.set(Blob, new BuiltinFieldType('Blob', Blob));
 builtins.set(Date, new BuiltinFieldType('Date', Date));
 builtins.set(Number, new BuiltinFieldType('Number', Number));
 builtins.set(Boolean, new BuiltinFieldType('Boolean', Boolean));
@@ -232,4 +232,19 @@ class StructFieldType extends FieldType {
       throw ex;
     }
   }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    FieldTypeError,
+    FieldType,
+    PendingFieldType,
+    BuiltinFieldType,
+    GraphReference,
+    ReferenceFieldType,
+    OptionalFieldType,
+    ListFieldType,
+    AnyOfKeyedFieldType,
+    StructFieldType,
+  };
 }
