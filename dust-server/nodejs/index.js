@@ -61,17 +61,11 @@ function requirePlatform() {
   console.log(`--> Loaded ${scripts.length} base platform modules, including ${shimCount} shimmed modules`);
 }
 
-function runDust(argv) {
+async function runDust(argv) {
+  argv.command = argv._[0];
+
   requirePlatform();
-  return bootDaemon(argv)
-    .then(() => {
-      console.log(`\r==> Server entrypoint completed.`);
-    }, err => {
-      console.error();
-      console.error(`\r!-> Server entrypoint crashed!`);
-      console.error(err.stack);
-      process.exit(1);
-    });
+  launchDaemon(argv);
 }
 
 // bring it up

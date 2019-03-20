@@ -28,18 +28,19 @@ HttpServer = class HttpServer {
   }
 
   startServer(argv) {
-    if (argv._[0] === 'run')
-      this.server.unref();
-
     return new Promise((resolve, reject) => {
       this.listenReject = reject;
-      this.server.listen(argv.port, '127.0.0.1', () => {
+      this.server.listen(argv.port, argv.host, () => {
         const {address, port} = this.server.address();
         console.debug('HttpServer listening on http://%s:%s', address, port);
         resolve(port);
         this.listenReject = null;
       });
     });
+  }
+
+  unref() {
+    this.server.unref();
   }
 
   /*async*/ getVHost(hostname) {
