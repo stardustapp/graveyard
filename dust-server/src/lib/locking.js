@@ -1,117 +1,67 @@
-const {promisify} = require('util');
+class RunnableMutex {
+  constructor(innerFunc) {
+    this.innerFunc = innerFunc;
+    this.isLocked = false;
+    this.waitQueue = new Array;
 
-class GraphStore {
-  constructor(database) {
-
-    // database
-    this.database = database;
-    this.graphs = new Map;
-    this.objects = new Map;
-
-    //this.eventProcessors = new Array;
-
-    // read in everything
-    this.ready = database.mutex
-      .submit('setup', this.start.bind(this));
-  }
-
-  /*
-    const graphs = upgradeDB.createObjectStore('graphs', { keyPath: 'graphId' });
-    const objects = upgradeDB.createObjectStore('objects', { keyPath: 'objectId' });
-    objects.createIndex('by graph', 'graphId', { multiEntry: true });
-    objects.createIndex('referenced', 'refObjIds', { multiEntry: true });
-    objects.createIndex('by parent', ['parentObjId', 'name'], { unique: true });
-    const records = upgradeDB.createObjectStore('records', { keyPath: ['objectId', 'recordId'] });
-    records.createIndex('by path', 'path', { unique: true });
-    const events = upgradeDB.createObjectStore('events', { keyPath: ['graphId', 'timestamp'] });
-  */
-
-  async start(dbCtx) {
-
-    // seed the root
-    const root = await dbCtx.getObjectById('root');
-
-    const allGraphs = await dbCtx.queryGraph({
-      predicate: 'Child',
-      object: 'root',
-    });
-    for (const graphData of allGraphs) {
-      const graph = new Graph(this, graphData);
-      this.graphs.set(graphData.subject, graph);
-
-      // fetch all the objects
-      const objects = await this.database.graph.get({
-        predicate: 'ObjInGraph',
-        object: graphData.subject,
-      });
-
-      // construct the objects
-      for (const objData of objects) {
-        graph.populateObject(objData);
+    this.warnInterval = setInterval(() => {
+      if (this.waitQueue.length) {
+        console.warn('RunnableMutex has', this.waitQueue.length, 'waiting calls');
       }
-
-      // TODO: relink after everything is loaded
-      graph.relink();
-    }
-    console.debug('Loaded', this.graphs.size, 'graphs containing', this.objects.size, 'objects');
+    }, 1000);
   }
 
   // user entrypoint that either runs immediately or queues for later
-  async transact(mode, cb) {
-    if (this.readyForTxn) {
-      try {
-        this.readyForTxn = false;
-        return await this.immediateTransact(mode, cb);
-      } finally {
-        this.readyForTxn = true;
-        if (this.waitingTxns.length) {
-          console.warn('Scheduling transactions that queued during failed immediate transact');
-          setTimeout(this.runWaitingTxns.bind(this), 0);
-        }
-      }
-    } else {
+  submit(...args) {
+    if (this.isLocked) {
       return new Promise((resolve, reject) => {
-        this.waitingTxns.push({
-          mode, cb,
-          out: {resolve, reject},
+        this.waitQueue.push({
+          args, resolve, reject,
         });
       });
+    }
+
+    try {
+      this.isLocked = true;
+      return this.immediateTransact(args);
+    } finally {
+      this.isLocked = false;
+      if (this.waitQueue.length) {
+        this.runWaitingTxns();
+      }
     }
   }
 
   // model entrypoint that runs everything that's waiting
   async runWaitingTxns() {
-    if (!this.readyForTxn) throw new Error(`runWaitingTxns() ran when not actually ready`);
+    if (this.isLocked) throw new Error(`runWaitingTxns() ran when not actually ready to lock`);
     try {
-      this.readyForTxn = false;
       console.group('Processing all queued transactions');
 
       // process until there's nothing left
-      while (this.waitingTxns.length) {
-        const {mode, cb, out} = this.waitingTxns.shift();
-
+      this.isLocked = true;
+      while (this.waitQueue.length) {
+        const {args, resolve, reject} = this.waitQueue.shift();
         // pipe result to the original
-        const txnPromise = this.immediateTransact(mode, cb);
+        const txnPromise = this.immediateTransact(args);
         txnPromise.then(out.resolve, out.reject);
         await txnPromise;
       }
+      this.isLocked = false;
 
     } finally {
-      this.readyForTxn = true;
       console.groupEnd();
+      if (this.waitQueue.length) {
+        console.warn('WARN: still had work queued after runWaitingTxns() completed');
+      }
     }
   }
 
-  async immediateTransact(mode='readonly', cb) {
-    console.group(`${mode} graph transaction`);
-
+  async immediateTransact(args) {
     let txn;
     try {
-      txn = this.currentTxn = new GraphTxn(this, mode);
-      const result = await cb(txn);
-      await txn.finish();
-      this.txn = null;
-      return result;
+      txn = this.innerFunc(...args);
+      await txn.promise;
 
     } catch (err) {
       // TODO: specific Error subclass instead
@@ -119,15 +69,12 @@ class GraphStore {
         console.warn('Database transaction failed:', txn.error);
         throw idbTx.error;
       }
-      console.error('GraphTxn crash:', err.message);
-      if (txn) {
-        console.warn('Aborting IDB transaction due to', err.name);
+      console.error('RunnableMutex transaction crash:', err.message);
+      if (txn && txn.abort) {
+        console.warn('Aborting transaction due to', err.name);
         txn.abort();
       }
       throw err;//new Error(`GraphTxn rolled back due to ${err.stack.split('\n')[0]}`);
-
-    } finally {
-      console.groupEnd();
     }
   }
 
@@ -148,7 +95,7 @@ class GraphStore {
     let graph = this.graphs.get(graphId);
 
     // TODO
-    //for (const processor of eventProcessors) {
+    //for (const processor of listeners) {
     //  processor(graph, event);
     //}
 
@@ -235,10 +182,49 @@ class GraphStore {
       .from(this.graphs.values())
       .filter(x => x.data.engine === engineKey);
   }
+
+  async finish() {
+    // create the necesary events
+    const events = Array
+      .from(this.actions.entries())
+      .map(([graphId, entries]) => ({
+        timestamp: this.currentDate,
+        graphId, entries,
+      }));
+    this.actions = null;
+
+    // record a stack trace for debugging txns
+    try {
+      throw new Error('finishing GraphTxn');
+    } catch (err) {
+      this.finishStack = err;
+    }
+
+    console.log('events:', events);
+    // store the events
+    const eventStore = this.txn.objectStore('events');
+    const ops = events
+      .filter(doc => doc.graphId) // ignore runtime global events
+      .map(doc => eventStore.add(doc));
+
+    // wait for transaction to actually commit
+    await Promise.all(ops);
+    await this.txn.complete;
+
+    // pass events into the reactivity engine
+    // this is a bad time to fail!
+    for (const event of events) {
+      try {
+        await this.graphStore.processEvent(event);
+      } catch (err) {
+        console.error(`DESYNC: Event failed to process.`, event, err);
+      }
+    }
+  }
 }
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    GraphStore,
+    RunnableMutex,
   };
 }

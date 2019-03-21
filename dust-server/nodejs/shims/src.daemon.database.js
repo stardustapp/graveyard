@@ -43,14 +43,81 @@ function navWithCb(startAt, setupCb, cb) {
   setupCb(this.nav(startAt), cb);
 }
 
+class DataContext {
+  constructor(database, mode, cb) {
+    this.database = database;
+    this.mode = mode;
+
+    this.objProxies = new Map;
+    this.promise = this._run(cb);
+  }
+  abort() {
+    console.log('TODO: abort DataContext');
+  }
+  async _run(cb) {
+    try {
+      console.group('DataContext start:', this.mode);
+      await cb(this);
+    } catch (err) {
+      console.warn('DataContext failed:', err.message);
+      throw err;
+    } finally {
+      console.groupEnd();
+    }
+  }
+
+  getObjectById(_id) {
+    if (this.objProxies.has(_id))
+      return this.objProxies.get(_id).ready;
+
+    const obj = new DataObject(this, _id);
+    this.objProxies.set(_id, obj);
+    return obj.ready;
+  }
+
+  async queryGraph(query) {
+    //return new DataObject(this);
+
+    if (query.subject && query.subject.constructor === DataObject)
+      query.subject = query.subject._id;
+    if (query.object && query.object.constructor === DataObject)
+      query.object = query.object._id;
+
+    const vertices = await this.database.graph.get(query);
+    const promises = vertices.map(async raw => ({
+      subject: await this.getObjectById(raw.subject),
+      predicate: raw.predicate,
+      object: await this.getObjectById(raw.object),
+    }));
+    return Promise.all(promises);
+  }
+}
+
+class DataObject {
+  constructor(ctx, docId) {
+    const isNew = !docId;
+    let docFields = null;
+
+    this.ready = (async () => {
+      throw new Error('hi')
+    })();
+
+    Object.defineProperty(this, '_id', {
+      enumerable: true,
+      get() { return }
+    })
+  }
+}
+
 class ServerDatabase {
   constructor(baseLevel) {
     this.baseLevel = baseLevel;
-    this.dataLevel = sub(this.baseLevel, 'data');
-    this.graphLevel = sub(this.baseLevel, 'graph');
+    this.docsLevel = sub(this.baseLevel, 'docs');
+    this.edgeLevel = sub(this.baseLevel, 'edge');
+    this.mutex = new RunnableMutex(this.transactNow.bind(this));
 
     // create promisified levelgraph-alike
-    const graph = levelgraph(this.graphLevel);
+    const graph = levelgraph(this.edgeLevel);
     this.graph = {
       getStream: graph.getStream.bind(graph),
       putStream: graph.putStream.bind(graph),
@@ -63,12 +130,17 @@ class ServerDatabase {
       generateBatch: graph.generateBatch.bind(graph),
       createQuery: graph.createQuery.bind(graph),
       nav: promisify(navWithCb.bind(graph)),
+      raw: graph, // escape hatch
     };
   }
 
   sub(key) {
     const subLevel = sub(this.baseLevel, '-'+key);
     return new ServerDatabase(subLevel);
+  }
+
+  transactNow(mode, cb) {
+    return new DataContext(this, mode, cb);
   }
 }
 
@@ -107,5 +179,6 @@ if (typeof module !== 'undefined') {
   module.exports = {
     ServerDatabase,
     RootServerDatabase,
+    DataContext,
   };
 }

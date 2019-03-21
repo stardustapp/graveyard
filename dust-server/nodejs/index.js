@@ -6,18 +6,24 @@ const manifest = require('../manifest.json');
 
 // Map well-behaved modules to desired global variables
 const importRules = {
+  // direct export
   'vendor/libraries/bugsnag.js': 'bugsnag',
   'vendor/libraries/moment.js': 'moment',
+  'vendor/libraries/base64.js': 'base64js',
   'src/webapp/core/skylink/client.js': 'Skylink',
 
+  // multiple named exports
   'src/core/api-entries.js': true,
   'src/core/enumeration.js': true,
+  'src/lib/locking.js': true,
   'src/lib/path-fragment.js': true,
   'src/daemon/database.js': true,
 };
 
 // Include things like the graph engine from the service worker
 const extraImports = [
+  'src/lib/locking.js',
+
   'src/model/field-types.js',
   'src/model/engine.js',
   'src/model/engine_builder.js',

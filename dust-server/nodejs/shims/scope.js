@@ -13,3 +13,5 @@ global.Worker = class Worker {
 }
 
 global.fetch = require('node-fetch');
+
+global.crypto = require('crypto');

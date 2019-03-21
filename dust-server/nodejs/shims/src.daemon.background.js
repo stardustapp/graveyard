@@ -9,7 +9,6 @@ launchDaemon = async function launchDaemon(argv) {
 
       kernel = new Kernel(argv);
       await kernel.ready;
-      await kernel.boot();
 
     } finally {
       console.groupEnd();
@@ -18,7 +17,8 @@ launchDaemon = async function launchDaemon(argv) {
     console.log('==> Completed kernel boot :)');
     console.log();
 
-    await kernel.run();
+    await kernel.boot(); // returns within 30s
+    await kernel.run(); // may never return
 
     console.log();
     console.log(`==> Daemon function returned.`);

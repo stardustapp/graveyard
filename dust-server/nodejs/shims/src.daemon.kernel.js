@@ -45,11 +45,16 @@ Kernel = class Kernel {
   // expected to return within 30 seconds
   async boot() {
     const appKey = this.argv.package;
+    const {pocRepository, compileToHtml} = GraphEngine
+      .get('dust-app/v1-beta1').extensions;
 
     const appGraph = await this.graphStore.findGraph({
       engineKey: 'app-profile/v1-beta1',
       fields: { appKey },
     });
+    if (!appGraph) {
+      appGraph = await pocRepository.installWithDeps(this.graphStore, appKey);
+    }
     if (!appGraph) throw new Error(
       `App installation ${JSON.stringify(appKey)} not found`);
 

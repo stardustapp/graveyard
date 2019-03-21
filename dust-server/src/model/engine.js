@@ -1,6 +1,6 @@
 function randomString(bytes=10) { // 32 for a secret
-  var array = new Uint8Array(bytes);
-  crypto.getRandomValues(array);
+  const array = new Uint8Array(bytes);
+  (crypto.getRandomValues || crypto.randomFillSync).call(crypto, array);
   let str = base64js
     .fromByteArray(array)
     .replace(/\+/g, '-')
@@ -73,5 +73,6 @@ if (typeof module !== 'undefined') {
   module.exports = {
     GraphObject,
     GraphEngine,
+    randomString,
   };
 }
