@@ -44,6 +44,7 @@ Kernel = class Kernel {
 
   // expected to return within 30 seconds
   async boot() {
+    /*
     const appKey = this.argv.package;
     const {pocRepository, compileToHtml} = GraphEngine
       .get('dust-app/v1-beta1').extensions;
@@ -59,7 +60,7 @@ Kernel = class Kernel {
       `App installation ${JSON.stringify(appKey)} not found`);
 
     const appInst = Array.from(appGraph.roots)[0];
-
+    */
     console.debug('TODO: install package:', this.argv.package);
   }
 

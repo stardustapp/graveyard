@@ -9,6 +9,8 @@ class RunnableMutex {
         console.warn('RunnableMutex has', this.waitQueue.length, 'waiting calls');
       }
     }, 1000);
+    if (this.warnInterval.unref)
+      this.warnInterval.unref();
   }
 
   // user entrypoint that either runs immediately or queues for later

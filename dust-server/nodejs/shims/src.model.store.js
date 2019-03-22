@@ -28,12 +28,20 @@ class GraphStore {
 
   async start(dbCtx) {
 
-    // seed the root
+    // seed the root node
     const root = await dbCtx.getObjectById('root');
+    if (!root.doc) {
+      console.log('WARN: creating root document');
+      root.doc = {
+        asdf: 'yup',
+        version: 1,
+        createdAt: new Date,
+      };
+    }
 
     const allGraphs = await dbCtx.queryGraph({
-      predicate: 'Child',
-      object: 'root',
+      predicate: 'ChildOf',
+      object: root,
     });
     for (const graphData of allGraphs) {
       const graph = new Graph(this, graphData);
@@ -57,78 +65,8 @@ class GraphStore {
   }
 
   // user entrypoint that either runs immediately or queues for later
-  async transact(mode, cb) {
-    if (this.readyForTxn) {
-      try {
-        this.readyForTxn = false;
-        return await this.immediateTransact(mode, cb);
-      } finally {
-        this.readyForTxn = true;
-        if (this.waitingTxns.length) {
-          console.warn('Scheduling transactions that queued during failed immediate transact');
-          setTimeout(this.runWaitingTxns.bind(this), 0);
-        }
-      }
-    } else {
-      return new Promise((resolve, reject) => {
-        this.waitingTxns.push({
-          mode, cb,
-          out: {resolve, reject},
-        });
-      });
-    }
-  }
-
-  // model entrypoint that runs everything that's waiting
-  async runWaitingTxns() {
-    if (!this.readyForTxn) throw new Error(`runWaitingTxns() ran when not actually ready`);
-    try {
-      this.readyForTxn = false;
-      console.group('Processing all queued transactions');
-
-      // process until there's nothing left
-      while (this.waitingTxns.length) {
-        const {mode, cb, out} = this.waitingTxns.shift();
-
-        // pipe result to the original
-        const txnPromise = this.immediateTransact(mode, cb);
-        txnPromise.then(out.resolve, out.reject);
-        await txnPromise;
-      }
-
-    } finally {
-      this.readyForTxn = true;
-      console.groupEnd();
-    }
-  }
-
-  async immediateTransact(mode='readonly', cb) {
-    console.group(`${mode} graph transaction`);
-
-    let txn;
-    try {
-      txn = this.currentTxn = new GraphTxn(this, mode);
-      const result = await cb(txn);
-      await txn.finish();
-      this.txn = null;
-      return result;
-
-    } catch (err) {
-      // TODO: specific Error subclass instead
-      if (txn && txn.error) {
-        console.warn('Database transaction failed:', txn.error);
-        throw idbTx.error;
-      }
-      console.error('GraphTxn crash:', err.message);
-      if (txn) {
-        console.warn('Aborting IDB transaction due to', err.name);
-        txn.abort();
-      }
-      throw err;//new Error(`GraphTxn rolled back due to ${err.stack.split('\n')[0]}`);
-
-    } finally {
-      console.groupEnd();
-    }
+  transact(mode, cb) {
+    return this.database.mutex.submit(mode, cb);
   }
 
   /*
