@@ -33,6 +33,8 @@ const extraImports = [
   'src/model/store.js',
   'src/model/record-filter.js',
 
+  'src/model/impl/doc-graph/model.js',
+
   'src/model/impl/dust-app/model.js',
   'src/model/impl/dust-app/ddp-api.js',
   'src/model/impl/dust-app/json-codec.js',
@@ -93,7 +95,7 @@ function importPlatform() {
     importPlatformModule(script, true);
   }
 
-  console.log(`--> Loaded ${scripts.length} platform modules, including ${shimCount} shimmed modules`);
+  console.log(`--> Loaded ${scripts.length} platform modules and ${extraImports.length} extras, including ${shimCount} shimmed modules`);
 }
 
 function runDust(argv) {
