@@ -2,11 +2,9 @@ const {promisify} = require('util');
 
 class GraphStore {
   constructor(database) {
-
-    // database
     this.database = database;
-    this.graphs = new Map;
-    this.objects = new Map;
+
+    this.runningObjs = new Map;
 
     //this.eventProcessors = new Array;
 

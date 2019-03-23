@@ -6,6 +6,7 @@ const GraphEngineBuilder = function() {
     constructor(key, cb) {
       this.key = key;
       this.names = new Map;
+      this.allRelations = new Set;
 
       console.group(`[${key}] Building graph engine...`);
       try {
@@ -22,31 +23,126 @@ const GraphEngineBuilder = function() {
       this.names.set(name, new NodeBuilder(name, conf));
     }
 
+    resolveName(name) {
+      if (this.names.has(name))
+        return this.names.get(name);
+      return null;
+    }
+
     install() {
-      //for (const entry in this.names.entries()) {
-      //  entry.compile(this);
-      //}
-      new GraphEngine(this.key, this);
+      // also links relations
+      for (const entry of this.names.values()) {
+        entry.link(this);
+      }
+
+      // TODO: deduplicate relations into edges properly
+      this.edges = this.allRelations;
+
+      new GraphEngine(this);
     }
   }
 
-  class EnginePartBuilder {}
+  class RelationBuilder {
+    constructor(config, allowedExtras=[]) {
+      const {
+        subject, predicate, object,
+        exactly, atMost,
+        uniqueBy, // TODO
+        ...extras
+      } = config;
 
-  class NodeBuilder extends EnginePartBuilder {
+      if (!predicate) throw new Error(
+        `Relationship must have a 'predicate' value`);
+      if (predicate.constructor !== String) throw new Error(
+        `Relationship 'predicate' must be a String`);
+      switch (predicate) {
+
+        case 'TOP':
+          if (object || subject) throw new Error(
+            `TOP relation cannot have any explicit 'object' or 'subject'`);
+
+          this.type = 'Top';
+          break;
+
+        default:
+          if (!object && !subject) throw new Error(
+            `Arbitrary relations must explicitly have either an 'object' or a 'subject'`);
+          if (object && subject) throw new Error(
+            `Arbitrary relations can't explicitly have both an 'object' and a 'subject'`);
+
+          this.type = 'Arbitrary';
+          this.predicate = predicate;
+          this.direction = subject ? 'in' : 'out';
+          this.otherName = subject || object;
+          break;
+      }
+
+      const specifier = (this.direction === 'in') ? 'from' : 'to';
+      this.stringForm = `${this.direction} ${specifier} '${this.otherName}'`;
+
+      this.constraints = [];
+      if (exactly !== undefined)
+        this.constraints.push({type: 'exactly', num: exactly});
+      if (atMost !== undefined)
+        this.constraints.push({type: 'atMost', num: atMost});
+
+      const extraKeys = Object
+        .keys(extras)
+        .filter(key => allowedExtras.includes(key));
+      if (extraKeys.length) throw new Error(
+        `Relation ${this.stringForm} included extra keys: ${extraKeys.join(', ')}`);
+    }
+
+    link(nodeCtx, resolver) {
+      if (this.isLinked) throw new Error(
+        `double linking a RelationBuilder is bad!`);
+      this.isLinked = true;
+      resolver.allRelations.add(this);
+
+      switch (this.type) {
+        case 'Top':
+          this.topType = nodeCtx;
+          break;
+        case 'Arbitrary':
+          this.localType = nodeCtx;
+          this.otherType = resolver.resolveName(this.otherName);
+          if (!this.otherType) throw new Error(
+            `Arbitrary relation ${this.stringForm} didn't resolve to a type.\n${
+              JSON.stringify(this, null, 2)}`);
+          break;
+      }
+    }
+  }
+
+  class NodeBuilder {
     constructor(name, config) {
-      super();
       this.name = name;
-      this.inner = FieldType.from(config);
+      this.inner = FieldType.from(config); // TODO: 'REFERS TO' relations
+      this.relations = [];
 
-      if (!['root', 'leaf', 'parent'].includes(config.treeRole)) throw new Error(
-        `Tree role ${JSON.stringify(config.treeRole)} is not valid`);
-      this.treeRole = config.treeRole;
+      if (config.relations) {
+        for (const relation of config.relations) {
+          this.relations.push(new RelationBuilder(relation));
+        }
+      } else {
+        if (!['root', 'leaf', 'parent'].includes(config.treeRole)) throw new Error(
+          `Tree role ${JSON.stringify(config.treeRole)} is not valid`);
+        this.treeRole = config.treeRole;
+      }
       this.behavior = config.behavior || GraphObject;
     }
 
-    compile(builder) {
-      console.log('making struct', this, builder);
-      throw new Error(`TODO 2`);
+    link(resolver) {
+      let worked = false;
+      try {
+        for (const relation of this.relations) {
+          relation.link(this, resolver);
+        }
+        worked = true;
+      } finally {
+        if (!worked)
+          console.error('Failed to link', this.name);
+      }
     }
 
     fromExt(data) {

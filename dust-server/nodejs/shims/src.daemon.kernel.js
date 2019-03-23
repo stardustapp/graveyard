@@ -5,38 +5,26 @@ Kernel = class Kernel {
   constructor(argv) {
     this.argv = argv;
     this.systemEnv = new Environment();
-    this.ready = this.init();
+    this.ready = this.init(argv);
   }
 
-  async init() {
+  async init(argv) {
+    const {lifecycle} = GraphEngine.get('nodejs-server/v1-beta1').extensions;
 
-    if (this.argv.dataPath) {
-      this.baseDb = await RootServerDatabase.openPersisted(this.argv.dataPath);
-    } else {
-      this.baseDb = await RootServerDatabase.openTemporary();
-    }
-    console.debug('Opened system database');
+    self.DUST = this.server =
+    await lifecycle.createServer({
+      DataPath: argv.dataPath,
+      Command: argv.command,
+      PackageKey: argv.package,
+      MethodName: argv.method,
+      HttpPort: argv.port,
+      HttpHost: argv.host,
+    });
 
-    if (this.argv.command === 'serve') {
-      // init the web server to serve up skylink (and more)
-      this.webServer = new HttpServer(this.TODO, async function (hostname) {
-        /*
-        const domain = await kernel.domainManager.findDomain(hostname);
-        if (!domain) throw new Error('Domain does not exist');
-        console.debug('loading host', hostname, domain);
-        */
-        return new VirtualHost(hostname, null);
-      });
+    console.debug('Created server.');
 
-      // expose the entire system environment on the network
-      ExposeSkylinkOverHttp(this.systemEnv, this.webServer);
-      await this.webServer.startServer(this.argv);
-    }
-
-    console.debug('TODO: construct the local resource graph');
-
-    this.graphStore = new GraphStore(this.baseDb.sub('sys'));
-    await this.graphStore.ready;
+    //this.graphStore = new GraphStore(this.baseDb.sub('daemon'));
+    //await this.graphStore.ready;
 
     console.debug('Kernel initialized');
     return this;

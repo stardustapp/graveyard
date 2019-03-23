@@ -33,7 +33,8 @@ const extraImports = [
   'src/model/store.js',
   'src/model/record-filter.js',
 
-  'src/model/impl/doc-graph/model.js',
+  'src/model/impl/nodejs-server/model.js',
+  'src/model/impl/nodejs-server/lifecycle.js',
 
   'src/model/impl/dust-app/model.js',
   'src/model/impl/dust-app/ddp-api.js',
@@ -82,6 +83,9 @@ function importPlatformModule(path, importRule=false) {
 }
 
 function importPlatform() {
+  console.group('==> Awakening Daemon...');
+  console.group();
+
   require('./shims/scope');
 
   // load the chrome's platform source
@@ -95,14 +99,23 @@ function importPlatform() {
     importPlatformModule(script, true);
   }
 
-  console.log(`--> Loaded ${scripts.length} platform modules and ${extraImports.length} extras, including ${shimCount} shimmed modules`);
+  console.log(`\r--> Loaded ${scripts.length} platform modules and ${extraImports.length} extras, including ${shimCount} shimmed modules`);
 }
 
 function runDust(argv) {
   argv.command = argv._.shift();
 
-  importPlatform();
-  launchDaemon(argv);
+  (async function (opts) {
+    importPlatform();
+    await launchDaemon(opts);
+  })(argv).catch(err => {
+    console.groupEnd();
+    console.groupEnd();
+    console.error();
+    console.error(`!-> Daemon crashed unexpectedly!`);
+    console.error(err.stack);
+    process.exit(1);
+  });
 }
 
 // bring it up
@@ -117,6 +130,11 @@ const argv = yargs
     describe: 'Serve HTTP on this TCP port',
     type: 'number',
     default: 9237,
+  })
+  .option('repl', {
+    describe: 'Set up a REPL once the daemon is idle',
+    type: 'boolean',
+    default: false,
   })
   .command('serve [package]',
     'launch a package as a service',

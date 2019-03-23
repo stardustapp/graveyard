@@ -40,10 +40,6 @@ function AsssertWritable(fsPath) {
   }
 }
 
-function navWithCb(startAt, setupCb, cb) {
-  setupCb(this.nav(startAt), cb);
-}
-
 class DataContext {
   constructor(database, mode, cb) {
     this.database = database;
@@ -242,66 +238,48 @@ class DocProxy {
   }
 }
 
-class ServerDatabase {
-  constructor(baseLevel) {
-    this.baseLevel = baseLevel;
-    this.docsLevel = sub(this.baseLevel, 'docs');
-    this.edgesLevel = sub(this.baseLevel, 'edges');
-    this.mutex = new RunnableMutex(this.transactNow.bind(this));
-
-    // levelgraph doesn't do promises
-    const edgeGraph = levelgraph(this.edgesLevel);
-    this.edges = {
-      getStream: edgeGraph.getStream.bind(edgeGraph),
-      putStream: edgeGraph.putStream.bind(edgeGraph),
-      searchStream: edgeGraph.searchStream.bind(edgeGraph),
-
-      get: promisify(edgeGraph.get.bind(edgeGraph)),
-      put: promisify(edgeGraph.put.bind(edgeGraph)),
-      search: promisify(edgeGraph.search.bind(edgeGraph)),
-
-      generateBatch: edgeGraph.generateBatch.bind(edgeGraph),
-      createQuery: edgeGraph.createQuery.bind(edgeGraph),
-      nav: promisify(navWithCb.bind(edgeGraph)),
-      raw: edgeGraph, // escape hatch
-    };
+function wrapLevelGraph(db) {
+  function navWithCb(startAt, setupCb, cb) {
+    setupCb(this.nav(startAt), cb);
   }
 
-  sub(key) {
-    const subLevel = sub(this.baseLevel, '-'+key);
-    return new ServerDatabase(subLevel);
-  }
+  const lg = levelgraph(db);
+  return {
+    getStream: lg.getStream.bind(lg),
+    putStream: lg.putStream.bind(lg),
+    delStream: lg.delStream.bind(lg),
+    searchStream: lg.searchStream.bind(lg),
 
-  transactNow(mode, cb) {
-    return new DataContext(this, mode, cb);
+    get: promisify(lg.get.bind(lg)),
+    put: promisify(lg.put.bind(lg)),
+    del: promisify(lg.del.bind(lg)),
+    search: promisify(lg.search.bind(lg)),
+
+    generateBatch: lg.generateBatch.bind(lg),
+    createQuery: lg.createQuery.bind(lg),
+    nav: promisify(navWithCb.bind(lg)),
+    raw: lg, // escape hatch
   }
 }
 
-let rootLevel = null;
-class RootServerDatabase extends ServerDatabase {
-  constructor(db) {
-    super(db);
+class ServerDatabase {
+  constructor(coreEngine, persistPath) {
+    this.coreEngine = coreEngine;
+    this.mutex = new RunnableMutex(this.transactNow.bind(this));
+
+    this.ready = this.mutex.submit('setup', async ctx => {
+      const dataPath = persistPath || await EstablishTempDir();
+      AsssertWritable(dataPath);
+
+      this.level = await level(dataPath);
+      this.graph = wrapLevelGraph(this.level);
+
+      console.log('set up ServerDatabase');
+    });
   }
 
-  static async openPersisted(dataPath) {
-    if (rootLevel)
-      throw new Error(`RootServerDatabase double-open!`);
-    AsssertWritable(dataPath);
-
-    rootLevel = await level(dataPath);
-    return new RootServerDatabase(rootLevel);
-  }
-
-  static async openTemporary() {
-    const dataPath = await EstablishTempDir();
-    return await this.openPersisted(dataPath);
-  }
-
-  close() {
-    // TODO: worth closing if we never open more than one?
-    //const p = this.rawStore.close();
-    //this.rawStore = null;
-    //return p;
+  transactNow(mode, cb) {
+    return this.coreEngine.newContext(this, mode);
   }
 }
 
@@ -311,7 +289,6 @@ class RootServerDatabase extends ServerDatabase {
 if (typeof module !== 'undefined') {
   module.exports = {
     ServerDatabase,
-    RootServerDatabase,
     DataContext,
   };
 }

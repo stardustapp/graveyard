@@ -32,12 +32,14 @@ const GraphEngines = new Map;
 const EngineExtensions = new Map;
 
 class GraphEngine {
-  constructor(key, builder) {
+  constructor(builder) {
+    const {key} = builder;
     if (GraphEngines.has(key)) throw new Error(
       `Graph Engine ${key} is already registered, can't re-register`);
 
     this.engineKey = key;
     this.names = builder.names;
+    this.edges = builder.edges;
     GraphEngines.set(key, this);
 
     if (!EngineExtensions.has(key))
@@ -60,12 +62,31 @@ class GraphEngine {
     return exts;
   }
 
-  spawnObject(data) {
-    const type = this.names.get(data.type);
-    if (!type) throw new Error(
+  spawnObject(data, type=null) {
+    const nodeType = type || this.names.get(data.type);
+    if (!nodeType) throw new Error(
       `Object ${data.objectId} ${JSON.stringify(data.name)
       } has unimplemented type ${JSON.stringify(data.type)}`);
     return new type.behavior(type, data);
+  }
+
+  spawnTop(data) {
+    const world = {
+      graphs: new Set,
+      objects: new Map,
+    };
+
+    const graph = new Graph(world, data, this);
+    world.graphs.add(graph);
+
+    const topRelation = Array
+      .from(this.edges)
+      .find(x => x.type === 'Top');
+    const top = graph.populateObject({
+      fields: data,
+      objectId: 'top',
+    }, topRelation.topType);
+    return top;
   }
 }
 

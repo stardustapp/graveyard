@@ -1,25 +1,26 @@
 class Graph {
-  constructor(store, data) {
+  constructor(store, data, engine) {
     this.store = store;
     this.data = data;
-    this.engine = GraphEngine.get(data.engine);
+    this.engine = engine || GraphEngine.get(data.engine);
 
     this.objects = new Map;
     this.roots = new Set;
   }
 
-  populateObject(data) {
+  populateObject(data, type=null) {
     if (this.objects.has(data.objectId)) throw new Error(
       `Graph ${this.data.graphId} already has object ${data.objectId}`);
     if (this.store.objects.has(data.objectId)) throw new Error(
       `Graph store already has object ${data.objectId}`);
 
-    const obj = this.engine.spawnObject(data);
+    const obj = this.engine.spawnObject(data, type);
     this.objects.set(data.objectId, obj);
     this.store.objects.set(data.objectId, obj);
     if (obj.type.treeRole == 'root') {
       this.roots.add(obj);
     }
+    return obj;
   }
 
   relink() {
