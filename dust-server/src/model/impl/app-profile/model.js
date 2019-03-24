@@ -1,7 +1,12 @@
 new GraphEngineBuilder('app-profile/v1-beta1', build => {
 
   build.node('Instance', {
-    treeRole: 'root',
+    relations: [
+      { predicate: 'TOP' },
+      { predicate: 'POINTS_TO', atMost: 1, object: 'Link' },
+      { predicate: 'HAS_NAME', object: 'LocalCollection' },
+      { predicate: 'HAS_NAME', object: 'LocalTree' },
+    ]
     fields: {
       IconUrl: { type: String },
       Source: { anyOfKeyed: {
@@ -20,7 +25,9 @@ new GraphEngineBuilder('app-profile/v1-beta1', build => {
   });
 
   build.node('Link', {
-    treeRole: 'leaf',
+    relations: [
+      { exactly: 1, subject: 'Instance', predicate: 'POINTS_TO' },
+    ],
     fields: {
       Target: { anyOfKeyed: {
         // TODO: LocalTree: { reference: 'LocalTree' },
@@ -45,7 +52,10 @@ new GraphEngineBuilder('app-profile/v1-beta1', build => {
 
   // TODO
   build.node('LocalCollection', {
-    treeRole: 'leaf',
+    relations: [
+      { subject: 'Instance', predicate: 'HAS_NAME' },
+      { subject: 'Link', predicate: 'REFERENCES' },
+    ],
     behavior: AppProfileLocalCollection,
     fields: {
       Schemas: { reference: true, isList: true },
@@ -54,7 +64,10 @@ new GraphEngineBuilder('app-profile/v1-beta1', build => {
 
   // TODO
   build.node('LocalTree', {
-    treeRole: 'leaf',
+    relations: [
+      { subject: 'Instance', predicate: 'HAS_NAME' },
+      { subject: 'Link', predicate: 'REFERENCES' },
+    ],
     fields: {
     },
   });

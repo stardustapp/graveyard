@@ -125,9 +125,7 @@ const GraphEngineBuilder = function() {
           this.relations.push(new RelationBuilder(relation));
         }
       } else {
-        if (!['root', 'leaf', 'parent'].includes(config.treeRole)) throw new Error(
-          `Tree role ${JSON.stringify(config.treeRole)} is not valid`);
-        this.treeRole = config.treeRole;
+        console.warn(`Node ${name} has no relations, will be inaccessible`);
       }
       this.behavior = config.behavior || GraphObject;
     }

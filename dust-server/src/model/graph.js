@@ -17,7 +17,7 @@ class Graph {
     const obj = this.engine.spawnObject(data, type);
     this.objects.set(data.objectId, obj);
     this.store.objects.set(data.objectId, obj);
-    if (obj.type.treeRole == 'root') {
+    if (obj.type.relations.some(x => x.type === 'Top')) {
       this.roots.add(obj);
     }
     return obj;

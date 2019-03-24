@@ -10,22 +10,31 @@
 new GraphEngineBuilder('lua-machine/v1-beta1', build => {
 
   build.node('Instance', {
-    treeRole: 'root',
+    relations: [
+      { predicate: 'TOP', exactly: 1 },
+      { predicate: 'OPERATES', object: 'Daemon' },
+      { predicate: 'HAS_NAME', object: 'Function', uniqueBy: 'Name' },
+    ],
     fields: {
       TreeUri: String,
     },
   });
 
   build.node('Daemon', {
-    treeRole: 'leaf',
+    relations: [
+      { exactly: 1, subject: 'Instance', predicate: 'OPERATES' },
+    ],
     fields: {
       SourceText: String,
     },
   });
 
   build.node('Function', {
-    treeRole: 'leaf',
+    relations: [
+      { subject: 'Instance', predicate: 'HAS_NAME' },
+    ],
     fields: {
+      Name: String,
       SourceText: String,
     },
   });
