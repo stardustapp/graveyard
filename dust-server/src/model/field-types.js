@@ -89,10 +89,10 @@ class PendingFieldType extends FieldType {
 const builtins = new Map;
 
 class BuiltinFieldType extends FieldType {
-  constructor(name, constr) {
+  constructor(name, constr, ser) {
     super('core', name);
     this.constr = constr;
-    //this.ser = ser || String;
+    this.ser = ser || String;
     //this.de = de || String;
   }
   fromExt(input) {
@@ -111,6 +111,7 @@ if (self.Blob) builtins.set(Blob, new BuiltinFieldType('Blob', Blob));
 builtins.set(Date, new BuiltinFieldType('Date', Date));
 builtins.set(Number, new BuiltinFieldType('Number', Number));
 builtins.set(Boolean, new BuiltinFieldType('Boolean', Boolean));
+builtins.set(JSON, new BuiltinFieldType('JSON', JSON.parse, JSON.stringify));
 
 class GraphReference {
   constructor(target) {

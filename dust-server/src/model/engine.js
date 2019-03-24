@@ -82,11 +82,11 @@ class GraphEngine {
     const topRelation = Array
       .from(this.edges)
       .find(x => x.type === 'Top');
-    const top = graph.populateObject({
+
+    return graph.populateObject({
       fields: data,
       objectId: 'top',
     }, topRelation.topType);
-    return top;
   }
 }
 

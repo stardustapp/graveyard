@@ -12,72 +12,73 @@ async function execForLine(cmd) {
   return stdout.trim();
 }
 
-GraphEngine.extend('nodejs-server/v1-beta1').lifecycle = {
+const extensions = GraphEngine.extend('nodejs-server/v1-beta1');
+extensions.lifecycle = {
 
   async createServer(config) {
-    console.log('creating server with config', config);
+    //console.log('creating server with config', config);
 
-    const instance = GraphEngine
-      .get('nodejs-server/v1-beta1')
-      .spawnTop({
-        CreatedAt: new Date,
-        GitHash: await execForLine(`git describe --always --long --dirty`),
-        Config: config,
-        Host: {
-          Platform: os.platform(),
-          Release: os.release(),
-          Architecture: os.arch(),
-          Runtime: 'nodejs',
-          HostName: os.hostname(),
-          UserName: os.userInfo().username,
-          HomeDir: os.homedir(),
-          WorkDir: process.cwd(),
-        },
-      });
-
-    console.log('TODO: actually open level');
-
-    /*
-    server.baseDb = new ServerDatabase(server.Config.Data);
-    await this.baseDb.ready;
-    console.debug('Opened system database');
-
-    const engine = await this.baseDb.transact('readonly', async ctx => {
-      ctx.seedRoot();
+    const serverEngine = GraphEngine.get('nodejs-server/v1-beta1');
+    const instance = serverEngine.spawnTop({
+      CreatedAt: new Date,
+      GitHash: await execForLine(`git describe --always --long --dirty`),
+      Config: config,
+      Host: {
+        Platform: os.platform(),
+        Release: os.release(),
+        Architecture: os.arch(),
+        Runtime: 'nodejs',
+        HostName: os.hostname(),
+        UserName: os.userInfo().username,
+        HomeDir: os.homedir(),
+        WorkDir: process.cwd(),
+      },
     });
-    */
 
-    /*
-    const engine = await this.baseDb.transact('readwrite', async ctx => {
-      console.log('TODODODODODODODOO');
-    });
-    */
+    const serverDb = await ServerDatabase.open(instance.Config.DataPath);
+    const graphStore = new GraphStore(serverEngine, instance, serverDb);
+    await graphStore.ready;
+    console.debug('Opened system database!!!!');
 
     let webServer;
     if (instance.Config.Command === 'serve') {
-      // init the web server to serve up skylink (and more)
-      webServer = new HttpServer(this.TODO, async function (hostname) {
-        /*
-        const domain = await kernel.domainManager.findDomain(hostname);
-        if (!domain) throw new Error('Domain does not exist');
-        console.debug('loading host', hostname, domain);
-        */
-        return new VirtualHost(hostname, null);
-      });
-
-      // expose the entire system environment on the network
-      ExposeSkylinkOverHttp(this.systemEnv, webServer);
+      webServer = new HttpServer(this.TODO, hostname => new VirtualHost(hostname, null));
+      //ExposeSkylinkOverHttp(this.systemEnv, webServer);
       await webServer.startServer({
         port: instance.Config.HttpPort,
       });
     }
 
+    //console.log(instance.type.relations);
 
+    console.log('\r--> nodejs-server.lifecycle now setting up Dust app', instance.Config.PackageKey);
+
+    // INSTALL PACKAGE
+    const appKey = instance.Config.PackageKey;
+    const {pocRepository, compileToHtml} = GraphEngine
+      .get('dust-app/v1-beta1').extensions;
+
+    appGraph = await graphStore.findGraph({
+      engineKey: 'dust-app/v1-beta1',
+      fields: {
+        foreignKey: appKey,
+        heritage: 'stardust-poc',
+      },
+    });
+    if (!appGraph) {
+      appGraph = await pocRepository.installWithDeps(graphStore, appKey);
+    }
+    if (!appGraph) throw new Error(
+      `App installation ${JSON.stringify(appKey)} not found`);
+
+      /*
+    const appInst = Array.from(appGraph.roots)[0];
+*/
     return {
       instance,
       webServer,
+      graphStore,
     };
-
   },
 
 };

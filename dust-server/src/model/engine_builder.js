@@ -78,7 +78,7 @@ const GraphEngineBuilder = function() {
       }
 
       const specifier = (this.direction === 'in') ? 'from' : 'to';
-      this.stringForm = `${this.direction} ${specifier} '${this.otherName}'`;
+      this.stringForm = `${predicate} ${this.direction} ${specifier} '${this.otherName}'`;
 
       this.constraints = [];
       if (exactly !== undefined)

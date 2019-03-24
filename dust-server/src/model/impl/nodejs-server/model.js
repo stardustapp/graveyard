@@ -3,15 +3,15 @@ new GraphEngineBuilder('nodejs-server/v1-beta1', (build, ref) => {
   build.node('Instance', {
     relations: [
       { predicate: 'TOP', exactly: 1 },
-      { predicate: 'OPERATES', object: 'Engine' },
-      { predicate: 'HAS', object: 'Entry' },
+      { predicate: 'OPERATES', object: 'Graph' },
+      { predicate: 'HAS_NAME', object: 'Entry' },
     ],
     fields: {
       CreatedAt: { type: Date },
       GitHash: { type: String },
       Config: { fields: {
         DataPath: { type: String, optional: true },
-        Command: { type: String },
+        Command: { type: String, choices: [ 'serve', 'run' ] },
         PackageKey: { type: String, optional: true },
         MethodName: { type: String, optional: true },
         HttpPort: { type: Number, optional: true },
@@ -29,13 +29,14 @@ new GraphEngineBuilder('nodejs-server/v1-beta1', (build, ref) => {
     },
   });
 
-  build.node('Engine', {
+  build.node('Graph', {
     relations: [
       { predicate: 'BUILT', object: 'Object' },
       { exactly: 1, subject: 'Instance', predicate: 'INCLUDES' },
     ],
     fields: {
-      Driver: { type: String },
+      EngineKey: { type: String },
+      Metadata: { type: JSON },
       Origin: { anyOfKeyed: {
         // compiled into the runtime
         BuiltIn: { type: String },
@@ -55,7 +56,7 @@ new GraphEngineBuilder('nodejs-server/v1-beta1', (build, ref) => {
       { exactly: 1, subject: 'Instance', predicate: 'INCLUDES' },
     ],
     fields: {
-      Entry: { type: String },
+      Name: { type: String },
     },
   });
 
@@ -65,11 +66,12 @@ new GraphEngineBuilder('nodejs-server/v1-beta1', (build, ref) => {
       { predicate: 'POINTS_TO', object: 'Object' },
 
       { subject: 'Entry', predicate: 'POINTS_TO' },
-      { exactly: 1, subject: 'Engine', predicate: 'BUILT' },
+      { exactly: 1, subject: 'Graph', predicate: 'BUILT' },
     ],
     fields: {
       Type: { type: String },
-      Data: { type: String },
+      Version: { type: Number },
+      Fields: { type: JSON },
     },
   });
 }).install();

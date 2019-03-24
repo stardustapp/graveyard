@@ -2,6 +2,17 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Package', {
     treeRole: 'root',
+    /*
+    relations: [
+      { predicate: 'TOP' },
+      { predicate: 'HAS', object: 'AppRouter' },
+      { predicate: 'HAS', object: 'Template' },
+      { predicate: 'HAS', object: 'RecordSchema' },
+      { predicate: 'HAS', object: 'Dependency' },
+      { predicate: 'HAS', object: 'Publication' },
+      { predicate: 'HAS', object: 'ServerMethod' },
+    ],
+    */
     fields: {
       PackageKey: String,
       PackageType: { type: String, choices: [ 'Package', 'Library', 'App' ] },
@@ -11,6 +22,12 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('AppRouter', {
     treeRole: 'parent',
+    /*
+    relations: [
+      { predicate: 'HAS', object: 'Route', uniqueBy: 'Path' },
+      { exactly: 1, subject: 'Instance', predicate: 'HAS' },
+    ],
+    */
     fields: {
       IconUrl: { type: String, optional: true },
       DefaultLayout: { reference: 'Template', optional: true },
@@ -19,6 +36,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Route', {
     treeRole: 'leaf',
+    //relations: [
+    //  { exactly: 1, subject: 'AppRouter', predicate: 'HAS' },
+    //],
     fields: {
       Path: String,
       Action: {
@@ -40,6 +60,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Template', {
     treeRole: 'leaf',
+    //relations: [
+    //  { exactly: 1, subject: 'Package', predicate: 'HAS' },
+    //],
     fields: {
       Handlebars: String,
       Style: { fields: {
@@ -79,6 +102,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('RecordSchema', { // was CustomRecord
     treeRole: 'leaf',
+    //relations: [
+    //  { exactly: 1, subject: 'Package', predicate: 'HAS' },
+    //],
     fields: {
       Base: { anyOfKeyed: {
         BuiltIn: { type: String, choices: [ 'Record', 'Class' ]},
@@ -128,6 +154,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Dependency', {
     treeRole: 'parent',
+    //relations: [
+    //  { exactly: 1, subject: 'Package', predicate: 'HAS' },
+    //],
     fields: {
       PackageKey: { type: String, optional: false },
       ChildRoot: { reference: 'Package', optional: false },
@@ -151,6 +180,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Publication', {
     treeRole: 'leaf',
+    //relations: [
+    //  { exactly: 1, subject: 'Package', predicate: 'HAS' },
+    //],
     fields: DocLocator,
     behavior: class DustAppPublication extends GraphObject {
       getRecordFilter(rootPublication=this) {
@@ -210,6 +242,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('ServerMethod', {
     treeRole: 'leaf',
+    //relations: [
+    //  { exactly: 1, subject: 'Package', predicate: 'HAS' },
+    //],
     fields: {
       Coffee: String,
       JS: String,

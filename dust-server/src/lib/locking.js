@@ -63,7 +63,7 @@ class RunnableMutex {
     let txn;
     try {
       txn = this.innerFunc(...args);
-      await txn.promise;
+      return await txn;
 
     } catch (err) {
       // TODO: specific Error subclass instead

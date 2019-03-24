@@ -1,4 +1,435 @@
 class GraphTxn {
+  constructor(graphStore, txn) {
+    throw new Error('TODO: GraphTxn construction');
+  }
+}
+
+class DataContext {
+  constructor(graphStore, mode, cb) {
+    this.graphStore = graphStore;
+    this.database = graphStore.database;
+    this.mode = mode;
+
+    this.actions = new Array;
+
+    this.objProxies = new Map;
+    this.proxyTargets = new Array;
+  }
+  abort() {
+    console.log('TODO: abort DataContext');
+  }
+  async runCb(cb) {
+    try {
+      console.group('DataContext start:', this.mode);
+      const result = await cb(this);
+      const batches = this.generateBatch();
+      if (batches.length > 0) {
+        await this.database.rawLevel.batch(batches);
+        console.log('\r--> Applied', batches.length, 'database operations.');
+      }
+      return result;
+    } catch (err) {
+      console.warn('DataContext failed:', err.message);
+      throw err;
+    } finally {
+      console.groupEnd();
+    }
+  }
+
+  generateBatch() {
+    const batch = new Array;
+    //console.log('TODO: actions taken:', this.actions);
+
+    for (const obj of this.proxyTargets) {
+      if (obj.isDirty) {
+        const json = JSON.stringify({
+          type: obj.typeName,
+          fields: obj.fields,
+        });
+        batch.push({type: 'put', key: 'doc::'+obj.nodeId, value: json});
+        //await this.database.rawLevel.put('doc::'+node.data.objectId, json);
+        //return this.getNodeById(node.data.objectId);
+      }
+    }
+
+    for (const action of this.actions) {
+      switch (action.kind) {
+
+        case 'add edge':
+          const subBatch = this.graphStore.database.rawGraph.generateBatch(action.record);
+          for (const subItem of subBatch) {
+            batch.push(subItem);
+          }
+          break;
+
+        default:
+          console.log('unimpl action', action);
+          throw new Error('weird action', action.kind);
+      }
+    }
+
+    return batch;
+  }
+
+  getNode(handle) {
+    if (handle.constructor !== GraphObject) throw new Error(
+      `TODO: getNode() for non-GraphObject nodes`);
+    if (!handle.data.objectId) throw new Error(
+      `TODO: getNode() for GraphObject without an objectId`);
+    return this.getNodeById(handle.data.objectId);
+  }
+
+  // TODO: refactor as caching loader
+  async getNodeById(_id) {
+    if (this.objProxies.has(_id))
+      return this.objProxies.get(_id);
+
+    const docJson = await this.database.rawLevel.get('doc::'+_id);
+    const {type, fields} = JSON.parse(docJson);
+    const proxyHandler = this.graphStore.typeProxies.get(type);
+    if (!proxyHandler) throw new Error(
+      `Didn't find a proxy handler for type ${type}`);
+
+    const obj = proxyHandler.wrap(this, _id, type, fields);
+    this.objProxies.set(_id, obj);
+    return obj;
+  }
+
+  async storeNode(node) {
+    if (node.constructor === GraphObject) {
+      const json = JSON.stringify({
+        type: node.type.name,
+        fields: node.data.fields,
+      });
+      await this.database.rawLevel.put('doc::'+node.data.objectId, json);
+      return this.getNodeById(node.data.objectId);
+    } else {
+      throw new Error(`Don't know how to store that node`);
+    }
+  }
+
+  async newNode(type, fields) {
+    //console.log('hi!!!!!', type, fields);
+    const proxyHandler = this.graphStore.typeProxies.get(type.name);
+    if (!proxyHandler) throw new Error(
+      `Didn't find a proxy handler for type ${type.name}`);
+
+    const _id = randomString(3); // TODO: check for uniqueness
+    const obj = proxyHandler.wrap(this, _id, type.name, fields, true);
+    this.objProxies.set(_id, obj);
+    return obj;
+  }
+
+  async newEdge({subject, predicate, object}, origRelation) {
+    if (!subject || !subject._id) throw new Error(
+      `newEdge() requires a valid, ID'd subject`);
+    if (!object || !object._id) throw new Error(
+      `newEdge() requires a valid, ID'd object`);
+
+    const record = {
+      subject: `${subject.typeName}#${subject._id}`,
+      predicate,
+      object: `${object.typeName}#${object._id}`,
+    };
+    this.actions.push({
+      kind: 'add edge',
+      record,
+    });
+
+    // TODO: support uniqueBy by adding name to index
+    // TODO: support count constraints
+    // TODO: look up the opposite relation for constraints
+  }
+
+  // TODO: this is LEGACY
+  async createObjectTree(graphNode, rootNode) {
+    //console.log('CReATING', graphNode, '--WITH--', rootNode);
+
+    //throw new Error('come back later')
+
+    const nodes = [];
+    function addNode(node) {
+      nodes.push(node);
+      if (node.names) {
+        Array
+          .from(node.names.values())
+          .forEach(addNode);
+      }
+    }
+    addNode(rootNode);
+    return this.createObjects(graphNode, nodes);
+  }
+
+  async createObjects(graphNode, objects) {
+    if (!objects.every(x => x))
+      throw new Error(`createObjects() was given falsey object`);
+    if (!objects.every(x => x.constructor === GraphBuilderNode))
+      throw new Error(`createObjects() was given something other than GraphBuilderNode`);
+
+    const actions = [];
+    const readyObjs = new Map;
+    const remaining = new Set(objects);
+
+    function prepareObject(object) {
+      const {type, parent, name, version, data} = object;
+
+      if (parent) {
+        if (!readyObjs.has(parent)) {
+          console.info('Object', name, 'is missing its parent', parent);
+          return false;
+        }
+      }
+
+      const refObjIds = new Set;
+      const missingRefs = new Set;
+      function resolveRef(ref) {
+        let {target} = ref;
+        if (target.constructor === GraphGhostNode) {
+          if (target.parent.names.has(target.childName)) {
+            target = target.parent.names.get(target.childName);
+          }
+        }
+        if (target.constructor === GraphBuilderNode) {
+          if (readyObjs.has(target)) {
+            const objId = readyObjs.get(target);
+            refObjIds.add(objId);
+            return objId;
+          }
+        } else if (GraphObject.prototype.isPrototypeOf(target)) {
+          return target;
+        } else if (target.constructor === String) {
+          // TODO: better path resolving strategy
+          const newTarget = Array
+            .from(readyObjs.entries())
+            .find(x => x[0].name === target);
+          if (newTarget) {
+            const objId = target[1];
+            refObjIds.add(objId);
+            return objId;
+          }
+        }
+
+        console.debug('Reference for', ref, 'missing.', target);
+        missingRefs.add(ref);
+        return false;
+      }
+
+      const primitives = new Set([String, Date, Array, Boolean, Number]);
+      if (self.Blob) primitives.add(Blob);
+      function cleanValue(val) {
+        if (val == null) {
+          return null;
+        } else if (val.constructor === Object) {
+          const output = {};
+          Object.keys(val).forEach(key => {
+            // reserving this shouldn't hurt
+            if (key.startsWith('$')) throw new Error(
+              `Data keys cannot start with $`);
+            output[key] = cleanValue(val[key]);
+          });
+          return output;
+        } else if (val.constructor === Array) {
+          return val.map(cleanValue);
+        } else if (val.constructor === GraphReference) {
+          return resolveRef(val);
+        } else if (primitives.has(val.constructor)) {
+          return val;
+        } else {
+          throw new Error(`Object ${name} had data field with ${val.constructor.name} type`);
+        }
+      }
+
+      const cleanedData = cleanValue(data);
+      if (missingRefs.size > 0) {
+        console.info('Object', name, 'is missing', missingRefs.size, 'refs.', data);
+        return false;
+      }
+
+      return {
+        refObjIds: Array.from(refObjIds),
+        parentObjId: parent ? readyObjs.get(parent) : null,
+        name,
+        type,
+        version,
+        fields: cleanedData,
+      };
+    }
+
+    const topEntry = await this.getNodeById('top');
+    const rootEntry = await topEntry.HAS_NAME.newEntry({
+      Name: 'app',
+    });
+
+    let pass = 0;
+    while (remaining.size && pass++ < 5) {
+      console.group('Object linking pass', pass);
+      try {
+        let compiled = 0;
+
+        for (const object of objects) {
+          if (readyObjs.has(object)) continue;
+          const record = prepareObject(object);
+          if (!record) continue;
+
+          console.log('storing', record.objectId, `'${record.name}'`, record.type, 'under graph', graphNode.EngineKey);
+          const objNode = await graphNode.BUILT.newObject({
+            Type: record.type,
+            // TODO: parentObjId, refObjIds
+            Version: record.version,
+            Fields: record.fields,
+            //Name: record.name,
+          });
+
+          if (record.name) {
+            // TODO: find correct node (walk up a HAS_NAME maybe?)
+            //const parentEntry = record.parentObjId || rootEntry;
+            const parentEntry = rootEntry;
+            const entryNode = await parentEntry.HAS_NAME.newEntry({
+              Name: record.name,
+            });
+            await entryNode.POINTS_TO.attachObject(objNode);
+          }
+
+          readyObjs.set(object, objNode);
+          remaining.delete(object);
+          compiled++;
+        }
+
+        console.log('Completed', compiled, 'objects in pass', pass);
+      } finally {
+        console.groupEnd();
+      }
+    }
+
+    if (remaining.size > 0) throw new Error(
+      `${remaining.size} objects failed to link after ${pass} passes.`);
+
+    console.log('Stored', readyObjs.size, 'objects');
+  }
+
+
+  queryGraph(query) {
+    if (query.subject && query.subject.constructor === NodeProxyHandler)
+      query.subject = query.subject._id;
+    if (query.object && query.object.constructor === NodeProxyHandler)
+      query.object = query.object._id;
+
+    if (query.subject && query.subject.constructor === GraphObject)
+      throw new Error(`GraphObject as subject`);
+    if (query.object && query.object.constructor === GraphObject)
+      throw new Error(`GraphObject as object`);
+
+    return new GraphEdgeQuery(this, query);
+    /*
+    const edges = await this.database.rawGraph.get(query);
+    const promises = edges.map(async raw => ({
+      subject: await this.getObjectById(raw.subject),
+      predicate: raw.predicate,
+      object: await this.getObjectById(raw.object),
+    }));
+    return Promise.all(promises);
+    */
+  }
+}
+
+class GraphEdgeQuery {
+  constructor(dbCtx, query, stages=[]) {
+    this.dbCtx = dbCtx;
+    this.query = query;
+    this.stages = stages;
+  }
+
+  async fetchAll() {
+    const edges = await this.dbCtx.database.rawGraph.get(this.query);
+    const promises = edges.map(async raw => ({
+      subject: await this.dbCtx.getObjectById(raw.subject),
+      predicate: raw.predicate,
+      object: await this.dbCtx.getObjectById(raw.object),
+    }));
+    return Promise.all(promises);
+  }
+
+  async findOne(filter) {
+    const edges = await this.dbCtx.database.rawGraph.get(this.query);
+    for (const edge of edges) {
+      console.warn('FILTER');
+    }
+    console.log('DONE FILTER');
+  }
+}
+
+/*
+class NodeProxy {
+  constructor(ctx, objId, realData) {
+    let realDoc = null;
+    let rootDoc = null;
+
+    console.log('MAKING PROXY', objId, realData);
+
+    realDoc = realData;
+    rootDoc = new DocProxy(this, realData);
+
+    Object.defineProperty(this, 'objectId', {
+      enumerable: true,
+      value: objId,
+    });
+
+    Object.defineProperty(this, 'doc', {
+      enumerable: true,
+      get() { return rootDoc; },
+      set(newDoc) {
+        if (!isReady) throw new Error(
+          `Can't set new doc, object isn't ready`);
+        if (rootDoc) throw new Error(
+          `Can't set new doc, there already is one`);
+        rootDoc = DocProxy.fromEmpty(this, newDoc);
+      },
+    });
+
+    Object.defineProperty(this, 'unsavedBatch', {
+      enumerable: false,
+      get() {
+        if (!isReady) throw new Error(
+          `Can't generate unsavedBatch when not ready yet`);
+        const batch = new Array;
+
+        if (!realDoc && rootDoc) {
+          // CREATION
+          batch.push({type:'put', key:`!docs!${objId}`, value:rootDoc.asJsonable});
+        }
+
+        return batch;
+      },
+    });
+  }
+}
+
+class DocProxy {
+  constructor(dataObj, prevData) {
+  }
+
+  // Constructs a proxy of the given data,
+  // where every field is considered dirty
+  static fromEmpty(dataObj, newData) {
+    const dataKeys = Object.keys(newData);
+    const emptyObj = {};
+    for (const key of dataKeys) {
+      emptyObj[key] = null;
+    }
+
+    const rootDoc = new DocProxy(dataObj, emptyObj);
+    for (const key of dataKeys) {
+      rootDoc[key] = newData[key];
+    }
+
+    return rootDoc;
+  }
+}
+*/
+
+
+/*
+class GraphTxn {
   constructor(graphStore) {
     this.graphStore = graphStore;
 
@@ -115,153 +546,6 @@ class GraphTxn {
     return graphId;
   }
 
-  async createObjectTree(graphId, rootNode) {
-    const nodes = [];
-    function addNode(node) {
-      nodes.push(node);
-      if (node.names) {
-        Array
-          .from(node.names.values())
-          .forEach(addNode);
-      }
-    }
-    addNode(rootNode);
-    return this.createObjects(graphId, nodes);
-  }
-
-  async createObjects(graphId, objects) {
-    if (!objects.every(x => x))
-      throw new Error(`createObjects() was given falsey object`);
-    if (!objects.every(x => x.constructor === GraphBuilderNode))
-      throw new Error(`createObjects() was given something other than GraphBuilderNode`);
-
-    const actions = [];
-    const readyObjs = new Map;
-    const remaining = new Set(objects);
-
-    function prepareObject(object) {
-      const objectId = randomString(3);
-      const {type, parent, name, version, data} = object;
-
-      if (parent) {
-        if (!readyObjs.has(parent)) {
-          console.info('Object', name, 'is missing its parent', parent);
-          return false;
-        }
-      }
-
-      const refObjIds = new Set;
-      const missingRefs = new Set;
-      function resolveRef(ref) {
-        let {target} = ref;
-        if (target.constructor === GraphGhostNode) {
-          if (target.parent.names.has(target.childName)) {
-            target = target.parent.names.get(target.childName);
-          }
-        }
-        if (target.constructor === GraphBuilderNode) {
-          if (readyObjs.has(target)) {
-            const objId = readyObjs.get(target);
-            refObjIds.add(objId);
-            return objId;
-          }
-        } else if (GraphObject.prototype.isPrototypeOf(target)) {
-          return target.data.objectId;
-        } else if (target.constructor === String) {
-          // TODO: better path resolving strategy
-          const newTarget = Array
-            .from(readyObjs.entries())
-            .find(x => x[0].name === target);
-          if (newTarget) {
-            const objId = target[1];
-            refObjIds.add(objId);
-            return objId;
-          }
-        }
-
-        console.debug('Reference for', ref, 'missing.', target);
-        missingRefs.add(ref);
-        return false;
-      }
-
-      const primitives = new Set([String, Date, Array, Boolean, Number, Blob]);
-      function cleanValue(val) {
-        if (val == null) {
-          return null;
-        } else if (val.constructor === Object) {
-          const output = {};
-          Object.keys(val).forEach(key => {
-            // reserving this shouldn't hurt
-            if (key.startsWith('$')) throw new Error(
-              `Data keys cannot start with $`);
-            output[key] = cleanValue(val[key]);
-          });
-          return output;
-        } else if (val.constructor === Array) {
-          return val.map(cleanValue);
-        } else if (val.constructor === GraphReference) {
-          return resolveRef(val);
-        } else if (primitives.has(val.constructor)) {
-          return val;
-        } else {
-          throw new Error(`Object ${name} had data field with ${val.constructor.name} type`);
-        }
-      }
-
-      const cleanedData = cleanValue(data);
-      if (missingRefs.size > 0) {
-        console.info('Object', name, 'is missing', missingRefs.size, 'refs.', data);
-        return false;
-      }
-
-      return {
-        graphId,
-        objectId,
-        refObjIds: Array.from(refObjIds),
-        parentObjId: parent ? readyObjs.get(parent) : null,
-        name,
-        type,
-        version,
-        fields: cleanedData,
-      };
-    }
-
-    let pass = 0;
-    while (remaining.size && pass++ < 5) {
-      console.group('Object linking pass', pass);
-      try {
-        let compiled = 0;
-
-        for (const object of objects) {
-          if (readyObjs.has(object)) continue;
-          const record = prepareObject(object);
-          if (!record) continue;
-
-          //console.log('storing', record);
-          await this.txn.objectStore('objects').add(record);
-
-          this._addAction(graphId, {
-            type: 'create object',
-            data: record,
-          });
-
-          readyObjs.set(object, record.objectId);
-          remaining.delete(object);
-          compiled++;
-        }
-
-        console.log('Completed', compiled, 'objects in pass', pass);
-      } finally {
-        console.groupEnd();
-      }
-    }
-
-    if (remaining.size > 0) throw new Error(
-      `${remaining.size} objects failed to link after ${pass} passes.`);
-
-    console.log('Stored', readyObjs.size, 'objects');
-  }
-
   async replaceFields(objectId, version, newFields) {
     const object = this.txn.objectStore('objects').get(objectId);
     const {graphId} = object.data;
@@ -316,9 +600,11 @@ class GraphTxn {
     }
   }
 }
+*/
 
 if (typeof module !== 'undefined') {
   module.exports = {
+    DataContext,
     GraphTxn,
   };
 }

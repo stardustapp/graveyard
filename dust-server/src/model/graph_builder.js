@@ -10,7 +10,7 @@ class GraphBuilder {
       Object.defineProperty(this, `with${name}`, {
         value: function(objName, objVersion, opts) {
           // TODO: throw if not first root
-          console.log('building', objName, objVersion, part, 'with', opts);
+          console.log('building', objName, objVersion, part.name, 'with', opts);
           const object = new GraphBuilderNode(this, null, objName, name, part, objVersion, opts);
           if (this.rootNode) throw new Error(`Graph already has a root node`);
           return this.rootNode = object;
