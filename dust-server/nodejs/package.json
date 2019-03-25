@@ -21,7 +21,6 @@
     "levelgraph": "^2.1.1",
     "node-fetch": "^2.3.0",
     "rimraf": "^2.6.3",
-    "subleveldown": "^3.0.1",
     "yargs": "^13.2.2"
   }
 }

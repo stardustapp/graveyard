@@ -63,11 +63,11 @@ class GraphEngine {
   }
 
   spawnObject(data, type=null) {
-    const nodeType = type || this.names.get(data.type);
+    const nodeType = type || this.names.get(data.Type);
     if (!nodeType) throw new Error(
-      `Object ${data.objectId} ${JSON.stringify(data.name)
-      } has unimplemented type ${JSON.stringify(data.type)}`);
-    return new type.behavior(type, data);
+      `Object ${data.objectId} ${JSON.stringify(data.Name)
+      } has unimplemented type ${JSON.stringify(data.Type)}`);
+    return new nodeType.behavior(nodeType, data);
   }
 
   spawnTop(data) {
@@ -88,6 +88,45 @@ class GraphEngine {
       objectId: 'top',
     }, topRelation.topType);
   }
+
+  [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
+    if (depth < 0) {
+      return [
+        options.stylize('<engine', 'number'),
+        options.stylize(this.engineKey, 'special'),
+        options.stylize('/>', 'number'),
+      ].join(' ');
+    }
+
+    let inner = Array.from(this.names.keys()).join(', ');
+    if (depth > 0) {
+      const {inspect} = require('util');
+      const newOptions = Object.assign({}, options, {
+        depth: options.depth === null ? null : options.depth - 2,
+      });
+      const parts = Array.from(this.names.values()).map(node => {
+        return `    ${inspect(node, newOptions)}`
+          .replace(/\n/g, `\n    `);
+      });
+      inner = parts.join('\n');
+    }
+
+    return [
+      [
+        options.stylize('<engine', 'number'),
+        options.stylize(`key`, 'special'),
+        options.stylize(this.engineKey, 'name'),
+        options.stylize(`extensions`, 'special'),
+        Object.keys(this.extensions).map(ext =>
+          options.stylize(`'${ext}'`, 'string')
+        ).join(', '),
+        options.stylize('>', 'number'),
+      ].join(' '),
+      inner,
+      options.stylize('  </engine>', 'number'),
+    ].join('\n');
+  }
+
 }
 
 if (typeof module !== 'undefined') {

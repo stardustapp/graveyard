@@ -37,21 +37,8 @@ class DataContext {
   }
 
   generateBatch() {
+    //console.debug('TODO: actions taken:', this.actions);
     const batch = new Array;
-    //console.log('TODO: actions taken:', this.actions);
-
-    for (const obj of this.proxyTargets) {
-      if (obj.isDirty) {
-        const json = JSON.stringify({
-          type: obj.typeName,
-          fields: obj.fields,
-        });
-        batch.push({type: 'put', key: 'doc::'+obj.nodeId, value: json});
-        //await this.database.rawLevel.put('doc::'+node.data.objectId, json);
-        //return this.getNodeById(node.data.objectId);
-      }
-    }
-
     for (const action of this.actions) {
       switch (action.kind) {
 
@@ -62,12 +49,19 @@ class DataContext {
           }
           break;
 
+        case 'edit node':
+          const json = JSON.stringify({
+            type: action.proxyTarget.typeName,
+            fields: action.proxyTarget.fields,
+          });
+          batch.push({type: 'put', key: 'doc::'+action.proxyTarget.nodeId, value: json});
+          break;
+
         default:
-          console.log('unimpl action', action);
-          throw new Error('weird action', action.kind);
+          console.log('unimpl action', action.kind);
+          throw new Error(`weird action '${action.kind}'`);
       }
     }
-
     return batch;
   }
 
@@ -80,18 +74,18 @@ class DataContext {
   }
 
   // TODO: refactor as caching loader
-  async getNodeById(_id) {
-    if (this.objProxies.has(_id))
-      return this.objProxies.get(_id);
+  async getNodeById(nodeId) {
+    if (this.objProxies.has(nodeId))
+      return this.objProxies.get(nodeId);
 
-    const docJson = await this.database.rawLevel.get('doc::'+_id);
+    const docJson = await this.database.rawLevel.get('doc::'+nodeId);
     const {type, fields} = JSON.parse(docJson);
     const proxyHandler = this.graphStore.typeProxies.get(type);
     if (!proxyHandler) throw new Error(
       `Didn't find a proxy handler for type ${type}`);
 
-    const obj = proxyHandler.wrap(this, _id, type, fields);
-    this.objProxies.set(_id, obj);
+    const obj = proxyHandler.wrap(this, nodeId, type, fields);
+    this.objProxies.set(nodeId, obj);
     return obj;
   }
 
@@ -114,22 +108,22 @@ class DataContext {
     if (!proxyHandler) throw new Error(
       `Didn't find a proxy handler for type ${type.name}`);
 
-    const _id = randomString(3); // TODO: check for uniqueness
-    const obj = proxyHandler.wrap(this, _id, type.name, fields, true);
-    this.objProxies.set(_id, obj);
+    const nodeId = randomString(3); // TODO: check for uniqueness
+    const obj = proxyHandler.wrap(this, nodeId, type.name, fields, true);
+    this.objProxies.set(nodeId, obj);
     return obj;
   }
 
   async newEdge({subject, predicate, object}, origRelation) {
-    if (!subject || !subject._id) throw new Error(
+    if (!subject || !subject.nodeId) throw new Error(
       `newEdge() requires a valid, ID'd subject`);
-    if (!object || !object._id) throw new Error(
+    if (!object || !object.nodeId) throw new Error(
       `newEdge() requires a valid, ID'd object`);
 
     const record = {
-      subject: `${subject.typeName}#${subject._id}`,
+      subject: `${subject.typeName}#${subject.nodeId}`,
       predicate,
-      object: `${object.typeName}#${object._id}`,
+      object: `${object.typeName}#${object.nodeId}`,
     };
     this.actions.push({
       kind: 'add edge',
@@ -273,11 +267,11 @@ class DataContext {
 
           console.log('storing', record.objectId, `'${record.name}'`, record.type, 'under graph', graphNode.EngineKey);
           const objNode = await graphNode.BUILT.newObject({
+            Name: record.name,
             Type: record.type,
-            // TODO: parentObjId, refObjIds
             Version: record.version,
+            // TODO: parentObjId, refObjIds
             Fields: record.fields,
-            //Name: record.name,
           });
 
           if (record.name) {
@@ -310,9 +304,9 @@ class DataContext {
 
   queryGraph(query) {
     if (query.subject && query.subject.constructor === NodeProxyHandler)
-      query.subject = query.subject._id;
+      query.subject = `${query.subject.typeName}#${query.subject.nodeId}`;
     if (query.object && query.object.constructor === NodeProxyHandler)
-      query.object = query.object._id;
+      query.object = `${query.object.typeName}#${query.object.nodeId}`;
 
     if (query.subject && query.subject.constructor === GraphObject)
       throw new Error(`GraphObject as subject`);
@@ -337,17 +331,33 @@ class GraphEdgeQuery {
     this.dbCtx = dbCtx;
     this.query = query;
     this.stages = stages;
+    console.log('building graph query for', query)
   }
 
-  async fetchAll() {
-    const edges = await this.dbCtx.database.rawGraph.get(this.query);
-    const promises = edges.map(async raw => ({
-      subject: await this.dbCtx.getObjectById(raw.subject),
-      predicate: raw.predicate,
-      object: await this.dbCtx.getObjectById(raw.object),
-    }));
-    return Promise.all(promises);
+  /*async*/ fetchEdges() {
+    return this.dbCtx.database.rawGraph.get(this.query);
   }
+  async fetchAll() {
+    const edges = await this.fetchEdges();
+    const promises = edges.map(async raw => ({
+      subject: await this.dbCtx.getNodeById(raw.subject.split('#')[1]),
+      predicate: raw.predicate,
+      object: await this.dbCtx.getNodeById(raw.object.split('#')[1]),
+    }));
+    return await Promise.all(promises);
+  }
+  async fetchSubjects() {
+    const edges = await this.fetchEdges();
+    return await Promise.all(edges
+      .map(raw => raw.subject.split('#')[1])
+      .map(raw => this.dbCtx.getNodeById(raw)));
+    }
+  async fetchObjects() {
+    const edges = await this.fetchEdges();
+    return await Promise.all(edges
+      .map(raw => raw.object.split('#')[1])
+      .map(raw => this.dbCtx.getNodeById(raw)));
+    }
 
   async findOne(filter) {
     const edges = await this.dbCtx.database.rawGraph.get(this.query);

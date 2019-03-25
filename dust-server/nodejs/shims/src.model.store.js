@@ -1,4 +1,4 @@
-const {promisify} = require('util');
+const {promisify, inspect} = require('util');
 
 class GraphStore {
   constructor(engine, rootNode, database) {
@@ -45,25 +45,21 @@ class GraphStore {
     console.log('Starting GraphStore');
 
     // overwrite whatever top node, don't care
-
     const rootNode = await dbCtx.storeNode(this.rootNode);
 
-    const allGraphs = await dbCtx.queryGraph({
-      subject: rootNode,
-      predicate: 'OPERATES',
-    }).fetchAll();
+    const allGraphs = await rootNode.OPERATES.fetchGraphList();
     for (const graphData of allGraphs) {
-      const graph = new Graph(this, graphData);
-      this.graphs.set(graphData.subject, graph);
+
+      //console.log('graphData', graphData);
+      const graph = new Graph(this, graphData, GraphEngine.get(graphData.EngineKey));
+      this.graphs.set(graphData.nodeId, graph);
 
       // fetch all the objects
-      const objects = await this.database.graph.get({
-        predicate: 'ObjInGraph',
-        object: graphData.subject,
-      });
+      const objects = await graphData.BUILT.fetchObjectList();
 
       // construct the objects
       for (const objData of objects) {
+        //console.log('objData', objData)
         graph.populateObject(objData);
       }
 
@@ -71,6 +67,7 @@ class GraphStore {
       graph.relink();
     }
     console.debug('Loaded', this.graphs.size, 'graphs containing', this.objects.size, 'objects');
+    //process.exit(55);
   }
 
   /*
@@ -147,9 +144,9 @@ class GraphStore {
     const targetEngine = engine ? engine.engineKey : engineKey;
     return Array
       .from(this.graphs.values())
-      .filter(x => x.data.engine === targetEngine)
+      .filter(x => x.data.EngineKey === targetEngine)
       .find(x => Object.keys(fields)
-        .every(key => x.data.fields[key] == fields[key]));
+        .every(key => x.data.Metadata[key] == fields[key]));
   }
 
   async findOrCreateGraph(engine, {selector, fields, buildCb}) {
@@ -207,17 +204,24 @@ class RelationAccessor {
 
     for (const relation of relations) {
       if (relation.type === 'Arbitrary') {
-        Object.defineProperty(this, 'new'+relation.otherName, {
+        if (relation.direction !== 'out')
+          continue;
+
+        Object.defineProperty(this, `new${relation.otherName}`, {
           enumerable: true,
           value: this.attachNewNode.bind(this, relation),
         });
-        Object.defineProperty(this, 'attach'+relation.otherName, {
+        Object.defineProperty(this, `attach${relation.otherName}`, {
           enumerable: true,
           value: this.attachNode.bind(this, relation),
         });
-        Object.defineProperty(this, 'find'+relation.otherName, {
+        Object.defineProperty(this, `find${relation.otherName}`, {
           enumerable: true,
           value: () => { throw new Error(`TODO: find on relation`) },
+        });
+        Object.defineProperty(this, `fetch${relation.otherName}List`, {
+          enumerable: true,
+          value: this.fetchNodeList.bind(this, relation),
         });
       } else throw new Error(
         `TODO: RelationAccessor doesn't support ${relation.type} relations`);
@@ -251,6 +255,49 @@ class RelationAccessor {
     await this.attachNode(relation, other);
     return other;
   }
+
+  async fetchNodeList(relation) {
+    return this.dbCtx
+      .queryGraph({
+        subject: this.localNode,
+        predicate: relation.predicate,
+      })
+      .fetchObjects();
+  }
+}
+
+function inspectNodeProxy(target, prop, receiver, depth, options) {
+  if (depth <= 0) {
+    return [
+      options.stylize('<node', 'number'),
+      options.stylize(target.typeName, 'special'),
+      options.stylize(`'${target.nodeId}'`, 'string'),
+      options.stylize('/>', 'number'),
+    ].join(' ');
+  }
+
+  let inner = Object.keys(target.fields).join(', ');
+  if (depth > 0) {
+    const newOptions = Object.assign({}, options, {
+      depth: options.depth === null ? null : options.depth - 1,
+    });
+    inner = `    ${inspect(target.fields, newOptions)}`
+      .replace(/\n/g, `\n    `);
+  }
+
+  return [
+    [
+      options.stylize('<node', 'number'),
+      options.stylize(`type`, 'special'),
+      options.stylize(target.typeName, 'name'),
+      options.stylize(`id`, 'special'),
+      options.stylize(`'${target.nodeId}'`, 'string'),
+      //options.stylize(`fields`, 'special'),
+      options.stylize('>', 'number'),
+    ].join(' '),
+    inner,
+    options.stylize('  </node>', 'number'),
+  ].join('\n');
 }
 
 class NodeProxyHandler {
@@ -274,21 +321,25 @@ class NodeProxyHandler {
       nodeId,
       typeName,
       fields,
-      isDirty,
     };
     Object.defineProperty(target, 'dbCtx', {
       enumerable: false,
       value: dbCtx,
     });
     dbCtx.proxyTargets.push(target);
-    return new Proxy(target, this);
+
+    const proxy = new Proxy(target, this);
+    if (isDirty) proxy.dirty = isDirty;
+    return proxy;
   }
 
   get(target, prop, receiver) {
+    if (prop === inspect.custom)
+      return inspectNodeProxy.bind(this, target, prop, receiver);
     if (prop === 'then') return null;
     if (prop === 'inspect') return null;
     if (prop === 'constructor') return NodeProxyHandler;
-    if (prop === '_id') return target.nodeId;
+    if (prop === 'nodeId') return target.nodeId;
     if (prop === 'typeName') return target.typeName;
     if (prop === 'walkPredicateOut') return predicate =>
       target.dbCtx.queryGraph({subject: receiver, predicate});
@@ -298,9 +349,10 @@ class NodeProxyHandler {
 
     if (this.type.inner.fields.has(prop)) {
       const fieldType = this.type.inner.fields.get(prop);
-      if (fieldType.origin === 'core') {
-        return fieldType.constr(target.fields[prop]);
-      }
+      //if (fieldType.origin === 'core') {
+      //  return fieldType.constr(target.fields[prop]);
+      //}
+      return target.fields[prop];
       console.log('getting', field);
     }
 
@@ -308,11 +360,22 @@ class NodeProxyHandler {
       console.warn('NodeProxyHandler GET with a SYMBOL:', prop);
       return null;
     } else {
-      console.log(Object.keys(target));
+      console.log(Object.keys(target), target.fields.Name);
       throw new Error('TODO: GET '+prop);
     }
   }
   set(target, prop, value, receiver) {
+    if (prop === 'dirty') {
+      if (target.isDirty) return true;
+      if (value !== true) return false;
+      target.isDirty = true;
+      target.dbCtx.actions.push({
+        kind: 'edit node',
+        proxyTarget: target,
+      });
+      return true;
+    }
+
     throw new Error('TODO: SET '+prop);
 
     const constr = value === null ? null : value.constructor;
@@ -331,6 +394,14 @@ class NodeProxyHandler {
       default:
         throw new Error(`NodeProxyHandler doesn't accept values of type ${constr} yet`);
     }
+  }
+  ownKeys(target) {
+    console.log('OWNKEYS!');
+    return Object.keys(target).concat([
+      'nodeId', 'typeName',
+      'dirty',
+      'walkPredicateOut',
+    ]);
   }
 }
 

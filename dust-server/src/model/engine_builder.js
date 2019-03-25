@@ -77,8 +77,8 @@ const GraphEngineBuilder = function() {
           break;
       }
 
-      const specifier = (this.direction === 'in') ? 'from' : 'to';
-      this.stringForm = `${predicate} ${this.direction} ${specifier} '${this.otherName}'`;
+      this.specifier = (this.direction === 'in') ? 'from' : 'to';
+      this.stringForm = `${predicate} ${this.direction} ${this.specifier} '${this.otherName}'`;
 
       this.constraints = [];
       if (exactly !== undefined)
@@ -111,6 +111,17 @@ const GraphEngineBuilder = function() {
               JSON.stringify(this, null, 2)}`);
           break;
       }
+    }
+
+    [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
+      return [
+        options.stylize('<relation builder', 'date'),
+        options.stylize(this.predicate, 'name'),
+        options.stylize(this.direction, 'special'),
+        options.stylize(this.specifier, 'special'),
+        options.stylize(`'${this.otherName}'`, 'string'),
+        options.stylize('/>', 'date'),
+      ].join(' ');
     }
   }
 
@@ -152,6 +163,37 @@ const GraphEngineBuilder = function() {
       if (!this.inner.setField) throw new Error(
         `Part ${this.inner.constructor.name} not setField-capable`);
       return this.inner.setField(data, path, value);
+    }
+
+    [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
+      if (depth < 0) {
+        return [
+          options.stylize('<node builder', 'date'),
+          options.stylize(this.name, 'special'),
+          options.stylize('/>', 'date'),
+        ].join(' ');
+      }
+
+      const {inspect} = require('util');
+      const newOptions = Object.assign({}, options, {
+        depth: options.depth === null ? null : options.depth - 1,
+      });
+      const body = ['inner', 'relations', 'behavior'].map(prop =>
+        `  ${prop}: ${inspect(this[prop], newOptions)}`
+          .replace(/\n/g, `    \n`));
+
+      return [
+        [
+          options.stylize('<node builder', 'date'),
+          options.stylize(`name`, 'special'),
+          options.stylize(this.name, 'name'),
+          options.stylize(`type`, 'special'),
+          options.stylize(this.inner.name, 'name'),
+          options.stylize('>', 'date'),
+        ].join(' '),
+        ...body,
+        options.stylize('</node>', 'date'),
+      ].join('\n');
     }
   }
 

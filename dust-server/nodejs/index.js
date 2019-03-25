@@ -17,6 +17,7 @@ const importRules = {
   'src/core/enumeration.js': true,
   'src/lib/locking.js': true,
   'src/lib/path-fragment.js': true,
+  'src/daemon/background.js': true,
   'src/daemon/database.js': true,
 };
 

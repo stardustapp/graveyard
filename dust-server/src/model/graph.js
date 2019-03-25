@@ -9,14 +9,14 @@ class Graph {
   }
 
   populateObject(data, type=null) {
-    if (this.objects.has(data.objectId)) throw new Error(
-      `Graph ${this.data.graphId} already has object ${data.objectId}`);
-    if (this.store.objects.has(data.objectId)) throw new Error(
-      `Graph store already has object ${data.objectId}`);
+    if (this.objects.has(data.nodeId)) throw new Error(
+      `Graph ${this.data.graphId} already has object ${data.nodeId}`);
+    if (this.store.objects.has(data.nodeId)) throw new Error(
+      `Graph store already has object ${data.nodeId}`);
 
     const obj = this.engine.spawnObject(data, type);
-    this.objects.set(data.objectId, obj);
-    this.store.objects.set(data.objectId, obj);
+    this.objects.set(data.nodeId, obj);
+    this.store.objects.set(data.nodeId, obj);
     if (obj.type.relations.some(x => x.type === 'Top')) {
       this.roots.add(obj);
     }

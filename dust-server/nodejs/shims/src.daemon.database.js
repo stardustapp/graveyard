@@ -6,7 +6,6 @@ const rimraf = promisify(require('rimraf'));
 
 //const levelErr = require('level').errors;
 const level = promisify(require('level'));
-const sub = require('subleveldown');
 const levelgraph = require('levelgraph');
 
 function EstablishTempDir() {

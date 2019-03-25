@@ -51,7 +51,9 @@ new GraphEngineBuilder('nodejs-server/v1-beta1', (build, ref) => {
 
   build.node('Entry', {
     relations: [
+      { subject: 'Entry', predicate: 'HAS_NAME' },
       { predicate: 'HAS_NAME', object: 'Entry', uniqueBy: 'Name' },
+
       { predicate: 'POINTS_TO', atMost: 1, object: 'Object' },
       { exactly: 1, subject: 'Instance', predicate: 'INCLUDES' },
     ],
@@ -69,6 +71,7 @@ new GraphEngineBuilder('nodejs-server/v1-beta1', (build, ref) => {
       { exactly: 1, subject: 'Graph', predicate: 'BUILT' },
     ],
     fields: {
+      Name: { type: String },
       Type: { type: String },
       Version: { type: Number },
       Fields: { type: JSON },

@@ -22,7 +22,10 @@ launchDaemon = async function launchDaemon(argv) {
   kernel.unref();
 
   if (argv.repl) {
-    return runRepl({kernel});
+    await LaunchRepl({kernel});
+
+    // TODO: await other shutdown
+    process.exit(exitCode);
   }
 
   // indent any shutdown operations
@@ -36,7 +39,7 @@ ToastNotif = function ToastNotif(text) {
   console.error(`\r--> SRV NOTIF: ${text}`);
 }
 
-async function runRepl(context) {
+async function LaunchRepl(context) {
   const {promisify, inspect} = require('util');
   const asyncTimeout = promisify(setTimeout);
   const repl = require('repl');
@@ -49,8 +52,10 @@ async function runRepl(context) {
   await asyncTimeout(10);
   console.log();
 
+  console.log('In scope:', Object.keys(context).join(', '));
   const replServer = repl.start({
     prompt: `DUST> `,
+    replMode: repl.REPL_MODE_STRICT,
   });
   replServer.context = vm.createContext(context);
 
@@ -60,8 +65,12 @@ async function runRepl(context) {
     replServer.defineCommand('q', () => resolve(0));
   });
 
-  console.error(`Quitting due to outside input. Status`, exitCode);
+  console.error(`Quitting REPL. Status`, exitCode);
   replServer.close();
-  // TODO: await other shutdown
-  process.exit(exitCode);
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    LaunchRepl,
+  };
 }
