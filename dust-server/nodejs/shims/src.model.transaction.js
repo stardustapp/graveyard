@@ -31,7 +31,7 @@ class DataContext {
         }
 
         await this.database.rawLevel.batch(batches);
-        console.log('\r--> Applied', batches.length, 'database ops',
+        console.log('\r  --> Applied', batches.length, 'database ops',
           'from', this.actions.length, 'graph ops.');
       }
       return result;
@@ -75,9 +75,9 @@ class DataContext {
   getNode(handle) {
     if (handle.constructor !== GraphObject) throw new Error(
       `TODO: getNode() for non-GraphObject nodes`);
-    if (!handle.data.objectId) throw new Error(
-      `TODO: getNode() for GraphObject without an objectId`);
-    return this.getNodeById(handle.data.objectId);
+    if (!handle.data.nodeId) throw new Error(
+      `TODO: getNode() for GraphObject without an nodeId`);
+    return this.getNodeById(handle.data.nodeId);
   }
 
   // TODO: refactor as caching loader
@@ -97,13 +97,15 @@ class DataContext {
   }
 
   async storeNode(node) {
+    // TODO: something else does this too
     if (node.constructor === GraphObject) {
       const json = JSON.stringify({
         type: node.type.name,
-        fields: node.data.fields,
+        fields: node.data,
       });
-      await this.database.rawLevel.put('doc::'+node.data.objectId, json);
-      return this.getNodeById(node.data.objectId);
+      //console.log('wrote json', json);
+      await this.database.rawLevel.put('doc::'+node.data.nodeId, json);
+      return this.getNodeById(node.data.nodeId);
     } else {
       throw new Error(`Don't know how to store that node`);
     }

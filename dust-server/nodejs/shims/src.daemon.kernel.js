@@ -3,7 +3,6 @@ const asyncTimeout = promisify(setTimeout);
 
 Kernel = class Kernel {
   constructor(argv) {
-    this.argv = argv;
     this.systemEnv = new Environment();
     this.ready = this.init(argv);
   }
@@ -23,42 +22,34 @@ Kernel = class Kernel {
 
     console.debug('Created server.');
 
-    //this.graphStore = new GraphStore(this.baseDb.sub('daemon'));
-    //await this.graphStore.ready;
-
-    console.debug('Kernel initialized');
     return this;
   }
 
   // expected to return within 30 seconds
   async boot() {
-    /*
-    const appKey = this.argv.package;
-    const {pocRepository, compileToHtml} = GraphEngine
-      .get('dust-app/v1-beta1').extensions;
+    const {Config} = this.server.instance;
 
-    const appGraph = await this.graphStore.findGraph({
-      engineKey: 'app-profile/v1-beta1',
-      fields: { appKey },
+    this.appGraph = await this.server.runtime.findGraph({
+      engineKey: 'dust-app/v1-beta1',
+      fields: { foreignKey: Config.PackageKey },
     });
-    if (!appGraph) {
-      appGraph = await pocRepository.installWithDeps(this.graphStore, appKey);
-    }
     if (!appGraph) throw new Error(
-      `App installation ${JSON.stringify(appKey)} not found`);
+      `Dust app ${JSON.stringify(Config.PackageKey)} not found locally`);
 
-    const appInst = Array.from(appGraph.roots)[0];
-    */
-    console.debug('TODO: install package:', this.argv.package);
   }
 
   // should run for the lifetime of the runtime
   // return to EXIT
   async run() {
-    switch (this.argv.command) {
+    const {Config} = this.server.instance;
+    switch (Config.Command) {
 
       case 'run':
-        console.log('TODO: run package method', this.argv.method);
+        const serverMethod = this.appGraph.selectNamed(Config.MethodName);
+        const {JS} = serverMethod.data.Fields;
+
+        console.log('Starting ServerMethod now!');
+        await eval(JS).call().call().call(null, this);
         break;
 
       case 'serve':
@@ -69,7 +60,7 @@ Kernel = class Kernel {
         throw new Error(`Dust server was interrupted.`);
 
       default:
-        console.error(`unknown kernel command "${this.argv.command}"`);
+        console.error(`unknown kernel command "${Config.Command}"`);
         process.exit(2);
     }
   }

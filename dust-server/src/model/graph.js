@@ -1,8 +1,10 @@
 class Graph {
   constructor(store, data, engine) {
-    this.store = store;
     this.data = data;
-    this.engine = engine || GraphEngine.get(data.engine);
+
+    engine = engine || GraphEngine.get(data.engine);
+    Object.defineProperty(this, 'engine', { enumerable: false, value: engine });
+    Object.defineProperty(this, 'store', { enumerable: false, value: store });
 
     this.objects = new Map;
     this.roots = new Set;
@@ -33,7 +35,7 @@ class Graph {
   selectNamed(name) {
     return Array
       .from(this.objects.values())
-      .find(x => x.data.name === name);
+      .find(x => x.data.Name === name);
   }
   selectAllWithType(type) {
     return Array

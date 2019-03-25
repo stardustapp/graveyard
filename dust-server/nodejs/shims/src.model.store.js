@@ -177,8 +177,8 @@ function inspectNodeProxy(target, prop, receiver, depth, options) {
     const newOptions = Object.assign({}, options, {
       depth: options.depth === null ? null : options.depth - 1,
     });
-    inner = `    ${inspect(target.fields, newOptions)}`
-      .replace(/\n/g, `\n    `);
+    inner = `     ${inspect(target.fields, newOptions)}`
+      .replace(/\n/g, `\n  `);
   }
 
   return [
@@ -229,15 +229,18 @@ class NodeProxyHandler {
   }
 
   get(target, prop, receiver) {
-    if (prop === inspect.custom)
-      return inspectNodeProxy.bind(this, target, prop, receiver);
     if (prop === 'then') return null;
     if (prop === 'inspect') return null;
     if (prop === 'constructor') return NodeProxyHandler;
     if (prop === 'nodeId') return target.nodeId;
     if (prop === 'typeName') return target.typeName;
+
+    if (prop === inspect.custom)
+      return inspectNodeProxy.bind(this, target, prop, receiver);
     if (prop === 'walkPredicateOut') return predicate =>
       target.dbCtx.queryGraph({subject: receiver, predicate});
+    if (prop === 'toJSON') return () =>
+      JSON.stringify(target.fields);
 
     if (this.predicates.has(prop))
       return new RelationAccessor(target.dbCtx, receiver, this.predicates.get(prop));

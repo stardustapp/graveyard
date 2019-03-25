@@ -81,9 +81,6 @@ class ServerDatabase {
   }
 }
 
-//await db.put('name', 'Level');
-//console.log('name=' + await db.get('name'));
-
 if (typeof module !== 'undefined') {
   module.exports = {
     ServerDatabase,

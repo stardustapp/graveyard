@@ -19,7 +19,7 @@ class GraphObject {
 
     for (const [key, fieldType] of type.inner.fields.entries()) {
       Object.defineProperty(this, key, {
-        get() { return data.fields[key]; }, // TODO
+        get() { return data[key]; }, // TODO
         //set(newValue) { bValue = newValue; },
         enumerable: true,
         configurable: true
@@ -83,10 +83,11 @@ class GraphEngine {
       .from(this.edges)
       .find(x => x.type === 'Top');
 
-    return graph.populateObject({
-      fields: data,
-      objectId: 'top',
-    }, topRelation.topType);
+    const type = topRelation.topType;
+    const proxyHandler = new NodeProxyHandler(type);
+    const rootNode = proxyHandler.wrap(null, 'top', type.name, data);
+
+    return graph.populateObject(rootNode, topRelation.topType);
   }
 
   [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
