@@ -1,14 +1,11 @@
 const {promisify, inspect} = require('util');
 
 class GraphStore {
-  constructor(engine, rootNode, database) {
+  constructor(engine, database) {
     this.engine = engine;
-    this.rootNode = rootNode;
     this.database = database;
 
-    //this.eventProcessors = new Array;
-    this.graphs = new Map;
-    this.objects = new Map;
+    this.eventProcessors = new Array;
 
     this.typeProxies = new Map;
     for (const name of engine.names.values()) {
@@ -17,19 +14,7 @@ class GraphStore {
 
     // read in everything
     this.mutex = new RunnableMutex(this.transactNow.bind(this));
-    this.ready = this.mutex.submit('setup', this.start.bind(this));
   }
-
-  /*
-    const graphs = upgradeDB.createObjectStore('graphs', { keyPath: 'graphId' });
-    const objects = upgradeDB.createObjectStore('objects', { keyPath: 'objectId' });
-    objects.createIndex('by graph', 'graphId', { multiEntry: true });
-    objects.createIndex('referenced', 'refObjIds', { multiEntry: true });
-    objects.createIndex('by parent', ['parentObjId', 'name'], { unique: true });
-    const records = upgradeDB.createObjectStore('records', { keyPath: ['objectId', 'recordId'] });
-    records.createIndex('by path', 'path', { unique: true });
-    const events = upgradeDB.createObjectStore('events', { keyPath: ['graphId', 'timestamp'] });
-  */
 
   // user entrypoint that either runs immediately or queues for later
   transact(mode, cb) {
@@ -38,36 +23,57 @@ class GraphStore {
 
   // mutex entrypoint that just goes for it
   transactNow(mode, cb) {
-    return new DataContext(this, mode).runCb(cb);
+    const dbCtx = new DataContext(this, mode);
+    dbCtx.actionProcessors.push(this.processDbActions.bind(this));
+    return dbCtx.runCb(cb);
   }
 
-  async start(dbCtx) {
-    console.log('Starting GraphStore');
+  async processDbActions(dbCtx, actions) {
+    const nodeMap = new Map;
+    const nodeLists = new Proxy(nodeMap, {
+      get(target, prop, receiver) {
+        if (!target.has(prop)) {
+          const [type, nodeId] = prop.split('#');
+          target.set(prop, {
+            nodeType: type,
+            nodeId: nodeId,
+            actions: new Array,
+          });
+        }
+        return target.get(prop);
+      },
+    });
 
-    // overwrite whatever top node, don't care
-    const rootNode = await dbCtx.storeNode(this.rootNode);
-
-    const allGraphs = await rootNode.OPERATES.fetchGraphList();
-    for (const graphData of allGraphs) {
-
-      //console.log('graphData', graphData);
-      const graph = new Graph(this, graphData, GraphEngine.get(graphData.EngineKey));
-      this.graphs.set(graphData.nodeId, graph);
-
-      // fetch all the objects
-      const objects = await graphData.BUILT.fetchObjectList();
-
-      // construct the objects
-      for (const objData of objects) {
-        //console.log('objData', objData)
-        graph.populateObject(objData);
+    for (const action of actions) {
+      switch (action.kind) {
+        case 'put node':
+        case 'del node':
+          const {nodeId, typeName} = action.proxyTarget;
+          nodeLists[`${typeName}#${nodeId}`].actions.push(action);
+          break;
+        case 'put edge':
+        case 'del edge':
+          const {subject, object} = action.record;
+          nodeLists[subject].actions.push({ direction: 'out', ...action });
+          nodeLists[object].actions.push({ direction: 'in', ...action });
+          break;
       }
-
-      // TODO: relink after everything is loaded
-      graph.relink();
     }
-    console.debug('Loaded', this.graphs.size, 'graphs containing', this.objects.size, 'objects');
-    //process.exit(55);
+
+    const event = {
+      kind: 'put graph',
+      nodeMap,
+      rootNodeId: 'Instance#top', // TODO!!
+      timestamp: new Date,
+    };
+    Object.defineProperty(event, 'dbCtx', {
+      enumerable: false,
+      value: dbCtx,
+    });
+
+    for (const processor of this.eventProcessors) {
+      await processor(event);
+    }
   }
 
   /*
@@ -81,116 +87,6 @@ class GraphStore {
     });
   }
   */
-
-  async processEvent(event) {
-    const {timestamp, graphId, entries} = event;
-    let graph = this.graphs.get(graphId);
-
-    // TODO
-    //for (const processor of eventProcessors) {
-    //  processor(graph, event);
-    //}
-
-    for (const entry of entries) {
-      switch (entry.type) {
-
-        case 'delete everything':
-          // TODO: graceful shutdown?
-          this.graphs = new Map;
-          this.objects = new Map;
-          break;
-
-        case 'delete graph':
-          throw new Error('@#TODO DELETE GRAPH');
-
-        case 'create graph':
-          if (graph) throw new Error(
-            `DESYNC: graph double create`);
-          if (this.graphs.has(graphId)) throw new Error(
-            `DESYNC: graph ${graphId} already registered`);
-          graph = new Graph(this, entry.data);
-          this.graphs.set(graphId, graph);
-          break;
-
-        //case 'update graph':
-          // TODO: event specifies new 'fields' and 'version'
-          //break;
-
-        case 'create object':
-          graph.populateObject(entry.data);
-          break;
-
-        default:
-          console.warn('"processing"', graphId, 'event', entry.type, entry.data);
-      }
-    }
-    if (graph) graph.relink();
-  }
-
-  /*
-      let appGraph = await graphStore.transact('readwrite', async dbCtx => {
-        const rootNode = await dbCtx.getNode(instance);
-        const graph = await rootNode
-          .walkPredicateOut('OPERATES')
-          .findOne(graph =>
-            graph.EngineKey === 'dust-app/v1-beta1' &&
-            graph.Metadata.Heritage === 'stardust-poc' &&
-            graph.Metadata.ForeignKey === instance.Config.PackageKey);
-*/
-
-  async findGraph({engine, engineKey, fields}) {
-    await this.ready;
-
-    const targetEngine = engine ? engine.engineKey : engineKey;
-    return Array
-      .from(this.graphs.values())
-      .filter(x => x.data.EngineKey === targetEngine)
-      .find(x => Object.keys(fields)
-        .every(key => x.data.Metadata[key] == fields[key]));
-  }
-
-  async findOrCreateGraph(engine, {selector, fields, buildCb}) {
-    await this.ready;
-
-    // return an existing graph if we find it
-    const existingGraph = await this.findGraph({
-      engine,
-      fields: selector || fields,
-    });
-    if (existingGraph) return existingGraph;
-
-    // ok we have to build the graph
-    const graphBuilder = await buildCb(engine, fields);
-    if (!graphBuilder) throw new Error(
-      `Graph builder for ${engine.engineKey} returned nothing`);
-
-    // persist the new graph
-
-    const graphId = await this.transact('readwrite', async dbCtx => {
-      const rootNode = await dbCtx.getNode(this.rootNode);
-      const graphNode = await rootNode.OPERATES.newGraph({
-        EngineKey: engine.engineKey,
-        Metadata: fields,
-        Origin: { BuiltIn: 'TODO' }, // TODO
-      });
-      await dbCtx.createObjectTree(graphNode, graphBuilder.rootNode);
-      return graphNode;
-    });
-    console.debug('Created graph', graphId, 'for', fields);
-
-    // grab the [hopefully] loaded graph
-    //if (!this.graphs.has(graphId)) console.warn(
-    //  `WARN: Graph ${graphId} wasn't loaded after creation`);
-    return graphId;
-  }
-
-    /*
-  getGraphsUsingEngine(engineKey) {
-    return Array
-      .from(this.graphs.values())
-      .filter(x => x.data.engine === engineKey);
-  }
-*/
 }
 
 class RelationAccessor {
@@ -326,7 +222,6 @@ class NodeProxyHandler {
       enumerable: false,
       value: dbCtx,
     });
-    dbCtx.proxyTargets.push(target);
 
     const proxy = new Proxy(target, this);
     if (isDirty) proxy.dirty = isDirty;
@@ -370,7 +265,7 @@ class NodeProxyHandler {
       if (value !== true) return false;
       target.isDirty = true;
       target.dbCtx.actions.push({
-        kind: 'edit node',
+        kind: 'put node',
         proxyTarget: target,
       });
       return true;

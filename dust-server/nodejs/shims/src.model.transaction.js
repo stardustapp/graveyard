@@ -11,9 +11,9 @@ class DataContext {
     this.mode = mode;
 
     this.actions = new Array;
+    this.actionProcessors = new Array;
 
     this.objProxies = new Map;
-    this.proxyTargets = new Array;
   }
   abort() {
     console.log('TODO: abort DataContext');
@@ -24,8 +24,15 @@ class DataContext {
       const result = await cb(this);
       const batches = this.generateBatch();
       if (batches.length > 0) {
+        console.debug('Processing transaction actions...');
+
+        for (const processor of this.actionProcessors) {
+          await processor(this, this.actions);
+        }
+
         await this.database.rawLevel.batch(batches);
-        console.log('\r--> Applied', batches.length, 'database operations.');
+        console.log('\r--> Applied', batches.length, 'database ops',
+          'from', this.actions.length, 'graph ops.');
       }
       return result;
     } catch (err) {
@@ -42,14 +49,14 @@ class DataContext {
     for (const action of this.actions) {
       switch (action.kind) {
 
-        case 'add edge':
+        case 'put edge':
           const subBatch = this.graphStore.database.rawGraph.generateBatch(action.record);
           for (const subItem of subBatch) {
             batch.push(subItem);
           }
           break;
 
-        case 'edit node':
+        case 'put node':
           const json = JSON.stringify({
             type: action.proxyTarget.typeName,
             fields: action.proxyTarget.fields,
@@ -126,7 +133,7 @@ class DataContext {
       object: `${object.typeName}#${object.nodeId}`,
     };
     this.actions.push({
-      kind: 'add edge',
+      kind: 'put edge',
       record,
     });
 
@@ -569,45 +576,6 @@ class GraphTxn {
       graphId, objectId, version,
       fields: newFields,
     });
-  }
-
-  async finish() {
-    // create the necesary events
-    const events = Array
-      .from(this.actions.entries())
-      .map(([graphId, entries]) => ({
-        timestamp: this.currentDate,
-        graphId, entries,
-      }));
-    this.actions = null;
-
-    // record a stack trace for debugging txns
-    try {
-      throw new Error('finishing GraphTxn');
-    } catch (err) {
-      this.finishStack = err;
-    }
-
-    console.log('events:', events);
-    // store the events
-    const eventStore = this.txn.objectStore('events');
-    const ops = events
-      .filter(doc => doc.graphId) // ignore runtime global events
-      .map(doc => eventStore.add(doc));
-
-    // wait for transaction to actually commit
-    await Promise.all(ops);
-    await this.txn.complete;
-
-    // pass events into the reactivity engine
-    // this is a bad time to fail!
-    for (const event of events) {
-      try {
-        await this.graphStore.processEvent(event);
-      } catch (err) {
-        console.error(`DESYNC: Event failed to process.`, event, err);
-      }
-    }
   }
 }
 */

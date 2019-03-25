@@ -36,9 +36,14 @@ extensions.lifecycle = {
     });
 
     const serverDb = await ServerDatabase.open(instance.Config.DataPath);
-    const graphStore = new GraphStore(serverEngine, instance, serverDb);
-    await graphStore.ready;
     console.debug('Opened system database!!!!');
+
+    const graphStore = new GraphStore(serverEngine, serverDb);
+    await graphStore.ready;
+    const runtime = new GraphRuntime(graphStore, instance);
+    await runtime.ready;
+    console.debug('Loaded system!!!!');
+
 
     let webServer;
     if (instance.Config.Command === 'serve') {
@@ -58,7 +63,7 @@ extensions.lifecycle = {
     const {pocRepository, compileToHtml} = GraphEngine
       .get('dust-app/v1-beta1').extensions;
 
-    appGraph = await graphStore.findGraph({
+    appGraph = await runtime.findGraph({
       engineKey: 'dust-app/v1-beta1',
       fields: {
         foreignKey: appKey,
@@ -66,7 +71,7 @@ extensions.lifecycle = {
       },
     });
     if (!appGraph) {
-      appGraph = await pocRepository.installWithDeps(graphStore, appKey);
+      appGraph = await pocRepository.installWithDeps(runtime, appKey);
     }
     if (!appGraph) throw new Error(
       `App installation ${JSON.stringify(appKey)} not found`);
@@ -80,7 +85,8 @@ extensions.lifecycle = {
     return {
       instance,
       webServer,
-      graphStore,
+      //graphStore,
+      runtime,
     };
   },
 

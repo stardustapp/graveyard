@@ -19,6 +19,7 @@ const importRules = {
   'src/lib/path-fragment.js': true,
   'src/daemon/background.js': true,
   'src/daemon/database.js': true,
+  'src/model/runtime.js': true,
 };
 
 // Include things like the graph engine from the service worker
@@ -34,6 +35,7 @@ const extraImports = [
   'src/model/store.js',
   'src/model/record-filter.js',
 
+  'src/model/runtime.js',
   'src/model/impl/nodejs-server/model.js',
   'src/model/impl/nodejs-server/lifecycle.js',
 

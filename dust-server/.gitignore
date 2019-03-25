@@ -1,3 +1,4 @@
 profiles/
 *.zip
 *.crx
+test-db/
