@@ -39,7 +39,7 @@ class ResourceCompiler {
     this.rootNode = Array.from(graph.roots)[0];
   }
   processPrelude() {
-    const rootObjId = this.rootNode.data.objectId;
+    const rootObjId = this.rootNode.data.nodeId;
     const lines = [commonTags.codeBlock`
       const DUST = scriptHelpers; // TODO
       DUST.objects = {};
@@ -57,15 +57,15 @@ class ResourceCompiler {
 
     const printObjectTree = (data, indent) => {
       const children = this.resources
-        .filter(other => other.data.parentObjId === data.objectId);
+        .filter(other => other.data.parentObjId === data.nodeId);
       if (children.length) {
-        lines.push(`${indent}${Js(data.name)}: {objectId: ${Js(data.objectId)}, children: {`);
+        lines.push(`${indent}${Js(data.name)}: {nodeId: ${Js(data.nodeId)}, children: {`);
         for (const child of children) {
           printObjectTree(child.data, indent+'  ');
         }
         lines.push(`${indent}}},`);
       } else {
-        lines.push(`${indent}${Js(data.name)}: ${Js(data.objectId)},`);
+        lines.push(`${indent}${Js(data.name)}: ${Js(data.nodeId)},`);
       }
     };
 
@@ -80,14 +80,14 @@ class ResourceCompiler {
     for (const obj of this.resources.filter(x => x.data.type === 'Dependency')) {
       lines.push(`  ${obj.data.name}: {`);
       const depRoot = this.graphStore.objects.get(obj.data.fields.ChildRoot);
-      const depGraph = this.graphStore.graphs.get(depRoot.data.graphId);
+      const depGraph = this.graphStore.graphs.get(depRoot.data.nodeId);
       // loop through all objects belonging to the dep
       const depResources = Array.from(depGraph.objects.values());
       for (const res of depResources) {
         // prepend to compiled program
         this.resources.unshift(res);
         // print out name map
-        if (res.data.parentObjId === depRoot.data.objectId)
+        if (res.data.parentObjId === depRoot.data.nodeId)
           printObjectTree(res.data, '    ');
       }
       lines.push(`  },`);
@@ -101,42 +101,42 @@ class ResourceCompiler {
     const pendingChunks = new Array;
     const {readyDeps} = this;
 
-    function completeDep(objectId) {
-      if (readyDeps.has(objectId)) throw new Error(
-        `dep ${Js(objectId)} completed twice`);
-      readyDeps.add(objectId);
+    function completeDep(nodeId) {
+      if (readyDeps.has(nodeId)) throw new Error(
+        `dep ${Js(nodeId)} completed twice`);
+      readyDeps.add(nodeId);
 
       for (const chunk of pendingChunks) {
         const {script, missingDeps, complete} = chunk;
-        if (complete || !missingDeps.has(objectId)) continue;
+        if (complete || !missingDeps.has(nodeId)) continue;
 
-        missingDeps.delete(objectId);
+        missingDeps.delete(nodeId);
         if (missingDeps.size > 0) continue;
 
         chunk.complete = true;
         readyChunks.push(script);
-        completeDep(chunk.objectId);
+        completeDep(chunk.nodeId);
       }
     }
 
     for (const obj of this.resources.filter(x => x.data.type === type)) {
-      const {name, objectId} = obj.data;
+      const {name, nodeId} = obj.data;
       const missingDeps = new Set;
       const self = {
-        addDep(objectId) {
-          if (!readyDeps.has(objectId))
-            missingDeps.add(objectId);
+        addDep(nodeId) {
+          if (!readyDeps.has(nodeId))
+            missingDeps.add(nodeId);
         },
       };
 
       const script = `
-  DUST.objects[${Js(objectId)}] =
+  DUST.objects[${Js(nodeId)}] =
   ${callback.call(self, obj.data)}`;
       if (missingDeps.size > 0) {
-        pendingChunks.push({objectId, script, missingDeps, complete: false});
+        pendingChunks.push({nodeId, script, missingDeps, complete: false});
       } else {
         readyChunks.push(script);
-        completeDep(objectId);
+        completeDep(nodeId);
       }
     }
 
@@ -155,10 +155,10 @@ class ResourceCompiler {
 
 GraphEngine.extend('dust-app/v1-beta1').compileToHtml =
 async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
-  const {graphId} = graph.data;
+  const {nodeId} = graph.data;
   const application = Array.from(graph.roots)[0];
   if (!application) throw new Error(`app-missing:
-    Graph '${graphId}' does not contain a web application.`);
+    Graph '${nodeId}' does not contain a web application.`);
 
   const compiler = new ResourceCompiler(store, graph);
 
@@ -229,11 +229,11 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   }));
 
   addChunk('DDP Publications', compiler.process('Publication', function (res) {
-    return `new DustPublication(${Js(graphId)}, ${Js(res.name)}, ${Js(res.fields)});`;
+    return `new DustPublication(${Js(nodeId)}, ${Js(res.name)}, ${Js(res.fields)});`;
   }));
 
   addChunk('Server Methods', compiler.process('ServerMethod', function (res) {
-    return `DustMethod(${Js(graphId)}, ${Js(res.name)});`;
+    return `DustMethod(${Js(nodeId)}, ${Js(res.name)});`;
   }));
 
   addChunk('Blaze Templates', compiler.process('Template', function (res) {
@@ -248,7 +248,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
     }
     return `InflateBlazeTemplate({
     name: ${Js(res.name)},
-    objectId: ${Js(res.objectId)},
+    nodeId: ${Js(res.nodeId)},
     template: \`\n${escapeTicks(Handlebars)}\`,
     css: \`\n${escapeTicks(Style.CSS)}\`,
   })${scriptLines.join('')};
@@ -331,7 +331,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
 ${usesLegacyDB ? `<script src="/~~src/model/impl/dust-app/runtime-build.js"></script>` : ''}
 <script>
   const appSub = Meteor.subscribe("/app-runtime", {
-    graphId: ${Js(graphId)},
+    nodeId: ${Js(nodeId)},
     appPath: APP_ROOT,
   });
   ${usesLegacyDB ? `const buildSub = Meteor.subscribe("/legacy-dust-app-data");` : ''}

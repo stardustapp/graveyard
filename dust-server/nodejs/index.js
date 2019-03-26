@@ -10,6 +10,7 @@ const importRules = {
   'vendor/libraries/bugsnag.js': 'bugsnag',
   'vendor/libraries/moment.js': 'moment',
   'vendor/libraries/base64.js': 'base64js',
+  'vendor/libraries/common-tags.js': 'commonTags',
   'src/webapp/core/skylink/client.js': 'Skylink',
 
   // multiple named exports
@@ -24,6 +25,8 @@ const importRules = {
 
 // Include things like the graph engine from the service worker
 const extraImports = [
+  'vendor/libraries/common-tags.js',
+
   'src/lib/locking.js',
 
   'src/model/field-types.js',

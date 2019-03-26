@@ -22,10 +22,9 @@ launchDaemon = async function launchDaemon(argv) {
   kernel.unref();
 
   if (argv.repl) {
-    await LaunchRepl({kernel});
-
-    // TODO: await other shutdown
-    process.exit(exitCode);
+    const exitCode = await LaunchRepl({kernel});
+    if (exitCode) process.exit(exitCode);
+    return;
   }
 
   // indent any shutdown operations
@@ -53,6 +52,7 @@ async function LaunchRepl(context) {
   console.log();
 
   console.log('In scope:', Object.keys(context).join(', '));
+  context.console = console;
   const replServer = repl.start({
     prompt: `DUST> `,
     replMode: repl.REPL_MODE_STRICT,
@@ -67,6 +67,7 @@ async function LaunchRepl(context) {
 
   console.error(`Quitting REPL. Status`, exitCode);
   replServer.close();
+  return exitCode;
 }
 
 if (typeof module !== 'undefined') {
