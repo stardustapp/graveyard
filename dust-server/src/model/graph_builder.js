@@ -5,10 +5,7 @@ class GraphBuilder {
     this.rootNode = null;
 
     for (const [name, part] of engine.names.entries()) {
-      const topRelation = part.relations.find(x => x.type === 'Top');
-      if (!topRelation) continue;
-
-      Object.defineProperty(this, `with${name}`, {
+      Object.defineProperty(this, `new${name}`, {
         value: function(objName, objVersion, opts) {
           // TODO: throw if not first root
           console.log('building', objName, objVersion, part.name, 'with', opts);

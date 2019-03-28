@@ -76,8 +76,6 @@ extensions.lifecycle = {
     if (!appGraph) throw new Error(
       `App installation ${JSON.stringify(appKey)} not found`);
 
-    //await pocRepository.installWithDeps(graphStore, 'todo');
-
     //await LaunchRepl({serverDb, graphStore, instance, appKey, pocRepository, appGraph});
       /*
     const appInst = Array.from(appGraph.roots)[0];

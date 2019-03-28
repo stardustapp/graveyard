@@ -62,6 +62,13 @@ const GraphEngineBuilder = function() {
             `TOP relation cannot have any explicit 'object' or 'subject'`);
 
           this.type = 'Top';
+          // to get the point across
+          this.predicate = 'TOP';
+          this.direction = 'in';
+          this.otherName = 'top';
+
+          this.specifier = 'from';
+          this.stringForm = `TOP in from 'top'`;
           break;
 
         default:
@@ -74,11 +81,11 @@ const GraphEngineBuilder = function() {
           this.predicate = predicate;
           this.direction = subject ? 'in' : 'out';
           this.otherName = subject || object;
+
+          this.specifier = (this.direction === 'in') ? 'from' : 'to';
+          this.stringForm = `${predicate} ${this.direction} ${this.specifier} '${this.otherName}'`;
           break;
       }
-
-      this.specifier = (this.direction === 'in') ? 'from' : 'to';
-      this.stringForm = `${predicate} ${this.direction} ${this.specifier} '${this.otherName}'`;
 
       this.constraints = [];
       if (exactly !== undefined)
@@ -131,13 +138,57 @@ const GraphEngineBuilder = function() {
       this.inner = FieldType.from(config); // TODO: 'REFERS TO' relations
       this.relations = [];
 
+      const references = new Set;
+      const visited = new Set;
+      function readType(type) {
+        if (visited.has(type)) return;
+        visited.add(type);
+
+        switch (type.constructor) {
+          case ReferenceFieldType:
+            references.add(type.targetPath);
+            break;
+          case StructFieldType:
+            for (const fieldType of type.fields.values())
+              readType(fieldType);
+            break;
+          case AnyOfKeyedFieldType:
+            for (const fieldType of type.slots.values())
+              readType(fieldType);
+            break;
+          case BuiltinFieldType:
+            // no possible reference
+            break;
+          case OptionalFieldType:
+            readType(type.inner);
+            break;
+          case ListFieldType:
+            readType(type.inner);
+            break;
+          case PendingFieldType:
+            if (type.final) readType(type.final);
+            break;
+          default:
+            console.log('WARN: skipping unknown type', type);
+        }
+      }
+      readType(this.inner);
+
+      for (const refType of references) {
+        if (refType.constructor === Boolean) continue;
+        this.relations.push(new RelationBuilder({
+          predicate: 'REFERENCES', object: refType,
+        }));
+      }
       if (config.relations) {
         for (const relation of config.relations) {
           this.relations.push(new RelationBuilder(relation));
         }
-      } else {
+      }
+      if (this.relations.length === 0) {
         console.warn(`Node ${name} has no relations, will be inaccessible`);
       }
+
       this.behavior = config.behavior || GraphObject;
     }
 

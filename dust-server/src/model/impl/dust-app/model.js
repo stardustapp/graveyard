@@ -3,13 +3,13 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
   build.node('Package', {
     relations: [
       { predicate: 'TOP' },
-      // TODO: syntax to combine these
-      { predicate: 'HAS_RES', object: 'AppRouter' },
-      { predicate: 'HAS_RES', object: 'Template' },
-      { predicate: 'HAS_RES', object: 'RecordSchema' },
-      { predicate: 'HAS_RES', object: 'Dependency' },
-      { predicate: 'HAS_RES', object: 'Publication' },
-      { predicate: 'HAS_RES', object: 'ServerMethod' },
+      { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'AppRouter' },
+      { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'Template' },
+      //{ predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'Collection' },
+      { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'RecordSchema' },
+      { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'Dependency' },
+      { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'Publication' },
+      { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'ServerMethod' },
     ],
     fields: {
       PackageKey: String,
@@ -20,18 +20,18 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('AppRouter', {
     relations: [
-      { predicate: 'HAS_RES', object: 'Route', uniqueBy: 'Path' },
-      { exactly: 1, subject: 'Package', predicate: 'HAS_RES' },
+      { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
       IconUrl: { type: String, optional: true },
       DefaultLayout: { reference: 'Template', optional: true },
+      RouteTable: { reference: 'Route', isList: true },
     },
   });
 
   build.node('Route', {
     relations: [
-      { exactly: 1, subject: 'AppRouter', predicate: 'HAS_RES' },
+      { exactly: 1, subject: 'AppRouter', predicate: 'REFERENCES' },
     ],
     fields: {
       Path: String,
@@ -54,7 +54,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Template', {
     relations: [
-      { exactly: 1, subject: 'Package', predicate: 'HAS_RES' },
+      { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
       Handlebars: String,
@@ -95,7 +95,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('RecordSchema', { // was CustomRecord
     relations: [
-      { exactly: 1, subject: 'Package', predicate: 'HAS_RES' },
+      { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
       Base: { anyOfKeyed: {
@@ -146,7 +146,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Dependency', {
     relations: [
-      { exactly: 1, subject: 'Package', predicate: 'HAS_RES' },
+      { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
       PackageKey: { type: String, optional: false },
@@ -171,7 +171,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Publication', {
     relations: [
-      { exactly: 1, subject: 'Package', predicate: 'HAS_RES' },
+      { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: DocLocator,
     behavior: class DustAppPublication extends GraphObject {
@@ -232,7 +232,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('ServerMethod', {
     relations: [
-      { exactly: 1, subject: 'Package', predicate: 'HAS_RES' },
+      { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
       Coffee: String,

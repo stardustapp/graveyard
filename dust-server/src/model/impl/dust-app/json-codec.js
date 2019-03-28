@@ -169,6 +169,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
       const router = app.withAppRouter('Router', res.version, {
         IconUrl: manifest.meta.iconUrl,
+        RouteTable: [],
       });
 
       if (res.layout) {
@@ -179,7 +180,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       for (const route of res.entries) {
         switch (route.type) {
           case 'customAction':
-            router.withRoute(route.path, 1, {
+            router.data.RouteTable.push(router.withRoute(route.path, 1, {
               Path: route.path,
               Action: {
                 Script: {
@@ -188,17 +189,17 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
                   Refs: getScriptRefs(route.customAction.coffee),
                 },
               },
-            });
+            }));
             break;
           case 'template':
-            router.withRoute(route.path, 1, {
+            router.data.RouteTable.push(router.withRoute(route.path, 1, {
               Path: route.path,
               Action: {
                 Render: {
                   Template: app.getTemplate(route.template),
                 },
               },
-            });
+            }));
             break;
           default:
             throw new Error('unknown route type '+route.type);
