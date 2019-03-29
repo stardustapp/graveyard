@@ -26,15 +26,13 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       'invalid stardust manifest');
 
     const engine = GraphEngine.get('dust-app/v1-beta1');
-    const builder = new GraphBuilder(engine);
-    self.builder = builder;
-
-    // root node from manifest meta
-    const app = builder.withPackage(manifest.meta.name, 1, {
+    const builder = new GraphBuilder(engine, {
+      FriendlyName: manifest.meta.name,
       PackageKey: manifest.packageId,
       PackageType: manifest.meta.type,
       License: manifest.meta.license,
     });
+    const package = builder.rootNode;
 
     // sort manifest resources for specialized logic
     const resources = {
@@ -49,10 +47,10 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       resources[res.type].push(res);
     }
 
-    function inflateScript(coffee, js) {
+    function inflateScript(Coffee, js) {
       //console.log(coffee.length, 'inflating script', coffee);
       return {
-        Coffee: coffee,
+        Source: { Coffee },
         JS: js,
         Refs: getScriptRefs(coffee),
       }
@@ -80,7 +78,9 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
           `Package ${manifest.packageId} Dependency couldn't find package ${JSON.stringify(res.childPackage)}`);
       }
 
-      app.withDependency(res.name, res.version, {
+      package.data.HAS_NAME.newDependency({
+        Name: res.name,
+        Version: res.version,
         PackageKey: res.childPackage,
         ChildRoot: new GraphReference(otherPkg),
       });
@@ -108,7 +108,9 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
         fields.slug = {Type: resolveRecordSchema('core:string'), Mutable: true }
       }
 
-      app.withRecordSchema(res.name, res.version, {
+      package.data.HAS_NAME.newRecordSchema({
+        Name: res.name,
+        Version: res.version,
         Base: resolveRecordSchema(res.base),
         Fields: fields,
         TimestampBehavior: res.timestamp,
@@ -118,7 +120,11 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
 
     for (const res of resources.ServerMethod) {
-      app.withServerMethod(res.name, res.version, inflateScript(res.coffee, res.js));
+      package.data.HAS_NAME.newServerMethod({
+        Name: res.name,
+        Version: res.version,
+        ...inflateScript(res.coffee, res.js),
+      });
     }
 
 
@@ -133,12 +139,18 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       };
     }
     for (const res of resources.Publication) {
-      app.withPublication(res.name, res.version, mapDocLocator(res));
+      package.data.HAS_NAME.newPublication({
+        Name: res.name,
+        Version: res.version,
+        ...mapDocLocator(res),
+      });
     }
 
 
     for (const res of resources.Template) {
-      app.withTemplate(res.name, res.version, {
+      package.data.HAS_NAME.newTemplate({
+        Name: res.name,
+        Version: res.version,
         Handlebars: res.html,
         Style: {
           SCSS: res.scss,
@@ -165,22 +177,24 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
 
     for (const res of resources.RouteTable) {
-      if (res.name !== 'RootRoutes') continue;
-
-      const router = app.withAppRouter('Router', res.version, {
+      const router = package.data.HAS_NAME.newAppRouter({
+        Name: 'RootRoutes',
+        Version: res.version,
         IconUrl: manifest.meta.iconUrl,
         RouteTable: [],
       });
 
       if (res.layout) {
-        const layout = app.getTemplate(res.layout);
-        router.setDefaultLayout(layout);
+        console.log(package);
+        router.DefaultLayout = package.data.HAS_NAME.findTemplate({
+          Name: res.layout,
+        });
       }
 
       for (const route of res.entries) {
         switch (route.type) {
           case 'customAction':
-            router.data.RouteTable.push(router.withRoute(route.path, 1, {
+            router.data.RouteTable.pushNew({
               Path: route.path,
               Action: {
                 Script: {
@@ -189,17 +203,17 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
                   Refs: getScriptRefs(route.customAction.coffee),
                 },
               },
-            }));
+            });
             break;
           case 'template':
-            router.data.RouteTable.push(router.withRoute(route.path, 1, {
+            router.data.RouteTable.pushNew({
               Path: route.path,
               Action: {
                 Render: {
                   Template: app.getTemplate(route.template),
                 },
               },
-            }));
+            });
             break;
           default:
             throw new Error('unknown route type '+route.type);
@@ -207,8 +221,8 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       }
     }
 
-    //console.log('Inflated manifest', manifest, 'with builder', builder);
-    return builder;
+    console.log('Inflated manifest', manifest, 'with builder', package);
+    return package;
   },
 
   deflate(graph) {

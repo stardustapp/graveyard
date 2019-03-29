@@ -71,9 +71,7 @@ new GraphEngineBuilder('nodejs-server/v1-beta1', (build, ref) => {
       { exactly: 1, subject: 'Graph', predicate: 'BUILT' },
     ],
     fields: {
-      Name: { type: String },
       Type: { type: String },
-      Version: { type: Number },
       Fields: { type: JSON },
     },
   });

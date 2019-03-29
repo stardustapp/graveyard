@@ -39,8 +39,8 @@ const extraImports = [
   'src/model/record-filter.js',
 
   'src/model/runtime.js',
-  'src/model/impl/nodejs-server/model.js',
-  'src/model/impl/nodejs-server/lifecycle.js',
+  'src/model/impl/level-store/model.js',
+  'src/model/impl/level-store/lifecycle.js',
 
   'src/model/impl/dust-app/model.js',
   'src/model/impl/dust-app/ddp-api.js',

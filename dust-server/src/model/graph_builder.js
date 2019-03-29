@@ -1,9 +1,25 @@
 class GraphBuilder {
-  constructor(engine) {
+  constructor(engine, topData) {
+
+    const world = {
+      graphs: new Set,
+      objects: new Map,
+    };
+    const graph = new Graph(world, topData, engine);
+    world.graphs.add(graph);
+
+    const topRelation = Array
+      .from(engine.edges)
+      .find(x => x.type === 'Top');
+
+    const type = topRelation.topType;
+    const proxyHandler = new NodeProxyHandler(type);
+    const rootNode = proxyHandler.wrap(null, 'top', type.name, topData);
+    this.rootNode = graph.populateObject(rootNode, topRelation.topType);
+
     this.engine = engine;
     this.ghosts = new Set;
-    this.rootNode = null;
-
+/*
     for (const [name, part] of engine.names.entries()) {
       Object.defineProperty(this, `new${name}`, {
         value: function(objName, objVersion, opts) {
@@ -15,6 +31,7 @@ class GraphBuilder {
         },
       });
     }
+    */
   }
 
   create(worker) {

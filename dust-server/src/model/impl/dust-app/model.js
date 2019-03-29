@@ -18,11 +18,19 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     },
   });
 
+  // These fields are for DUST bookkeeping
+  // Every 'resource' from PoC has them
+  const resourceFields = {
+    Name: String,
+    Version: Number,
+  };
+
   build.node('AppRouter', {
     relations: [
       { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
+      ...resourceFields,
       IconUrl: { type: String, optional: true },
       DefaultLayout: { reference: 'Template', optional: true },
       RouteTable: { reference: 'Route', isList: true },
@@ -38,7 +46,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       Action: {
         anyOfKeyed: {
           Script: { fields: {
-            Coffee: String,
+            Source: { anyOfKeyed: {
+              Coffee: String,
+            }},
             JS: String,
             Refs: { reference: true, isList: true },
           }},
@@ -57,6 +67,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
+      ...resourceFields,
       Handlebars: String,
       Style: { fields: {
         CSS: String,
@@ -70,7 +81,9 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
           Event: { type: String },
           Hook: { type: String },
         }},
-        Coffee: String,
+        Source: { anyOfKeyed: {
+          Coffee: String,
+        }},
         JS: String,
         Refs: { reference: true, isList: true },
       }},
@@ -98,6 +111,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
+      ...resourceFields,
       Base: { anyOfKeyed: {
         BuiltIn: { type: String, choices: [ 'Record', 'Class' ]},
         SchemaRef: { reference: 'RecordSchema' },
@@ -149,8 +163,10 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
-      PackageKey: { type: String, optional: false },
-      ChildRoot: { reference: 'Package', optional: false },
+      ...resourceFields,
+      // TODO: support npm, apt, docker deps
+      PackageKey: { type: String },
+      ChildRoot: { reference: 'Package' },
     },
   });
 
@@ -173,7 +189,10 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     relations: [
       { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
-    fields: DocLocator,
+    fields: {
+      ...resourceFields,
+      ...DocLocator,
+    },
     behavior: class DustAppPublication extends GraphObject {
       getRecordFilter(rootPublication=this) {
         // empty specs mean every type
@@ -235,7 +254,10 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       { exactly: 1, subject: 'Package', predicate: 'HAS_NAME' },
     ],
     fields: {
-      Coffee: String,
+      ...resourceFields,
+      Source: { anyOfKeyed: {
+        Coffee: String,
+      }},
       JS: String,
       Refs: { reference: true, isList: true },
     },
