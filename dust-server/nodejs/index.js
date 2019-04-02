@@ -20,7 +20,9 @@ const importRules = {
   'src/lib/path-fragment.js': true,
   'src/daemon/background.js': true,
   'src/daemon/database.js': true,
+
   'src/model/runtime.js': true,
+  'src/model/node-proxy.js': true,
 };
 
 // Include things like the graph engine from the service worker
@@ -38,9 +40,17 @@ const extraImports = [
   'src/model/store.js',
   'src/model/record-filter.js',
 
+  'src/model/raw-stores/level.js',
+  'src/model/raw-stores/volatile.js',
+  'src/model/node-proxy.js',
   'src/model/runtime.js',
-  'src/model/impl/level-store/model.js',
-  'src/model/impl/level-store/lifecycle.js',
+
+  'src/model/impl/graph-daemon/model.js',
+  'src/model/impl/graph-daemon/lifecycle.js',
+
+  'src/model/impl/graph-store/model.js',
+  'src/model/impl/graph-store/lifecycle.js',
+  'src/model/impl/graph-store/world.js',
 
   'src/model/impl/dust-app/model.js',
   'src/model/impl/dust-app/ddp-api.js',

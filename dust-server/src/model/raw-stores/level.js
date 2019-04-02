@@ -1,10 +1,39 @@
-class GraphTxn {
-  constructor(graphStore, txn) {
-    throw new Error('TODO: GraphTxn construction');
+class RawLevelStore extends GraphStore {
+  constructor(engine, database) {
+    super(engine);
+    this.database = database;
   }
+
+  // create a new dbCtx for a transaction
+  createDataContext(mode) {
+    const dbCtx = new LevelDataContext(this, mode);
+    dbCtx.actionProcessors.push(this.processDbActions.bind(this));
+    return dbCtx;
+  }
+
+  static async open(engine, dataPath) {
+    const serverDb = await ServerDatabase.open(dataPath);
+    console.debug('Opened system database');
+
+    const storeImpl = new RawLevelStore(engine, serverDb);
+    const {lifecycle} = GraphEngine.get('graph-store/v1-beta1').extensions;
+    return lifecycle.createFrom(storeImpl);
+  }
+
+  /*
+  async close() {
+    this.transact('readonly', async txn => {
+      clearInterval(this.warnInterval);
+      console.warn('Closing IDB');
+      const shutdown = this.idb.close();
+      this.idb = null;
+      await shutdown;
+    });
+  }
+  */
 }
 
-class DataContext {
+class LevelDataContext {
   constructor(graphStore, mode, cb) {
     this.graphStore = graphStore;
     this.database = graphStore.database;
@@ -16,11 +45,11 @@ class DataContext {
     this.objProxies = new Map;
   }
   abort() {
-    console.log('TODO: abort DataContext');
+    console.log('TODO: abort LevelDataContext');
   }
   async runCb(cb) {
     try {
-      console.group('DataContext start:', this.mode);
+      console.group('LevelDataContext start:', this.mode);
       const result = await cb(this);
       const batches = this.generateBatch();
       if (batches.length > 0) {
@@ -36,7 +65,7 @@ class DataContext {
       }
       return result;
     } catch (err) {
-      console.warn('DataContext failed:', err.message);
+      console.warn('LevelDataContext failed:', err.message);
       throw err;
     } finally {
       console.groupEnd();
@@ -73,7 +102,7 @@ class DataContext {
   }
 
   getNode(handle) {
-    if (handle.constructor !== GraphObject) throw new Error(
+    if (!GraphObject.prototype.isPrototypeOf(handle)) throw new Error(
       `TODO: getNode() for non-GraphObject nodes`);
     if (!handle.data.nodeId) throw new Error(
       `TODO: getNode() for GraphObject without an nodeId`);
@@ -322,7 +351,7 @@ class DataContext {
     if (query.object && query.object.constructor === GraphObject)
       throw new Error(`GraphObject as object`);
 
-    return new GraphEdgeQuery(this, query);
+    return new LevelEdgeQuery(this, query);
     /*
     const edges = await this.database.rawGraph.get(query);
     const promises = edges.map(async raw => ({
@@ -335,7 +364,7 @@ class DataContext {
   }
 }
 
-class GraphEdgeQuery {
+class LevelEdgeQuery {
   constructor(dbCtx, query, stages=[]) {
     this.dbCtx = dbCtx;
     this.query = query;
@@ -377,214 +406,10 @@ class GraphEdgeQuery {
   }
 }
 
-/*
-class NodeProxy {
-  constructor(ctx, objId, realData) {
-    let realDoc = null;
-    let rootDoc = null;
-
-    console.log('MAKING PROXY', objId, realData);
-
-    realDoc = realData;
-    rootDoc = new DocProxy(this, realData);
-
-    Object.defineProperty(this, 'objectId', {
-      enumerable: true,
-      value: objId,
-    });
-
-    Object.defineProperty(this, 'doc', {
-      enumerable: true,
-      get() { return rootDoc; },
-      set(newDoc) {
-        if (!isReady) throw new Error(
-          `Can't set new doc, object isn't ready`);
-        if (rootDoc) throw new Error(
-          `Can't set new doc, there already is one`);
-        rootDoc = DocProxy.fromEmpty(this, newDoc);
-      },
-    });
-
-    Object.defineProperty(this, 'unsavedBatch', {
-      enumerable: false,
-      get() {
-        if (!isReady) throw new Error(
-          `Can't generate unsavedBatch when not ready yet`);
-        const batch = new Array;
-
-        if (!realDoc && rootDoc) {
-          // CREATION
-          batch.push({type:'put', key:`!docs!${objId}`, value:rootDoc.asJsonable});
-        }
-
-        return batch;
-      },
-    });
-  }
-}
-
-class DocProxy {
-  constructor(dataObj, prevData) {
-  }
-
-  // Constructs a proxy of the given data,
-  // where every field is considered dirty
-  static fromEmpty(dataObj, newData) {
-    const dataKeys = Object.keys(newData);
-    const emptyObj = {};
-    for (const key of dataKeys) {
-      emptyObj[key] = null;
-    }
-
-    const rootDoc = new DocProxy(dataObj, emptyObj);
-    for (const key of dataKeys) {
-      rootDoc[key] = newData[key];
-    }
-
-    return rootDoc;
-  }
-}
-*/
-
-
-/*
-class GraphTxn {
-  constructor(graphStore) {
-    this.graphStore = graphStore;
-
-    this.currentDate = new Date;
-    this.actions = new Map;
-  }
-
-  _addAction(graphId, ...actions) {
-    if (!this.actions) {
-      console.warn('Prior finish call:', this.finishStack)
-      throw new Error(`DESYNC: GraphTxn use-after-completion`);
-    }
-    if (!this.actions.has(graphId)) {
-      this.actions.set(graphId, new Array);
-    }
-
-    const entries = this.actions.get(graphId);
-    actions.forEach(x => entries.push(x));
-  }
-
-  _onComplete() {
-    if (this.actions) {
-      console.warn(`DESYNC: GraphTxn didn't have a chance to commit its actions`, this.actions);
-      throw new Error(`DESYNC: No GraphTxn Completion`);
-    }
-  }
-
-  _onError(err) {
-    // error is null if aborted
-    if (err) console.error(
-      `GraphTxn failed:`, err.constructor, err.code, err.name);
-  }
-
-  abort() {
-    console.warn('TODO: implement GraphTxn#abort');
-  }
-
-
-  async purgeGraph(graphId) {
-    const ops = [
-      this.txn.objectStore('graphs').delete(graphId),
-      this.txn.objectStore('events').delete(IDBKeyRange.bound([graphId, new Date(0)], [graphId, new Date(1e13)])),
-    ];
-
-    const objStore = this.txn.objectStore('objects');
-    const recStore = this.txn.objectStore('records');
-
-    const objIds = await objStore
-      .index('by graph').getAllKeys(graphId);
-    if (!objIds.length) return;
-    console.warn('Objects to delete:', objIds);
-
-    const brokenObjIds = new Set;
-    for (const objectId of objIds) {
-      const depObjIds = await objStore.index('referenced').getAllKeys(objectId);
-      depObjIds
-        .filter(x => !objIds.includes(x))
-        .filter(x => !brokenObjIds.has(x))
-        .forEach(depId => {
-          console.warn('Breaking object reference from', depId, 'to', objId);
-          brokenObjIds.add(depId);
-        });
-
-      ops.push(
-        objStore.delete(objectId),
-        recStore.delete(IDBKeyRange.bound([objectId, '#'], [objectId, '~'])),
-      );
-    }
-    console.log('Deleted', objIds.length, 'objects, breaking', brokenObjIds.size, 'other objects')
-
-    await Promise.all(ops);
-    this._addAction(graphId, {
-      type: 'delete graph',
-    });
-  }
-
-  async purgeEverything() {
-    await this.txn.objectStore('graphs').clear();
-    await this.txn.objectStore('objects').clear();
-    await this.txn.objectStore('records').clear();
-    await this.txn.objectStore('events').clear();
-
-    this._addAction(null, {
-      type: 'delete everything',
-    });
-  }
-
-  async createGraph(options={}) {
-    const graphId = options.forceId || randomString(3);
-
-    // check for conflict
-    const existingDoc = await this.txn.objectStore('graphs').get(graphId);
-    if (existingDoc) throw new Error(
-      `Graph ID '${graphId}' already exists`);
-    // TODO: check for existing objects
-
-    // write out the graph itself
-    const record = {
-      graphId,
-      version: 1,
-      engine: options.engine.engineKey,
-      fields: options.fields,
-      createdAt: this.currentDate,
-      updatedAt: this.currentDate,
-    };
-    await this.txn.objectStore('graphs').add(record);
-
-    // seed the events
-    this._addAction(graphId, {
-      type: 'create graph',
-      data: record,
-    });
-
-    return graphId;
-  }
-
-  async replaceFields(objectId, version, newFields) {
-    const object = this.txn.objectStore('objects').get(objectId);
-    const {graphId} = object.data;
-
-    if (object.data.version !== version) throw new Error(
-      `CONFLICT: You committed from version ${field.version}, but version ${object.data.version} is latest`);
-    version += 1;
-
-    this._addAction(graphId, {
-      type: 'replace object fields',
-      graphId, objectId, version,
-      fields: newFields,
-    });
-  }
-}
-*/
-
 if (typeof module !== 'undefined') {
   module.exports = {
-    DataContext,
-    GraphTxn,
+    RawLevelStore,
+    LevelDataContext,
+    LevelEdgeQuery,
   };
 }

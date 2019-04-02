@@ -12,14 +12,26 @@ async function execForLine(cmd) {
   return stdout.trim();
 }
 
-const extensions = GraphEngine.extend('nodejs-server/v1-beta1');
+const extensions = GraphEngine.extend('graph-daemon/v1-beta1');
 extensions.lifecycle = {
+
+  fromProcessArgs(argv) {
+    return this.createServer({
+      DataPath: argv.dataPath,
+      Command: argv.command,
+      PackageKey: argv.package,
+      MethodName: argv.method,
+      HttpPort: argv.port,
+      HttpHost: argv.host,
+    });
+  },
 
   async createServer(config) {
     //console.log('creating server with config', config);
 
-    const serverEngine = GraphEngine.get('nodejs-server/v1-beta1');
-    const instance = serverEngine.spawnTop({
+    const daemonEngine = GraphEngine.get('graph-daemon/v1-beta1');
+
+    const instance = daemonEngine.spawnTop({
       CreatedAt: new Date,
       GitHash: await execForLine(`git describe --always --long --dirty`),
       Config: config,
@@ -35,13 +47,11 @@ extensions.lifecycle = {
       },
     });
 
-    const serverDb = await ServerDatabase.open(instance.Config.DataPath);
-    console.debug('Opened system database!!!!');
+    //const storeImpl = new RawVolatileStore(engine, serverDb);
 
-    const graphStore = new GraphStore(serverEngine, serverDb);
-    await graphStore.ready;
-    const runtime = new GraphRuntime(graphStore, instance);
-    await runtime.ready;
+    const graphStore = await RawLevelStore.open(daemonEngine, instance.Config.DataPath);
+    //const runtime = new GraphRuntime(graphStore, instance);
+    //await runtime.ready;
     console.debug('Loaded system!!!!');
 
 
@@ -56,14 +66,14 @@ extensions.lifecycle = {
 
     //console.log(instance.type.relations);
 
-    console.log('\r--> nodejs-server.lifecycle now setting up Dust app', instance.Config.PackageKey);
+    console.log('\r--> graph-daemon.lifecycle now setting up Dust app', instance.Config.PackageKey);
 
     // INSTALL PACKAGE
     const appKey = instance.Config.PackageKey;
     const {pocRepository, compileToHtml} = GraphEngine
       .get('dust-app/v1-beta1').extensions;
 
-    appGraph = await runtime.findGraph({
+    appGraph = await graphStore.findGraph({
       engineKey: 'dust-app/v1-beta1',
       fields: {
         foreignKey: appKey,
@@ -71,7 +81,7 @@ extensions.lifecycle = {
       },
     });
     if (!appGraph) {
-      appGraph = await pocRepository.installWithDeps(runtime, appKey);
+      appGraph = await pocRepository.installWithDeps(graphStore, appKey);
     }
     if (!appGraph) throw new Error(
       `App installation ${JSON.stringify(appKey)} not found`);

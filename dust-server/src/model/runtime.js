@@ -9,7 +9,7 @@ class GraphRuntime {
     this.objects = new Map;
 
     // read in everything
-    this.ready = graphStore.mutex.submit('start runtime', this.start.bind(this));
+    this.ready = graphStore.mutex.submit('start runtime', this.startRuntime.bind(this));
   }
 
   async start(dbCtx) {

@@ -114,8 +114,7 @@ const GraphEngineBuilder = function() {
           this.localType = nodeCtx;
           this.otherType = resolver.resolveName(this.otherName);
           if (!this.otherType) throw new Error(
-            `Arbitrary relation ${this.stringForm} didn't resolve to a type.\n${
-              JSON.stringify(this, null, 2)}`);
+            `Arbitrary relation ${this.stringForm} didn't resolve to a type.`);
           break;
       }
     }

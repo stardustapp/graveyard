@@ -8,18 +8,9 @@ Kernel = class Kernel {
   }
 
   async init(argv) {
-    const {lifecycle} = GraphEngine.get('nodejs-server/v1-beta1').extensions;
+    const {lifecycle} = GraphEngine.get('graph-daemon/v1-beta1').extensions;
 
-    self.DUST = this.server =
-    await lifecycle.createServer({
-      DataPath: argv.dataPath,
-      Command: argv.command,
-      PackageKey: argv.package,
-      MethodName: argv.method,
-      HttpPort: argv.port,
-      HttpHost: argv.host,
-    });
-
+    self.DUST = this.server = await lifecycle.fromProcessArgs(argv);
     console.debug('Created server.');
 
     return this;

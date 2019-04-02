@@ -185,7 +185,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       });
 
       if (res.layout) {
-        console.log(package);
+        //console.log(package);
         router.DefaultLayout = package.data.HAS_NAME.findTemplate({
           Name: res.layout,
         });

@@ -30,6 +30,7 @@ class GraphObject {
 
 const GraphEngines = new Map;
 const EngineExtensions = new Map;
+const EngineNameBehaviors = new Map;
 
 class GraphEngine {
   constructor(builder) {
@@ -45,6 +46,10 @@ class GraphEngine {
     if (!EngineExtensions.has(key))
       EngineExtensions.set(key, {});
     this.extensions = EngineExtensions.get(key);
+
+    if (!EngineNameBehaviors.has(key))
+      EngineNameBehaviors.set(key, new Map);
+    this.nameBehaviors = EngineNameBehaviors.get(key);
   }
 
   static get(key) {
@@ -62,12 +67,26 @@ class GraphEngine {
     return exts;
   }
 
+  static attachBehavior(key, name, behavior) {
+    let names = EngineNameBehaviors.get(key);
+    if (!EngineNameBehaviors.has(key)) {
+      names = new Map;
+      EngineNameBehaviors.set(key, names);
+    }
+
+    if (names.has(name)) throw new Error(
+      `TODO: adding another behavior for one engine/name combo`);
+
+    names.set(name, behavior);
+  }
+
   spawnObject(data, type=null) {
     const nodeType = type || this.names.get(data.Type);
+    const behavior = this.nameBehaviors.get(data.typeName) || nodeType.behavior;
     if (!nodeType) throw new Error(
       `Object ${data.objectId} ${JSON.stringify(data.Name)
       } has unimplemented type ${JSON.stringify(data.Type)}`);
-    return new nodeType.behavior(nodeType, data);
+    return new behavior(nodeType, data);
   }
 
   spawnTop(data) {
