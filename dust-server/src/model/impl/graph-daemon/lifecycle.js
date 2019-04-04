@@ -29,9 +29,8 @@ extensions.lifecycle = {
   async createServer(config) {
     //console.log('creating server with config', config);
 
-    const daemonEngine = GraphEngine.get('graph-daemon/v1-beta1');
-
-    const instance = daemonEngine.spawnTop({
+    const engine = GraphEngine.get('graph-daemon/v1-beta1');
+    const daemonStore = RawVolatileStore.open(engine, {
       CreatedAt: new Date,
       GitHash: await execForLine(`git describe --always --long --dirty`),
       Config: config,
@@ -47,11 +46,11 @@ extensions.lifecycle = {
       },
     });
 
-    //const storeImpl = new RawVolatileStore(engine, serverDb);
+    const instance = await daemonStore.transact('readonly',
+      dbCtx => dbCtx.getNodeById('top'));
 
-    const graphStore = await RawLevelStore.open(daemonEngine, instance.Config.DataPath);
-    //const runtime = new GraphRuntime(graphStore, instance);
-    //await runtime.ready;
+    const graphWorld = await RawLevelStore.openGraphWorld(instance.Config.DataPath);
+
     console.debug('Loaded system!!!!');
 
 
@@ -73,7 +72,7 @@ extensions.lifecycle = {
     const {pocRepository, compileToHtml} = GraphEngine
       .get('dust-app/v1-beta1').extensions;
 
-    appGraph = await graphStore.findGraph({
+    appGraph = await graphWorld.findGraph({
       engineKey: 'dust-app/v1-beta1',
       fields: {
         foreignKey: appKey,
@@ -81,19 +80,19 @@ extensions.lifecycle = {
       },
     });
     if (!appGraph) {
-      appGraph = await pocRepository.installWithDeps(graphStore, appKey);
+      appGraph = await pocRepository.installWithDeps(graphWorld, appKey);
     }
     if (!appGraph) throw new Error(
       `App installation ${JSON.stringify(appKey)} not found`);
 
-    //await LaunchRepl({serverDb, graphStore, instance, appKey, pocRepository, appGraph});
+    //await LaunchRepl({serverDb, graphWorld, instance, appKey, pocRepository, appGraph});
       /*
     const appInst = Array.from(appGraph.roots)[0];
 */
     return {
       instance,
       webServer,
-      //graphStore,
+      //graphWorld,
       runtime,
     };
   },

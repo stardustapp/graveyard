@@ -37,9 +37,9 @@ const extraImports = [
   'src/model/graph.js',
   'src/model/graph_builder.js',
   'src/model/transaction.js',
-  'src/model/store.js',
   'src/model/record-filter.js',
 
+  'src/model/raw-stores/_base.js',
   'src/model/raw-stores/level.js',
   'src/model/raw-stores/volatile.js',
   'src/model/node-proxy.js',

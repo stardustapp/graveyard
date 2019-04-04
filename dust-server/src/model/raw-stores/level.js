@@ -1,4 +1,4 @@
-class RawLevelStore extends GraphStore {
+class RawLevelStore extends BaseRawStore {
   constructor(engine, database) {
     super(engine);
     this.database = database;
@@ -13,11 +13,8 @@ class RawLevelStore extends GraphStore {
 
   static async open(engine, dataPath) {
     const serverDb = await ServerDatabase.open(dataPath);
-    console.debug('Opened system database');
-
-    const storeImpl = new RawLevelStore(engine, serverDb);
-    const {lifecycle} = GraphEngine.get('graph-store/v1-beta1').extensions;
-    return lifecycle.createFrom(storeImpl);
+    console.debug('Opened database at', dataPath);
+    return new RawLevelStore(engine, serverDb);
   }
 
   /*
@@ -33,42 +30,23 @@ class RawLevelStore extends GraphStore {
   */
 }
 
-class LevelDataContext {
-  constructor(graphStore, mode, cb) {
-    this.graphStore = graphStore;
-    this.database = graphStore.database;
-    this.mode = mode;
-
-    this.actions = new Array;
-    this.actionProcessors = new Array;
-
-    this.objProxies = new Map;
-  }
+class LevelDataContext extends BaseRawContext {
   abort() {
     console.log('TODO: abort LevelDataContext');
   }
-  async runCb(cb) {
-    try {
-      console.group('LevelDataContext start:', this.mode);
-      const result = await cb(this);
-      const batches = this.generateBatch();
-      if (batches.length > 0) {
-        console.debug('Processing transaction actions...');
 
-        for (const processor of this.actionProcessors) {
-          await processor(this, this.actions);
-        }
+  async flushActions() {
+    const batches = this.generateBatch();
+    if (batches.length > 0) {
+      console.debug('Processing transaction actions...');
 
-        await this.database.rawLevel.batch(batches);
-        console.log('\r  --> Applied', batches.length, 'database ops',
-          'from', this.actions.length, 'graph ops.');
+      for (const processor of this.actionProcessors) {
+        await processor(this, this.actions);
       }
-      return result;
-    } catch (err) {
-      console.warn('LevelDataContext failed:', err.message);
-      throw err;
-    } finally {
-      console.groupEnd();
+
+      await this.database.rawLevel.batch(batches);
+      console.log('\r  --> Applied', batches.length, 'database ops',
+        'from', this.actions.length, 'graph ops.');
     }
   }
 
@@ -101,43 +79,21 @@ class LevelDataContext {
     return batch;
   }
 
-  getNode(handle) {
-    if (!GraphObject.prototype.isPrototypeOf(handle)) throw new Error(
-      `TODO: getNode() for non-GraphObject nodes`);
-    if (!handle.data.nodeId) throw new Error(
-      `TODO: getNode() for GraphObject without an nodeId`);
-    return this.getNodeById(handle.data.nodeId);
-  }
-
-  // TODO: refactor as caching loader
-  async getNodeById(nodeId) {
-    if (this.objProxies.has(nodeId))
-      return this.objProxies.get(nodeId);
-
-    const docJson = await this.database.rawLevel.get('doc::'+nodeId);
-    const {type, fields} = JSON.parse(docJson);
-    const proxyHandler = this.graphStore.typeProxies.get(type);
-    if (!proxyHandler) throw new Error(
-      `Didn't find a proxy handler for type ${type}`);
-
-    const obj = proxyHandler.wrap(this, nodeId, type, fields);
-    this.objProxies.set(nodeId, obj);
-    return obj;
-  }
-
-  async storeNode(node) {
-    // TODO: something else does this too
-    if (node.constructor === GraphObject) {
-      const json = JSON.stringify({
-        type: node.type.name,
-        fields: node.data,
-      });
-      //console.log('wrote json', json);
-      await this.database.rawLevel.put('doc::'+node.data.nodeId, json);
-      return this.getNodeById(node.data.nodeId);
-    } else {
-      throw new Error(`Don't know how to store that node`);
+  async loadNodeById(nodeId) {
+    const myErr = new Error();
+    try {
+      const docJson = await this.database.rawLevel.get('doc::'+nodeId);
+      return JSON.parse(docJson); // {type, fields}
+    } catch (err) {
+      myErr.message = `Encountered ${err.type} loading node '${nodeId}' from RawLevelStore`;
+      myErr.status = err.status;
+      throw myErr;
     }
+  }
+
+  async writeNode(nodeId, data) {
+    const json = JSON.stringify(data);
+    await this.database.rawLevel.put('doc::'+nodeId, json);
   }
 
   async newNode(type, fields) {

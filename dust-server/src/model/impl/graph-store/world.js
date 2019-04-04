@@ -2,19 +2,17 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', class GraphStoreWorl
   // constructor: nodeType, data
 
   async findGraph({engine, engineKey, fields}) {
+    const targetEngine = engine ? engine.engineKey : engineKey;
     const graphNode = await this.storeImpl.transact('readonly', async dbCtx => {
       const world = await dbCtx.getNode(this);
 
       const allGraphs = await world.OPERATES.fetchGraphList();
-      console.log('all graphs:', allGraphs)
+      console.log('all graphs:', allGraphs);
+      return allGraphs
+        .filter(x => x.data.EngineKey === targetEngine)
+        .find(x => Object.keys(fields)
+          .every(key => x.data.Metadata[key] == fields[key]));
     });
-
-    const targetEngine = engine ? engine.engineKey : engineKey;
-    return Array
-      .from(this.graphs.values())
-      .filter(x => x.data.EngineKey === targetEngine)
-      .find(x => Object.keys(fields)
-        .every(key => x.data.Metadata[key] == fields[key]));
   }
 
   async findOrCreateGraph(engine, {selector, fields, buildCb}) {
