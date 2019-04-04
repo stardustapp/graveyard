@@ -116,7 +116,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocRepository = {
 
         // fill out a graphBuilder for the app
         const {pocCodec} = GraphEngine.get('dust-app/v1-beta1').extensions;
-        return pocCodec.inflate(manifest, dependencies);
+        return await pocCodec.inflate(manifest, dependencies);
       },
     });
 

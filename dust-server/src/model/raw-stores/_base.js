@@ -30,6 +30,24 @@ class BaseRawStore {
     return dbCtx.runCb(cb);
   }
 
+  // write a new top in forcibly
+  async replaceTop(topData) {
+    const topRelation = Array
+      .from(this.engine.edges)
+      .find(x => x.type === 'Top');
+
+    const type = topRelation.topType;
+    const proxyHandler = new NodeProxyHandler(type);
+    const topObj = await this.transact('write top', async dbCtx => {
+      const rootNode = proxyHandler.wrap(dbCtx, 'top', type.name, topData);
+      const rootObj = this.engine.spawnObject(rootNode, type);
+      await dbCtx.storeNode(rootObj);
+      return rootObj;
+    });
+    topObj.storeImpl = this; // TODO: better way?
+    return topObj;
+  }
+
   async processDbActions(dbCtx, actions) {
     const nodeMap = new Map;
     const nodeLists = new Proxy(nodeMap, {
@@ -147,11 +165,100 @@ class BaseRawContext {
     }
   }
 
+  async newNode(type, fields) {
+    //console.log('hi!!!!!', type, fields);
+    const proxyHandler = this.graphStore.typeProxies.get(type.name);
+    if (!proxyHandler) throw new Error(
+      `Didn't find a proxy handler for type ${type.name}`);
+
+    const nodeId = randomString(3); // TODO: check for uniqueness
+    const obj = proxyHandler.wrap(this, nodeId, type.name, fields, true);
+    this.objProxies.set(nodeId, obj);
+    return obj;
+  }
+
+  async newEdge({subject, predicate, object}, origRelation) {
+    if (!subject || !subject.nodeId) throw new Error(
+      `newEdge() requires a valid, ID'd subject`);
+    if (!object || !object.nodeId) throw new Error(
+      `newEdge() requires a valid, ID'd object`);
+
+    const record = {
+      subject: `${subject.typeName}#${subject.nodeId}`,
+      predicate,
+      object: `${object.typeName}#${object.nodeId}`,
+    };
+    this.actions.push({
+      kind: 'put edge',
+      record,
+    });
+
+    // TODO: support uniqueBy by adding name to index
+    // TODO: support count constraints
+    // TODO: look up the opposite relation for constraints
+  }
+
+  queryGraph(query) {
+    if (query.subject && query.subject.constructor === NodeProxyHandler)
+      query.subject = `${query.subject.typeName}#${query.subject.nodeId}`;
+    if (query.object && query.object.constructor === NodeProxyHandler)
+      query.object = `${query.object.typeName}#${query.object.nodeId}`;
+
+    if (query.subject && query.subject.constructor === GraphObject)
+      throw new Error(`GraphObject as subject`);
+    if (query.object && query.object.constructor === GraphObject)
+      throw new Error(`GraphObject as object`);
+
+    return this.createGraphQuery(query);
+  }
 }
+
+class BaseEdgeQuery {
+  constructor(dbCtx, query, stages=[]) {
+    this.dbCtx = dbCtx;
+    this.query = query;
+    this.stages = stages;
+    console.log('building graph query for', query);
+  }
+
+  async fetchAll() {
+    const edges = await this.fetchEdges();
+    const promises = edges.map(async raw => ({
+      subject: await this.dbCtx.getNodeById(raw.subject.split('#')[1]),
+      predicate: raw.predicate,
+      object: await this.dbCtx.getNodeById(raw.object.split('#')[1]),
+    }));
+    return await Promise.all(promises);
+  }
+  async fetchSubjects() {
+    const edges = await this.fetchEdges();
+    return await Promise.all(edges
+      .map(raw => raw.subject.split('#')[1])
+      .map(raw => this.dbCtx.getNodeById(raw)));
+    }
+  async fetchObjects() {
+    const edges = await this.fetchEdges();
+    return await Promise.all(edges
+      .map(raw => raw.object.split('#')[1])
+      .map(raw => this.dbCtx.getNodeById(raw)));
+    }
+
+  async findOne(filter) {
+    const edges = await this.fetchAll();
+    for (const edge of edges) {
+      for (const key in filter) {
+        console.warn('FILTER', edge.subject[key], filter[key]);
+      }
+    }
+    console.log('DONE FILTER');
+  }
+}
+
 
 if (typeof module !== 'undefined') {
   module.exports = {
     BaseRawStore,
     BaseRawContext,
+    BaseEdgeQuery,
   };
 }

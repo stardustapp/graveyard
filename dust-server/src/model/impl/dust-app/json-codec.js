@@ -19,7 +19,7 @@ function getScriptRefs(coffee) {
 
 GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
-  inflate(manifest, dependencies) {
+  async inflate(manifest, dependencies) {
     if (manifest._platform !== 'stardust') throw new Error(
       'invalid stardust manifest');
     if (manifest._version !== 3) throw new Error(
@@ -32,7 +32,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       PackageType: manifest.meta.type,
       License: manifest.meta.license,
     });
-    const package = builder.rootNode;
+    const package = await builder.getRoot();
 
     // sort manifest resources for specialized logic
     const resources = {
@@ -78,7 +78,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
           `Package ${manifest.packageId} Dependency couldn't find package ${JSON.stringify(res.childPackage)}`);
       }
 
-      package.data.HAS_NAME.newDependency({
+      package.HAS_NAME.newDependency({
         Name: res.name,
         Version: res.version,
         PackageKey: res.childPackage,
@@ -108,7 +108,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
         fields.slug = {Type: resolveRecordSchema('core:string'), Mutable: true }
       }
 
-      package.data.HAS_NAME.newRecordSchema({
+      await package.HAS_NAME.newRecordSchema({
         Name: res.name,
         Version: res.version,
         Base: resolveRecordSchema(res.base),
@@ -120,7 +120,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
 
     for (const res of resources.ServerMethod) {
-      package.data.HAS_NAME.newServerMethod({
+      await package.HAS_NAME.newServerMethod({
         Name: res.name,
         Version: res.version,
         ...inflateScript(res.coffee, res.js),
@@ -139,7 +139,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       };
     }
     for (const res of resources.Publication) {
-      package.data.HAS_NAME.newPublication({
+      await package.HAS_NAME.newPublication({
         Name: res.name,
         Version: res.version,
         ...mapDocLocator(res),
@@ -148,7 +148,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
 
     for (const res of resources.Template) {
-      package.data.HAS_NAME.newTemplate({
+      await package.HAS_NAME.newTemplate({
         Name: res.name,
         Version: res.version,
         Handlebars: res.html,
@@ -177,7 +177,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
 
     for (const res of resources.RouteTable) {
-      const router = package.data.HAS_NAME.newAppRouter({
+      const router = await package.HAS_NAME.newAppRouter({
         Name: 'RootRoutes',
         Version: res.version,
         IconUrl: manifest.meta.iconUrl,
@@ -186,7 +186,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
       if (res.layout) {
         //console.log(package);
-        router.DefaultLayout = package.data.HAS_NAME.findTemplate({
+        router.DefaultLayout = await package.HAS_NAME.findTemplate({
           Name: res.layout,
         });
       }

@@ -1,24 +1,11 @@
 class GraphBuilder {
   constructor(engine, topData) {
-
-    const world = {
-      graphs: new Set,
-      objects: new Map,
-    };
-    const graph = new Graph(world, topData, engine);
-    world.graphs.add(graph);
-
-    const topRelation = Array
-      .from(engine.edges)
-      .find(x => x.type === 'Top');
-
-    const type = topRelation.topType;
-    const proxyHandler = new NodeProxyHandler(type);
-    const rootNode = proxyHandler.wrap(null, 'top', type.name, topData);
-    this.rootNode = graph.populateObject(rootNode, topRelation.topType);
+    this.store = RawVolatileStore.open(engine, topData);
 
     this.engine = engine;
     this.ghosts = new Set;
+
+    //this.rootNode = this.store.rootNode;
 /*
     for (const [name, part] of engine.names.entries()) {
       Object.defineProperty(this, `new${name}`, {
@@ -32,6 +19,11 @@ class GraphBuilder {
       });
     }
     */
+  }
+
+  getRoot() {
+    return this.store.transact('readonly', dbCtx =>
+      dbCtx.getNodeById('top'));
   }
 
   create(worker) {

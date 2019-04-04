@@ -30,7 +30,9 @@ extensions.lifecycle = {
     //console.log('creating server with config', config);
 
     const engine = GraphEngine.get('graph-daemon/v1-beta1');
-    const daemonStore = RawVolatileStore.open(engine, {
+    const daemonStore = RawVolatileStore.open(engine);
+
+    const worldObj = await daemonStore.replaceTop({
       CreatedAt: new Date,
       GitHash: await execForLine(`git describe --always --long --dirty`),
       Config: config,

@@ -19,21 +19,7 @@ extensions.lifecycle = {
       console.warn('TODO: look at worldNode');
     }
 
-    const topRelation = Array
-      .from(storeImpl.engine.edges)
-      .find(x => x.type === 'Top');
-
-    // write a new top in forcibly
-    worldObj = await storeImpl.transact('write top', async dbCtx => {
-      const type = topRelation.topType;
-      const proxyHandler = new NodeProxyHandler(type);
-      const rootNode = proxyHandler.wrap(null, 'top', type.name, {});
-      const rootObj = storeImpl.engine.spawnObject(rootNode, type);
-      await dbCtx.storeNode(rootObj);
-      return rootObj;
-    });
-
-    worldObj.storeImpl = storeImpl; // TODO: better way?
+    const worldObj = await storeImpl.replaceTop({});
     return worldObj;
   },
 

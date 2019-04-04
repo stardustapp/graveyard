@@ -165,7 +165,7 @@ class RelationAccessor {
         });
         Object.defineProperty(this, `find${relation.otherName}`, {
           enumerable: true,
-          value: this.fetchOneNode.bind(this, relation),
+          value: this.findOneNode.bind(this, relation),
         });
         Object.defineProperty(this, `fetch${relation.otherName}List`, {
           enumerable: true,
@@ -204,14 +204,14 @@ class RelationAccessor {
     return other;
   }
 
-  fetchOneNode(relation) {
-    console.log('find one node', this, relation, this.dbCtx.queryGraph);
+  findOneNode(relation, query) {
+    console.log('find one node', this.localNode, relation);
     return this.dbCtx
       .queryGraph({
         subject: this.localNode,
         predicate: relation.predicate,
       })
-      .fetchFirstObject();
+      .findOne(query);
   }
 
   async fetchNodeList(relation) {

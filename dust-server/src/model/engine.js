@@ -88,27 +88,7 @@ class GraphEngine {
       } has unimplemented type ${JSON.stringify(data.Type)}`);
     return new behavior(nodeType, data);
   }
-
-  spawnTop(data) {
-    const world = {
-      graphs: new Set,
-      objects: new Map,
-    };
-
-    const graph = new Graph(world, data, this);
-    world.graphs.add(graph);
-
-    const topRelation = Array
-      .from(this.edges)
-      .find(x => x.type === 'Top');
-
-    const type = topRelation.topType;
-    const proxyHandler = new NodeProxyHandler(type);
-    const rootNode = proxyHandler.wrap(null, 'top', type.name, data);
-
-    return graph.populateObject(rootNode, topRelation.topType);
-  }
-
+  
   [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
     if (depth < 0) {
       return [

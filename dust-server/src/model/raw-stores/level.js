@@ -96,39 +96,6 @@ class LevelDataContext extends BaseRawContext {
     await this.database.rawLevel.put('doc::'+nodeId, json);
   }
 
-  async newNode(type, fields) {
-    //console.log('hi!!!!!', type, fields);
-    const proxyHandler = this.graphStore.typeProxies.get(type.name);
-    if (!proxyHandler) throw new Error(
-      `Didn't find a proxy handler for type ${type.name}`);
-
-    const nodeId = randomString(3); // TODO: check for uniqueness
-    const obj = proxyHandler.wrap(this, nodeId, type.name, fields, true);
-    this.objProxies.set(nodeId, obj);
-    return obj;
-  }
-
-  async newEdge({subject, predicate, object}, origRelation) {
-    if (!subject || !subject.nodeId) throw new Error(
-      `newEdge() requires a valid, ID'd subject`);
-    if (!object || !object.nodeId) throw new Error(
-      `newEdge() requires a valid, ID'd object`);
-
-    const record = {
-      subject: `${subject.typeName}#${subject.nodeId}`,
-      predicate,
-      object: `${object.typeName}#${object.nodeId}`,
-    };
-    this.actions.push({
-      kind: 'put edge',
-      record,
-    });
-
-    // TODO: support uniqueBy by adding name to index
-    // TODO: support count constraints
-    // TODO: look up the opposite relation for constraints
-  }
-
   // TODO: this is LEGACY
   async createObjectTree(graphNode, rootNode) {
     //console.log('CReATING', graphNode, '--WITH--', rootNode);
@@ -295,70 +262,14 @@ class LevelDataContext extends BaseRawContext {
     console.log('Stored', readyObjs.size, 'objects');
   }
 
-
-  queryGraph(query) {
-    if (query.subject && query.subject.constructor === NodeProxyHandler)
-      query.subject = `${query.subject.typeName}#${query.subject.nodeId}`;
-    if (query.object && query.object.constructor === NodeProxyHandler)
-      query.object = `${query.object.typeName}#${query.object.nodeId}`;
-
-    if (query.subject && query.subject.constructor === GraphObject)
-      throw new Error(`GraphObject as subject`);
-    if (query.object && query.object.constructor === GraphObject)
-      throw new Error(`GraphObject as object`);
-
+  createGraphQuery(query) {
     return new LevelEdgeQuery(this, query);
-    /*
-    const edges = await this.database.rawGraph.get(query);
-    const promises = edges.map(async raw => ({
-      subject: await this.getObjectById(raw.subject),
-      predicate: raw.predicate,
-      object: await this.getObjectById(raw.object),
-    }));
-    return Promise.all(promises);
-    */
   }
 }
 
-class LevelEdgeQuery {
-  constructor(dbCtx, query, stages=[]) {
-    this.dbCtx = dbCtx;
-    this.query = query;
-    this.stages = stages;
-    console.log('building graph query for', query)
-  }
-
+class LevelEdgeQuery extends BaseEdgeQuery {
   /*async*/ fetchEdges() {
     return this.dbCtx.database.rawGraph.get(this.query);
-  }
-  async fetchAll() {
-    const edges = await this.fetchEdges();
-    const promises = edges.map(async raw => ({
-      subject: await this.dbCtx.getNodeById(raw.subject.split('#')[1]),
-      predicate: raw.predicate,
-      object: await this.dbCtx.getNodeById(raw.object.split('#')[1]),
-    }));
-    return await Promise.all(promises);
-  }
-  async fetchSubjects() {
-    const edges = await this.fetchEdges();
-    return await Promise.all(edges
-      .map(raw => raw.subject.split('#')[1])
-      .map(raw => this.dbCtx.getNodeById(raw)));
-    }
-  async fetchObjects() {
-    const edges = await this.fetchEdges();
-    return await Promise.all(edges
-      .map(raw => raw.object.split('#')[1])
-      .map(raw => this.dbCtx.getNodeById(raw)));
-    }
-
-  async findOne(filter) {
-    const edges = await this.dbCtx.database.rawGraph.get(this.query);
-    for (const edge of edges) {
-      console.warn('FILTER');
-    }
-    console.log('DONE FILTER');
   }
 }
 

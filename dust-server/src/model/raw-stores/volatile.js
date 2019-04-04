@@ -15,14 +15,25 @@ class VolatileNode {
 }
 
 class RawVolatileStore extends BaseRawStore {
-  constructor(engine, topData) {
+  constructor(engine, topData=null) {
     super(engine);
 
     this.nodes = new Map;
     this.edges = new Set;
 
-    const rootNode = engine.spawnTop(topData);
-    this.nodes.set('top', VolatileNode.fromGraphObject(rootNode));
+    if (topData) {
+      const type = Array
+        .from(engine.edges)
+        .find(x => x.type === 'Top')
+        .topType;
+
+      const proxyHandler = new NodeProxyHandler(type);
+      const dbCtx = this.createDataContext('read top');
+      const rootNode = proxyHandler.wrap(dbCtx, 'top', type.name, topData);
+      const rootObj = engine.spawnObject(rootNode, type);
+      this.nodes.set('top', VolatileNode.fromGraphObject(rootObj));
+      this.rootNode = rootObj;
+    }
   }
 
   // create a new dbCtx for a transaction
@@ -30,10 +41,9 @@ class RawVolatileStore extends BaseRawStore {
     return new VolatileDataContext(this, mode);
   }
 
-  static open(...args) {
-    return new RawVolatileStore(...args);
+  static open(engine, ...args) {
+    return new RawVolatileStore(engine, ...args);
   }
-
 }
 
 class VolatileDataContext extends BaseRawContext {
@@ -53,20 +63,41 @@ class VolatileDataContext extends BaseRawContext {
 
   async flushActions() {
     // TODO
+    console.warn('ignoring', this.actions.length, 'volatile actions');
   }
 
 /*
-  async storeNode(node) {}
-  async newNode(type, fields) {}
-  async newEdge({subject, predicate, object}, origRelation) {}
   async createObjectTree(graphNode, rootNode) {}
   async createObjects(graphNode, objects) {}
-  queryGraph(query) {}
 */
+
+  createGraphQuery(query) {
+    return new VolatileEdgeQuery(this, query);
+  }
 }
+
+class VolatileEdgeQuery extends BaseEdgeQuery {
+  /*async*/ fetchEdges() {
+    const edges = new Set;
+    for (const action of this.dbCtx.actions) {
+      if (action.kind !== 'put edge') continue;
+      if (action.record.predicate !== this.query.predicate) continue;
+      if (this.query.subject && action.record.subject !== this.query.subject) continue;
+      if (this.query.object && action.record.object !== this.query.object) continue;
+      edges.add(action.record);
+    }
+    for (const edge of this.dbCtx.graphStore.edges) {
+      console.log(edge, this.query);
+    }
+    return Array.from(edges);
+  }
+}
+
 
 if (typeof module !== 'undefined') {
   module.exports = {
     RawVolatileStore,
+    VolatileDataContext,
+    VolatileEdgeQuery,
   };
 }
