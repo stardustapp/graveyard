@@ -14,10 +14,10 @@ class FieldType {
     this.name = name;
   }
   fromExt(input) {
-    throw new FieldTypeError(this, `fromExt() is not implemented`);
+    throw new FieldTypeError(this, `${this.constructor.name} fromExt() is not implemented`);
   }
   serialize(input) {
-    throw new FieldTypeError(this, `fromExt() is not implemented`);
+    throw new FieldTypeError(this, `${this.constructor.name} serialize() is not implemented`);
   }
 
   static from(input) {
@@ -130,9 +130,10 @@ class ReferenceFieldType extends FieldType {
       `Reference cannot be null`);
     if (input.constructor === GraphReference) return input;
     if (input.constructor === GraphGhostNode) return new GraphReference(input);
+    if (input.constructor === NodeProxyHandler) return new GraphReference(input);
     if (GraphObject.prototype.isPrototypeOf(input)) return new GraphReference(input);
     if (input.constructor !== GraphBuilderNode) throw new FieldTypeError(this,
-      `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode or GraphObject, was ${input.constructor.name} (TODO)`);
+      `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode or GraphObject or NodeProxyHandler, was ${input.constructor.name} (TODO)`);
     if (input.type !== this.targetPath) throw new FieldTypeError(this,
       `Reference expected to be ${this.targetPath}, was ${input.type}`);
     return new GraphReference(input);

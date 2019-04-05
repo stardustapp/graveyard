@@ -27,10 +27,10 @@ HttpServer = class HttpServer {
     this.handlers.push([regex, new RegExp(regex), handler]);
   }
 
-  startServer(argv) {
+  startServer({host, port}) {
     return new Promise((resolve, reject) => {
       this.listenReject = reject;
-      this.server.listen(argv.port, argv.host, () => {
+      this.server.listen(port, host, () => {
         const {address, port} = this.server.address();
         console.debug('HttpServer listening on http://%s:%s', address, port);
         resolve(port);

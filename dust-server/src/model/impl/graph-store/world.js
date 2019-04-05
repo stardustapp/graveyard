@@ -26,20 +26,20 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', class GraphStoreWorl
     if (existingGraph) return existingGraph;
 
     // ok we have to build the graph
-    const graphBuilder = await buildCb(engine, fields);
-    if (!graphBuilder) throw new Error(
+    const newPackage = await buildCb(engine, fields);
+    if (!newPackage) throw new Error(
       `Graph builder for ${engine.engineKey} returned nothing`);
 
     // persist the new graph
 
     const graphNode = await this.storeImpl.transact('readwrite', async dbCtx => {
-      const rootNode = await dbCtx.getNode(this.rootNode);
+      const rootNode = await dbCtx.getNodeById('top');
       const graphNode = await rootNode.OPERATES.newGraph({
         EngineKey: engine.engineKey,
         Metadata: fields,
         Origin: { BuiltIn: 'TODO' }, // TODO
       });
-      await dbCtx.createObjectTree(graphNode, graphBuilder.rootNode);
+      await dbCtx.createObjectTree(graphNode, newPackage);
       return graphNode;
     });
     const graphId = graphNode.nodeId;

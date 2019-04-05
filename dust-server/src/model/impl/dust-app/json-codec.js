@@ -185,7 +185,6 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       });
 
       if (res.layout) {
-        //console.log(package);
         router.DefaultLayout = await package.HAS_NAME.findTemplate({
           Name: res.layout,
         });
@@ -194,7 +193,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       for (const route of res.entries) {
         switch (route.type) {
           case 'customAction':
-            router.data.RouteTable.pushNew({
+            await router.RouteTable.pushNew({
               Path: route.path,
               Action: {
                 Script: {
@@ -206,11 +205,13 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
             });
             break;
           case 'template':
-            router.data.RouteTable.pushNew({
+            await router.RouteTable.pushNew({
               Path: route.path,
               Action: {
                 Render: {
-                  Template: app.getTemplate(route.template),
+                  Template: await package.HAS_NAME.findTemplate({
+                    Name: route.template,
+                  }),
                 },
               },
             });
@@ -221,7 +222,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       }
     }
 
-    console.log('Inflated manifest', manifest, 'with builder', package);
+    //console.log('Inflated manifest', manifest, 'with builder', builder);
     return package;
   },
 

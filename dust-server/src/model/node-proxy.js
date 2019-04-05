@@ -54,14 +54,24 @@ class NodeProxyHandler {
     const target = {
       nodeId,
       typeName,
-      fields,
     };
-    Object.defineProperty(target, 'dbCtx', {
-      enumerable: false,
-      value: dbCtx,
+    const proxy = new Proxy(target, this);
+
+    let struct;
+    if (fields.constructor === Object)
+      struct = new StructAccessor(dbCtx, proxy, this.type.inner, fields);
+    else if (fields.constructor === StructAccessor)
+      struct = fields;
+    else if (fields.constructor === NodeProxyHandler)
+      struct = fields.fields;
+    else throw new Error(
+      `Can't wrap weird data of type ${fields.constructor.name}`);
+
+    Object.defineProperties(target, {
+      dbCtx: { enumerable: false, value: dbCtx },
+      fields: { enumerable: false, value: struct },
     });
 
-    const proxy = new Proxy(target, this);
     if (isDirty) proxy.dirty = isDirty;
     return proxy;
   }
@@ -72,6 +82,7 @@ class NodeProxyHandler {
     if (prop === 'constructor') return NodeProxyHandler;
     if (prop === 'nodeId') return target.nodeId;
     if (prop === 'typeName') return target.typeName;
+    if (prop === 'fields') return target.fields;
 
     if (prop === inspect.custom)
       return inspectNodeProxy.bind(this, target, prop, receiver);
@@ -83,20 +94,14 @@ class NodeProxyHandler {
     if (this.predicates.has(prop))
       return new RelationAccessor(target.dbCtx, receiver, this.predicates.get(prop));
 
-    if (this.type.inner.fields.has(prop)) {
-      const fieldType = this.type.inner.fields.get(prop);
-      //if (fieldType.origin === 'core') {
-      //  return fieldType.constr(target.fields[prop]);
-      //}
+    if (prop in target.fields)
       return target.fields[prop];
-      console.log('getting', field);
-    }
 
     if (prop.constructor === Symbol) {
       console.warn('NodeProxyHandler GET with a SYMBOL:', prop);
       return null;
     } else {
-      console.log(Object.keys(target), target.fields.Name);
+      console.log(Object.keys(target.fields), target.fields.Name);
       throw new Error('TODO: GET '+prop);
     }
   }
@@ -112,8 +117,13 @@ class NodeProxyHandler {
       return true;
     }
 
-    throw new Error('TODO: SET '+prop);
+    if (prop in target.fields) {
+      target.fields[prop] = value;
+      return true;
+    }
 
+    throw new Error('TODO: SET '+prop);
+/*
     const constr = value === null ? null : value.constructor;
     switch (constr) {
       case String:
@@ -129,7 +139,7 @@ class NodeProxyHandler {
         break;
       default:
         throw new Error(`NodeProxyHandler doesn't accept values of type ${constr} yet`);
-    }
+    }*/
   }
   ownKeys(target) {
     console.log('OWNKEYS!');
@@ -138,89 +148,6 @@ class NodeProxyHandler {
       'dirty',
       'walkPredicateOut',
     ]);
-  }
-}
-
-class RelationAccessor {
-  constructor(dbCtx, localNode, relations) {
-    Object.defineProperty(this, 'dbCtx', {
-      enumerable: false,
-      value: dbCtx,
-    });
-    this.localNode = localNode;
-    this.relations = relations;
-
-    for (const relation of relations) {
-      if (relation.type === 'Arbitrary') {
-        if (relation.direction !== 'out')
-          continue;
-
-        Object.defineProperty(this, `new${relation.otherName}`, {
-          enumerable: true,
-          value: this.attachNewNode.bind(this, relation),
-        });
-        Object.defineProperty(this, `attach${relation.otherName}`, {
-          enumerable: true,
-          value: this.attachNode.bind(this, relation),
-        });
-        Object.defineProperty(this, `find${relation.otherName}`, {
-          enumerable: true,
-          value: this.findOneNode.bind(this, relation),
-        });
-        Object.defineProperty(this, `fetch${relation.otherName}List`, {
-          enumerable: true,
-          value: this.fetchNodeList.bind(this, relation),
-        });
-      } else throw new Error(
-        `TODO: RelationAccessor doesn't support ${relation.type} relations`);
-    }
-  }
-
-  async attachNode(relation, otherNode) {
-    if (relation.type !== 'Arbitrary') throw new Error(
-      `Can't attach existing nodes to non-Arbitrary relations`);
-
-    if (relation.direction === 'out') {
-      await this.dbCtx.newEdge({
-        subject: this.localNode,
-        predicate: relation.predicate,
-        object: otherNode,
-      }, relation);
-    } else {
-      await this.dbCtx.newEdge({
-        subject: otherNode,
-        predicate: relation.predicate,
-        object: this.localNode,
-      }, relation);
-    }
-  }
-
-  async attachNewNode(relation, fields) {
-    if (relation.type !== 'Arbitrary') throw new Error(
-      `Can't attach new nodes to non-Arbitrary relations`);
-
-    const other = await this.dbCtx.newNode(relation.otherType, fields);
-    await this.attachNode(relation, other);
-    return other;
-  }
-
-  findOneNode(relation, query) {
-    console.log('find one node', this.localNode, relation);
-    return this.dbCtx
-      .queryGraph({
-        subject: this.localNode,
-        predicate: relation.predicate,
-      })
-      .findOne(query);
-  }
-
-  async fetchNodeList(relation) {
-    return this.dbCtx
-      .queryGraph({
-        subject: this.localNode,
-        predicate: relation.predicate,
-      })
-      .fetchObjects();
   }
 }
 

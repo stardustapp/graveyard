@@ -48,29 +48,33 @@ extensions.lifecycle = {
       },
     });
 
-    const instance = await daemonStore.transact('readonly',
-      dbCtx => dbCtx.getNodeById('top'));
+    const {GitHash, Config} = await daemonStore
+      .transact('readonly', dbCtx => dbCtx
+        .getNodeById('top'));
 
-    const graphWorld = await RawLevelStore.openGraphWorld(instance.Config.DataPath);
+    const graphWorld = await Config.DataPath.mapOr(
+      dataPath => RawLevelStore.openGraphWorld(dataPath),
+      () => RawVolatileStore.openGraphWorld());
 
     console.debug('Loaded system!!!!');
 
 
     let webServer;
-    if (instance.Config.Command === 'serve') {
+    if (Config.Command === 'serve') {
       webServer = new HttpServer(this.TODO, hostname => new VirtualHost(hostname, null));
       //ExposeSkylinkOverHttp(this.systemEnv, webServer);
       await webServer.startServer({
-        port: instance.Config.HttpPort,
+        host: Config.HttpHost.orElse(null),
+        port: Config.HttpPort.orElse(9237),
       });
     }
 
     //console.log(instance.type.relations);
 
-    console.log('\r--> graph-daemon.lifecycle now setting up Dust app', instance.Config.PackageKey);
-
     // INSTALL PACKAGE
-    const appKey = instance.Config.PackageKey;
+    const appKey = Config.PackageKey.orThrow();
+    console.log('\r--> graph-daemon.lifecycle now setting up Dust app', appKey);
+
     const {pocRepository, compileToHtml} = GraphEngine
       .get('dust-app/v1-beta1').extensions;
 
@@ -92,7 +96,7 @@ extensions.lifecycle = {
     const appInst = Array.from(appGraph.roots)[0];
 */
     return {
-      instance,
+      //Config,
       webServer,
       //graphWorld,
       runtime,
