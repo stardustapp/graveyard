@@ -19,7 +19,12 @@ extensions.lifecycle = {
       console.warn('TODO: look at worldNode');
     }
 
-    const worldObj = await storeImpl.replaceTop({});
+    const worldObj = await storeImpl.replaceTop({
+      RootEntry: {
+        Name: 'world',
+      },
+    });
+    await worldObj.setUp();
     return worldObj;
   },
 

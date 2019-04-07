@@ -1,90 +1,193 @@
+const accessorInstances = new Map; // FieldType inst => Accessor inst
+const accessorConstructors = new Map; // FieldType constr => Accessor constr
 
-class StructAccessor {
-  constructor(dbCtx, nodeProxy, structType, rawVal) {
-    for (const [name, fieldType] of structType.fields) {
-      //console.log(name, val);
-      Object.defineProperty(this, name, {
-        enumerable: true,
-        get() {
-          //console.log('getting', name, 'as', fieldType.constructor.name);//, new Error().stack);
-          const value = rawVal[name];
+class FieldAccessor {
+  constructor(myType) {
+    this.myType = myType;
+  }
 
-          switch (fieldType.constructor) {
-            case BuiltinFieldType:
-              return value;
-              // return fieldType.constr(target.fields[prop]);
-            case OptionalFieldType:
-              return new OptionalAccessor(dbCtx, nodeProxy, fieldType, rawVal[name]);
-            case ListFieldType:
-              return new ListAccessor(dbCtx, nodeProxy, fieldType, rawVal[name]);
-            case StructFieldType:
-              return new StructAccessor(dbCtx, nodeProxy, fieldType, rawVal[name]);
-          }
-          throw new Error(`STRUCT GET ${fieldType.constructor.name} '${name}'`);
-        },
-        set(newVal)  {
-          console.log('setting', name, 'as', fieldType.constructor.name, newVal);//, new Error().stack);
-          rawVal[name] = fieldType.fromExt(newVal);
-          return true;
-        }
-      });
+  static forType(theType) {
+    if (accessorInstances.has(theType))
+      return accessorInstances.get(theType);
+    const accessor = this.constructForType(theType);
+    accessorInstances.set(theType, accessor);
+    return accessor;
+  }
+
+  static constructForType(theType) {
+    if (accessorConstructors.has(theType.constructor)) {
+      const constr = accessorConstructors.get(theType.constructor);
+      return new constr(theType);
+    } else throw new Error(
+      `FieldAccessor#constructForType() can't handle ${theType.constructor.name}`);
+  }
+
+  mapOut() {
+    throw new Error(`Reading from ${this.constructor.name} is not implemented`);
+  }
+}
+
+class PrimitiveAccessor extends FieldAccessor {
+  mapOut(rawVal, graphCtx) {
+    return new this.myType.constr(rawVal);
+  }
+  mapIn(newVal, graphCtx) {
+    return this.myType.fromExt(newVal);
+  }
+}
+
+class GraphNode {}
+
+class NodeAccessor extends FieldAccessor {
+  constructor(type) {
+    super(type);
+
+    this.structType = FieldAccessor.forType(type.inner);
+    const structConstr = this.structType.constructor;
+    if (structConstr !== StructAccessor) throw new Error(
+      `Unsupported NodeAccessor inner type ${structConstr.name}`);
+
+    this.predicates = new Map;
+    for (const rel of type.relations) {
+      const predicate = rel.type === 'Top' ? 'TOP' : rel.predicate;
+      if (!this.predicates.has(predicate))
+        this.predicates.set(predicate, new Array);
+      this.predicates.get(predicate).push(rel);
     }
   }
-}
 
-class OptionalAccessor {
-  constructor(dbCtx, nodeProxy, optionalType, rawVal) {
-    Object.defineProperties(this, {
-      isPresent: {
-        get() {
-          return rawVal != null;
-        }
-      },
-      orElse: {
-        value(otherVal) {
-          if (this.isPresent)
-            return rawVal;
-          return otherVal;
-        },
-      },
-      orNull: {
-        get() {
-          if (this.isPresent)
-            return rawVal;
-          return null;
-        },
-      },
-      orThrow: {
-        value(errCb=null) {
-          if (this.isPresent)
-            return rawVal;
-          if (errCb)
-            throw errCb();
-          throw new Error(
-            `Called #orThrow on empty Optional`);
-        },
-      },
-      // TODO: how can map work??
-      mapOr: {
-        value(ifPresent, ifMissing) {
-          if (this.isPresent)
-            return ifPresent(rawVal);
-          else
-            return ifMissing();
-        }
-      },
-      mapOrNull: {
-        value(ifPresent) {
-          if (rawVal !== null)
-            return ifPresent(rawVal);
-          else
-            return null;
-        }
-      },
+  mapOut({nodeId, data}, graphCtx) {
+    const node = new GraphNode(graphCtx, nodeId);
+
+    Object.defineProperty(node, 'state', {
+      value: Object.create(null),
     });
+
+    const struct = this.structType.mapOut(data, graphCtx);
+    for (const key in struct) {
+      const definition = Object.getOwnPropertyDescriptor(struct, key);
+      Object.defineProperty(node, key, definition);
+    }
+
+    Object.freeze(node);
+    return node;
+  }
+
+  mapIn({nodeId, fields}, graphCtx) {
+    const data = this.structType.mapIn(fields, graphCtx);
+    graphCtx.actions.push({
+      type: 'put node',
+      nodeId, data,
+    });
+    return {nodeId, data};
   }
 }
 
+class StructAccessor extends FieldAccessor {
+  mapOut(structVal, graphCtx) {
+    const target = Object.create(null);
+    if (!graphCtx) throw new Error(
+      `graphCtx is required!`);
+
+    for (const [name, fieldType] of this.myType.fields) {
+      const fieldAccessor = FieldAccessor.forType(fieldType);
+      const propOpts = {
+        enumerable: true,
+      }
+
+      if ('mapOut' in fieldAccessor) {
+        propOpts.get = function() {
+          //console.log('getting', name, 'as', fieldType.constructor.name);
+          return fieldAccessor.mapOut(structVal[name], graphCtx);
+        };
+      }
+
+      if ('mapIn' in fieldAccessor) {
+        propOpts.set = function(newVal) {
+          //console.log('setting', name, 'as', fieldType.constructor.name, newVal);
+          structVal[name] = fieldAccessor.mapIn(newVal, graphCtx);
+          return true;
+        };
+      }
+
+      Object.defineProperty(target, name, propOpts);
+    }
+    Object.freeze(target);
+    return target;
+  }
+
+  mapIn(newVal, graphCtx) {
+    if (newVal.constructor === Object) {
+      const dataObj = Object.create(null);
+      const accInst = this.mapOut(dataObj, graphCtx);
+      for (const key in newVal) {
+        accInst[key] = newVal[key];
+      }
+      return dataObj;
+    } else if (newVal.constructor === undefined) {
+      // this is probably us, right?
+      return newVal;
+    } else throw new Error(
+      `StructAccess can't map in values of ${newVal.constructor.name}`);
+  }
+}
+
+class EmptyOptional {
+  constructor() {}
+}
+const optionalInstProps = {
+  ifPresent: {
+    value(thenCb, elseCb=null) {
+      if (this.isPresent)
+        return thenCb(this);
+      else if (elseCb)
+        return elseCb(null);
+      else return
+    }
+  },
+  orElse: {
+    value(fallbackVal=undefined) {
+      if (this.isPresent)
+        return this;
+      else if (fallbackVal === undefined) throw new Error(
+        `Optional#orElse() called on empty optional without providing a fallback`);
+      else
+        return fallbackVal;
+    }
+  },
+}
+
+class OptionalAccessor extends FieldAccessor {
+  constructor(type) {
+    super(type);
+    this.innerAccessor = FieldAccessor.forType(type.inner);
+  }
+
+  mapOut(rawVal, graphCtx) {
+    let innerVal;
+    if (rawVal === undefined || rawVal === null)
+      innerVal = new EmptyOptional;
+    else {
+      innerVal = this.innerAccessor.mapOut(rawVal, graphCtx);
+    }
+
+    Object.defineProperties(innerVal, {
+      isPresent: {
+        value: innerVal.constructor !== EmptyOptional,
+      },
+      ...optionalInstProps,
+    });
+    return innerVal;
+  }
+
+  mapIn(newVal, graphCtx) {
+    if (newVal === undefined || newVal === null)
+      return null;
+    return this.innerAccessor.mapIn(newVal, graphCtx);
+  }
+}
+
+/*
 class ListAccessor extends Array {
   constructor(dbCtx, nodeProxy, listType, rawVal) {
     super(dbCtx, nodeProxy, listType, rawVal);
@@ -102,8 +205,41 @@ class ListAccessor extends Array {
       }
     });
   }
+}*/
+
+class ReferenceAccessor extends FieldAccessor {
+  constructor(type) {
+    super(type);
+    //this.targetPath = type.targetPath;
+    // unfortunately the reference isn't resolved yet
+    // maybe we can change that and resolve the ref here but it'll be rough
+    // i think we can assume that we point to a Node, or at least a Struct
+  }
+
+  mapOut22(rawVal, graphCtx) {
+  }
+
+  mapIn(newVal, graphCtx) {
+    if (newVal === undefined || newVal === null) throw new Error(
+      `ReferenceAccessor will not allow null values. Try Optional if you want.`);
+
+    if (newVal.constructor === Object) {
+      const type = graphCtx.findNodeBuilder(this.myType.targetPath);
+      const accessor = FieldAccessor.forType(type.inner);
+
+      const dataObj = Object.create(null);
+      const accInst = accessor.mapOut(dataObj, graphCtx);
+      for (const key in newVal) {
+        accInst[key] = newVal[key];
+      }
+      return dataObj;
+    }
+
+    return this.innerAccessor.mapIn(newVal, graphCtx);
+  }
 }
 
+/*
 class RelationAccessor {
   constructor(dbCtx, localNode, relations) {
     Object.defineProperty(this, 'dbCtx', {
@@ -186,12 +322,21 @@ class RelationAccessor {
       .fetchObjects();
   }
 }
+*/
+
+accessorConstructors.set(NodeBuilder, NodeAccessor);
+accessorConstructors.set(BuiltinFieldType, PrimitiveAccessor);
+accessorConstructors.set(StructFieldType, StructAccessor);
+accessorConstructors.set(OptionalFieldType, OptionalAccessor);
+accessorConstructors.set(ReferenceFieldType, ReferenceAccessor);
 
 if (typeof module !== 'undefined') {
   module.exports = {
+    FieldAccessor,
+    NodeAccessor,
+    //RelationAccessor,
     StructAccessor,
     OptionalAccessor,
-    ListAccessor,
-    RelationAccessor,
+    //ListAccessor,
   };
 }

@@ -37,14 +37,20 @@ class BaseRawStore {
       .find(x => x.type === 'Top');
 
     const type = topRelation.topType;
-    const proxyHandler = new NodeProxyHandler(type);
+    const accessor = FieldAccessor.forType(type);
+
     const topObj = await this.transact('write top', async dbCtx => {
-      const rootNode = proxyHandler.wrap(dbCtx, 'top', type.name, topData);
-      const rootObj = this.engine.spawnObject(rootNode, type);
-      await dbCtx.storeNode(rootObj);
+      const graphCtx = new GraphContext(dbCtx);
+      const rootNode = accessor.mapIn({
+        nodeId: 'top',
+        fields: topData,
+      }, graphCtx);
+      const rootObj = accessor.mapOut(rootNode, graphCtx);
       return rootObj;
     });
-    topObj.storeImpl = this; // TODO: better way?
+
+    topObj.state.rawStore = this;
+
     return topObj;
   }
 
@@ -104,6 +110,7 @@ class BaseRawContext {
     this.mode = mode;
 
     this.actions = new Array;
+    this.graphContexts = new Set;
     this.actionProcessors = new Array;
 
     this.objProxies = new Map;
@@ -144,11 +151,13 @@ class BaseRawContext {
   }
 
   wrapRawNode(nodeId, {type, fields}) {
-    const proxyHandler = this.graphStore.typeProxies.get(type);
-    if (!proxyHandler) throw new Error(
-      `Didn't find a proxy handler for type ${type}`);
+    const nodeType = this.graphStore.engine.names.get(type);
+    if (!nodeType) throw new Error(
+      `Didn't find a node name for type ${type}`);
 
-    return proxyHandler.wrap(this, nodeId, type, fields);
+    const accessor = FieldAccessor.forType(nodeType);
+    const graphCtx = new GraphContext(this);
+    return accessor.mapIn({nodeId, fields}, graphCtx);
   }
 
   async storeNode(node) {

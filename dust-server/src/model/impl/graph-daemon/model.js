@@ -25,6 +25,7 @@ new GraphEngineBuilder('graph-daemon/v1-beta1', (build, ref) => {
         HostName: { type: String },
         UserName: { type: String },
         WorkDir: { type: String },
+        HomeDir: { type: String },
       }},
     },
   });

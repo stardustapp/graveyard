@@ -1,9 +1,17 @@
 GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', class GraphStoreWorld extends GraphObject {
   // constructor: nodeType, data
 
+  async bindRawStore(storeImpl) {
+    await this.state.rawStore.transact('readwrite store setup', async dbCtx => {
+      const world = await dbCtx.getNode(this);
+      console.log('root entry:', world);
+      //const allGraphs = await world.OPERATES.fetchGraphList();
+    });
+  }
+
   async findGraph({engine, engineKey, fields}) {
     const targetEngine = engine ? engine.engineKey : engineKey;
-    const graphNode = await this.storeImpl.transact('readonly', async dbCtx => {
+    const graphNode = await this.state.rawStore.transact('readonly', async dbCtx => {
       const world = await dbCtx.getNode(this);
 
       const allGraphs = await world.OPERATES.fetchGraphList();
@@ -32,7 +40,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', class GraphStoreWorl
 
     // persist the new graph
 
-    const graphNode = await this.storeImpl.transact('readwrite', async dbCtx => {
+    const graphNode = await this.state.rawStore.transact('readwrite', async dbCtx => {
       const rootNode = await dbCtx.getNodeById('top');
       const graphNode = await rootNode.OPERATES.newGraph({
         EngineKey: engine.engineKey,

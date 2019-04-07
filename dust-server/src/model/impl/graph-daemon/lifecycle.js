@@ -52,9 +52,9 @@ extensions.lifecycle = {
       .transact('readonly', dbCtx => dbCtx
         .getNodeById('top'));
 
-    const graphWorld = await Config.DataPath.mapOr(
+    const graphWorld = await Config.DataPath.ifPresent(
       dataPath => RawLevelStore.openGraphWorld(dataPath),
-      () => RawVolatileStore.openGraphWorld());
+      orElse => RawVolatileStore.openGraphWorld());
 
     console.debug('Loaded system!!!!');
 
@@ -72,7 +72,7 @@ extensions.lifecycle = {
     //console.log(instance.type.relations);
 
     // INSTALL PACKAGE
-    const appKey = Config.PackageKey.orThrow();
+    const appKey = Config.PackageKey.orElse();
     console.log('\r--> graph-daemon.lifecycle now setting up Dust app', appKey);
 
     const {pocRepository, compileToHtml} = GraphEngine

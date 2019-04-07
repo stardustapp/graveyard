@@ -50,26 +50,30 @@ class NodeProxyHandler {
 
     //for (const [key, fieldType] of type.inner.fields.entries()) {
   }
-  wrap(dbCtx, nodeId, typeName, fields, isDirty=false) {
+  wrap(dbCtx, nodeId, typeName, data, isDirty=false) {
     const target = {
       nodeId,
       typeName,
     };
     const proxy = new Proxy(target, this);
 
-    let struct;
-    if (fields.constructor === Object)
-      struct = new StructAccessor(dbCtx, proxy, this.type.inner, fields);
-    else if (fields.constructor === StructAccessor)
-      struct = fields;
-    else if (fields.constructor === NodeProxyHandler)
-      struct = fields.fields;
-    else throw new Error(
-      `Can't wrap weird data of type ${fields.constructor.name}`);
+    let accessor, fields;
+    if (data.constructor === Object) {
+      accessor = FieldAccessor.forType(this.type.inner);
+      fields = accessor.mapOut(data, new GraphContext(dbCtx));
+    //} else if (data.constructor === StructAccessor) {
+    //  accessor = fields;
+    //  struct = accessor.mapOut({}, new GraphContext);
+    } else if (data.constructor === NodeProxyHandler) {
+      accessor = data.accessor;
+      fields = data.fields;
+    } else throw new Error(
+      `Can't wrap weird data of type ${data.constructor.name}`);
 
     Object.defineProperties(target, {
       dbCtx: { enumerable: false, value: dbCtx },
-      fields: { enumerable: false, value: struct },
+      fields: { enumerable: false, value: fields },
+      accessor: { enumerable: false, value: accessor },
     });
 
     if (isDirty) proxy.dirty = isDirty;
@@ -83,6 +87,7 @@ class NodeProxyHandler {
     if (prop === 'nodeId') return target.nodeId;
     if (prop === 'typeName') return target.typeName;
     if (prop === 'fields') return target.fields;
+    if (prop === 'accessor') return target.accessor;
 
     if (prop === inspect.custom)
       return inspectNodeProxy.bind(this, target, prop, receiver);

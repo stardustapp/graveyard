@@ -66,11 +66,6 @@ class VolatileDataContext extends BaseRawContext {
     console.warn('ignoring', this.actions.length, 'volatile actions');
   }
 
-/*
-  async createObjectTree(graphNode, rootNode) {}
-  async createObjects(graphNode, objects) {}
-*/
-
   createGraphQuery(query) {
     return new VolatileEdgeQuery(this, query);
   }

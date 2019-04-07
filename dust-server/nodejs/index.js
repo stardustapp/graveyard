@@ -45,6 +45,7 @@ const extraImports = [
   'src/model/accessors.js',
   'src/model/node-proxy.js',
   'src/model/runtime.js',
+  'src/model/context.js',
 
   'src/model/impl/graph-daemon/model.js',
   'src/model/impl/graph-daemon/lifecycle.js',
