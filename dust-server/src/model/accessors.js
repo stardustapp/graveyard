@@ -3,7 +3,7 @@ const accessorConstructors = new Map; // FieldType constr => Accessor constr
 
 class FieldAccessor {
   constructor(myType) {
-    this.myType = myType;
+    Object.defineProperty(this, 'myType', {value: myType});
   }
 
   static forType(theType) {
@@ -28,11 +28,11 @@ class FieldAccessor {
 }
 
 class PrimitiveAccessor extends FieldAccessor {
-  mapOut(rawVal, graphCtx) {
-    return new this.myType.constr(rawVal);
+  mapOut(value, graphCtx) {
+    return this.myType.fromExt(value);
   }
-  mapIn(newVal, graphCtx) {
-    return this.myType.fromExt(newVal);
+  mapIn(value, graphCtx) {
+    return new this.myType.constr(value);
   }
 }
 
@@ -56,7 +56,10 @@ class NodeAccessor extends FieldAccessor {
     }
   }
 
-  mapOut({nodeId, data}, graphCtx) {
+  mapOut({typeName, nodeId, data}, graphCtx) {
+    if (typeName !== this.myType.name) throw new Error(
+      `Can't mapOut Node - expected '${this.myType.name}' but type was '${typeName}'`);
+
     const node = new GraphNode(graphCtx, nodeId);
 
     Object.defineProperty(node, 'state', {
@@ -77,6 +80,7 @@ class NodeAccessor extends FieldAccessor {
     const data = this.structType.mapIn(fields, graphCtx);
     graphCtx.actions.push({
       type: 'put node',
+      typeName: this.myType.name,
       nodeId, data,
     });
     return {nodeId, data};
@@ -84,12 +88,18 @@ class NodeAccessor extends FieldAccessor {
 }
 
 class StructAccessor extends FieldAccessor {
+  constructor(type) {
+    super(type);
+
+    this.fields = type.fields;
+  }
+
   mapOut(structVal, graphCtx) {
     const target = Object.create(null);
     if (!graphCtx) throw new Error(
       `graphCtx is required!`);
 
-    for (const [name, fieldType] of this.myType.fields) {
+    for (const [name, fieldType] of this.fields) {
       const fieldAccessor = FieldAccessor.forType(fieldType);
       const propOpts = {
         enumerable: true,

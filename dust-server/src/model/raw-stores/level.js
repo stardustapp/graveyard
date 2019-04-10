@@ -1,7 +1,10 @@
 class RawLevelStore extends BaseRawStore {
-  constructor(engine, database) {
-    super(engine);
+  constructor(opts, database) {
+    super(opts);
     this.database = database;
+
+    //this.ready = this.transact('setup level', this
+    //  .setupLevel.bind(this));
   }
 
   // create a new dbCtx for a transaction
@@ -11,10 +14,10 @@ class RawLevelStore extends BaseRawStore {
     return dbCtx;
   }
 
-  static async open(engine, dataPath) {
-    const serverDb = await ServerDatabase.open(dataPath);
-    console.debug('Opened database at', dataPath);
-    return new RawLevelStore(engine, serverDb);
+  static async new(opts) {
+    const serverDb = await ServerDatabase.open(opts.dataPath);
+    console.debug('Opened level database at', opts.dataPath);
+    return await BaseRawStore.newFromImpl(RawVolatileStore, opts);
   }
 
   /*

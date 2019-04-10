@@ -108,7 +108,7 @@ function NotImpl() {
 }
 builtins.set(String, new BuiltinFieldType('String', String));
 if (self.Blob) builtins.set(Blob, new BuiltinFieldType('Blob', Blob));
-builtins.set(Date, new BuiltinFieldType('Date', Date));
+builtins.set(Date, new BuiltinFieldType('Date', Date, d => d.toISOString()));
 builtins.set(Number, new BuiltinFieldType('Number', Number));
 builtins.set(Boolean, new BuiltinFieldType('Boolean', Boolean));
 builtins.set(JSON, new BuiltinFieldType('JSON', JSON.parse, JSON.stringify));

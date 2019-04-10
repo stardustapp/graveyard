@@ -1,10 +1,7 @@
 class GraphContext {
-  constructor(dbCtx, engine=null) {
-    Object.defineProperty(this, 'dbCtx', {value: dbCtx});
-    this.engine = engine || dbCtx.graphStore.engine;
+  constructor(engine) {
+    this.engine = engine;
     this.actions = new Array;
-
-    dbCtx.graphContexts.add(this);
   }
 
   findNodeBuilder(path) {
@@ -12,6 +9,14 @@ class GraphContext {
       return this.engine.names.get(path);
     console.log('finding type', path, 'from', this.engine);
     throw new Error('findType() TODO');
+  }
+
+  flushTo(processor) {
+    //rawStore.todoFlushActions(this.actions);
+    for (const action of this.actions) {
+      //console.log('processing graph action', action);
+      processor(action);
+    }
   }
 }
 

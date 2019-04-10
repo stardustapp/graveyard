@@ -1,4 +1,40 @@
-class VolatileNode {
+class RawVolatileStore extends BaseRawStore {
+  constructor(opts) {
+    super(opts);
+
+    this.nodes = new Map;
+    this.edges = new Set;
+  }
+
+  // create a new dbCtx for a transaction
+  createDataContext(mode) {
+    return new VolatileDataContext(this, mode);
+  }
+
+  static new(opts) {
+    return BaseRawStore.newFromImpl(RawVolatileStore, opts);
+  }
+
+  async processAction(action) {
+    const {nodeId, type, ...extras} = action;
+    console.log('processing graph action', type);
+
+    switch (type) {
+      case 'put node':
+        if (!this.accessors.has(action.typeName)) throw new Error(
+          `Can't store unrecognized node type '${action.typeName}'`);
+        if (!nodeId) throw new Error(
+          `Node ID is required when storing nodes`);
+        this.nodes.set(nodeId, extras);
+        break;
+
+      default: throw new Error(
+        `Volatile store got weird action type '${type}'`);
+    }
+  }
+}
+
+class RawVolatileNode {
   constructor(type, fields) {
     this.type = type;
     this.fields = fields;
@@ -14,38 +50,6 @@ class VolatileNode {
   }
 }
 
-class RawVolatileStore extends BaseRawStore {
-  constructor(engine, topData=null) {
-    super(engine);
-
-    this.nodes = new Map;
-    this.edges = new Set;
-
-    if (topData) {
-      const type = Array
-        .from(engine.edges)
-        .find(x => x.type === 'Top')
-        .topType;
-
-      const proxyHandler = new NodeProxyHandler(type);
-      const dbCtx = this.createDataContext('read top');
-      const rootNode = proxyHandler.wrap(dbCtx, 'top', type.name, topData);
-      const rootObj = engine.spawnObject(rootNode, type);
-      this.nodes.set('top', VolatileNode.fromGraphObject(rootObj));
-      this.rootNode = rootObj;
-    }
-  }
-
-  // create a new dbCtx for a transaction
-  createDataContext(mode) {
-    return new VolatileDataContext(this, mode);
-  }
-
-  static open(engine, ...args) {
-    return new RawVolatileStore(engine, ...args);
-  }
-}
-
 class VolatileDataContext extends BaseRawContext {
   async loadNodeById(nodeId) {
     if (this.graphStore.nodes.has(nodeId)) {
@@ -57,13 +61,11 @@ class VolatileDataContext extends BaseRawContext {
     }
   }
 
-  writeNode(nodeId, {type, fields}) {
-    this.graphStore.nodes.set(nodeId, new VolatileNode(type, fields));
-  }
-
   async flushActions() {
     // TODO
-    console.warn('ignoring', this.actions.length, 'volatile actions');
+    for (const action of this.actions) {
+      console.warn('ignoring volatile action', action);
+    }
   }
 
   createGraphQuery(query) {

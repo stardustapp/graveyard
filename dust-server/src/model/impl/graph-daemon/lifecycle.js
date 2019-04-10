@@ -29,32 +29,34 @@ extensions.lifecycle = {
   async createServer(config) {
     //console.log('creating server with config', config);
 
-    const engine = GraphEngine.get('graph-daemon/v1-beta1');
-    const daemonStore = RawVolatileStore.open(engine);
-
-    const worldObj = await daemonStore.replaceTop({
-      CreatedAt: new Date,
-      GitHash: await execForLine(`git describe --always --long --dirty`),
-      Config: config,
-      Host: {
-        Platform: os.platform(),
-        Release: os.release(),
-        Architecture: os.arch(),
-        Runtime: 'nodejs',
-        HostName: os.hostname(),
-        UserName: os.userInfo().username,
-        HomeDir: os.homedir(),
-        WorkDir: process.cwd(),
+    const daemonStore = await RawVolatileStore.new({
+      engineKey: 'graph-daemon/v1-beta1',
+      topData: {
+        CreatedAt: new Date,
+        GitHash: await execForLine(`git describe --always --long --dirty`),
+        Config: config,
+        Host: {
+          Platform: os.platform(),
+          Release: os.release(),
+          Architecture: os.arch(),
+          Runtime: 'nodejs',
+          HostName: os.hostname(),
+          UserName: os.userInfo().username,
+          HomeDir: os.homedir(),
+          WorkDir: process.cwd(),
+        },
       },
     });
 
-    const {GitHash, Config} = await daemonStore
-      .transact('readonly', dbCtx => dbCtx
-        .getNodeById('top'));
+    console.log(await daemonStore.getTopNode());
+    const {GitHash, Config} = await daemonStore.getTopNode();
 
+  /*
     const graphWorld = await Config.DataPath.ifPresent(
       dataPath => RawLevelStore.openGraphWorld(dataPath),
       orElse => RawVolatileStore.openGraphWorld());
+  */
+    const graphWorld = RawVolatileStore.new
 
     console.debug('Loaded system!!!!');
 

@@ -1,6 +1,25 @@
 const extensions = GraphEngine.extend('graph-store/v1-beta1');
 extensions.lifecycle = {
 
+  async buildStore(rawStoreClass, coreEngine, storeOpts={}) {
+    const rawStore = await rawStoreClass.new({
+      engineKey: 'graph-store/v1-beta1',
+      topData: {
+        CoreEngine: {
+
+        },
+        ExposedRoot: {
+          Name: 'graph world',
+        },
+        InspectRoot: {
+          Name: 'graph world',
+        },
+      },
+      ...storeOpts,
+    });
+    return rawStore;
+  },
+
   async createFrom(storeImpl) {
     console.log('creating graph store graph');
 

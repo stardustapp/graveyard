@@ -3,30 +3,13 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
   build.node('World', {
     relations: [
       { predicate: 'TOP' },
-      { predicate: 'OPERATES', object: 'Graph' },
+      { predicate: 'OPERATES', object: 'Engine' },
+      { predicate: 'STORES', object: 'Graph' },
     ],
     fields: {
-      RootEntry: { reference: 'Entry' },
-    },
-  });
-
-  build.node('Graph', {
-    relations: [
-      { predicate: 'BUILT', object: 'Object' },
-      { exactly: 1, subject: 'World', predicate: 'OPERATES' },
-    ],
-    fields: {
-      EngineKey: { type: String },
-      Metadata: { type: JSON },
-      Origin: { anyOfKeyed: {
-        // compiled into the runtime
-        BuiltIn: { type: String },
-        // immediately downloadable
-        External: { fields: {
-          Uri: { type: String },
-          Accessed: { type: Date },
-        }},
-      }},
+      CoreEngine: { reference: 'Engine' },
+      ExposedRoot: { reference: 'Entry' },
+      InspectRoot: { reference: 'Entry' },
     },
   });
 
@@ -34,12 +17,64 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
     relations: [
       { subject: 'Entry', predicate: 'HAS_NAME' },
       { predicate: 'HAS_NAME', object: 'Entry', uniqueBy: 'Name' },
-
-      { predicate: 'POINTS_TO', atMost: 1, object: 'Object' },
-      { exactly: 1, subject: 'Graph', predicate: 'BUILT' },
     ],
     fields: {
-      Name: { type: String },
+      Name: String,
+      Graph: { reference: 'Graph', immutable: true, optional: true },
+      Self: { anyOfKeyed: {
+        Empty: Boolean, // TODO: should be Unit
+        //LinkTo: String,
+        //LiteralStr: String,
+        Data: { fields: {
+          Bytes: String,
+          Type: { anyOfKeyed: {
+            Primitive: String,
+            Mime: String,
+            //Virtual: { reference: 'Object', optional: true },
+          }},
+        }},
+        /*
+        ExposedObj: { reference: 'Object' },
+        RelatedList: { fields: {
+          Predicate: String,
+        }},
+        */
+      }},
+    },
+  });
+
+  build.node('Engine', {
+    relations: [
+      { predicate: 'OPERATES', object: 'Graph' },
+      { exactly: 1, subject: 'World', predicate: 'OPERATES' },
+    ],
+    fields: {
+      Tags: JSON,
+      Source: { anyOfKeyed: {
+        // meta-engine stored in this world
+        Virtual: { reference: 'Object' },
+        // compiled into the runtime
+        BuiltIn: { fields: {
+          GitHash: String,
+          EngineKey: String,
+        }},
+        // immediately downloadable
+        Published: { fields: {
+          Uri: String,
+          Accessed: Date,
+        }},
+      }},
+    },
+  });
+
+  build.node('Graph', {
+    relations: [
+      { predicate: 'OWNS', object: 'Object' },
+      { exactly: 1, subject: 'World', predicate: 'STORES' },
+      { exactly: 1, subject: 'Engine', predicate: 'OPERATES' },
+    ],
+    fields: {
+      Tags: JSON,
     },
   });
 
@@ -49,11 +84,11 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
       { predicate: 'POINTS_TO', object: 'Object' },
 
       { subject: 'Entry', predicate: 'POINTS_TO' },
-      { exactly: 1, subject: 'Graph', predicate: 'BUILT' },
+      { exactly: 1, subject: 'Graph', predicate: 'OWNS' },
     ],
     fields: {
-      Type: { type: String },
-      Fields: { type: JSON },
+      Type: String,
+      Data: String,
     },
   });
 

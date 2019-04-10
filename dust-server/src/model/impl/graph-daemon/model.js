@@ -10,8 +10,9 @@ new GraphEngineBuilder('graph-daemon/v1-beta1', (build, ref) => {
       CreatedAt: { type: Date },
       GitHash: { type: String },
       Config: { fields: {
-        DataPath: { type: String, optional: true },
         Command: { type: String, choices: [ 'serve', 'run' ] },
+        MainEngine: { type: String, default: 'graph-daemon/v1-beta1' },
+        DataPath: { type: String, optional: true },
         PackageKey: { type: String, optional: true },
         MethodName: { type: String, optional: true },
         HttpPort: { type: Number, optional: true },

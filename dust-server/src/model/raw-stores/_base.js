@@ -1,22 +1,22 @@
 class BaseRawStore {
-  constructor(engine) {
-    this.engine = engine;
+  constructor(opts) {
+    console.log('creating raw store with options', Object.keys(opts));
+    this.engine = GraphEngine.get(opts.engineKey);
+
     this.eventProcessors = new Array;
 
-    this.typeProxies = new Map;
-    for (const name of engine.names.values()) {
-      this.typeProxies.set(name.name, new NodeProxyHandler(name));
+    this.accessors = new Map;
+    for (const name of this.engine.names.values()) {
+      this.accessors.set(name.name, FieldAccessor.forType(name));
     }
+    console.log('Raw store accessors:', this.accessors);
+
+    this.topType = Array
+      .from(this.engine.edges)
+      .find(x => x.type === 'Top')
+      .topType;
 
     this.mutex = new RunnableMutex(this.transactNow.bind(this));
-  }
-
-  static async openGraphWorld(...args) {
-    const engine = GraphEngine.get('graph-store/v1-beta1');
-    const {lifecycle} = engine.extensions;
-
-    const storeImpl = await this.open(engine, ...args);
-    return await lifecycle.createFrom(storeImpl);
   }
 
   // user entrypoint that either runs immediately or queues for later
@@ -27,9 +27,38 @@ class BaseRawStore {
   // mutex entrypoint that just goes for it
   transactNow(mode, cb) {
     const dbCtx = this.createDataContext(mode);
+    //const graphCtx = new GraphContext(this.engine);
     return dbCtx.runCb(cb);
   }
 
+  async setupFunc({topData}, dbCtx) {
+    const graphCtx = new GraphContext(this.engine);
+
+    if (topData) {
+      const topAccessor = FieldAccessor.forType(this.topType);
+      const topNode = topAccessor.mapIn({
+        nodeId: 'top',
+        fields: topData,
+      }, graphCtx);
+    }
+
+    graphCtx.flushTo(this.processAction.bind(this));
+  }
+
+  static async newFromImpl(storeImpl, opts={}) {
+    const rawStore = new storeImpl(opts);
+    await rawStore.transact('setup', rawStore
+      .setupFunc.bind(rawStore, opts));
+    return rawStore;
+  }
+
+  getTopNode() {
+    return this
+      .transact('readonly', dbCtx => dbCtx
+        .getNodeById('top'));
+  }
+
+/*
   // write a new top in forcibly
   async replaceTop(topData) {
     const topRelation = Array
@@ -53,6 +82,7 @@ class BaseRawStore {
 
     return topObj;
   }
+  */
 
   async processDbActions(dbCtx, actions) {
     const nodeMap = new Map;
@@ -120,6 +150,7 @@ class BaseRawContext {
     try {
       console.group(this.constructor.name, 'start:', this.mode);
       const result = await cb(this);
+      this.buildActions();
       await this.flushActions();
       return result;
     } catch (err) {
@@ -127,6 +158,12 @@ class BaseRawContext {
       throw err;
     } finally {
       console.groupEnd();
+    }
+  }
+
+  buildActions() {
+    for (const graphCtx of this.graphContexts) {
+      graphCtx.flushActions();
     }
   }
 
@@ -150,14 +187,13 @@ class BaseRawContext {
     return obj;
   }
 
-  wrapRawNode(nodeId, {type, fields}) {
-    const nodeType = this.graphStore.engine.names.get(type);
-    if (!nodeType) throw new Error(
-      `Didn't find a node name for type ${type}`);
+  wrapRawNode(nodeId, {typeName, data}) {
+    const accessor = this.graphStore.accessors.get(typeName);
+    if (!accessor) throw new Error(
+      `Didn't find an accessor for type ${type}`);
 
-    const accessor = FieldAccessor.forType(nodeType);
     const graphCtx = new GraphContext(this);
-    return accessor.mapIn({nodeId, fields}, graphCtx);
+    return accessor.mapOut({typeName, nodeId, data}, graphCtx);
   }
 
   async storeNode(node) {
@@ -176,7 +212,7 @@ class BaseRawContext {
 
   async newNode(type, fields) {
     //console.log('hi!!!!!', type, fields);
-    const proxyHandler = this.graphStore.typeProxies.get(type.name);
+    const proxyHandler = this.graphStore.accessors.get(type.name);
     if (!proxyHandler) throw new Error(
       `Didn't find a proxy handler for type ${type.name}`);
 
