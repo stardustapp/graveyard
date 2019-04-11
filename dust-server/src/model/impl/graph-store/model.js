@@ -49,7 +49,7 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
       { exactly: 1, subject: 'World', predicate: 'OPERATES' },
     ],
     fields: {
-      Tags: JSON,
+      //Tags: JSON,
       Source: { anyOfKeyed: {
         // meta-engine stored in this world
         Virtual: { reference: 'Object' },
@@ -80,15 +80,22 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
 
   build.node('Object', {
     relations: [
-      { subject: 'Object', predicate: 'POINTS_TO' },
-      { predicate: 'POINTS_TO', object: 'Object' },
-
       { subject: 'Entry', predicate: 'POINTS_TO' },
       { exactly: 1, subject: 'Graph', predicate: 'OWNS' },
+
+      { subject: 'Edge', predicate: 'REFERENCES' },
     ],
     fields: {
       Type: String,
-      Data: String,
+      Data: JSON,
+    },
+  });
+
+  build.node('Edge', {
+    fields: {
+      Subject: { reference: 'Object' },
+      Predicate: String,
+      Object: { reference: 'Object' },
     },
   });
 

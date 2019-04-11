@@ -15,22 +15,27 @@ class RawVolatileStore extends BaseRawStore {
     return BaseRawStore.newFromImpl(RawVolatileStore, opts);
   }
 
-  async processAction(action) {
-    const {nodeId, type, ...extras} = action;
-    console.log('processing graph action', type);
+  processAction({kind, record}) {
+    switch (kind) {
 
-    switch (type) {
       case 'put node':
-        if (!this.accessors.has(action.typeName)) throw new Error(
-          `Can't store unrecognized node type '${action.typeName}'`);
-        if (!nodeId) throw new Error(
+        if (!this.accessors.has(record.type)) throw new Error(
+          `Can't store unrecognized node type '${record.type}'`);
+        if (!record.nodeId) throw new Error(
           `Node ID is required when storing nodes`);
-        this.nodes.set(nodeId, extras);
+        this.nodes.set(record.nodeId, record);
+        console.log(`stored node '${record.nodeId}'`);
+        break;
+
+      case 'put edge':
+        this.edges.add(record);
+        console.log(`stored ${record.predicate} edge`);
         break;
 
       default: throw new Error(
-        `Volatile store got weird action type '${type}'`);
+        `Volatile store got weird action kind '${kind}'`);
     }
+    //console.debug('Volatile store processed', kind, 'event');
   }
 }
 
@@ -68,22 +73,16 @@ class VolatileDataContext extends BaseRawContext {
     }
   }
 
-  createGraphQuery(query) {
-    return new VolatileEdgeQuery(this, query);
-  }
-}
-
-class VolatileEdgeQuery extends BaseEdgeQuery {
   /*async*/ fetchEdges() {
     const edges = new Set;
-    for (const action of this.dbCtx.actions) {
+    for (const action of this.actions) {
       if (action.kind !== 'put edge') continue;
       if (action.record.predicate !== this.query.predicate) continue;
       if (this.query.subject && action.record.subject !== this.query.subject) continue;
       if (this.query.object && action.record.object !== this.query.object) continue;
       edges.add(action.record);
     }
-    for (const edge of this.dbCtx.graphStore.edges) {
+    for (const edge of this.graphStore.edges) {
       console.log(edge, this.query);
     }
     return Array.from(edges);
@@ -95,6 +94,5 @@ if (typeof module !== 'undefined') {
   module.exports = {
     RawVolatileStore,
     VolatileDataContext,
-    VolatileEdgeQuery,
   };
 }

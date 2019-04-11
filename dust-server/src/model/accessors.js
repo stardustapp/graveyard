@@ -18,8 +18,11 @@ class FieldAccessor {
     if (accessorConstructors.has(theType.constructor)) {
       const constr = accessorConstructors.get(theType.constructor);
       return new constr(theType);
-    } else throw new Error(
-      `FieldAccessor#constructForType() can't handle ${theType.constructor.name}`);
+    } else {
+      console.log('constructor for', theType)
+      throw new Error(
+        `FieldAccessor#constructForType() can't handle ${theType.constructor.name}`);
+    }
   }
 
   mapOut() {
@@ -32,15 +35,22 @@ class PrimitiveAccessor extends FieldAccessor {
     return this.myType.fromExt(value);
   }
   mapIn(value, graphCtx) {
-    return new this.myType.constr(value);
+    return this.myType.toExt(value);
   }
 }
 
-class GraphNode {}
+class GraphNode {
+  constructor(graphCtx, nodeId, nodeType) {
+    this.graphCtx = graphCtx;
+    this.nodeId = nodeId;
+    this.nodeType = nodeType;
+  }
+}
 
 class NodeAccessor extends FieldAccessor {
   constructor(type) {
     super(type);
+    this.typeName = type.name;
 
     this.structType = FieldAccessor.forType(type.inner);
     const structConstr = this.structType.constructor;
@@ -49,6 +59,7 @@ class NodeAccessor extends FieldAccessor {
 
     this.predicates = new Map;
     for (const rel of type.relations) {
+      if (rel.type === 'Top') continue;
       const predicate = rel.type === 'Top' ? 'TOP' : rel.predicate;
       if (!this.predicates.has(predicate))
         this.predicates.set(predicate, new Array);
@@ -56,20 +67,33 @@ class NodeAccessor extends FieldAccessor {
     }
   }
 
-  mapOut({typeName, nodeId, data}, graphCtx) {
-    if (typeName !== this.myType.name) throw new Error(
-      `Can't mapOut Node - expected '${this.myType.name}' but type was '${typeName}'`);
+  mapOut({nodeId, type, data}, graphCtx) {
+    if (type !== this.typeName) throw new Error(
+      `Can't mapOut Node - expected '${this.typeName}' but type was '${type}'`);
 
-    const node = new GraphNode(graphCtx, nodeId);
+    const behavior = graphCtx.engine.nameBehaviors.get(type);
+    const node = new GraphNode(graphCtx, nodeId, type);
 
-    Object.defineProperty(node, 'state', {
-      value: Object.create(null),
-    });
+    //Object.defineProperty(node, 'state', {
+    //  value: Object.create(null),
+    //});
 
     const struct = this.structType.mapOut(data, graphCtx);
     for (const key in struct) {
       const definition = Object.getOwnPropertyDescriptor(struct, key);
       Object.defineProperty(node, key, definition);
+    }
+
+    for (const [predicate, edges] of this.predicates) {
+      Object.defineProperty(node, predicate, {
+        value: new RelationAccessor(graphCtx, node, edges),
+      });
+    }
+
+    for (const key in behavior) {
+      Object.defineProperty(node, key, {
+        value: behavior[key],
+      });
     }
 
     Object.freeze(node);
@@ -78,12 +102,7 @@ class NodeAccessor extends FieldAccessor {
 
   mapIn({nodeId, fields}, graphCtx) {
     const data = this.structType.mapIn(fields, graphCtx);
-    graphCtx.actions.push({
-      type: 'put node',
-      typeName: this.myType.name,
-      nodeId, data,
-    });
-    return {nodeId, data};
+    return {nodeId, data, type: this.typeName};
   }
 }
 
@@ -138,10 +157,69 @@ class StructAccessor extends FieldAccessor {
       // this is probably us, right?
       return newVal;
     } else throw new Error(
-      `StructAccess can't map in values of ${newVal.constructor.name}`);
+      `StructAccessor can't map in values of ${newVal.constructor.name}`);
   }
 }
 
+class AnyOfKeyedAccessor extends FieldAccessor {
+  constructor(type) {
+    super(type);
+    this.slots = type.slots;
+  }
+
+  mapOut(structVal, graphCtx) {
+    const target = Object.create(null);
+    if (!graphCtx) throw new Error(
+      `graphCtx is required!`);
+
+    for (const [slotKey, slotType] of this.slots) {
+      const slotAccessor = FieldAccessor.forType(slotType);
+      const propOpts = {
+        enumerable: true,
+      }
+
+      if ('mapOut' in slotAccessor) {
+        propOpts.get = function() {
+          //console.log('getting', slotKey, 'as', slotType.constructor.slotKey);
+          return slotAccessor.mapOut(structVal[slotKey], graphCtx);
+        };
+      }
+
+      if ('mapIn' in slotAccessor) {
+        propOpts.set = function(newVal) {
+          //console.log('setting', slotKey, 'as', slotType.constructor.slotKey, newVal);
+          structVal[slotKey] = slotAccessor.mapIn(newVal, graphCtx);
+          return true;
+        };
+      }
+
+      Object.defineProperty(target, slotKey, propOpts);
+    }
+    Object.freeze(target);
+    return target;
+  }
+
+  mapIn(newVal, graphCtx) {
+    if (newVal.constructor === Object) {
+      const keys = Object.keys(newVal);
+      if (keys.length !== 1) throw new Error(
+        `AnyOfKeyed got ${keys.length} keys instead of exactly 1. Received: ${keys.join(', ')}`);
+
+      const dataObj = Object.create(null);
+      const accInst = this.mapOut(dataObj, graphCtx);
+      for (const key in newVal) {
+        accInst[key] = newVal[key];
+      }
+      return dataObj;
+    } else if (newVal.constructor === undefined) {
+      // this is probably us, right?
+      return newVal;
+    } else throw new Error(
+      `AnyOfKeyedAccessor can't map in values of ${newVal.constructor.name}`);
+  }
+}
+
+/*
 class EmptyOptional {
   constructor() {}
 }
@@ -166,6 +244,7 @@ const optionalInstProps = {
     }
   },
 }
+*/
 
 class OptionalAccessor extends FieldAccessor {
   constructor(type) {
@@ -176,18 +255,10 @@ class OptionalAccessor extends FieldAccessor {
   mapOut(rawVal, graphCtx) {
     let innerVal;
     if (rawVal === undefined || rawVal === null)
-      innerVal = new EmptyOptional;
+      return null;
     else {
-      innerVal = this.innerAccessor.mapOut(rawVal, graphCtx);
+      return this.innerAccessor.mapOut(rawVal, graphCtx);
     }
-
-    Object.defineProperties(innerVal, {
-      isPresent: {
-        value: innerVal.constructor !== EmptyOptional,
-      },
-      ...optionalInstProps,
-    });
-    return innerVal;
   }
 
   mapIn(newVal, graphCtx) {
@@ -197,30 +268,41 @@ class OptionalAccessor extends FieldAccessor {
   }
 }
 
-/*
 class ListAccessor extends Array {
-  constructor(dbCtx, nodeProxy, listType, rawVal) {
-    super(dbCtx, nodeProxy, listType, rawVal);
-    const innerType = listType.inner;
+  constructor(type) {
+    super(type);
+    this.innerAccessor = FieldAccessor.forType(type.inner);
+  }
 
-    Object.defineProperties(this, {
-      pushNew: {
-        async value(fields) {
+  mapOut(rawVal, graphCtx) {
+    const array = rawVal.slice(0);
+    const proxy = new Proxy(array, {
+      get(key) {
+        console.log('!!! get proxy', key);
+        /* pushNew
           if (innerType.constructor !== ReferenceFieldType) throw new Error(
             `Can't pushNew() against a non-reference!`);
-          const newNode = await dbCtx.newNode({name: innerType.targetPath}, fields);
+          const newNode = graphCtx.newNode({name: innerType.targetPath}, fields);
           rawVal.push(newNode);
           return newNode;
-        }
-      }
+        */
+      },
     });
+    return proxy;
   }
-}*/
+
+  mapIn(newVal, graphCtx) {
+    if (newVal.constructor === Array) {
+      return newVal.map(x => this.innerAccessor.mapIn(x, graphCtx));
+    } else throw new Error(
+      `ListAccessor#mapIn() only takes arrays`);
+  }
+}
 
 class ReferenceAccessor extends FieldAccessor {
   constructor(type) {
     super(type);
-    //this.targetPath = type.targetPath;
+    this.targetPath = type.targetPath;
     // unfortunately the reference isn't resolved yet
     // maybe we can change that and resolve the ref here but it'll be rough
     // i think we can assume that we point to a Node, or at least a Struct
@@ -233,6 +315,7 @@ class ReferenceAccessor extends FieldAccessor {
     if (newVal === undefined || newVal === null) throw new Error(
       `ReferenceAccessor will not allow null values. Try Optional if you want.`);
 
+    //console.log('mapping reference', newVal);
     if (newVal.constructor === Object) {
       const type = graphCtx.findNodeBuilder(this.myType.targetPath);
       const accessor = FieldAccessor.forType(type.inner);
@@ -243,27 +326,33 @@ class ReferenceAccessor extends FieldAccessor {
         accInst[key] = newVal[key];
       }
       return dataObj;
-    }
 
-    return this.innerAccessor.mapIn(newVal, graphCtx);
+    } else if (newVal.constructor === GraphReference && newVal.target) {
+      console.log('hello world', this.targetPath, newVal.target);
+
+    } else if (newVal.constructor === GraphNode) {
+      return newVal.nodeId;
+
+    } else {
+      throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);
+      //return this.innerAccessor.mapIn(newVal, graphCtx);
+    }
   }
 }
 
-/*
 class RelationAccessor {
-  constructor(dbCtx, localNode, relations) {
-    Object.defineProperty(this, 'dbCtx', {
+  constructor(graphCtx, localNode, relations) {
+    Object.defineProperty(this, 'graphCtx', {
       enumerable: false,
-      value: dbCtx,
+      value: graphCtx,
     });
     this.localNode = localNode;
     this.relations = relations;
 
     for (const relation of relations) {
       if (relation.type === 'Arbitrary') {
-        if (relation.direction !== 'out')
-          continue;
 
+        //console.log('adding', relation.predicate, 'to type', relation.otherName)
         Object.defineProperty(this, `new${relation.otherName}`, {
           enumerable: true,
           value: this.attachNewNode.bind(this, relation),
@@ -272,6 +361,10 @@ class RelationAccessor {
           enumerable: true,
           value: this.attachNode.bind(this, relation),
         });
+
+        if (relation.direction !== 'out')
+          continue;
+
         Object.defineProperty(this, `find${relation.otherName}`, {
           enumerable: true,
           value: this.findOneNode.bind(this, relation),
@@ -290,13 +383,13 @@ class RelationAccessor {
       `Can't attach existing nodes to non-Arbitrary relations`);
 
     if (relation.direction === 'out') {
-      await this.dbCtx.newEdge({
+      await this.graphCtx.newEdge({
         subject: this.localNode,
         predicate: relation.predicate,
         object: otherNode,
       }, relation);
     } else {
-      await this.dbCtx.newEdge({
+      await this.graphCtx.newEdge({
         subject: otherNode,
         predicate: relation.predicate,
         object: this.localNode,
@@ -308,14 +401,15 @@ class RelationAccessor {
     if (relation.type !== 'Arbitrary') throw new Error(
       `Can't attach new nodes to non-Arbitrary relations`);
 
-    const other = await this.dbCtx.newNode(relation.otherType, fields);
+    const otherAccessor = FieldAccessor.forType(relation.otherType);
+    const other = await this.graphCtx.newNode(otherAccessor, fields);
     await this.attachNode(relation, other);
     return other;
   }
 
   findOneNode(relation, query) {
     console.log('find one node', relation, query);
-    return this.dbCtx
+    return this.graphCtx
       .queryGraph({
         subject: this.localNode,
         predicate: relation.predicate,
@@ -324,7 +418,7 @@ class RelationAccessor {
   }
 
   async fetchNodeList(relation) {
-    return this.dbCtx
+    return this.graphCtx
       .queryGraph({
         subject: this.localNode,
         predicate: relation.predicate,
@@ -332,21 +426,25 @@ class RelationAccessor {
       .fetchObjects();
   }
 }
-*/
 
 accessorConstructors.set(NodeBuilder, NodeAccessor);
 accessorConstructors.set(BuiltinFieldType, PrimitiveAccessor);
+accessorConstructors.set(UnstructuredFieldType, PrimitiveAccessor);
 accessorConstructors.set(StructFieldType, StructAccessor);
 accessorConstructors.set(OptionalFieldType, OptionalAccessor);
 accessorConstructors.set(ReferenceFieldType, ReferenceAccessor);
+accessorConstructors.set(AnyOfKeyedFieldType, AnyOfKeyedAccessor);
+accessorConstructors.set(ListFieldType, ListAccessor);
 
 if (typeof module !== 'undefined') {
   module.exports = {
     FieldAccessor,
-    NodeAccessor,
-    //RelationAccessor,
     StructAccessor,
     OptionalAccessor,
-    //ListAccessor,
+    ListAccessor,
+
+    GraphNode,
+    NodeAccessor,
+    RelationAccessor,
   };
 }

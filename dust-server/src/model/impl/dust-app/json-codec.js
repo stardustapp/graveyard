@@ -25,14 +25,16 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
     if (manifest._version !== 3) throw new Error(
       'invalid stardust manifest');
 
-    const engine = GraphEngine.get('dust-app/v1-beta1');
-    const builder = new GraphBuilder(engine, {
-      FriendlyName: manifest.meta.name,
-      PackageKey: manifest.packageId,
-      PackageType: manifest.meta.type,
-      License: manifest.meta.license,
+    const store = await RawVolatileStore.new({
+      engineKey: 'dust-app/v1-beta1',
+      topData: {
+        DisplayName: manifest.meta.name,
+        PackageKey: manifest.packageId,
+        PackageType: manifest.meta.type,
+        License: manifest.meta.license,
+      },
     });
-    const package = await builder.getRoot();
+    const package = await store.getTopNode();
 
     // sort manifest resources for specialized logic
     const resources = {
@@ -52,7 +54,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       return {
         Source: { Coffee },
         JS: js,
-        Refs: getScriptRefs(coffee),
+        Refs: getScriptRefs(Coffee),
       }
     }
 
@@ -222,8 +224,8 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       }
     }
 
-    //console.log('Inflated manifest', manifest, 'with builder', builder);
-    return package;
+    //console.log('Inflated manifest', manifest, 'into package node', package);
+    return store;
   },
 
   deflate(graph) {

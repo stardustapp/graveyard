@@ -116,7 +116,7 @@ class GraphBuilderNode {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    GraphBuilder,
+    //GraphBuilder,
     GraphGhostNode,
     GraphBuilderNode,
   };

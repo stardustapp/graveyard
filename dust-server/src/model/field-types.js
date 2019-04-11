@@ -89,29 +89,45 @@ class PendingFieldType extends FieldType {
 const builtins = new Map;
 
 class BuiltinFieldType extends FieldType {
-  constructor(name, constr, ser) {
+  constructor(name, jsConstr, serialize) {
     super('core', name);
-    this.constr = constr;
-    this.ser = ser || String;
-    //this.de = de || String;
+    this.jsConstr = jsConstr;
+    this.parse = jsConstr;
+    this.serialize = serialize || jsConstr;
   }
   fromExt(input) {
     if (input == null) throw new FieldTypeError(this,
       `Builtin primitives cannot be null`);
-    if (input.constructor !== this.constr) throw new FieldTypeError(this,
-      `Was given ${input.constructor.name}, not ${this.constr.name}`);
-    return this.constr(input);
+    if (input.constructor !== this.jsConstr) throw new FieldTypeError(this,
+      `Was given ${input.constructor.name}, not ${this.jsConstr.name}`);
+    return this.parse(input);
   }
-}
-function NotImpl() {
-  throw new FieldTypeError(this, `Not Impl: ${this.name}`);
+  toExt(input) {
+    return this.serialize(input);
+  }
 }
 builtins.set(String, new BuiltinFieldType('String', String));
 if (self.Blob) builtins.set(Blob, new BuiltinFieldType('Blob', Blob));
 builtins.set(Date, new BuiltinFieldType('Date', Date, d => d.toISOString()));
 builtins.set(Number, new BuiltinFieldType('Number', Number));
 builtins.set(Boolean, new BuiltinFieldType('Boolean', Boolean));
-builtins.set(JSON, new BuiltinFieldType('JSON', JSON.parse, JSON.stringify));
+
+class UnstructuredFieldType extends FieldType {
+  constructor() {
+    super('core', 'JSON');
+  }
+  fromExt(input) {
+    if (input == null) throw new FieldTypeError(this,
+      `Builtin primitives cannot be null`);
+    if (input.constructor !== Object) throw new FieldTypeError(this,
+      `Was given ${input.constructor.name}, not Object`);
+    return JSON.parse(input);
+  }
+  toExt(input) {
+    return JSON.stringify(input);
+  }
+}
+builtins.set(JSON, new UnstructuredFieldType());
 
 class GraphReference {
   constructor(target) {
@@ -242,6 +258,7 @@ if (typeof module !== 'undefined') {
     FieldType,
     PendingFieldType,
     BuiltinFieldType,
+    UnstructuredFieldType,
     GraphReference,
     ReferenceFieldType,
     OptionalFieldType,

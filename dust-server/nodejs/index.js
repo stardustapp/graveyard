@@ -52,7 +52,8 @@ const extraImports = [
 
   'src/model/impl/graph-store/model.js',
   'src/model/impl/graph-store/lifecycle.js',
-  'src/model/impl/graph-store/world.js',
+  'src/model/impl/graph-store/behaviors/World.js',
+  'src/model/impl/graph-store/behaviors/Graph.js',
 
   'src/model/impl/dust-app/model.js',
   'src/model/impl/dust-app/ddp-api.js',

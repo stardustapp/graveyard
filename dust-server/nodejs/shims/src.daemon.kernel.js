@@ -18,9 +18,9 @@ Kernel = class Kernel {
 
   // expected to return within 30 seconds
   async boot() {
-    const {Config} = this.server.instance;
+    const {Config} = this.server.daemonNode;
 
-    this.appGraph = await this.server.runtime.findGraph({
+    this.appGraph = await this.server.graphWorld.findGraph({
       engineKey: 'dust-app/v1-beta1',
       fields: { foreignKey: Config.PackageKey },
     });
@@ -32,7 +32,7 @@ Kernel = class Kernel {
   // should run for the lifetime of the runtime
   // return to EXIT
   async run() {
-    const {Config} = this.server.instance;
+    const {Config} = this.server.daemonNode;
     switch (Config.Command) {
 
       case 'run':

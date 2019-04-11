@@ -9,7 +9,7 @@ class BaseRawStore {
     for (const name of this.engine.names.values()) {
       this.accessors.set(name.name, FieldAccessor.forType(name));
     }
-    console.log('Raw store accessors:', this.accessors);
+    //console.log('Raw store accessors:', this.accessors);
 
     this.topType = Array
       .from(this.engine.edges)
@@ -17,6 +17,10 @@ class BaseRawStore {
       .topType;
 
     this.mutex = new RunnableMutex(this.transactNow.bind(this));
+
+    this.rootContext = new GraphContext(this.engine,
+      this.transact.bind(this),
+      this.processAction.bind(this));
   }
 
   // user entrypoint that either runs immediately or queues for later
@@ -32,17 +36,12 @@ class BaseRawStore {
   }
 
   async setupFunc({topData}, dbCtx) {
-    const graphCtx = new GraphContext(this.engine);
-
-    if (topData) {
+    //if (topData) {
       const topAccessor = FieldAccessor.forType(this.topType);
-      const topNode = topAccessor.mapIn({
-        nodeId: 'top',
-        fields: topData,
-      }, graphCtx);
-    }
+      return this.rootContext.putNode(topAccessor, topData, 'top');
+    //}
 
-    graphCtx.flushTo(this.processAction.bind(this));
+    //graphCtx.flushTo(this.processAction.bind(this));
   }
 
   static async newFromImpl(storeImpl, opts={}) {
@@ -136,7 +135,6 @@ class BaseRawStore {
 class BaseRawContext {
   constructor(graphStore, mode) {
     this.graphStore = graphStore;
-    this.database = graphStore.database;
     this.mode = mode;
 
     this.actions = new Array;
@@ -187,18 +185,21 @@ class BaseRawContext {
     return obj;
   }
 
-  wrapRawNode(nodeId, {typeName, data}) {
-    const accessor = this.graphStore.accessors.get(typeName);
+  wrapRawNode(nodeId, record) {
+    const accessor = this.graphStore.accessors.get(record.type);
     if (!accessor) throw new Error(
-      `Didn't find an accessor for type ${type}`);
+      `Didn't find an accessor for type ${record.type}`);
 
-    const graphCtx = new GraphContext(this);
-    return accessor.mapOut({typeName, nodeId, data}, graphCtx);
+    return accessor.mapOut({nodeId, ...record}, this.graphStore.rootContext);
   }
 
-  async storeNode(node) {
+  // TODO: delete
+  async storeGraphObject(object) {
     // TODO: something else does this too
     if (GraphObject.prototype.isPrototypeOf(node)) {
+      const accessor = FieldAccessor.forType(node.type);
+      return this.graphStore.rootContext.putNode(accessor, node.data, node.data.nodeId);
+
       await this.writeNode(node.data.nodeId, {
         type: node.type.name,
         fields: node.data,
@@ -208,39 +209,6 @@ class BaseRawContext {
       console.log(node);
       throw new Error(`Don't know how to store that node`);
     }
-  }
-
-  async newNode(type, fields) {
-    //console.log('hi!!!!!', type, fields);
-    const proxyHandler = this.graphStore.accessors.get(type.name);
-    if (!proxyHandler) throw new Error(
-      `Didn't find a proxy handler for type ${type.name}`);
-
-    const nodeId = randomString(3); // TODO: check for uniqueness
-    const obj = proxyHandler.wrap(this, nodeId, type.name, fields, true);
-    this.objProxies.set(nodeId, obj);
-    return obj;
-  }
-
-  async newEdge({subject, predicate, object}, origRelation) {
-    if (!subject || !subject.nodeId) throw new Error(
-      `newEdge() requires a valid, ID'd subject`);
-    if (!object || !object.nodeId) throw new Error(
-      `newEdge() requires a valid, ID'd object`);
-
-    const record = {
-      subject: `${subject.typeName}#${subject.nodeId}`,
-      predicate,
-      object: `${object.typeName}#${object.nodeId}`,
-    };
-    this.actions.push({
-      kind: 'put edge',
-      record,
-    });
-
-    // TODO: support uniqueBy by adding name to index
-    // TODO: support count constraints
-    // TODO: look up the opposite relation for constraints
   }
 
   // TODO: this is LEGACY
@@ -407,71 +375,11 @@ class BaseRawContext {
 
     console.log('Stored', readyObjs.size, 'objects');
   }
-
-  queryGraph(query) {
-    if (query.subject && query.subject.constructor === NodeProxyHandler)
-      query.subject = `${query.subject.typeName}#${query.subject.nodeId}`;
-    if (query.object && query.object.constructor === NodeProxyHandler)
-      query.object = `${query.object.typeName}#${query.object.nodeId}`;
-
-    if (query.subject && query.subject.constructor === GraphObject)
-      throw new Error(`GraphObject as subject`);
-    if (query.object && query.object.constructor === GraphObject)
-      throw new Error(`GraphObject as object`);
-
-    return this.createGraphQuery(query);
-  }
 }
-
-class BaseEdgeQuery {
-  constructor(dbCtx, query, stages=[]) {
-    this.dbCtx = dbCtx;
-    this.query = query;
-    this.stages = stages;
-    console.log('building graph query for', query);
-  }
-
-  async fetchAll() {
-    const edges = await this.fetchEdges();
-    const promises = edges.map(async raw => ({
-      subject: await this.dbCtx.getNodeById(raw.subject.split('#')[1]),
-      predicate: raw.predicate,
-      object: await this.dbCtx.getNodeById(raw.object.split('#')[1]),
-    }));
-    return await Promise.all(promises);
-  }
-  async fetchSubjects() {
-    const edges = await this.fetchEdges();
-    return await Promise.all(edges
-      .map(raw => raw.subject.split('#')[1])
-      .map(raw => this.dbCtx.getNodeById(raw)));
-    }
-  async fetchObjects() {
-    const edges = await this.fetchEdges();
-    return await Promise.all(edges
-      .map(raw => raw.object.split('#')[1])
-      .map(raw => this.dbCtx.getNodeById(raw)));
-    }
-
-  async findOne(filter) {
-    const edges = await this.fetchAll();
-    for (const edge of edges) {
-      let isMatch = true;
-      for (const key in filter) {
-        if (edge.object[key] !== filter[key])
-          isMatch = false;
-      }
-      if (isMatch) return edge.object;
-    }
-    throw new Error(`No matching edge found`);
-  }
-}
-
 
 if (typeof module !== 'undefined') {
   module.exports = {
     BaseRawStore,
     BaseRawContext,
-    BaseEdgeQuery,
   };
 }

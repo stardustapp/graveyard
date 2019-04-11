@@ -99,14 +99,8 @@ class LevelDataContext extends BaseRawContext {
     await this.database.rawLevel.put('doc::'+nodeId, json);
   }
 
-  createGraphQuery(query) {
-    return new LevelEdgeQuery(this, query);
-  }
-}
-
-class LevelEdgeQuery extends BaseEdgeQuery {
   /*async*/ fetchEdges() {
-    return this.dbCtx.database.rawGraph.get(this.query);
+    return this.database.rawGraph.get(this.query);
   }
 }
 
@@ -114,6 +108,5 @@ if (typeof module !== 'undefined') {
   module.exports = {
     RawLevelStore,
     LevelDataContext,
-    LevelEdgeQuery,
   };
 }

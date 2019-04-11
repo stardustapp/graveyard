@@ -48,15 +48,22 @@ extensions.lifecycle = {
       },
     });
 
-    console.log(await daemonStore.getTopNode());
-    const {GitHash, Config} = await daemonStore.getTopNode();
+    const daemonNode = await daemonStore.getTopNode();
+    const {GitHash, Config} = daemonNode;
 
   /*
     const graphWorld = await Config.DataPath.ifPresent(
       dataPath => RawLevelStore.openGraphWorld(dataPath),
       orElse => RawVolatileStore.openGraphWorld());
   */
-    const graphWorld = RawVolatileStore.new
+
+  console.debug('Opening world store');
+
+      const graphStore = await RawVolatileStore.new({
+        engineKey: 'graph-store/v1-beta1',
+        topData: {},
+      });
+      const graphWorld = await graphStore.getTopNode();
 
     console.debug('Loaded system!!!!');
 
@@ -66,15 +73,15 @@ extensions.lifecycle = {
       webServer = new HttpServer(this.TODO, hostname => new VirtualHost(hostname, null));
       //ExposeSkylinkOverHttp(this.systemEnv, webServer);
       await webServer.startServer({
-        host: Config.HttpHost.orElse(null),
-        port: Config.HttpPort.orElse(9237),
+        host: Config.HttpHost,
+        port: Config.HttpPort || 9237,
       });
     }
 
     //console.log(instance.type.relations);
 
     // INSTALL PACKAGE
-    const appKey = Config.PackageKey.orElse();
+    const appKey = Config.PackageKey;
     console.log('\r--> graph-daemon.lifecycle now setting up Dust app', appKey);
 
     const {pocRepository, compileToHtml} = GraphEngine
@@ -100,8 +107,12 @@ extensions.lifecycle = {
     return {
       //Config,
       webServer,
-      //graphWorld,
-      runtime,
+      graphStore,
+      graphWorld,
+      //runtime,
+      daemonNode,
+      daemonStore,
+      appGraph,
     };
   },
 

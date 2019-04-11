@@ -17,7 +17,7 @@ class GraphRuntime {
     this.graphStore.eventProcessors.push(this.processEvent.bind(this));
 
     // overwrite whatever top node, don't care
-    const rootNode = await dbCtx.storeNode(this.rootNode);
+    const rootNode = await dbCtx.storeGraphObject(this.rootNode);
 
     const allGraphs = await rootNode.OPERATES.fetchGraphList();
     for (const graphNode of allGraphs) {

@@ -12,6 +12,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
       { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'ServerMethod' },
     ],
     fields: {
+      DisplayName: String,
       PackageKey: String,
       PackageType: { type: String, choices: [ 'Package', 'Library', 'App' ] },
       License: String,
