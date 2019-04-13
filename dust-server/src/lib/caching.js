@@ -14,7 +14,8 @@ class LoaderCache {
     if (this.promises.has(id))
       return this.promises.get(id);
 
-    const promise = Promise.resolve(this.loader(input)).then(value => {
+    const realInput = input === null ? id : input;
+    const promise = Promise.resolve(this.loader(realInput)).then(value => {
       this.promises.delete(id);
       this.entities.set(id, value);
       console.debug(`Successfully loaded value`, id, 'as', value);
@@ -51,4 +52,10 @@ class LoaderCache {
       console.warn('not purging value', id, `- it wasn't started (??)`);
     }
   }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    LoaderCache,
+  };
 }

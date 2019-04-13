@@ -15,6 +15,13 @@ class FieldAccessor {
   }
 
   static constructForType(theType) {
+    if (theType.constructor === PendingFieldType) {
+      if (theType.final) {
+        return this.constructForType(theType.final);
+      }
+      throw new Error(`PendingFieldType is still pending`);
+    }
+
     if (accessorConstructors.has(theType.constructor)) {
       const constr = accessorConstructors.get(theType.constructor);
       return new constr(theType);

@@ -58,22 +58,11 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       }
     }
 
-    function resolveRecordSchema(name) {
-      if (name.startsWith('core:')) {
-        return { BuiltIn: name[5].toUpperCase() + name.slice(6) };
-      } else if (name.includes(':')) {
-        throw new Error(`recordSchema ${JSON.stringify(name)} scoping not implemented`);
-      } else {
-        return { SchemaRef: app.getRecordSchema(name) };
-      }
-    }
-
-
     for (const res of resources.Dependency) {
       let otherPkg;
       if (res.childPackage === manifest.packageId) {
         // self-reference
-        otherPkg = app;
+        otherPkg = package;
       } else {
         otherPkg = dependencies[res.childPackage];
         if (!otherPkg) throw new Error(
@@ -89,11 +78,11 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
     }
 
 
-    for (const res of resources.CustomRecord) {
+    async function createRecordSchema(res) {
       // translate the fields
       const fields = res.fields.map(field => ({
         Key: field.key,
-        Type: resolveRecordSchema(field.type),
+        Type: schemaCache.getOne(field.type),
         IsList: field.isList,
         Optional: field.optional,
         Immutable: field.immutable,
@@ -103,21 +92,54 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       // add deps for behaviors
       // TODO: belongs here?
       if (res.timestamp) {
-        fields.createdAt = {Type: resolveRecordSchema('core:timestamp'), Mutable: false };
-        fields.updatedAt = {Type: resolveRecordSchema('core:timestamp'), Mutable: true };
+        fields.createdAt = {Type: schemaCache.getOne('core:timestamp'), Mutable: false };
+        fields.updatedAt = {Type: schemaCache.getOne('core:timestamp'), Mutable: true };
       }
       if (res.slugField) {
-        fields.slug = {Type: resolveRecordSchema('core:string'), Mutable: true }
+        fields.slug = {Type: schemaCache.getOne('core:string'), Mutable: true }
       }
 
-      await package.HAS_NAME.newRecordSchema({
+      // wait for stuff
+      for (const field of fields) {
+        field.Type = await field.Type;
+      }
+      const baseSchema = await schemaCache.getOne(res.base);
+
+      return await package.HAS_NAME.newRecordSchema({
         Name: res.name,
         Version: res.version,
-        Base: resolveRecordSchema(res.base),
+        Base: baseSchema,
         Fields: fields,
         TimestampBehavior: res.timestamp,
         SlugBehavior: res.slugField ? {Field: res.slugField} : null,
       });
+    }
+
+    const schemaNames = new Map;
+    for (const res of resources.CustomRecord) {
+      schemaNames.set(res.name, res);
+    }
+
+    async function loadRecordSchema(name) {
+      if (name.startsWith('core:')) {
+        return { BuiltIn: name[5].toUpperCase() + name.slice(6) };
+      } else if (name.includes(':')) {
+        throw new Error(`recordSchema ${JSON.stringify(name)} scoping not implemented`);
+      } else if (schemaNames.has(name)) {
+        const schema = await createRecordSchema(schemaNames.get(name));
+        return { SchemaRef: schema };
+      } else {
+        throw new Error(`Didn't find record schema ${name}`);
+        //const schema = await package.HAS_NAME.findRecordSchema({
+        //  Name: name,
+        //});
+        //return { SchemaRef: schema };
+      }
+    }
+    const schemaCache = new LoaderCache(loadRecordSchema);
+
+    for (const res of resources.CustomRecord) {
+      await schemaCache.getOne(res.name);
     }
 
 
@@ -130,21 +152,24 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
     }
 
 
-    function mapDocLocator (child) {
+    async function mapDocLocator(child) {
+      const typeRef = await schemaCache.getOne(child.recordType)
+      const children = await Promise.all(child.children.map(mapDocLocator));
       return {
-        Children: child.children.map(mapDocLocator),
+        Children: children,
         FilterBy: child.filterBy,
         Fields: (child.fields||'').length > 2 ? child.fields : null,
         SortBy: (child.sortBy||'').length > 2 ? child.sortBy : null,
         LimitTo: child.limitTo || null,
-        RecordType: resolveRecordSchema(child.recordType),
+        RecordType: typeRef,
       };
     }
     for (const res of resources.Publication) {
+      const rootLocator = await mapDocLocator(res);
       await package.HAS_NAME.newPublication({
         Name: res.name,
         Version: res.version,
-        ...mapDocLocator(res),
+        ...rootLocator,
       });
     }
 
@@ -193,10 +218,11 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       for (const route of res.entries) {
         switch (route.type) {
           case 'customAction':
+            const {coffee, js} = route.customAction;
             await router.RouteTable.push({
               Path: route.path,
               Action: {
-                Script: inflateScript(script.coffee, script.js),
+                Script: inflateScript(coffee, js),
               },
             });
             break;

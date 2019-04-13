@@ -16,6 +16,7 @@ const importRules = {
   // multiple named exports
   'src/core/api-entries.js': true,
   'src/core/enumeration.js': true,
+  'src/lib/caching.js': true,
   'src/lib/locking.js': true,
   'src/lib/path-fragment.js': true,
   'src/daemon/background.js': true,

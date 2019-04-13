@@ -24,6 +24,7 @@ class FieldType {
     if (TypeCache.has(input)) {
       return TypeCache.get(input);
     }
+
     const pending = new PendingFieldType(input);
     TypeCache.set(input, pending);
 
