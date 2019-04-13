@@ -169,9 +169,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
           return {
             Type: typeObj,
-            Coffee: script.coffee,
-            JS: script.js,
-            Refs: getScriptRefs(script.coffee),
+            ...inflateScript(script.coffee, script.js),
           };
         }),
       });
@@ -195,19 +193,15 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       for (const route of res.entries) {
         switch (route.type) {
           case 'customAction':
-            await router.RouteTable.pushNew({
+            await router.RouteTable.push({
               Path: route.path,
               Action: {
-                Script: {
-                  Coffee: route.customAction.coffee,
-                  JS: route.customAction.js,
-                  Refs: getScriptRefs(route.customAction.coffee),
-                },
+                Script: inflateScript(script.coffee, script.js),
               },
             });
             break;
           case 'template':
-            await router.RouteTable.pushNew({
+            await router.RouteTable.push({
               Path: route.path,
               Action: {
                 Render: {

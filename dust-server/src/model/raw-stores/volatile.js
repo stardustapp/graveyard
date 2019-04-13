@@ -73,18 +73,27 @@ class VolatileDataContext extends BaseRawContext {
     }
   }
 
-  /*async*/ fetchEdges() {
+  /*async*/ fetchEdges(query) {
     const edges = new Set;
+    console.log('querying edge records from',
+      this.actions.length, 'actions and',
+      this.graphStore.edges.size, 'edges');
+
     for (const action of this.actions) {
       if (action.kind !== 'put edge') continue;
-      if (action.record.predicate !== this.query.predicate) continue;
-      if (this.query.subject && action.record.subject !== this.query.subject) continue;
-      if (this.query.object && action.record.object !== this.query.object) continue;
+      if (action.record.predicate !== query.predicate) continue;
+      if (query.subject && action.record.subject !== query.subject) continue;
+      if (query.object && action.record.object !== query.object) continue;
       edges.add(action.record);
     }
+
     for (const edge of this.graphStore.edges) {
-      console.log(edge, this.query);
+      if (edge.predicate !== query.predicate) continue;
+      if (query.subject && edge.subject !== query.subject) continue;
+      if (query.object && edge.object !== query.object) continue;
+      edges.add(edge);
     }
+
     return Array.from(edges);
   }
 }

@@ -61,44 +61,58 @@ class GraphContext {
 class GraphEdgeQuery {
   constructor(txnSource, query) {
     this.txnSource = txnSource;
-    this.query = query;
-    console.log('building graph query for', query);
+    this.query = {
+      subject: query.subject ? `${query.subject.nodeType}#${query.subject.nodeId}` : null,
+      predicate: query.predicate,
+      object: query.object ? `${query.object.nodeType}#${query.object.nodeId}` : null,
+    };
+    console.log('building graph query for', this.query);
   }
 
-  async fetchAll() {
-    const edges = await this.fetchEdges();
-    const promises = edges.map(async raw => ({
-      subject: await this.dbCtx.getNodeById(raw.subject.split('#')[1]),
-      predicate: raw.predicate,
-      object: await this.dbCtx.getNodeById(raw.object.split('#')[1]),
-    }));
-    return await Promise.all(promises);
+  fetchAll() {
+    return this.txnSource('read edges', async dbCtx => {
+      const edges = await dbCtx.fetchEdges(this.query);
+      const promises = edges.map(async raw => ({
+        subject: await this.dbCtx.getNodeById(raw.subject.split('#')[1]),
+        predicate: raw.predicate,
+        object: await this.dbCtx.getNodeById(raw.object.split('#')[1]),
+      }));
+      return await Promise.all(promises);
+    });
   }
-  async fetchSubjects() {
-    const edges = await this.fetchEdges();
-    return await Promise.all(edges
-      .map(raw => raw.subject.split('#')[1])
-      .map(raw => this.dbCtx.getNodeById(raw)));
+  fetchSubjects() {
+    return this.txnSource('read edge subjects', async dbCtx => {
+      const edges = await dbCtx.fetchEdges(this.query);
+      return await Promise.all(edges
+        .map(raw => raw.subject.split('#')[1])
+        .map(raw => this.dbCtx.getNodeById(raw)));
+      });
   }
   fetchObjects() {
-    return this.txnSource('read edges', async dbCtx => {
-      const edges = await dbCtx.fetchEdges();
+    return this.txnSource('read edge objects', async dbCtx => {
+      const edges = await dbCtx.fetchEdges(this.query);
       return await Promise.all(edges
         .map(raw => raw.object.split('#')[1])
         .map(raw => dbCtx.getNodeById(raw)));
     });
   }
 
-  async findOne(filter) {
-    const edges = await this.fetchAll();
-    for (const edge of edges) {
+  async findOneObject(filter) {
+    const objects = await this.fetchObjects();
+    console.log('filtering through', objects.length, 'objects');
+    for (const object of objects) {
       let isMatch = true;
       for (const key in filter) {
-        if (edge.object[key] !== filter[key])
+        //console.log(key, object[key], filter[key]);
+        if (object[key] !== filter[key])
           isMatch = false;
       }
-      if (isMatch) return edge.object;
+      if (isMatch) {
+        console.log('found matching', object.nodeType, object.nodeId);
+        return object;
+      }
     }
+    console.log('missed filter:', filter);
     throw new Error(`No matching edge found`);
   }
 }

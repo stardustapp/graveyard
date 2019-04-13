@@ -64,6 +64,10 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
             Template: {
               reference: 'Template',
             },
+            Layout: {
+              reference: 'Template',
+              optional: true,
+            },
           }},
         },
       },

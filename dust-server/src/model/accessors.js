@@ -148,14 +148,17 @@ class StructAccessor extends FieldAccessor {
   mapIn(newVal, graphCtx) {
     if (newVal.constructor === Object) {
       const dataObj = Object.create(null);
+      // create temporary instance to fill in the data
       const accInst = this.mapOut(dataObj, graphCtx);
       for (const key in newVal) {
         accInst[key] = newVal[key];
       }
       return dataObj;
+
     } else if (newVal.constructor === undefined) {
       // this is probably us, right?
       return newVal;
+
     } else throw new Error(
       `StructAccessor can't map in values of ${newVal.constructor.name}`);
   }
@@ -275,17 +278,22 @@ class ListAccessor extends Array {
   }
 
   mapOut(rawVal, graphCtx) {
+    const {innerAccessor} = this;
     const array = rawVal.slice(0);
     const proxy = new Proxy(array, {
-      get(key) {
-        console.log('!!! get proxy', key);
-        /* pushNew
-          if (innerType.constructor !== ReferenceFieldType) throw new Error(
-            `Can't pushNew() against a non-reference!`);
-          const newNode = graphCtx.newNode({name: innerType.targetPath}, fields);
-          rawVal.push(newNode);
-          return newNode;
-        */
+      get(target, prop, receiver) {
+        console.log('!!! get proxy -', prop);
+        switch (prop) {
+          case 'push':
+            return (rawVal) => {
+              console.log('pushing onto', innerAccessor);
+              const newVal = innerAccessor.mapIn(rawVal, graphCtx);
+              array.push(newVal);
+              return newVal;
+            };
+          default:
+            return Reflect.get(...arguments);
+        }
       },
     });
     return proxy;
@@ -318,14 +326,10 @@ class ReferenceAccessor extends FieldAccessor {
     //console.log('mapping reference', newVal);
     if (newVal.constructor === Object) {
       const type = graphCtx.findNodeBuilder(this.myType.targetPath);
-      const accessor = FieldAccessor.forType(type.inner);
-
-      const dataObj = Object.create(null);
-      const accInst = accessor.mapOut(dataObj, graphCtx);
-      for (const key in newVal) {
-        accInst[key] = newVal[key];
-      }
-      return dataObj;
+      const accessor = FieldAccessor.forType(type);
+      //console.log('ref mapping in', accessor, newVal);
+      const newNode = graphCtx.newNode(accessor, newVal);
+      return newNode;
 
     } else if (newVal.constructor === GraphReference && newVal.target) {
       console.log('hello world', this.targetPath, newVal.target);
@@ -414,7 +418,7 @@ class RelationAccessor {
         subject: this.localNode,
         predicate: relation.predicate,
       })
-      .findOne(query);
+      .findOneObject(query);
   }
 
   async fetchNodeList(relation) {
