@@ -1,3 +1,6 @@
+// TODO: marked for deletion
+// TODO: protect the cool inspection though
+
 const {promisify, inspect} = require('util');
 
 function inspectNodeProxy(target, prop, receiver, depth, options) {

@@ -44,7 +44,7 @@ const extraImports = [
   'src/model/raw-stores/level.js',
   'src/model/raw-stores/volatile.js',
   'src/model/accessors.js',
-  'src/model/node-proxy.js',
+  //'src/model/node-proxy.js',
   'src/model/runtime.js',
   'src/model/context.js',
 
@@ -54,7 +54,13 @@ const extraImports = [
   'src/model/impl/graph-store/model.js',
   'src/model/impl/graph-store/lifecycle.js',
   'src/model/impl/graph-store/behaviors/World.js',
+  'src/model/impl/graph-store/behaviors/Engine.js',
   'src/model/impl/graph-store/behaviors/Graph.js',
+
+  'src/model/impl/dust-manager/model.js',
+  'src/model/impl/dust-manager/lifecycle.js',
+  'src/model/impl/dust-manager/behaviors/Manager.js',
+  'src/model/impl/dust-manager/behaviors/Repository.js',
 
   'src/model/impl/dust-app/model.js',
   'src/model/impl/dust-app/ddp-api.js',

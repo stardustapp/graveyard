@@ -1,8 +1,28 @@
 class GraphContext {
-  constructor(engine, txnSource, actionSink) {
+  constructor({engine, txnSource, actionSink}) {
+    // NOTE: this.engine is also referenced by accessors
     this.engine = engine;
     this.txnSource = txnSource;
     this.sinkAction = actionSink;
+    this.loadedNodes = new Array;
+  }
+
+  flushNodes() {
+    for (const node of this.loadedNodes) {
+      if (!node.isDirty) continue;
+
+      const {nodeId, nodeType} = node;
+      //console.log('hi', node.rawData);
+      this.sinkAction({
+        kind: 'put node',
+        nodeId: node.nodeId,
+        record: {
+          nodeId: node.nodeId,
+          data: node.rawData,
+          type: node.nodeType,
+        }
+      });
+    }
   }
 
   findNodeBuilder(path) {
@@ -22,8 +42,10 @@ class GraphContext {
       `NodeAccessor instance is required for new nodes`);
 
     const type = accessor.typeName;
-    const record = accessor.mapIn({nodeId, fields}, this);
-    this.sinkAction({ kind: 'put node', nodeId, record });
+    const node = new GraphNode(this, nodeId, type);
+    const record = accessor.mapIn({nodeId, fields}, this, node);
+    node.rawData = record.data;
+    this.flushNodes();
     return accessor.mapOut(record, this);
   }
 
@@ -73,9 +95,9 @@ class GraphEdgeQuery {
     return this.txnSource('read edges', async dbCtx => {
       const edges = await dbCtx.fetchEdges(this.query);
       const promises = edges.map(async raw => ({
-        subject: await this.dbCtx.getNodeById(raw.subject.split('#')[1]),
+        subject: await dbCtx.getNodeById(raw.subject.split('#')[1]),
         predicate: raw.predicate,
-        object: await this.dbCtx.getNodeById(raw.object.split('#')[1]),
+        object: await dbCtx.getNodeById(raw.object.split('#')[1]),
       }));
       return await Promise.all(promises);
     });
@@ -85,7 +107,7 @@ class GraphEdgeQuery {
       const edges = await dbCtx.fetchEdges(this.query);
       return await Promise.all(edges
         .map(raw => raw.subject.split('#')[1])
-        .map(raw => this.dbCtx.getNodeById(raw)));
+        .map(raw => dbCtx.getNodeById(raw)));
       });
   }
   fetchObjects() {

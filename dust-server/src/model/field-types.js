@@ -119,10 +119,11 @@ class UnstructuredFieldType extends FieldType {
   }
   fromExt(input) {
     if (input == null) throw new FieldTypeError(this,
-      `Builtin primitives cannot be null`);
-    if (input.constructor !== Object) throw new FieldTypeError(this,
-      `Was given ${input.constructor.name}, not Object`);
-    return JSON.parse(input);
+      `Unstructured primitives cannot be null`);
+    if (input.constructor === String) return JSON.parse(input);
+    throw new FieldTypeError(this,
+      `Was given ${input.constructor.name}, not String`);
+
   }
   toExt(input) {
     return JSON.stringify(input);

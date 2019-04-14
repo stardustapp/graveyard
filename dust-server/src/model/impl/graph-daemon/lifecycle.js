@@ -59,11 +59,11 @@ extensions.lifecycle = {
 
   console.debug('Opening world store');
 
-      const graphStore = await RawVolatileStore.new({
-        engineKey: 'graph-store/v1-beta1',
-        topData: {},
-      });
-      const graphWorld = await graphStore.getTopNode();
+    const graphStore = await RawVolatileStore.new({
+      engineKey: 'graph-store/v1-beta1',
+      topData: {},
+    });
+    const graphWorld = await graphStore.getTopNode();
 
     console.debug('Loaded system!!!!');
 
@@ -80,25 +80,26 @@ extensions.lifecycle = {
 
     //console.log(instance.type.relations);
 
+    // GET DUST MANAGER
+
+    const manager = await graphWorld.findOrCreateGraph({
+      engineKey: 'dust-manager/v1-beta1',
+      gitHash: GitHash,
+      fields: {
+        system: true,
+      },
+    });
+
+
+
     // INSTALL PACKAGE
     const appKey = Config.PackageKey;
     console.log('\r--> graph-daemon.lifecycle now setting up Dust app', appKey);
 
-    const {pocRepository, compileToHtml} = GraphEngine
-      .get('dust-app/v1-beta1').extensions;
+    //const {pocRepository, compileToHtml} = GraphEngine
+    //  .get('dust-app/v1-beta1').extensions;
 
-    appGraph = await graphWorld.findGraph({
-      engineKey: 'dust-app/v1-beta1',
-      fields: {
-        foreignKey: appKey,
-        heritage: 'stardust-poc',
-      },
-    });
-    if (!appGraph) {
-      appGraph = await pocRepository.installWithDeps(graphWorld, appKey);
-    }
-    if (!appGraph) throw new Error(
-      `App installation ${JSON.stringify(appKey)} not found`);
+    const appPackage = await manager.findOrInstallByPackageKey(graphWorld, appKey);
 
     //await LaunchRepl({serverDb, graphWorld, instance, appKey, pocRepository, appGraph});
       /*

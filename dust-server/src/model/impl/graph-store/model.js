@@ -75,6 +75,7 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
     ],
     fields: {
       Tags: JSON,
+      TopObject: { reference: 'Object' },
     },
   });
 

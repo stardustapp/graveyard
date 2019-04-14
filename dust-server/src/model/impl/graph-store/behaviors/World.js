@@ -2,70 +2,106 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   // constructor: nodeType, data
 
   // TODO: should leverage the EdgeQuery better
-  async upsertBuiltInEngine({EngineKey, GitHash}) {
+  async getBuiltInEngine({engineKey, gitHash}) {
     const allEngines = await this.OPERATES.fetchEngineList();
     const engine = allEngines
       .filter(x => x.Source.BuiltIn)
-      .filter(x => x.Source.BuiltIn.EngineKey === EngineKey)
-      .filter(x => x.Source.BuiltIn.GitHash === GitHash)
+      .filter(x => x.Source.BuiltIn.EngineKey === engineKey)
+      .filter(x => x.Source.BuiltIn.GitHash === gitHash)
       [0];
     if (engine) return engine;
 
     return await this.OPERATES.newEngine({
       Source: {
         BuiltIn: {
-          GitHash: GitHash,
-          EngineKey: EngineKey,
+          GitHash: gitHash,
+          EngineKey: engineKey,
         },
       },
     });
   },
 
-  async findGraph({engine, engineKey, fields}) {
-    const targetEngine = await this.upsertBuiltInEngine({
-      EngineKey: engine ? engine.engineKey : engineKey,
-      GitHash: 'TODOGIT',
-    });
-
-    const allGraphs = await targetEngine.OPERATES.fetchGraphList();
-    console.log('all engine graphs:', allGraphs);
-    return allGraphs
-      .filter(x => x.data.EngineKey === targetEngine)
-      .find(x => Object.keys(fields)
-        .every(key => x.data.Metadata[key] == fields[key]));
+  async findGraph(opts) {
+    if (!opts.engineKey) throw new Error('oops1')
+    const engine = await this.getBuiltInEngine(opts);
+    const graph = await engine.findGraph(opts);
+    if (graph) return this.openSubContext(graph);
+    return null;
   },
 
-  async findOrCreateGraph(engine, {selector, fields, buildCb}) {
-    // return an existing graph if we find it
-    const existingGraph = await this.findGraph({
-      engine,
-      fields: selector || fields,
-    });
-    if (existingGraph) return existingGraph;
-
-    // ok we have to build the graph
-    const tempStore = await buildCb(engine, fields);
-    if (!tempStore) throw new Error(
-      `Graph builder for ${engine.engineKey} returned nothing`);
-
-    const rootNode = await this.graphCtx.getNodeById('top');
-    const graphNode = await rootNode.STORES.newGraph({
-      Tags: fields,
-    });
-    await graphNode.importExternalGraph(tempStore, 'top');
-
-    const graphId = graphNode.nodeId;
-    console.debug('Created graph', graphId, 'for', fields);
-
-    // grab the [hopefully] loaded graph
-    //if (!this.graphs.has(graphId)) console.warn(
-    //  `WARN: Graph ${graphId} wasn't loaded after creation`);
-    return graphNode;
+  async findOrCreateGraph(opts) {
+    if (!opts.engineKey) throw new Error('oops2')
+    const engine = await this.getBuiltInEngine(opts);
+    const graph = await engine.findOrCreateGraph(opts, this);
+    return this.openSubContext(graph);
   },
 
-  getGraphsUsingEngine(engineKey) {
-    return Array
-      .from(this.graphs.values())
-      .filter(x => x.data.engine === engineKey);
+  async openSubContext(graph) {
+    const topObject = await graph.TopObject.fetch();
+    console.log('Opening graph context with top', topObject);
+
+    //if (!engine) throw new Error(
+    //  `Didn't find a graph engine`);
+    //console.log('Using graph engine', engine);
+
+    //const allTypes = await graph.OWNS.fetchObjectList();
+    //console.log('all types:', allTypes.map(x => x.Type));
+
+    const engine = await this.graphCtx.queryGraph({
+      predicate: 'OPERATES',
+      object: graph,
+    }).fetchSubjects().then(x => x[0]);
+
+    const subCtx = new GraphSubContext(engine, graph);
+    return subCtx.getNodeById(topObject.nodeId);
   },
+
+  /*
+    getGraphsUsingEngine(engineKey) {
+      return Array
+        .from(this.graphs.values())
+        .filter(x => x.data.engine === engineKey);
+    },
+  */
 });
+
+class GraphSubContext {
+  constructor(engineObject, graphObject) {
+    this.graphObject = graphObject;
+
+    this.nodeCache = new LoaderCache(this.loadNode.bind(this));
+    this.graphCtx = new GraphContext({
+      engine: engineObject,
+      txnSource: this.transact.bind(this),
+      actionSink: this.processAction.bind(this),
+    });
+  }
+
+  async loadNode(nodeId) {
+    const node = await this.graphObject.graphCtx.getNodeById(nodeId);
+    const virtType = this.graphCtx.findNodeBuilder(node.Type);
+    const accessor = FieldAccessor.forType(virtType);
+    console.log('found accessor', accessor, 'for type', node.Type)
+    if (!accessor) throw new Error(
+      `Didn't find an accessor for type ${node.Type}`);
+
+    return accessor.mapOut({
+      nodeId,
+      type: node.Type,
+      data: node.Data,
+    }, this.graphCtx);
+  }
+
+  getNodeById(id) {
+    return this.nodeCache.getOne(id);
+  }
+
+  transact(mode, cb) {
+    return cb(this);
+    //throw new Error(`TODO: graph transact`);
+  }
+
+  processAction(action) {
+    throw new Error(`TODO: handle inner graph actions`);
+  }
+}

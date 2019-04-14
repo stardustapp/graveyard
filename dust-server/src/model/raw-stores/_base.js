@@ -18,9 +18,11 @@ class BaseRawStore {
 
     this.mutex = new RunnableMutex(this.transactNow.bind(this));
 
-    this.rootContext = new GraphContext(this.engine,
-      this.transact.bind(this),
-      this.processAction.bind(this));
+    this.rootContext = new GraphContext({
+      engine: this.engine,
+      txnSource: this.transact.bind(this),
+      actionSink: this.processAction.bind(this),
+    });
   }
 
   // user entrypoint that either runs immediately or queues for later
@@ -38,7 +40,7 @@ class BaseRawStore {
   async setupFunc({topData}, dbCtx) {
     //if (topData) {
       const topAccessor = FieldAccessor.forType(this.topType);
-      return this.rootContext.putNode(topAccessor, topData, 'top');
+      return this.rootContext.putNode(topAccessor, topData || {}, 'top');
     //}
 
     //graphCtx.flushTo(this.processAction.bind(this));
@@ -56,32 +58,6 @@ class BaseRawStore {
       .transact('readonly', dbCtx => dbCtx
         .getNodeById('top'));
   }
-
-/*
-  // write a new top in forcibly
-  async replaceTop(topData) {
-    const topRelation = Array
-      .from(this.engine.edges)
-      .find(x => x.type === 'Top');
-
-    const type = topRelation.topType;
-    const accessor = FieldAccessor.forType(type);
-
-    const topObj = await this.transact('write top', async dbCtx => {
-      const graphCtx = new GraphContext(dbCtx);
-      const rootNode = accessor.mapIn({
-        nodeId: 'top',
-        fields: topData,
-      }, graphCtx);
-      const rootObj = accessor.mapOut(rootNode, graphCtx);
-      return rootObj;
-    });
-
-    topObj.state.rawStore = this;
-
-    return topObj;
-  }
-  */
 
   async processDbActions(dbCtx, actions) {
     const nodeMap = new Map;

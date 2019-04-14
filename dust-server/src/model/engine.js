@@ -88,7 +88,7 @@ class GraphEngine {
       } has unimplemented type ${JSON.stringify(data.Type)}`);
     return new behavior(nodeType, data);
   }
-  
+
   [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
     if (depth < 0) {
       return [
