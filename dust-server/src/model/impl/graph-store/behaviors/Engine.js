@@ -35,7 +35,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     if (buildCb) {
       tempStore = await buildCb(this, fields);
     } else if (lifecycleExt) {
-      const buildCtx = await RawVolatileStore.new(this.realEngine);
+      const buildCtx = await RawVolatileStore.new({engine: this.realEngine});
       tempStore = await lifecycleExt.buildNew(buildCtx, fields);
     }
     if (!tempStore) throw new Error(

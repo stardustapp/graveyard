@@ -96,12 +96,18 @@ class GraphSubContext {
     return this.nodeCache.getOne(id);
   }
 
-  transact(mode, cb) {
-    return cb(this);
+  async transact(mode, cb) {
+    console.log('heh a');
+    try {
+      return await cb(this);
+    } finally {
+      console.log('done heh');
+    }
     //throw new Error(`TODO: graph transact`);
   }
 
   processAction(action) {
+    console.log('failing at action', action);
     throw new Error(`TODO: handle inner graph actions`);
   }
 }

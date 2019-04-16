@@ -31,6 +31,8 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
       });
     }
 
+    this.graphCtx.flushNodes();
+
     console.groupEnd();
   },
 

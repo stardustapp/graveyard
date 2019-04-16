@@ -1,7 +1,7 @@
 class BaseRawStore {
   constructor(opts) {
     console.log('creating raw store with options', Object.keys(opts));
-    this.engine = GraphEngine.get(opts.engineKey);
+    this.engine = opts.engine || GraphEngine.get(opts.engineKey);
 
     this.eventProcessors = new Array;
 
@@ -31,16 +31,19 @@ class BaseRawStore {
   }
 
   // mutex entrypoint that just goes for it
-  transactNow(mode, cb) {
+  async transactNow(mode, cb) {
     const dbCtx = this.createDataContext(mode);
     //const graphCtx = new GraphContext(this.engine);
-    return dbCtx.runCb(cb);
+    const output = await dbCtx.runCb(cb);
+    this.rootContext.flushNodes();
+    return output;
   }
 
   async setupFunc({topData}, dbCtx) {
     //if (topData) {
+    //console.log('hello world')
       const topAccessor = FieldAccessor.forType(this.topType);
-      return this.rootContext.putNode(topAccessor, topData || {}, 'top');
+      await this.rootContext.putNode(topAccessor, topData || {}, 'top');
     //}
 
     //graphCtx.flushTo(this.processAction.bind(this));

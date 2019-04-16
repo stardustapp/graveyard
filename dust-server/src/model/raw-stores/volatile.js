@@ -89,6 +89,7 @@ class VolatileDataContext extends BaseRawContext {
 
     for (const edge of this.graphStore.edges) {
       if (edge.predicate !== query.predicate) continue;
+      console.log(edge);
       if (query.subject && edge.subject !== query.subject) continue;
       if (query.object && edge.object !== query.object) continue;
       edges.add(edge);

@@ -94,7 +94,7 @@ class NodeAccessor extends FieldAccessor {
     const behavior = graphCtx.engine.nameBehaviors.get(type);
     const node = new GraphNode(graphCtx, nodeId, type);
     node.rawData = data;
-    graphCtx.flushNodes();
+    //graphCtx.flushNodes();
 
     //Object.defineProperty(node, 'state', {
     //  value: Object.create(null),
@@ -102,6 +102,8 @@ class NodeAccessor extends FieldAccessor {
 
     const struct = this.structType.mapOut(data, graphCtx, node);
     for (const key in struct) {
+      if (key === 'isDirty') throw new Error(
+        `Copying a NodeAccessor!`);
       const definition = Object.getOwnPropertyDescriptor(struct, key);
       Object.defineProperty(node, key, definition);
     }
@@ -123,7 +125,7 @@ class NodeAccessor extends FieldAccessor {
       }
     }
 
-    Object.freeze(node);
+    //Object.freeze(node);
     return node;
   }
 
@@ -163,14 +165,14 @@ class StructAccessor extends FieldAccessor {
           //console.log('setting', name, 'as', fieldType.constructor.name, newVal);
           structVal[name] = fieldAccessor.mapIn(newVal, graphCtx, node);
           node.markDirty();
-          graphCtx.flushNodes();
+          //graphCtx.flushNodes();
           return true;
         };
       }
 
       Object.defineProperty(target, name, propOpts);
     }
-    Object.freeze(target);
+    //Object.freeze(target);
     return target;
   }
 
@@ -227,7 +229,7 @@ class AnyOfKeyedAccessor extends FieldAccessor {
 
       Object.defineProperty(target, slotKey, propOpts);
     }
-    Object.freeze(target);
+    //Object.freeze(target);
     return target;
   }
 
@@ -319,7 +321,7 @@ class ListAccessor extends Array {
               const newVal = innerAccessor.mapIn(rawVal, graphCtx, node);
               array.push(newVal);
               node.markDirty();
-              graphCtx.flushNodes();
+              //graphCtx.flushNodes();
               return newVal;
             };
           default:
@@ -372,7 +374,7 @@ class ReferenceAccessor extends FieldAccessor {
     if (newVal.constructor === Object) {
       const type = graphCtx.findNodeBuilder(this.myType.targetPath);
       const accessor = FieldAccessor.forType(type);
-      //console.log('ref mapping in', accessor, newVal);
+      console.log('ref mapping in', accessor, newVal);
       const newNode = graphCtx.newNode(accessor, newVal);
       return newNode;
 

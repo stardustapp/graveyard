@@ -45,7 +45,7 @@ class GraphContext {
     const node = new GraphNode(this, nodeId, type);
     const record = accessor.mapIn({nodeId, fields}, this, node);
     node.rawData = record.data;
-    this.flushNodes();
+    node.markDirty();
     return accessor.mapOut(record, this);
   }
 
