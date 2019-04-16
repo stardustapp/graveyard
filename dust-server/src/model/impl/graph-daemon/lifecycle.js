@@ -59,9 +59,9 @@ extensions.lifecycle = {
 
   console.debug('Opening world store');
 
-    const graphStore = await RawVolatileStore.new({
+    const graphStore = await RawDynamoDBStore.new({
       engineKey: 'graph-store/v1-beta1',
-      topData: {},
+      tablePrefix: 'DustGraph',
     });
     const graphWorld = await graphStore.getTopNode();
 

@@ -7,13 +7,13 @@ class GraphContext {
     this.loadedNodes = new Array;
   }
 
-  flushNodes() {
+  async flushNodes() {
     for (const node of this.loadedNodes) {
       if (!node.isDirty) continue;
 
       const {nodeId, nodeType} = node;
       //console.log('hi', node.rawData);
-      this.sinkAction({
+      await this.sinkAction({
         kind: 'put node',
         nodeId: node.nodeId,
         record: {
@@ -65,7 +65,7 @@ class GraphContext {
       predicate,
       object: `${object.nodeType}#${object.nodeId}`,
     };
-    this.sinkAction({
+    return this.sinkAction({
       kind: 'put edge',
       record,
     });

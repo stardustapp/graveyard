@@ -43,6 +43,8 @@ const extraImports = [
   'src/model/raw-stores/_base.js',
   'src/model/raw-stores/level.js',
   'src/model/raw-stores/volatile.js',
+  'src/model/raw-stores/dynamodb.js',
+
   'src/model/accessors.js',
   //'src/model/node-proxy.js',
   'src/model/runtime.js',
