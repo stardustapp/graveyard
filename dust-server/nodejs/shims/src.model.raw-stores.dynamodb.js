@@ -37,69 +37,31 @@ class RawDynamoDBStore extends BaseRawStore {
         break;
 
       case 'put edge':
+        const {subject, predicate, object, ...extra} = record;
+        const edgeVals = {
+          spo: [subject, predicate, object],
+          sop: [subject, object, predicate],
+          pso: [predicate, subject, object],
+          pos: [predicate, object, subject],
+          osp: [object, subject, predicate],
+          ops: [object, predicate, subject],
+        };
+        const edgeItems = Object.keys(edgeVals)
+          .map(signature => ({
+            signature,
+            keyList: edgeVals[signature].map(encodeURI).join('|'),
+            ...extra,
+          }));
+
         const result = await dynamoDb.batchWrite({
           TableName: this.edgeTable,
           RequestItems: {
-            [this.edgeTable]: [
-              {
-                PutRequest: {
-                  Item: {
-                    prefix: ['spo', record.subject, record.predicate].map(encodeURI).join('|'),
-                    suffix: record.object,
-                    record,
-                  },
-                },
-              },
-              {
-                PutRequest: {
-                  Item: {
-                    prefix: ['sop', record.subject, record.object].map(encodeURI).join('|'),
-                    suffix: record.predicate,
-                    record,
-                  },
-                },
-              },
-              {
-                PutRequest: {
-                  Item: {
-                    prefix: ['pso', record.predicate, record.subject].map(encodeURI).join('|'),
-                    suffix: record.object,
-                    record,
-                  },
-                },
-              },
-              {
-                PutRequest: {
-                  Item: {
-                    prefix: ['pos', record.predicate, record.object].map(encodeURI).join('|'),
-                    suffix: record.subject,
-                    record,
-                  },
-                },
-              },
-              {
-                PutRequest: {
-                  Item: {
-                    prefix: ['osp', record.object, record.subject].map(encodeURI).join('|'),
-                    suffix: record.predicate,
-                    record,
-                  },
-                },
-              },
-              {
-                PutRequest: {
-                  Item: {
-                    prefix: ['ops', record.object, record.predicate].map(encodeURI).join('|'),
-                    suffix: record.subject,
-                    record,
-                  },
-                },
-              },
-            ]
-          }
+            [this.edgeTable]: edgeItems.map(x => ({
+              PutRequest: { Item: x },
+            }))
+          },
         }).promise();
         console.log(`stored edge ${record.subject} ${record.predicate} ${record.object} in AWS`);
-        console.log(result)
         break;
 
       default: throw new Error(
@@ -165,43 +127,62 @@ class DynamoDBDataContext extends BaseRawContext {
       edges.add(action.record);
     }
 
-    let prefixParts, suffix;
+    let signature, values;
     switch (true) {
       case !!(query.subject && query.predicate):
-        prefixParts = ['spo', query.subject, query.predicate];
+        signature = 'spo';
+        values = [query.subject, query.predicate, ''];
         break;
       case !!(query.subject && query.object):
-        prefixParts = ['sop', query.subject, query.object];
+        signature = 'sop';
+        values = [query.subject, query.object, ''];
         break;
       case !!(query.predicate && query.subject):
-        prefixParts = ['pso', query.predicate, query.subject];
+        signature = 'pso';
+        values = [query.predicate, query.subject, ''];
         break;
       case !!(query.predicate && query.object):
-        prefixParts = ['pos', query.predicate, query.object];
+        signature = 'pos';
+        values = [query.predicate, query.object, ''];
         break;
       case !!(query.object && query.subject):
-        prefixParts = ['osp', query.object, query.subject];
+        signature = 'osp';
+        values = [query.object, query.subject, ''];
         break;
       case !!(query.object && query.predicate):
-        prefixParts = ['ops', query.object, query.predicate];
+        signature = 'ops';
+        values = [query.object, query.predicate, ''];
         break;
       default:
         throw new Error(`WTF kinda query is that`);
     }
-    const prefix = prefixParts.map(encodeURI).join('|');
-    //console.log('dynamo edge query:', query, prefix)
+    const valPrefix = values.map(encodeURI).join('|');
+    console.log('dynamo edge query:', query, signature, valPrefix)
 
     const result = await dynamoDb.query({
       TableName: this.graphStore.edgeTable,
       ExpressionAttributeValues: {
-        ':pre': prefix,
+        ':sig': signature,
+        ':valP': valPrefix,
        },
-      KeyConditionExpression: 'prefix = :pre',
+      KeyConditionExpression: 'signature = :sig AND begins_with(keyList, :valP)',
     }).promise();
 
     console.log('dynamo had', result.Count, 'edges');
     for (const edge of result.Items) {
-      edges.add(edge.record);
+      const {signature, keyList, ...extra} = edge;
+      const names = keyList.split('|').map(decodeURI);
+      const keyMap = {s: 'subject', p: 'predicate', o: 'object'};
+      const record = {
+        subject: null,
+        predicate: null,
+        object: null,
+        ...extra,
+      };
+      names.forEach((name, idx) => {
+        record[keyMap[signature[idx]]] = name;
+      });
+      edges.add(record);
     }
 
     return Array.from(edges);

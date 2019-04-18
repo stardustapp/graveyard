@@ -8,6 +8,7 @@ class GraphContext {
   }
 
   async flushNodes() {
+    console.group('--- flushing nodes');
     for (const node of this.loadedNodes) {
       if (!node.isDirty) continue;
 
@@ -23,6 +24,7 @@ class GraphContext {
         }
       });
     }
+    console.groupEnd();
   }
 
   findNodeBuilder(path) {
@@ -51,6 +53,7 @@ class GraphContext {
 
   newNode(accessor, fields) {
     const nodeId = randomString(3); // TODO: check for uniqueness
+    console.log('assigned new nodeId', nodeId);
     return this.putNode(accessor, fields, nodeId);
   }
 

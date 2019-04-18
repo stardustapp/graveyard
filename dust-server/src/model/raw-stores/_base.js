@@ -35,7 +35,7 @@ class BaseRawStore {
     const dbCtx = this.createDataContext(mode);
     //const graphCtx = new GraphContext(this.engine);
     const output = await dbCtx.runCb(cb);
-    this.rootContext.flushNodes();
+    await this.rootContext.flushNodes();
     return output;
   }
 

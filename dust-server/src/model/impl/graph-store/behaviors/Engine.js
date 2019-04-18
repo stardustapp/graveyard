@@ -18,7 +18,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     console.log('all graphs in engine:', allGraphs);
     return allGraphs
       .find(x => Object.keys(fields)
-        .every(key => x.data.Metadata[key] == fields[key]));
+        .every(key => x.Tags[key] == fields[key]));
   },
 
   async findOrCreateGraph({selector, fields, buildCb}, world) {

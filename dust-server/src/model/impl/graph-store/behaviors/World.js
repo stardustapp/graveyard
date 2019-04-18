@@ -7,10 +7,19 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     const engine = allEngines
       .filter(x => x.Source.BuiltIn)
       .filter(x => x.Source.BuiltIn.EngineKey === engineKey)
-      .filter(x => x.Source.BuiltIn.GitHash === gitHash)
+      //.filter(x => x.Source.BuiltIn.GitHash === gitHash)
       [0];
-    if (engine) return engine;
 
+    if (engine) {
+      // update the found engine if necesary
+      if (engine.Source.BuiltIn.GitHash !== gitHash) {
+        engine.Source.BuiltIn.GitHash = gitHash;
+      }
+
+      return engine;
+    }
+
+    // make fresh engine, none found
     return await this.OPERATES.newEngine({
       Source: {
         BuiltIn: {

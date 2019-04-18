@@ -31,7 +31,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
       });
     }
 
-    this.graphCtx.flushNodes();
+    await this.graphCtx.flushNodes();
 
     console.groupEnd();
   },
