@@ -8,12 +8,14 @@ class GraphContext {
   }
 
   async flushNodes() {
-    console.group('--- flushing nodes');
+    //console.group('- flushing nodes');
+    const nodes = new Set;
     for (const node of this.loadedNodes) {
       if (!node.isDirty) continue;
 
       const {nodeId, nodeType} = node;
       //console.log('hi', node.rawData);
+      nodes.add(nodeId);
       await this.sinkAction({
         kind: 'put node',
         nodeId: node.nodeId,
@@ -24,7 +26,9 @@ class GraphContext {
         }
       });
     }
-    console.groupEnd();
+    //console.groupEnd();
+    console.debug('flushed', nodes.size, 'nodes:', Array.from(nodes));
+    this.loadedNodes.length = 0;
   }
 
   findNodeBuilder(path) {

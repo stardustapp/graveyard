@@ -47,7 +47,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
 
   async openSubContext(graph) {
     const topObject = await graph.TopObject.fetch();
-    console.log('Opening graph context with top', topObject);
+    console.log('Opening graph context with top type', topObject.Type);
 
     //if (!engine) throw new Error(
     //  `Didn't find a graph engine`);

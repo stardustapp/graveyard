@@ -15,10 +15,11 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
 
   async findGraph({fields}) {
     const allGraphs = await this.OPERATES.fetchGraphList();
-    console.log('all graphs in engine:', allGraphs);
-    return allGraphs
-      .find(x => Object.keys(fields)
+    const matches = allGraphs
+      .filter(x => Object.keys(fields)
         .every(key => x.Tags[key] == fields[key]));
+    console.log('Engine has', allGraphs.length, 'graphs, matched', matches.length, 'for', fields);
+    return matches[0];
   },
 
   async findOrCreateGraph({selector, fields, buildCb}, world) {
@@ -28,6 +29,8 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
       fields: selector || fields,
     });
     if (existingGraph) return existingGraph;
+
+    console.group('- Building new graph for', selector || fields);
 
     // ok we have to build the graph
     let tempStore;
@@ -49,6 +52,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
 
     const graphId = graphNode.nodeId;
     console.debug('Created graph', graphId, 'for', fields);
+    console.groupEnd();
 
     // grab the [hopefully] loaded graph
     //if (!this.graphs.has(graphId)) console.warn(

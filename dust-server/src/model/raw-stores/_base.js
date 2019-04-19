@@ -125,7 +125,7 @@ class BaseRawContext {
 
   async runCb(cb) {
     try {
-      console.group(this.constructor.name, 'start:', this.mode);
+      console.group('-', this.constructor.name, 'start:', this.mode);
       const result = await cb(this);
       this.buildActions();
       await this.flushActions();

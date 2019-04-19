@@ -56,7 +56,7 @@ class GraphNode {
     this.rawData = null;
 
     this.isDirty = false;
-    graphCtx.loadedNodes.push(this)
+    graphCtx.loadedNodes.push(this);
   }
 
   markDirty() {
@@ -162,7 +162,7 @@ class StructAccessor extends FieldAccessor {
 
       if ('mapIn' in fieldAccessor) {
         propOpts.set = function(newVal) {
-          //console.log('setting', name, 'as', fieldType.constructor.name, newVal);
+          console.log('setting', name, 'as', fieldType.constructor.name, newVal);
           structVal[name] = fieldAccessor.mapIn(newVal, graphCtx, node);
           node.markDirty();
           //graphCtx.flushNodes();
@@ -313,7 +313,7 @@ class ListAccessor extends Array {
     const array = rawVal ? rawVal.slice(0) : [];
     const proxy = new Proxy(array, {
       get(target, prop, receiver) {
-        console.log('!!! get proxy -', prop);
+        console.log('ListAccessor get -', prop);
         switch (prop) {
           case 'push':
             return (rawVal) => {
@@ -374,9 +374,8 @@ class ReferenceAccessor extends FieldAccessor {
     if (newVal.constructor === Object) {
       const type = graphCtx.findNodeBuilder(this.myType.targetPath);
       const accessor = FieldAccessor.forType(type);
-      console.log('ref mapping in', accessor, newVal);
-      const newNode = graphCtx.newNode(accessor, newVal);
-      return newNode;
+      //console.log('ref mapping in', accessor, newVal);
+      return graphCtx.newNode(accessor, newVal);
 
     } else if (newVal.constructor === GraphReference && newVal.target) {
       console.log('hello world', this.targetPath, newVal.target);

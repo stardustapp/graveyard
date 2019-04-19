@@ -6,7 +6,6 @@ extensions.lifecycle = {
 
     const manager = await buildCtx.getTopNode();
 
-    console.log('------------- zxcasd')
     const publicSource = await manager.Sources.push({
       Label: 'Public Store',
       Location: {
@@ -16,7 +15,6 @@ extensions.lifecycle = {
         },
       },
     });
-    console.log('------------- asioz')
 
     return buildCtx;
   }

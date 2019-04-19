@@ -18,12 +18,12 @@ class LoaderCache {
     const promise = Promise.resolve(this.loader(realInput)).then(value => {
       this.promises.delete(id);
       this.entities.set(id, value);
-      console.debug(`Successfully loaded value`, id, 'as', value);
+      console.debug(`LoaderCache successfully loaded value`, id);
       return value;
     }, err => {
       this.promises.delete(id);
       // TODO: send to bugsnag
-      console.error(`Failed to load value`, id, err);
+      console.error(`LoaderCache failed to load value`, id, err);
       return Promise.reject(err);
     });
 
