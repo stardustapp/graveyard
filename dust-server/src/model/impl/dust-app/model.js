@@ -51,7 +51,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Route', {
     relations: [
-      { exactly: 1, subject: 'AppRouter', predicate: 'REFERENCES' },
+      //{ exactly: 1, subject: 'AppRouter', predicate: 'REFERENCES' },
     ],
     fields: {
       Path: String,

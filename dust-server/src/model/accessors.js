@@ -41,9 +41,11 @@ class FieldAccessor {
 
 class PrimitiveAccessor extends FieldAccessor {
   mapOut(value, graphCtx, node) {
+    if (value == null) throw new Error('PrimitiveAccessor#mapOut() got null');
     return this.myType.fromExt(value);
   }
   mapIn(value, graphCtx, node) {
+    if (value == null) throw new Error('PrimitiveAccessor#mapIn() got null '+this.myType.default);
     return this.myType.toExt(value);
   }
 }
@@ -85,14 +87,23 @@ class NodeAccessor extends FieldAccessor {
         this.predicates.set(predicate, new Array);
       this.predicates.get(predicate).push(rel);
     }
+/*
+    this.refTypes = new Set;
+    this.gatherRefTypes(this.refTypes);
+    this.refEdges = Array
+      .from(this.refTypes)
+      .map(x => new RelationBuilder({
+        predicate: 'REFERENCES',
+        object: x,
+      }));
+      */
   }
 
-  mapOut({nodeId, type, data}, graphCtx) {
+  mapOut({nodeId, type, data}, graphCtx, node) {
     if (type !== this.typeName) throw new Error(
       `Can't mapOut Node - expected '${this.typeName}' but type was '${type}'`);
 
     const behavior = graphCtx.engine.nameBehaviors.get(type);
-    const node = new GraphNode(graphCtx, nodeId, type);
     node.rawData = data;
     //graphCtx.flushNodes();
 
@@ -109,11 +120,19 @@ class NodeAccessor extends FieldAccessor {
     }
 
     for (const [predicate, edges] of this.predicates) {
+      //console.log('defining', predicate)
       Object.defineProperty(node, predicate, {
         value: new RelationAccessor(graphCtx, node, edges),
         enumerable: true,
       });
     }
+
+    /*if (this.refEdges.length > 0) {
+      Object.defineProperty(node, 'REFERENCES', {
+        value: new RelationAccessor(graphCtx, node, this.refEdges),
+        enumerable: true,
+      });
+    }*/
 
     for (const key in behavior) {
       if (key === 'setup') {
@@ -133,6 +152,13 @@ class NodeAccessor extends FieldAccessor {
     const data = this.structType.mapIn(fields, graphCtx, node);
     return {nodeId, data, type: this.typeName};
   }
+
+  gatherRefTypes(types) {
+    this.structType.gatherRefTypes(types);
+  }
+  gatherRefs(node, refs) {
+    this.structType.gatherRefs(node, refs);
+  }
 }
 
 class StructAccessor extends FieldAccessor {
@@ -140,6 +166,7 @@ class StructAccessor extends FieldAccessor {
     super(type);
 
     this.fields = type.fields;
+    this.defaults = type.defaults;
   }
 
   mapOut(structVal, graphCtx, node) {
@@ -162,7 +189,7 @@ class StructAccessor extends FieldAccessor {
 
       if ('mapIn' in fieldAccessor) {
         propOpts.set = function(newVal) {
-          console.log('setting', name, 'as', fieldType.constructor.name, newVal);
+          //console.debug('setting', name, 'as', fieldType.constructor.name, newVal);
           structVal[name] = fieldAccessor.mapIn(newVal, graphCtx, node);
           node.markDirty();
           //graphCtx.flushNodes();
@@ -181,8 +208,10 @@ class StructAccessor extends FieldAccessor {
       const dataObj = Object.create(null);
       // create temporary instance to fill in the data
       const accInst = this.mapOut(dataObj, graphCtx, node);
-      for (const key in newVal) {
-        accInst[key] = newVal[key];
+      const allKeys = new Set(this.fields.keys());
+      Object.keys(newVal).forEach(x => allKeys.add(x));
+      for (const key of allKeys) {
+        accInst[key] = newVal[key] || this.defaults.get(key);
       }
       return dataObj;
 
@@ -192,6 +221,21 @@ class StructAccessor extends FieldAccessor {
 
     } else throw new Error(
       `StructAccessor can't map in values of ${newVal.constructor.name}`);
+  }
+
+  gatherRefTypes(types) {
+    for (const fieldType of this.fields.values()) {
+      const fieldAccessor = FieldAccessor.forType(fieldType);
+      if ('gatherRefTypes' in fieldAccessor)
+        fieldAccessor.gatherRefTypes(types);
+    }
+  }
+  gatherRefs(struct, refs) {
+    for (const [name, fieldType] of this.fields) {
+      const fieldAccessor = FieldAccessor.forType(fieldType);
+      if ('gatherRefs' in fieldAccessor)
+        fieldAccessor.gatherRefs(struct[name], refs);
+    }
   }
 }
 
@@ -221,8 +265,13 @@ class AnyOfKeyedAccessor extends FieldAccessor {
 
       if ('mapIn' in slotAccessor) {
         propOpts.set = function(newVal) {
-          //console.log('setting', slotKey, 'as', slotType.constructor.slotKey, newVal);
+          //console.log('setting', slotKey, 'as', slotKey, newVal);
           structVal[slotKey] = slotAccessor.mapIn(newVal, graphCtx, node);
+
+          if (slotKey !== structVal.liveKey) {
+            delete structVal[structVal.liveKey];
+            structVal.liveKey = slotKey;
+          }
           return true;
         };
       }
@@ -250,6 +299,26 @@ class AnyOfKeyedAccessor extends FieldAccessor {
       return newVal;
     } else throw new Error(
       `AnyOfKeyedAccessor can't map in values of ${newVal.constructor.name}`);
+  }
+
+  gatherRefTypes(types) {
+    for (const slotType of this.slots.values()) {
+      const slotAccessor = FieldAccessor.forType(slotType);
+      if ('gatherRefTypes' in slotAccessor)
+        slotAccessor.gatherRefTypes(types);
+    }
+  }
+  // TODO: know which key is real
+  gatherRefs(rawVal, refs) {
+    const key = rawVal.liveKey;
+    if (!key) {
+      console.warn('WARN: AnyOfKeyed gathering refs on empty any');
+      return;
+    }
+
+    const slotAccessor = FieldAccessor.forType(this.slots.get(rawVal.liveKey));
+    if ('gatherRefs' in slotAccessor)
+      slotAccessor.gatherRefs(rawVal[rawVal.liveKey], refs);
   }
 }
 
@@ -300,6 +369,17 @@ class OptionalAccessor extends FieldAccessor {
       return null;
     return this.innerAccessor.mapIn(newVal, graphCtx, node);
   }
+
+  gatherRefTypes(types) {
+    if ('gatherRefTypes' in this.innerAccessor)
+      this.innerAccessor.gatherRefTypes(types);
+  }
+  gatherRefs(rawVal, refs) {
+    if (rawVal === undefined || rawVal === null)
+      return;
+    if ('gatherRefs' in this.innerAccessor)
+      this.innerAccessor.gatherRefs(rawVal, refs);
+  }
 }
 
 class ListAccessor extends Array {
@@ -310,18 +390,16 @@ class ListAccessor extends Array {
 
   mapOut(rawVal, graphCtx, node) {
     const {innerAccessor} = this;
-    const array = rawVal ? rawVal.slice(0) : [];
+    const array = rawVal || [];
     const proxy = new Proxy(array, {
       get(target, prop, receiver) {
         console.log('ListAccessor get -', prop);
         switch (prop) {
           case 'push':
             return (rawVal) => {
-              console.log('pushing onto', innerAccessor);
               const newVal = innerAccessor.mapIn(rawVal, graphCtx, node);
               array.push(newVal);
               node.markDirty();
-              //graphCtx.flushNodes();
               return newVal;
             };
           default:
@@ -333,10 +411,21 @@ class ListAccessor extends Array {
   }
 
   mapIn(newVal, graphCtx, node) {
+    if (!newVal) return [];
     if (newVal.constructor === Array) {
       return newVal.map(x => this.innerAccessor.mapIn(x, graphCtx, node));
     } else throw new Error(
       `ListAccessor#mapIn() only takes arrays`);
+  }
+
+  gatherRefTypes(types) {
+    if ('gatherRefTypes' in this.innerAccessor)
+      this.innerAccessor.gatherRefTypes(types);
+  }
+  gatherRefs(rawVal, refs) {
+    for (const innerVal of rawVal) {
+      this.innerAccessor.gatherRefs(innerVal, refs);
+    }
   }
 }
 
@@ -387,6 +476,13 @@ class ReferenceAccessor extends FieldAccessor {
       throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);
       //return this.innerAccessor.mapIn(newVal, graphCtx);
     }
+  }
+
+  gatherRefTypes(types) {
+    types.add(this.targetPath);
+  }
+  gatherRefs(struct, refs) {
+    refs.add(struct);
   }
 }
 

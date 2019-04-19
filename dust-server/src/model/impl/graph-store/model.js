@@ -7,9 +7,9 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
       { predicate: 'STORES', object: 'Graph' },
     ],
     fields: {
-      CoreEngine: { reference: 'Engine' },
-      ExposedRoot: { reference: 'Entry' },
-      InspectRoot: { reference: 'Entry' },
+      CoreEngine: { reference: 'Engine', optional: true },
+      ExposedRoot: { reference: 'Entry', optional: true },
+      InspectRoot: { reference: 'Entry', optional: true },
     },
   });
 
@@ -70,6 +70,7 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
   build.node('Graph', {
     relations: [
       { predicate: 'OWNS', object: 'Object' },
+      { predicate: 'OWNS', object: 'Edge' },
       { exactly: 1, subject: 'World', predicate: 'STORES' },
       { exactly: 1, subject: 'Engine', predicate: 'OPERATES' },
     ],
@@ -84,7 +85,7 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
       { subject: 'Entry', predicate: 'POINTS_TO' },
       { exactly: 1, subject: 'Graph', predicate: 'OWNS' },
 
-      { subject: 'Edge', predicate: 'REFERENCES' },
+      //{ subject: 'Edge', predicate: 'REFERENCES' },
     ],
     fields: {
       Type: String,

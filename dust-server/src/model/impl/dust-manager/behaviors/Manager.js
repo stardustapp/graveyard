@@ -1,8 +1,10 @@
 GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
 
   fetchManifest(appKey) {
-    console.log('hi! finding', appKey);
-    console.log(this.Sources);
+    if (this.Sources.length === 0) throw new Error(
+      `Zero Dust Repositories registered, can't fetch anything`);
+
+    console.log('hi! finding', appKey, 'from', this.Sources.length, 'sources');
     throw new Error('TODO: fetchManifest');
     //`${this.bucketOrigin}/${this.objectPrefix}${encodeURIComponent(appKey)}.json`
   },

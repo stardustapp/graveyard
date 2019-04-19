@@ -38,11 +38,16 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     if (buildCb) {
       tempStore = await buildCb(this, fields);
     } else if (lifecycleExt) {
-      const buildCtx = await RawVolatileStore.new({engine: this.realEngine});
-      tempStore = await lifecycleExt.buildNew(buildCtx, fields);
+      tempStore = await RawVolatileStore.new({engine: this.realEngine});
+      await tempStore.transact('build graph', async dbCtx => {
+        const topNode = await dbCtx.getNodeById('top');
+        await lifecycleExt.buildNew(topNode, fields);
+      });
     }
     if (!tempStore) throw new Error(
       `Not sure how to build graph for ${engineKey}`);
+
+    console.log('built store', tempStore.nodes);
 
     const graphNode = await this.OPERATES.newGraph({
       Tags: fields,

@@ -35,24 +35,16 @@ class BaseRawStore {
     const dbCtx = this.createDataContext(mode);
     //const graphCtx = new GraphContext(this.engine);
     const output = await dbCtx.runCb(cb);
-    await this.rootContext.flushNodes();
+    await this.rootContext.flushNodes(dbCtx);
     return output;
-  }
-
-  async setupFunc({topData}, dbCtx) {
-    //if (topData) {
-    //console.log('hello world')
-      const topAccessor = FieldAccessor.forType(this.topType);
-      await this.rootContext.putNode(topAccessor, topData || {}, 'top');
-    //}
-
-    //graphCtx.flushTo(this.processAction.bind(this));
   }
 
   static async newFromImpl(storeImpl, opts={}) {
     const rawStore = new storeImpl(opts);
-    await rawStore.transact('setup', rawStore
-      .setupFunc.bind(rawStore, opts));
+    await rawStore.transact('newFromImpl', async dbCtx => {
+      const topAccessor = FieldAccessor.forType(rawStore.topType);
+      await rawStore.rootContext.putNode(topAccessor, opts.topData || {}, 'top');
+    });
     return rawStore;
   }
 
@@ -60,54 +52,6 @@ class BaseRawStore {
     return this
       .transact('readonly', dbCtx => dbCtx
         .getNodeById('top'));
-  }
-
-  async processDbActions(dbCtx, actions) {
-    const nodeMap = new Map;
-    const nodeLists = new Proxy(nodeMap, {
-      get(target, prop, receiver) {
-        if (!target.has(prop)) {
-          const [type, nodeId] = prop.split('#');
-          target.set(prop, {
-            nodeType: type,
-            nodeId: nodeId,
-            actions: new Array,
-          });
-        }
-        return target.get(prop);
-      },
-    });
-
-    for (const action of actions) {
-      switch (action.kind) {
-        case 'put node':
-        case 'del node':
-          const {nodeId, typeName} = action.proxyTarget;
-          nodeLists[`${typeName}#${nodeId}`].actions.push(action);
-          break;
-        case 'put edge':
-        case 'del edge':
-          const {subject, object} = action.record;
-          nodeLists[subject].actions.push({ direction: 'out', ...action });
-          nodeLists[object].actions.push({ direction: 'in', ...action });
-          break;
-      }
-    }
-
-    const event = {
-      kind: 'put graph',
-      nodeMap,
-      rootNodeId: 'Instance#top', // TODO!!
-      timestamp: new Date,
-    };
-    Object.defineProperty(event, 'dbCtx', {
-      enumerable: false,
-      value: dbCtx,
-    });
-
-    for (const processor of this.eventProcessors) {
-      await processor(event);
-    }
   }
 }
 
@@ -169,7 +113,8 @@ class BaseRawContext {
     if (!accessor) throw new Error(
       `Didn't find an accessor for type ${record.type}`);
 
-    return accessor.mapOut({nodeId, ...record}, this.graphStore.rootContext);
+    const node = new GraphNode(this.graphStore.rootContext, nodeId, record.type);
+    return accessor.mapOut({nodeId, ...record}, this.graphStore.rootContext, node);
   }
 
   // TODO: delete

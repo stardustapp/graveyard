@@ -7,14 +7,17 @@ class GraphContext {
     this.loadedNodes = new Array;
   }
 
-  async flushNodes() {
+  async flushNodes(dbCtx) {
     //console.group('- flushing nodes');
     const nodes = new Set;
     for (const node of this.loadedNodes) {
       if (!node.isDirty) continue;
 
+      const accessor = FieldAccessor.forType(this.engine.names.get(node.nodeType));
+      const refs = new Set;
+      accessor.gatherRefs(node, refs);
+
       const {nodeId, nodeType} = node;
-      //console.log('hi', node.rawData);
       nodes.add(nodeId);
       await this.sinkAction({
         kind: 'put node',
@@ -25,9 +28,26 @@ class GraphContext {
           type: node.nodeType,
         }
       });
+
+      const existingRefs = (await dbCtx.fetchEdges({
+        subject: `${node.nodeType}#${node.nodeId}`,
+        predicate: 'REFERENCES',
+      })).map(x => x.object);
+      const extraRefs = new Set(existingRefs);
+      for (const desired of refs) {
+        const obj = `${desired.nodeType}#${desired.nodeId}`;
+        extraRefs.delete(obj);
+        if (!existingRefs.includes(obj)) {
+          console.log('Creating ref to', obj);
+          node.REFERENCES['attach'+desired.nodeType](desired);
+        }
+      }
+      for (const extra of extraRefs) {
+        throw new Error(`TODO: remove reference edge`);
+      }
     }
     //console.groupEnd();
-    console.debug('flushed', nodes.size, 'nodes:', Array.from(nodes));
+    //console.debug('flushed', nodes.size, 'nodes:', Array.from(nodes));
     this.loadedNodes.length = 0;
   }
 
@@ -50,9 +70,9 @@ class GraphContext {
     const type = accessor.typeName;
     const node = new GraphNode(this, nodeId, type);
     const record = accessor.mapIn({nodeId, fields}, this, node);
-    node.rawData = record.data;
-    node.markDirty();
-    return accessor.mapOut(record, this);
+    //node.rawData = record.data;
+    //node.markDirty();
+    return accessor.mapOut(record, this, node);
   }
 
   newNode(accessor, fields) {

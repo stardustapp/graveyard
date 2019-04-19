@@ -21,7 +21,9 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
     }
 
     // and then the relations
+    console.log('!!! ingesting edges', extStore.edges);
     for (const edge of extStore.edges) {
+      console.log('!!! ingesting edge', edge);
       const subject = nodeIdMap.get(edge.subject);
       const object = nodeIdMap.get(edge.object);
       await subject.REFERENCES.newEdge({
@@ -31,7 +33,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
       });
     }
 
-    await this.graphCtx.flushNodes();
+    //await this.graphCtx.flushNodes();
 
     console.groupEnd();
   },

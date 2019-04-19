@@ -90,17 +90,18 @@ class PendingFieldType extends FieldType {
 const builtins = new Map;
 
 class BuiltinFieldType extends FieldType {
-  constructor(name, jsConstr, serialize) {
+  constructor(name, jsConstr, serialize, extConstr, parse) {
     super('core', name);
     this.jsConstr = jsConstr;
-    this.parse = jsConstr;
+    this.extConstr = extConstr || jsConstr;
+    this.parse = parse || jsConstr;
     this.serialize = serialize || jsConstr;
   }
   fromExt(input) {
     if (input == null) throw new FieldTypeError(this,
       `Builtin primitives cannot be null`);
-    if (input.constructor !== this.jsConstr) throw new FieldTypeError(this,
-      `Was given ${input.constructor.name}, not ${this.jsConstr.name}`);
+    if (input.constructor !== this.extConstr) throw new FieldTypeError(this,
+      `Was given ${input.constructor.name}, not ${this.extConstr.name}`);
     return this.parse(input);
   }
   toExt(input) {
@@ -109,7 +110,7 @@ class BuiltinFieldType extends FieldType {
 }
 builtins.set(String, new BuiltinFieldType('String', String));
 if (self.Blob) builtins.set(Blob, new BuiltinFieldType('Blob', Blob));
-builtins.set(Date, new BuiltinFieldType('Date', Date, d => d.toISOString()));
+builtins.set(Date, new BuiltinFieldType('Date', Date, d => d.toISOString(), String, x => new Date(x)));
 builtins.set(Number, new BuiltinFieldType('Number', Number));
 builtins.set(Boolean, new BuiltinFieldType('Boolean', Boolean));
 
@@ -213,8 +214,12 @@ class StructFieldType extends FieldType {
     super('composite', 'Struct');
 
     this.fields = new Map;
+    this.defaults = new Map;
     for (const key in config.fields) {
       this.fields.set(key, FieldType.from(config.fields[key]));
+      if ('default' in config.fields[key]) {
+        this.defaults.set(key, config.fields[key].default);
+      }
     }
   }
 
