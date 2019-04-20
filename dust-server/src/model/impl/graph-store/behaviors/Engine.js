@@ -47,7 +47,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     if (!tempStore) throw new Error(
       `Not sure how to build graph for ${engineKey}`);
 
-    console.log('built store', tempStore.nodes);
+    //console.log('built store', tempStore.nodes);
 
     const graphNode = await this.OPERATES.newGraph({
       Tags: fields,

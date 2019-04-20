@@ -192,7 +192,7 @@ class StructAccessor extends FieldAccessor {
       const allKeys = new Set(this.fields.keys());
       Object.keys(newVal).forEach(x => allKeys.add(x));
       for (const key of allKeys) {
-        accInst[key] = newVal[key] || this.defaults.get(key);
+        accInst[key] = newVal[key] != null ? newVal[key] : this.defaults.get(key);
       }
       return dataObj;
 
@@ -213,6 +213,7 @@ class StructAccessor extends FieldAccessor {
   }
 }
 
+class AnyOfKeyed {}
 class AnyOfKeyedAccessor extends FieldAccessor {
   constructor(type) {
     super(type);
@@ -220,9 +221,17 @@ class AnyOfKeyedAccessor extends FieldAccessor {
   }
 
   mapOut(structVal, graphCtx, node) {
-    const target = Object.create(null);
     if (!graphCtx) throw new Error(
       `graphCtx is required!`);
+    if (structVal.constructor !== Array) throw new Error(
+      `AnyOfKeyed#mapOut() got non-Array ${structVal.constructor.name}`);
+
+    const target = Object.create(AnyOfKeyed.prototype);
+    Object.defineProperty(target, 'currentKey', {
+      get() {
+        return structVal[0];
+      },
+    });
 
     for (const [slotKey, slotType] of this.slots) {
       const slotAccessor = FieldAccessor.forType(slotType);
@@ -233,19 +242,21 @@ class AnyOfKeyedAccessor extends FieldAccessor {
       if ('mapOut' in slotAccessor) {
         propOpts.get = function() {
           //console.log('getting', slotKey, 'as', slotType.constructor.slotKey);
-          return slotAccessor.mapOut(structVal[slotKey], graphCtx, node);
+          if (slotKey === structVal[0]) {
+            return slotAccessor.mapOut(structVal[1], graphCtx, node);
+          } else {
+            return null;
+          }
         };
       }
 
       if ('mapIn' in slotAccessor) {
         propOpts.set = function(newVal) {
+          if (structVal[0] !== slotKey) console.warn(
+            `WARN: AnyOfKeyed changed from '${structVal[0]}' to '${slotKey}'`);
           //console.log('setting', slotKey, 'as', slotKey, newVal);
-          structVal[slotKey] = slotAccessor.mapIn(newVal, graphCtx, node);
-
-          if (slotKey !== structVal.liveKey) {
-            delete structVal[structVal.liveKey];
-            structVal.liveKey = slotKey;
-          }
+          structVal[0] = slotKey;
+          structVal[1] = slotAccessor.mapIn(newVal, graphCtx, node);
           return true;
         };
       }
@@ -261,31 +272,27 @@ class AnyOfKeyedAccessor extends FieldAccessor {
       const keys = Object.keys(newVal);
       if (keys.length !== 1) throw new Error(
         `AnyOfKeyed got ${keys.length} keys instead of exactly 1. Received: ${keys.join(', ')}`);
+      const [liveKey] = keys;
 
-      const dataObj = Object.create(null);
-      const accInst = this.mapOut(dataObj, graphCtx, node);
-      for (const key in newVal) {
-        accInst[key] = newVal[key];
-      }
-      return dataObj;
-    } else if (newVal.constructor === undefined) {
+      const data = [liveKey, undefined];
+      const accInst = this.mapOut(data, graphCtx, node);
+      accInst[liveKey] = newVal[liveKey];
+      return data;
+    } else if (newVal.constructor === 'TODO') {
       // this is probably us, right?
       return newVal;
     } else throw new Error(
       `AnyOfKeyedAccessor can't map in values of ${newVal.constructor.name}`);
   }
 
-  // TODO: know which key is real
   gatherRefs(rawVal, refs) {
-    const key = rawVal.liveKey;
-    if (!key) {
-      console.warn('WARN: AnyOfKeyed gathering refs on empty any');
-      return;
-    }
+    if (rawVal.constructor !== AnyOfKeyed) throw new Error(
+      `AnyOfKeyed#gatherRefs() got external value ${rawVal.constructor.name}`);
 
-    const slotAccessor = FieldAccessor.forType(this.slots.get(rawVal.liveKey));
+    const {currentKey} = rawVal;
+    const slotAccessor = FieldAccessor.forType(this.slots.get(currentKey));
     if ('gatherRefs' in slotAccessor)
-      slotAccessor.gatherRefs(rawVal[rawVal.liveKey], refs);
+      slotAccessor.gatherRefs(rawVal[currentKey], refs);
   }
 }
 
@@ -357,6 +364,10 @@ class ListAccessor extends Array {
     const proxy = new Proxy(array, {
       get(target, prop, receiver) {
         switch (prop) {
+
+          case 'length':
+            return rawVal.length;
+
           case 'push':
             return (rawVal) => {
               const newVal = innerAccessor.mapIn(rawVal, graphCtx, node);
