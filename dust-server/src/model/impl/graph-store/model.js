@@ -2,7 +2,7 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
 
   build.node('World', {
     relations: [
-      { predicate: 'TOP' },
+      { kind: 'top' },
       { predicate: 'OPERATES', object: 'Engine' },
       { predicate: 'STORES', object: 'Graph' },
     ],
@@ -70,13 +70,12 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
   build.node('Graph', {
     relations: [
       { predicate: 'OWNS', object: 'Object' },
-      { predicate: 'OWNS', object: 'Edge' },
       { exactly: 1, subject: 'World', predicate: 'STORES' },
       { exactly: 1, subject: 'Engine', predicate: 'OPERATES' },
     ],
     fields: {
       Tags: JSON,
-      TopObject: { reference: 'Object' },
+      TopObject: { reference: 'Object', optional: true },
     },
   });
 
@@ -85,19 +84,12 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
       { subject: 'Entry', predicate: 'POINTS_TO' },
       { exactly: 1, subject: 'Graph', predicate: 'OWNS' },
 
-      //{ subject: 'Edge', predicate: 'REFERENCES' },
+      { subject: 'Object', kind: 'any' },
+      { kind: 'any', object: 'Object' },
     ],
     fields: {
       Type: String,
       Data: JSON,
-    },
-  });
-
-  build.node('Edge', {
-    fields: {
-      Subject: { reference: 'Object' },
-      Predicate: String,
-      Object: { reference: 'Object' },
     },
   });
 

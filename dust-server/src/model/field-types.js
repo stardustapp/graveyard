@@ -135,6 +135,9 @@ builtins.set(JSON, new UnstructuredFieldType());
 class GraphReference {
   constructor(target) {
     this.target = target;
+
+    if (!this.target) throw new Error(
+      `GraphReference to falsely target!`);
   }
   // TODO
 }

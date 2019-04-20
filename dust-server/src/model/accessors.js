@@ -52,7 +52,10 @@ class PrimitiveAccessor extends FieldAccessor {
 
 class GraphNode {
   constructor(graphCtx, nodeId, nodeType) {
-    this.graphCtx = graphCtx;
+    Object.defineProperty(this, 'graphCtx', {
+      enumerable: false,
+      value: graphCtx,
+    });
     this.nodeId = nodeId;
     this.nodeType = nodeType;
     this.rawData = null;
@@ -81,22 +84,11 @@ class NodeAccessor extends FieldAccessor {
 
     this.predicates = new Map;
     for (const rel of type.relations) {
-      if (rel.type === 'Top') continue;
-      const predicate = rel.type === 'Top' ? 'TOP' : rel.predicate;
-      if (!this.predicates.has(predicate))
-        this.predicates.set(predicate, new Array);
-      this.predicates.get(predicate).push(rel);
+      if (!rel.predicate) continue;
+      if (!this.predicates.has(rel.predicate))
+        this.predicates.set(rel.predicate, new Array);
+      this.predicates.get(rel.predicate).push(rel);
     }
-/*
-    this.refTypes = new Set;
-    this.gatherRefTypes(this.refTypes);
-    this.refEdges = Array
-      .from(this.refTypes)
-      .map(x => new RelationBuilder({
-        predicate: 'REFERENCES',
-        object: x,
-      }));
-      */
   }
 
   mapOut({nodeId, type, data}, graphCtx, node) {
@@ -105,7 +97,6 @@ class NodeAccessor extends FieldAccessor {
 
     const behavior = graphCtx.engine.nameBehaviors.get(type);
     node.rawData = data;
-    //graphCtx.flushNodes();
 
     //Object.defineProperty(node, 'state', {
     //  value: Object.create(null),
@@ -122,17 +113,10 @@ class NodeAccessor extends FieldAccessor {
     for (const [predicate, edges] of this.predicates) {
       //console.log('defining', predicate)
       Object.defineProperty(node, predicate, {
-        value: new RelationAccessor(graphCtx, node, edges),
+        value: new RelationAccessor(graphCtx, node, edges, predicate),
         enumerable: true,
       });
     }
-
-    /*if (this.refEdges.length > 0) {
-      Object.defineProperty(node, 'REFERENCES', {
-        value: new RelationAccessor(graphCtx, node, this.refEdges),
-        enumerable: true,
-      });
-    }*/
 
     for (const key in behavior) {
       if (key === 'setup') {
@@ -153,9 +137,6 @@ class NodeAccessor extends FieldAccessor {
     return {nodeId, data, type: this.typeName};
   }
 
-  gatherRefTypes(types) {
-    this.structType.gatherRefTypes(types);
-  }
   gatherRefs(node, refs) {
     this.structType.gatherRefs(node, refs);
   }
@@ -223,13 +204,6 @@ class StructAccessor extends FieldAccessor {
       `StructAccessor can't map in values of ${newVal.constructor.name}`);
   }
 
-  gatherRefTypes(types) {
-    for (const fieldType of this.fields.values()) {
-      const fieldAccessor = FieldAccessor.forType(fieldType);
-      if ('gatherRefTypes' in fieldAccessor)
-        fieldAccessor.gatherRefTypes(types);
-    }
-  }
   gatherRefs(struct, refs) {
     for (const [name, fieldType] of this.fields) {
       const fieldAccessor = FieldAccessor.forType(fieldType);
@@ -301,13 +275,6 @@ class AnyOfKeyedAccessor extends FieldAccessor {
       `AnyOfKeyedAccessor can't map in values of ${newVal.constructor.name}`);
   }
 
-  gatherRefTypes(types) {
-    for (const slotType of this.slots.values()) {
-      const slotAccessor = FieldAccessor.forType(slotType);
-      if ('gatherRefTypes' in slotAccessor)
-        slotAccessor.gatherRefTypes(types);
-    }
-  }
   // TODO: know which key is real
   gatherRefs(rawVal, refs) {
     const key = rawVal.liveKey;
@@ -370,10 +337,6 @@ class OptionalAccessor extends FieldAccessor {
     return this.innerAccessor.mapIn(newVal, graphCtx, node);
   }
 
-  gatherRefTypes(types) {
-    if ('gatherRefTypes' in this.innerAccessor)
-      this.innerAccessor.gatherRefTypes(types);
-  }
   gatherRefs(rawVal, refs) {
     if (rawVal === undefined || rawVal === null)
       return;
@@ -393,7 +356,6 @@ class ListAccessor extends Array {
     const array = rawVal || [];
     const proxy = new Proxy(array, {
       get(target, prop, receiver) {
-        console.log('ListAccessor get -', prop);
         switch (prop) {
           case 'push':
             return (rawVal) => {
@@ -402,7 +364,17 @@ class ListAccessor extends Array {
               node.markDirty();
               return newVal;
             };
+
           default:
+            // intercept item gets
+            if (prop.constructor === String) {
+              const int = parseInt(prop);
+              if (int.toString() === prop) {
+                return innerAccessor.mapOut(array[int], graphCtx, node);
+              }
+            }
+
+            console.log('ListAccessor get -', prop);
             return Reflect.get(...arguments);
         }
       },
@@ -418,10 +390,6 @@ class ListAccessor extends Array {
       `ListAccessor#mapIn() only takes arrays`);
   }
 
-  gatherRefTypes(types) {
-    if ('gatherRefTypes' in this.innerAccessor)
-      this.innerAccessor.gatherRefTypes(types);
-  }
   gatherRefs(rawVal, refs) {
     for (const innerVal of rawVal) {
       this.innerAccessor.gatherRefs(innerVal, refs);
@@ -430,8 +398,12 @@ class ListAccessor extends Array {
 }
 
 class ObjectReference {
-  constructor(graphCtx, nodeId) {
-    this.graphCtx = graphCtx;
+  constructor(graphCtx, nodeType, nodeId) {
+    Object.defineProperty(this, 'graphCtx', {
+      enumerable: false,
+      value: graphCtx,
+    });
+    this.nodeType = nodeType;
     this.nodeId = nodeId;
   }
   fetch() {
@@ -449,54 +421,62 @@ class ReferenceAccessor extends FieldAccessor {
   }
 
   mapOut(rawVal, graphCtx, node) {
+    //console.log('ReferenceAccessor#mapOut', rawVal);
     if (rawVal && rawVal.constructor === String)
-      return new ObjectReference(graphCtx, rawVal);
-    console.log('reading ref', rawVal, 'from graph', graphCtx);
+      //return graphCtx.getNodeFast(...rawVal.split('#'));
+      return new ObjectReference(graphCtx, ...rawVal.split('#'));
+    //console.log('reading ref', rawVal, 'from graph', graphCtx);
     throw new Error(`ReferenceAccessor can't mapOut, rawVal was weird.`);
   }
 
   mapIn(newVal, graphCtx, node) {
+    //console.log('ReferenceAccessor#mapIn', newVal);
     if (newVal === undefined || newVal === null) throw new Error(
       `ReferenceAccessor will not allow null values. Try Optional if you want.`);
 
-    //console.log('mapping reference', newVal);
     if (newVal.constructor === Object) {
       const type = graphCtx.findNodeBuilder(this.myType.targetPath);
       const accessor = FieldAccessor.forType(type);
       //console.log('ref mapping in', accessor, newVal);
-      return graphCtx.newNode(accessor, newVal);
+      const node = graphCtx.newNode(accessor, newVal);
+      return `${node.nodeType}#${node.nodeId}`;
 
     } else if (newVal.constructor === GraphReference && newVal.target) {
+      if (this.targetPath === '')
       console.log('hello world', this.targetPath, newVal.target);
 
     } else if (newVal.constructor === GraphNode) {
-      return newVal.nodeId;
-
-    } else {
-      throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);
-      //return this.innerAccessor.mapIn(newVal, graphCtx);
+      const node = newVal;
+      return `${node.nodeType}#${node.nodeId}`;
     }
+    throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);
   }
 
-  gatherRefTypes(types) {
-    types.add(this.targetPath);
-  }
-  gatherRefs(struct, refs) {
-    refs.add(struct);
+  gatherRefs(rawVal, refs) {
+    if ([ObjectReference, GraphNode].includes(rawVal.constructor)) {
+      refs.add(`${rawVal.nodeType}#${rawVal.nodeId}`);
+    } else if (rawVal.constructor === String) {
+      refs.add(rawVal);
+    } else {
+      throw new Error(`TODO: gatherRefs() got weird constr ${rawVal.constructor.name}`)
+    }
   }
 }
 
 class RelationAccessor {
-  constructor(graphCtx, localNode, relations) {
+  constructor(graphCtx, localNode, relations, predicate) {
     Object.defineProperty(this, 'graphCtx', {
       enumerable: false,
       value: graphCtx,
     });
     this.localNode = localNode;
     this.relations = relations;
+    this.predicate = predicate;
 
+    //console.log(localNode.nodeType)
     for (const relation of relations) {
-      if (relation.type === 'Arbitrary') {
+      //console.log(relation.type, relation.otherName)
+      if (relation.direction === 'out') {
 
         //console.log('adding', relation.predicate, 'to type', relation.otherName)
         Object.defineProperty(this, `new${relation.otherName}`, {
@@ -508,9 +488,6 @@ class RelationAccessor {
           value: this.attachNode.bind(this, relation),
         });
 
-        if (relation.direction !== 'out')
-          continue;
-
         Object.defineProperty(this, `find${relation.otherName}`, {
           enumerable: true,
           value: this.findOneNode.bind(this, relation),
@@ -519,9 +496,18 @@ class RelationAccessor {
           enumerable: true,
           value: this.fetchNodeList.bind(this, relation),
         });
-      } else throw new Error(
-        `TODO: RelationAccessor doesn't support ${relation.type} relations`);
+
+      };
     }
+  }
+
+  fetchAllObjects() {
+    return this.graphCtx
+      .queryGraph({
+        subject: this.localNode,
+        predicate: this.predicate,
+      })
+      .fetchObjects();
   }
 
   [inspect.custom]() {
@@ -529,30 +515,32 @@ class RelationAccessor {
   }
 
   async attachNode(relation, otherNode) {
-    if (relation.type !== 'Arbitrary') throw new Error(
-      `Can't attach existing nodes to non-Arbitrary relations`);
+    if (!relation.predicate) throw new Error(
+      `Can't attach nodes to predicates`);
 
-    if (relation.direction === 'out') {
+    //if (relation.direction === 'out') {
       await this.graphCtx.newEdge({
         subject: this.localNode,
         predicate: relation.predicate,
         object: otherNode,
-      }, relation);
-    } else {
-      await this.graphCtx.newEdge({
-        subject: otherNode,
-        predicate: relation.predicate,
-        object: this.localNode,
-      }, relation);
-    }
+      });
+    // } else {
+    //   await this.graphCtx.newEdge({
+    //     subject: otherNode,
+    //     predicate: relation.predicate,
+    //     object: this.localNode,
+    //   });
+    // }
   }
 
-  async attachNewNode(relation, fields) {
+  async attachNewNode(relation, fields, nodeId=null) {
     if (relation.type !== 'Arbitrary') throw new Error(
       `Can't attach new nodes to non-Arbitrary relations`);
 
     const otherAccessor = FieldAccessor.forType(relation.otherType);
-    const other = await this.graphCtx.newNode(otherAccessor, fields);
+    const other = nodeId
+      ? await this.graphCtx.putNode(otherAccessor, fields, nodeId)
+      : await this.graphCtx.newNode(otherAccessor, fields);
     await other.ready;
     await this.attachNode(relation, other);
     return other;
@@ -564,6 +552,7 @@ class RelationAccessor {
       .queryGraph({
         subject: this.localNode,
         predicate: relation.predicate,
+        objectType: relation.otherType,
       })
       .findOneObject(query);
   }
@@ -573,6 +562,7 @@ class RelationAccessor {
       .queryGraph({
         subject: this.localNode,
         predicate: relation.predicate,
+        objectType: relation.otherType,
       })
       .fetchObjects();
   }

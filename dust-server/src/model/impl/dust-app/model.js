@@ -2,7 +2,7 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
 
   build.node('Package', {
     relations: [
-      { predicate: 'TOP' },
+      { kind: 'top' },
       { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'AppRouter' },
       { predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'Template' },
       //{ predicate: 'HAS_NAME', uniqueBy: 'Name', object: 'Collection' },

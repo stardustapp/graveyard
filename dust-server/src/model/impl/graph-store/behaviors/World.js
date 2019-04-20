@@ -3,6 +3,8 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
 
   // TODO: should leverage the EdgeQuery better
   async getBuiltInEngine({engineKey, gitHash}) {
+    if (!gitHash) throw new Error(
+      `gitHash is required`);
     const allEngines = await this.OPERATES.fetchEngineList();
     const engine = allEngines
       .filter(x => x.Source.BuiltIn)
@@ -88,17 +90,18 @@ class GraphSubContext {
 
   async loadNode(nodeId) {
     const node = await this.graphObject.graphCtx.getNodeById(nodeId);
+
     const virtType = this.graphCtx.findNodeBuilder(node.Type);
     const accessor = FieldAccessor.forType(virtType);
-    console.log('found accessor', accessor, 'for type', node.Type)
     if (!accessor) throw new Error(
       `Didn't find an accessor for type ${node.Type}`);
 
+    const virtNode = new GraphNode(this.graphCtx, node.nodeId, node.Type);
     return accessor.mapOut({
       nodeId,
       type: node.Type,
       data: node.Data,
-    }, this.graphCtx);
+    }, this.graphCtx, virtNode);
   }
 
   getNodeById(id) {
@@ -106,11 +109,11 @@ class GraphSubContext {
   }
 
   async transact(mode, cb) {
-    console.log('heh a');
+    //console.log('heh a');
     try {
       return await cb(this);
     } finally {
-      console.log('done heh');
+      //console.log('done heh');
     }
     //throw new Error(`TODO: graph transact`);
   }

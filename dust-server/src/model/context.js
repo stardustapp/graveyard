@@ -5,6 +5,14 @@ class GraphContext {
     this.txnSource = txnSource;
     this.sinkAction = actionSink;
     this.loadedNodes = new Array;
+    this.loadingNodes = new Map;
+  }
+
+  async flush() {
+    await this.txnSource('flush context', dbCtx => {
+      this.flushNodes(dbCtx);
+      // TODO: flush edges
+    });
   }
 
   async flushNodes(dbCtx) {
@@ -33,22 +41,30 @@ class GraphContext {
         subject: `${node.nodeType}#${node.nodeId}`,
         predicate: 'REFERENCES',
       })).map(x => x.object);
+      console.log('existing refs', existingRefs)
+
       const extraRefs = new Set(existingRefs);
-      for (const desired of refs) {
-        const obj = `${desired.nodeType}#${desired.nodeId}`;
-        extraRefs.delete(obj);
-        if (!existingRefs.includes(obj)) {
-          console.log('Creating ref to', obj);
-          node.REFERENCES['attach'+desired.nodeType](desired);
+      //console.log('i desire refs', refs, 'for', node);
+      for (const desiredObj of refs) {
+        extraRefs.delete(desiredObj);
+        if (!existingRefs.includes(desiredObj)) {
+          console.log('Creating ref to', desiredObj);
+          await node.graphCtx.newEdge({
+            subject: node,
+            predicate: 'REFERENCES',
+            object: desiredObj,
+          });
         }
       }
       for (const extra of extraRefs) {
+        console.log('want to remove edge', extra);
         throw new Error(`TODO: remove reference edge`);
       }
     }
     //console.groupEnd();
     //console.debug('flushed', nodes.size, 'nodes:', Array.from(nodes));
     this.loadedNodes.length = 0;
+    this.loadingNodes.clear();
   }
 
   findNodeBuilder(path) {
@@ -59,8 +75,21 @@ class GraphContext {
   }
 
   getNodeById(nodeId) {
+    const loadedN = this.loadedNodes.find(x => x.nodeId === nodeId);
+    if (loadedN) return loadedN;
     return this.txnSource('get node', dbCtx =>
       dbCtx.getNodeById(nodeId));
+  }
+  getNodeFast(nodeType, nodeId) {
+    if (this.loadingNodes.has(nodeId))
+      return this.loadingNodes.get(nodeId);
+
+    const node = new GraphNode(this, nodeId, nodeType);
+    this.loadingNodes.set(nodeId);
+
+    node.ready = this.txnSource('get node fast', dbCtx =>
+      dbCtx.loadNodeData(node));
+    return node;
   }
 
   putNode(accessor, fields, nodeId) {
@@ -81,20 +110,28 @@ class GraphContext {
     return this.putNode(accessor, fields, nodeId);
   }
 
-  newEdge({subject, predicate, object}, origRelation) {
-    if (!subject || !subject.nodeId || subject.constructor !== GraphNode) throw new Error(
-      `newEdge() requires a valid, ID'd subject`);
-    if (!object || !object.nodeId || subject.constructor !== GraphNode) throw new Error(
-      `newEdge() requires a valid, ID'd object`);
+  newEdge({subject, predicate, object}) {
+    if (!subject) throw new Error(`newEdge() requires 'subject'`);
+    if (!object) throw new Error(`newEdge() requires 'object'`);
 
-    const record = {
-      subject: `${subject.nodeType}#${subject.nodeId}`,
-      predicate,
-      object: `${object.nodeType}#${object.nodeId}`,
-    };
+    if (subject.constructor === GraphNode) {
+      if (!subject.nodeId || !subject.nodeType) throw new Error(
+        `newEdge() requires an ID'd subject`);
+      subject = `${subject.nodeType}#${subject.nodeId}`;
+    }
+    if (object.constructor === GraphNode) {
+      if (!object.nodeId || !object.nodeType) throw new Error(
+        `newEdge() requires an ID'd object`);
+      object = `${object.nodeType}#${object.nodeId}`;
+    }
+
     return this.sinkAction({
       kind: 'put edge',
-      record,
+      record: {
+        subject,
+        predicate,
+        object,
+      },
     });
 
     // TODO: support uniqueBy by adding name to index
@@ -103,13 +140,14 @@ class GraphContext {
   }
 
   queryGraph(query) {
-    return new GraphEdgeQuery(this.txnSource, query);
+    return new GraphEdgeQuery(this, query);
   }
 }
 
 class GraphEdgeQuery {
-  constructor(txnSource, query) {
-    this.txnSource = txnSource;
+  constructor(graphCtx, query) {
+    this.graphCtx = graphCtx;
+    this.txnSource = graphCtx.txnSource;
     this.query = {
       subject: query.subject ? `${query.subject.nodeType}#${query.subject.nodeId}` : null,
       predicate: query.predicate,
@@ -142,7 +180,7 @@ class GraphEdgeQuery {
       const edges = await dbCtx.fetchEdges(this.query);
       return await Promise.all(edges
         .map(raw => raw.object.split('#')[1])
-        .map(raw => dbCtx.getNodeById(raw)));
+        .map(raw => this.graphCtx.getNodeById(raw)));
     });
   }
 

@@ -29,9 +29,14 @@ class RawDynamoDBStore extends BaseRawStore {
         if (!record.nodeId) throw new Error(
           `Node ID is required when storing nodes`);
 
-        const data = await dynamoDb.put({
+        const {type, nodeId, data} = record;
+        await dynamoDb.put({
           TableName: this.nodeTable,
-          Item: record,
+          Item: {
+            NodeId: nodeId,
+            Type: type,
+            Fields: data,
+          },
         }).promise();
         console.log(`stored node '${record.nodeId}' in AWS`);
         break;
@@ -47,11 +52,18 @@ class RawDynamoDBStore extends BaseRawStore {
           ops: [object, predicate, subject],
         };
         const edgeItems = Object.keys(edgeVals)
-          .map(signature => ({
-            signature,
-            keyList: edgeVals[signature].map(encodeURI).join('|'),
+          .map(Signature => ({
+            Signature,
+            ValueList: edgeVals[Signature].map(encodeURI).join('|'),
             ...extra,
           }));
+
+          
+
+        if (record.subject.constructor !== String) throw new Error(
+          `DynamoDB can't store subject type ${record.subject.constructor.name}`);
+        if (record.object.constructor !== String) throw new Error(
+          `DynamoDB can't store object type ${record.object.constructor.name}`);
 
         const result = await dynamoDb.batchWrite({
           TableName: this.edgeTable,
@@ -95,11 +107,16 @@ class DynamoDBDataContext extends BaseRawContext {
       ExpressionAttributeValues: {
         ':nid': nodeId,
        },
-      KeyConditionExpression: 'nodeId = :nid',
+      KeyConditionExpression: 'NodeId = :nid',
     }).promise();
 
     if (result.Count === 1) {
-      return result.Items[0];
+      const {NodeId, Type, Fields} = result.Items[0];
+      return {
+        nodeId: NodeId,
+        type: Type,
+        data: Fields,
+      };
     } else {
       const myErr = new Error(`DynamoDB store doesn't have node '${nodeId}'`);
       myErr.status = 404;
@@ -165,13 +182,13 @@ class DynamoDBDataContext extends BaseRawContext {
         ':sig': signature,
         ':valP': valPrefix,
        },
-      KeyConditionExpression: 'signature = :sig AND begins_with(keyList, :valP)',
+      KeyConditionExpression: 'Signature = :sig AND begins_with(ValueList, :valP)',
     }).promise();
 
     console.log('dynamo had', result.Count, 'edges');
     for (const edge of result.Items) {
-      const {signature, keyList, ...extra} = edge;
-      const names = keyList.split('|').map(decodeURI);
+      const {Signature, ValueList, ...extra} = edge;
+      const names = ValueList.split('|').map(decodeURI);
       const keyMap = {s: 'subject', p: 'predicate', o: 'object'};
       const record = {
         subject: null,
@@ -180,7 +197,7 @@ class DynamoDBDataContext extends BaseRawContext {
         ...extra,
       };
       names.forEach((name, idx) => {
-        record[keyMap[signature[idx]]] = name;
+        record[keyMap[Signature[idx]]] = name;
       });
       edges.add(record);
     }

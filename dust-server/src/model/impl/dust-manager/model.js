@@ -2,7 +2,7 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
 
   build.node('Manager', {
     relations: [
-      { predicate: 'TOP' },
+      { kind: 'top' },
     ],
     fields: {
       Sources: { reference: 'Repository', isList: true },

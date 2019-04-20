@@ -13,7 +13,7 @@ class BaseRawStore {
 
     this.topType = Array
       .from(this.engine.edges)
-      .find(x => x.type === 'Top')
+      .find(x => x.constructor === TopRelationBuilder)
       .topType;
 
     this.mutex = new RunnableMutex(this.transactNow.bind(this));
@@ -101,20 +101,35 @@ class BaseRawContext {
     if (this.objProxies.has(nodeId))
       return this.objProxies.get(nodeId);
 
-    const data = await this.loadNodeById(nodeId); // from raw impl
-    const obj = this.wrapRawNode(nodeId, data);
-
-    this.objProxies.set(nodeId, obj);
-    return obj;
-  }
-
-  wrapRawNode(nodeId, record) {
+    const record = await this.loadNodeById(nodeId); // from raw impl
     const accessor = this.graphStore.accessors.get(record.type);
     if (!accessor) throw new Error(
       `Didn't find an accessor for type ${record.type}`);
 
-    const node = new GraphNode(this.graphStore.rootContext, nodeId, record.type);
-    return accessor.mapOut({nodeId, ...record}, this.graphStore.rootContext, node);
+    const obj = new GraphNode(this.graphStore.rootContext, nodeId, record.type);
+    return accessor.mapOut({nodeId, ...record}, this.graphStore.rootContext, obj);
+
+    if (this.objProxies.has(nodeId))
+      console.warn(`WARN: objProxies load race! for`, nodeId);
+    this.objProxies.set(nodeId, obj);
+
+    obj.ready = Promise.resolve(obj);
+    return obj;
+  }
+
+  async loadNodeData(node) {
+    const accessor = this.graphStore.accessors.get(node.nodeType);
+    if (!accessor) throw new Error(
+      `Didn't find an accessor for type ${node.nodeType}`);
+
+    //const obj = new GraphNode(this.graphStore.rootContext, node.nodeId, node.nodeType);
+    const record = await this.loadNodeById(node.nodeId)
+    accessor.mapOut({nodeId, ...record}, this.graphStore.rootContext, record);
+
+    if (this.objProxies.has(node.nodeId))
+      console.warn(`WARN: objProxies load race! for`, node.nodeId);
+    this.objProxies.set(node.nodeId, record);
+    return record;
   }
 
   // TODO: delete

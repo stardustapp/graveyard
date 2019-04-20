@@ -2,7 +2,7 @@ new GraphEngineBuilder('app-profile/v1-beta1', build => {
 
   build.node('Instance', {
     relations: [
-      { predicate: 'TOP' },
+      { kind: 'top' },
       { predicate: 'POINTS_TO', atMost: 1, object: 'Link' },
       { predicate: 'HAS_NAME', object: 'LocalCollection' },
       { predicate: 'HAS_NAME', object: 'LocalTree' },

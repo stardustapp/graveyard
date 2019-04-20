@@ -2,7 +2,7 @@ new GraphEngineBuilder('graph-daemon/v1-beta1', (build, ref) => {
 
   build.node('Instance', {
     relations: [
-      { predicate: 'TOP', exactly: 1 },
+      { kind: 'top', exactly: 1 },
       //{ predicate: 'OPERATES', object: 'Graph' },
       //{ predicate: 'HAS_NAME', object: 'Entry' },
     ],

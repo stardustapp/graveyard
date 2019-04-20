@@ -22,9 +22,10 @@ Kernel = class Kernel {
 
     this.appGraph = await this.server.graphWorld.findGraph({
       engineKey: 'dust-app/v1-beta1',
+      gitHash: 'asdfsdfdf',
       fields: { foreignKey: Config.PackageKey },
     });
-    if (!appGraph) throw new Error(
+    if (!this.appGraph) throw new Error(
       `Dust app ${JSON.stringify(Config.PackageKey)} not found locally`);
 
   }

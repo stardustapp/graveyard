@@ -46,7 +46,7 @@ class RunnableMutex {
         const {args, resolve, reject} = this.waitQueue.shift();
         // pipe result to the original
         const txnPromise = this.immediateTransact(args);
-        txnPromise.then(out.resolve, out.reject);
+        txnPromise.then(resolve, reject);
         await txnPromise;
       }
       this.isLocked = false;

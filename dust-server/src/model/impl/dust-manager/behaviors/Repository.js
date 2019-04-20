@@ -1,87 +1,110 @@
 GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Repository', {
 
-    async listPackages() {
-      const resp = await fetch(this.bucketOrigin + `/?prefix=${this.objectPrefix}&list-type=2`);
-      if (resp.status !== 200) throw new Error(
-        `Stardust Cloud Repo returned HTTP ${resp.status} when listing packages`);
+  fetchManifest(appKey) {
+    return this.downloadManifest(appKey)
+      .then(resp => {
+        if (resp.status === 200)
+          return resp;
+        else return null;
+      });
+  },
 
-      const rawText = await resp.text();
-      const parser = new window.DOMParser();
-      const doc = parser.parseFromString(rawText, 'application/xml');
+  async listPackages() {
+    const resp = await fetch(this.bucketOrigin + `/?prefix=${this.objectPrefix}&list-type=2`);
+    if (resp.status !== 200) throw new Error(
+      `Stardust Cloud Repo returned HTTP ${resp.status} when listing packages`);
 
-      const IsTruncated = doc.querySelector('IsTruncated');
-      if (IsTruncated.textContent === 'true') throw new Error(`
-        truncated: More than like 1000 package files seen`);
+    const rawText = await resp.text();
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(rawText, 'application/xml');
 
-      return Array
-        .from(doc.querySelectorAll('Contents'))
-        .filter(el => el
-          .querySelector('Key').textContent
-          .endsWith('.meta.json'))
-        .map(el => ({
-          packageId: el.querySelector('Key').textContent.slice(9, -10),
-          updatedAt: el.querySelector('LastModified').textContent,
-          eTag: el.querySelector('ETag').textContent,
-          size: parseInt(el.querySelector('Size').textContent),
-        }));
-    },
+    const IsTruncated = doc.querySelector('IsTruncated');
+    if (IsTruncated.textContent === 'true') throw new Error(`
+      truncated: More than like 1000 package files seen`);
 
-    async listPackageVersions(appId) {
-      const resp = await fetch(this.bucketOrigin + `/?versions&prefix=${this.objectPrefix}${encodeURIComponent(appId)}.json`);
-      if (resp.status !== 200) throw new Error(
-        `Stardust Cloud Repo returned HTTP ${resp.status} when listing package versions for ${appId}`);
+    return Array
+      .from(doc.querySelectorAll('Contents'))
+      .filter(el => el
+        .querySelector('Key').textContent
+        .endsWith('.meta.json'))
+      .map(el => ({
+        packageId: el.querySelector('Key').textContent.slice(9, -10),
+        updatedAt: el.querySelector('LastModified').textContent,
+        eTag: el.querySelector('ETag').textContent,
+        size: parseInt(el.querySelector('Size').textContent),
+      }));
+  },
 
-      const rawText = await resp.text();
-      const parser = new window.DOMParser();
-      const doc = parser.parseFromString(rawText, 'application/xml');
+  async listPackageVersions(appId) {
+    const resp = await fetch(this.bucketOrigin + `/?versions&prefix=${this.objectPrefix}${encodeURIComponent(appId)}.json`);
+    if (resp.status !== 200) throw new Error(
+      `Stardust Cloud Repo returned HTTP ${resp.status} when listing package versions for ${appId}`);
 
-      const IsTruncated = doc.querySelector('IsTruncated');
-      if (IsTruncated.textContent === 'true') throw new Error(`
-        truncated: More than like 1000 package versions seen`);
+    const rawText = await resp.text();
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(rawText, 'application/xml');
 
-      return Array
-        .from(doc.querySelectorAll('Version,DeleteMarker'))
-        .map(el => ({
-          type: el.nodeName,
-          versionId: el.querySelector('Key').textContent.slice(9, -10),
-          isLatest: el.querySelector('IsLatest').textContent === 'true',
-          updatedAt: el.querySelector('LastModified').textContent,
-          eTag: el.nodeName === 'Version' ? el.querySelector('ETag').textContent : null,
-          size: el.nodeName === 'Version' ? parseInt(el.querySelector('Size').textContent) : null,
-        }));
-    },
+    const IsTruncated = doc.querySelector('IsTruncated');
+    if (IsTruncated.textContent === 'true') throw new Error(`
+      truncated: More than like 1000 package versions seen`);
 
-    async downloadJsonFile(url) {
-      const resp = await fetch(url);
-      if (resp.status !== 200) throw new Error(
-        `Stardust Cloud Repo returned HTTP ${resp.status} for ${url}`);
-      const contentType = resp.headers.get('content-type');
-      if (!contentType.startsWith('application/octet-stream') &&
-          !contentType.startsWith('application/json')) throw new Error(
-        `Stardust Cloud Repo returned Content-Type ${contentType} for ${url}`);
+    return Array
+      .from(doc.querySelectorAll('Version,DeleteMarker'))
+      .map(el => ({
+        type: el.nodeName,
+        versionId: el.querySelector('Key').textContent.slice(9, -10),
+        isLatest: el.querySelector('IsLatest').textContent === 'true',
+        updatedAt: el.querySelector('LastModified').textContent,
+        eTag: el.nodeName === 'Version' ? el.querySelector('ETag').textContent : null,
+        size: el.nodeName === 'Version' ? parseInt(el.querySelector('Size').textContent) : null,
+      }));
+  },
 
-      let manifest;
-      try {
-        manifest = await resp.json();
-      } catch (err) {
-        if (err instanceof SyntaxError) throw new Error(
-          `JSON syntax error in DUST manifest ${url}: ${err.message}`);
-        throw err;
-      }
+  async downloadJsonFile(url) {
+    const {S3Bucket} = this.Location;
+    let baseUrl;
+    if (S3Bucket) {
+      baseUrl = `${S3Bucket.BucketOrigin}/${S3Bucket.ObjectPrefix}`;
+    } else {
+      throw new Error(`bad Repository location`);
+    }
 
-      // also store version info
+    const resp = await fetch(`${baseUrl}${url}`);
+    if (resp.status !== 200) {
+      console.warn('Stardust Repo', this.Label, 'returned HTTP', resp.status, 'for', url)
       return {
-        manifest,
-        headers: resp.headers,
-      }
-    },
+        status: resp.status,
+      };
+    }
 
-    downloadMetadata(appId) {
-      return this.downloadJsonFile(`${this.bucketOrigin}/${this.objectPrefix}${encodeURIComponent(appId)}.meta.json`);
-    },
+    const contentType = resp.headers.get('content-type');
+    if (!contentType.startsWith('application/octet-stream') &&
+        !contentType.startsWith('application/json')) throw new Error(
+      `Stardust Cloud Repo returned Content-Type ${contentType} for ${url}`);
 
-    downloadManifest(appId) {
-      return this.downloadJsonFile(`${this.bucketOrigin}/${this.objectPrefix}${encodeURIComponent(appId)}.json`);
-    },
+    let manifest;
+    try {
+      manifest = await resp.json();
+    } catch (err) {
+      if (err instanceof SyntaxError) throw new Error(
+        `JSON syntax error in DUST manifest ${url}: ${err.message}`);
+      throw err;
+    }
+
+    // also store version info
+    return {
+      status: resp.status,
+      manifest,
+      headers: resp.headers,
+    }
+  },
+
+  downloadMetadata(appId) {
+    return this.downloadJsonFile(`${encodeURIComponent(appId)}.meta.json`);
+  },
+
+  downloadManifest(appId) {
+    return this.downloadJsonFile(`${encodeURIComponent(appId)}.json`);
+  },
 
 });

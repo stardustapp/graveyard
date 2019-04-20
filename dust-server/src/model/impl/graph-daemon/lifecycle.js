@@ -114,7 +114,6 @@ extensions.lifecycle = {
       //runtime,
       daemonNode,
       daemonStore,
-      appGraph,
     };
   },
 

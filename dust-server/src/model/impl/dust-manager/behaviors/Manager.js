@@ -1,17 +1,24 @@
 GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
 
-  fetchManifest(appKey) {
+  async fetchManifest(appKey) {
     if (this.Sources.length === 0) throw new Error(
       `Zero Dust Repositories registered, can't fetch anything`);
 
-    console.log('hi! finding', appKey, 'from', this.Sources.length, 'sources');
-    throw new Error('TODO: fetchManifest');
-    //`${this.bucketOrigin}/${this.objectPrefix}${encodeURIComponent(appKey)}.json`
+    for (const sourceRef of this.Sources) {
+      const source = await sourceRef.fetch();
+      console.log('checking source', source.Label, 'for', appKey);
+
+      const manifest = source.fetchManifest(appKey);
+      if (manifest)
+        return manifest;
+    }
+    throw new Error(`Dust Manager didn't locate manifest for ${appKey}, checked ${this.Sources.length} sources`);
   },
 
   async findOrInstallByPackageKey(graphWorld, appKey) {
     const existing = await graphWorld.findGraph({
       engineKey: 'dust-app/v1-beta1',
+      gitHash: 'asdf',
       fields: {
         foreignKey: appKey,
         heritage: 'stardust-poc',
@@ -46,6 +53,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
 
     const graph = await graphWorld.findOrCreateGraph({
       engineKey: 'dust-app/v1-beta1',
+      gitHash: 'asdf',
       selector: {
         foreignKey: appKey,
         heritage: 'stardust-poc',

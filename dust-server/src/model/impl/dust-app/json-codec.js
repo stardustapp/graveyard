@@ -1,4 +1,4 @@
-function getScriptRefs(coffee) {
+function getScriptRefs(coffee, resolveResource) {
   const refs = new Set;
   const dirRegex = /^( *)%([a-z]+)(?: (.+))?$/img;
   coffee.replace(dirRegex, function (_, ws, dir, args) {
@@ -13,8 +13,7 @@ function getScriptRefs(coffee) {
         throw new Error(`invalid-directive: '${dir}' is not a valid DustScript directive`);
     }
   });
-  return Array.from(refs)
-    .map(name => new GraphReference(name));
+  return Array.from(refs).map(resolveResource);
 }
 
 GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
@@ -54,8 +53,8 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       return {
         Source: { Coffee },
         JS: js,
-        Refs: getScriptRefs(Coffee),
-      }
+        Refs: [],
+      };
     }
 
     for (const res of resources.Dependency) {
@@ -73,7 +72,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
         Name: res.name,
         Version: res.version,
         PackageKey: res.childPackage,
-        ChildRoot: new GraphReference(otherPkg),
+        ChildRoot: otherPkg,
       });
     }
 
@@ -234,7 +233,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
                   Template: await package.HAS_NAME.findTemplate({
                     Name: route.template,
                   }),
-                },
+                },fetchAllObjects
               },
             });
             break;
@@ -243,6 +242,13 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
         }
       }
     }
+
+    // compile all the scripts
+    const resByNames = new Map;
+    const allResObjects = await package.HAS_NAME.fetchAllObjects();
+    console.log('all res objs', allResObjects);
+
+    //getScriptRefs(Coffee),
 
     //console.log('Inflated manifest', manifest, 'into package node', package);
     return store;

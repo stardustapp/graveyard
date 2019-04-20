@@ -53,6 +53,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
       Tags: fields,
     });
     await world.STORES.attachGraph(graphNode);
+
     await graphNode.importExternalGraph(tempStore, 'top');
 
     const graphId = graphNode.nodeId;
