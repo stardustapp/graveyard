@@ -86,24 +86,50 @@ async function run({treeTopId}) {
     visited.add(node.id);
 
     if (node.missing)
-      return `${nodeId} \x1b[1;31;4m(MISSING!)\x1b[m`;
+      return `${nodeId} \x1b[1;31;4;3m(MISSING!)\x1b[m`; // 4=bold 3=italic
 
-    const values = new Array;
-    function searchStruct(struct) {
-      for (const key in struct) {
-        const value = struct[key];
-        if (value == null) {
-          values.push(`\x1b[0;34m${value}\x1b[m`);
-        } else if (value.constructor === Object) {
-          searchStruct(value);
-        } else if ([String, Number, Boolean].includes(value.constructor)) {
-          values.push(`\x1b[0;36m${value}\x1b[m`);
+    function printValue(key, value, values) {
+      if (value == null) {
+        //values.push(`\x1b[0;35;9m${key}\x1b[m`); // 9=strikethrough
+      } else if (value.constructor === Object) {
+        searchStruct(value, values);
+      } else if (value.constructor === Array) {
+        const items = value.map(subValue => {
+          const subValues = new Array;
+          printValue(key, subValue, subValues);
+          return subValues.join(' / ');
+        });
+        values.push(`\x1b[0m${key} \x1b[0;1m[\x1b[m ${items.join(' , ')} \x1b[1m]\x1b[m`);
+      } else if (value.constructor === String) {
+        if (value.startsWith('{"')) { // JSON heuristic
+          const subValues = new Array;
+          searchStruct(JSON.parse(value), subValues);
+          values.push(`\x1b[0;33m${key} \x1b[1;33m{ ${subValues.join(' / ')} \x1b[1;33m}\x1b[m`);
+        } else {
+          const escaped = value.replace(/\n/g, '\\n');
+          const sliced = `${escaped.slice(0, 32)}...`;
+          const final = sliced.length < escaped.length ? sliced : escaped;
+          values.push(`\x1b[0;32m${final}\x1b[m`);
         }
+      } else if (value.constructor === Boolean) {
+        if (value)
+          values.push(`\x1b[0;36m${key}\x1b[m`);
+      } else if ([Boolean, Number, Boolean].includes(value.constructor)) {
+        values.push(`\x1b[0;36m${value}\x1b[m`);
+      } else {
+        values.push(`\x1b[0;33m${value.constructor.name}\x1b[m`);
       }
     }
-    searchStruct(node.Fields);
+    function searchStruct(struct, values) {
+      for (const key in struct) {
+        const value = struct[key];
+        printValue(key, value, values);
+      }
+    }
+    const topValues = new Array;
+    searchStruct(node.Fields, topValues);
 
-    return `${nodeId} / ${values.join(' / ')}`;
+    return `${nodeId} / ${topValues.join(' / ')}`;
   }
 
   function visitNodeForKids(node) {
