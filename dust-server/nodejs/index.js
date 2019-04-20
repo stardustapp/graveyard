@@ -69,6 +69,14 @@ const extraImports = [
   'src/model/impl/dust-app/json-codec.js',
   'src/model/impl/dust-app/repository.js',
   'src/model/impl/dust-app/compile.js',
+  'src/model/impl/dust-app/behaviors/Package.js',
+  'src/model/impl/dust-app/behaviors/AppRouter.js',
+  'src/model/impl/dust-app/behaviors/Route.js',
+  'src/model/impl/dust-app/behaviors/Template.js',
+  'src/model/impl/dust-app/behaviors/RecordSchema.js',
+  'src/model/impl/dust-app/behaviors/Dependency.js',
+  'src/model/impl/dust-app/behaviors/Publication.js',
+  'src/model/impl/dust-app/behaviors/ServerMethod.js',
 ];
 
 let shimCount = 0;

@@ -1,21 +1,3 @@
-function getScriptRefs(coffee, resolveResource) {
-  const refs = new Set;
-  const dirRegex = /^( *)%([a-z]+)(?: (.+))?$/img;
-  coffee.replace(dirRegex, function (_, ws, dir, args) {
-    switch (dir.toLowerCase()) {
-      case 'inject':
-        return args.split(',').map(arg => {
-          // TODO: validate name syntax regex!
-          refs.add(arg.trim())
-          return `${ws}${arg} = DUST.get ${JSON.stringify(arg)}`;
-        }).join('\n');
-      default:
-        throw new Error(`invalid-directive: '${dir}' is not a valid DustScript directive`);
-    }
-  });
-  return Array.from(refs).map(resolveResource);
-}
-
 GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
   async inflate(manifest, dependencies) {
@@ -233,7 +215,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
                   Template: await package.HAS_NAME.findTemplate({
                     Name: route.template,
                   }),
-                },fetchAllObjects
+                },
               },
             });
             break;
@@ -243,14 +225,8 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       }
     }
 
-    // compile all the scripts
-    const resByNames = new Map;
-    const allResObjects = await package.HAS_NAME.fetchAllObjects();
-    console.log('all res objs', allResObjects);
+    await package.linkScripts();
 
-    //getScriptRefs(Coffee),
-
-    //console.log('Inflated manifest', manifest, 'into package node', package);
     return store;
   },
 
