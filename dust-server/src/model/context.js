@@ -11,56 +11,67 @@ class GraphContext {
 
   flush() {
     return this.txnSource('flush context', async dbCtx => {
-      await this.flushNodes(dbCtx);
-      await this.flushEdges(dbCtx);
+      await this.buildNodeRefs(); // TODO: shuold be done on-reference instead
+      await Promise.all([
+        this.flushNodes(dbCtx),
+        this.flushEdges(dbCtx),
+      ]);
     });
   }
 
-  async flushNodes(dbCtx) {
-    //console.group('- flushing nodes');
-    const nodes = new Set;
+  async buildNodeRefs() {
     for (const node of this.loadedNodes) {
       if (!node.isDirty) continue;
-
       const accessor = FieldAccessor.forType(this.engine.names.get(node.nodeType));
+
       const refs = new Set;
       accessor.gatherRefs(node, refs);
-
-      const {nodeId, nodeType} = node;
-      nodes.add(nodeId);
-      await this.sinkAction({
-        kind: 'put node',
-        nodeId: node.nodeId,
-        record: {
-          nodeId: node.nodeId,
-          data: node.rawData,
-          type: node.nodeType,
-        }
-      });
-
       for (const desiredObj of refs) {
-        await node.graphCtx.newEdge({
+        // TODO: check if this.allEdges already has the ref
+        await this.newEdge({
           subject: node,
           predicate: 'REFERENCES',
           object: desiredObj,
         });
       }
     }
-    //console.groupEnd();
-    console.debug('Flushed', nodes.size, 'nodes');
+  }
+
+  async flushNodes(dbCtx) {
+    const actions = this.loadedNodes
+      .filter(node => node.isDirty)
+      .map(({nodeId, nodeType, rawData}) => ({
+        kind: 'put node',
+        nodeId: nodeId,
+        record: {
+          nodeId: nodeId,
+          data: rawData,
+          type: nodeType,
+        }
+      }));
+
+    const promises = actions.map(this
+      .sinkAction.bind(this));
+    await Promise.all(promises);
+
+    console.debug('Flushed', actions.length, 'node actions');
     this.loadedNodes.length = 0;
     this.loadingNodes.clear();
   }
 
   async flushEdges(dbCtx) {
-    const promises = this.allEdges
+    const actions = this.allEdges
       .filter(edge => edge.isDirty)
-      .map(edge => this.sinkAction({
+      .map(edge => ({
         kind: 'put edge',
         record: edge.record,
       }));
+
+    const promises = actions.map(this
+      .sinkAction.bind(this));
     await Promise.all(promises);
-    console.debug('Flushed', promises.length, 'edges');
+
+    console.debug('Flushed', actions.length, 'edge actinos');
     this.allEdges.length = 0;
   }
 
@@ -75,7 +86,7 @@ class GraphContext {
     const loadedN = this.loadedNodes.find(x => x.nodeId === nodeId);
     if (loadedN) return loadedN;
     return this.txnSource('get node', dbCtx =>
-      dbCtx.getNodeById(nodeId));
+      dbCtx.getNodeById(nodeId, this));
   }
   getNodeFast(nodeType, nodeId) {
     if (this.loadingNodes.has(nodeId))
@@ -119,7 +130,7 @@ class GraphContext {
     console.log('querying edge records using', this.allEdges.length, 'loaded edges');
 
     for (const edge of this.allEdges) {
-      console.log('edge', edge)
+      //console.log('edge', edge)
       if (edge.record.predicate !== query.predicate) continue;
       if (query.subject && edge.record.subject !== query.subject) continue;
       if (query.object && edge.record.object !== query.object) continue;

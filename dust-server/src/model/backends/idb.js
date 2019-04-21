@@ -1,3 +1,5 @@
+// DEAD. TODO: REVIVE.
+
 class IdbGraphStore {
   constructor(opts={}) {
     this.opts = opts;

@@ -16,111 +16,70 @@ class BaseRawStore {
       .find(x => x.constructor === TopRelationBuilder)
       .topType;
 
-    this.mutex = new RunnableMutex(this.transactNow.bind(this));
+    this.mutex = new RunnableMutex(this.transactRawNow.bind(this));
+    this.rootContext = this.newContext();
+  }
 
-    this.rootContext = new GraphContext({
+  newContext() {
+    return new GraphContext({
       engine: this.engine,
-      txnSource: this.transact.bind(this),
+      txnSource: this.transactRaw.bind(this),
       actionSink: this.processAction.bind(this),
     });
   }
 
-  // user entrypoint that either runs immediately or queues for later
-  transact(mode, cb) {
-    return this.mutex.submit(mode, cb);
+  // builds a graph context and runs the code within it
+  // not exclusive lock, no mutex, but will flush out when you return
+  async transactGraph(cb) {
+    const graphCtx = this.newContext();
+    const output = await cb(graphCtx);
+    await graphCtx.flush();
+    return output;
   }
 
-  // mutex entrypoint that just goes for it
-  async transactNow(mode, cb) {
-    const dbCtx = this.createDataContext(mode);
-    //const graphCtx = new GraphContext(this.engine);
-    const output = await dbCtx.runCb(cb);
-    await this.rootContext.flushNodes(dbCtx);
-    return output;
+  // raw entrypoint that either runs immediately or queues for later
+  // just passes the existing store - really just a store mutex
+  transactRaw(mode, cb) {
+    return this.mutex.submit(mode, cb);
+  }
+  transactRawNow(mode, cb) {
+    return cb(this);
   }
 
   static async newFromImpl(storeImpl, opts={}) {
     const rawStore = new storeImpl(opts);
-    await rawStore.transact('newFromImpl', async dbCtx => {
+    await rawStore.transactGraph(async graphCtx => {
       const topAccessor = FieldAccessor.forType(rawStore.topType);
-      await rawStore.rootContext.putNode(topAccessor, opts.topData || {}, 'top');
+      await graphCtx.putNode(topAccessor, opts.topData || {}, 'top');
     });
     return rawStore;
   }
 
   getTopNode() {
-    return this
-      .transact('readonly', dbCtx => dbCtx
-        .getNodeById('top'));
-  }
-}
-
-class BaseRawContext {
-  constructor(graphStore, mode) {
-    this.graphStore = graphStore;
-    this.mode = mode;
-
-    this.actions = new Array;
-    this.graphContexts = new Set;
-    this.actionProcessors = new Array;
-
-    this.objProxies = new Map;
+    return this.getNodeById('top', this.rootContext);
   }
 
-  async runCb(cb) {
-    try {
-      //console.group('-', this.constructor.name, 'start:', this.mode);
-      const result = await cb(this);
-      this.buildActions();
-      await this.flushActions();
-      return result;
-    } catch (err) {
-      console.warn(this.constructor.name, 'failed:', err.message);
-      throw err;
-    } finally {
-      //console.groupEnd();
-    }
-  }
+  // getNode(handle) {
+  //   if (!GraphObject.prototype.isPrototypeOf(handle)) throw new Error(
+  //     `TODO: getNode() for non-GraphObject node ${handle.constructor.name}`);
+  //   if (!handle.data.nodeId) throw new Error(
+  //     `TODO: getNode() for GraphObject without an nodeId`);
+  //   return this.getNodeById(handle.data.nodeId);
+  // }
 
-  buildActions() {
-    for (const graphCtx of this.graphContexts) {
-      graphCtx.flushActions();
-    }
-  }
-
-  getNode(handle) {
-    if (!GraphObject.prototype.isPrototypeOf(handle)) throw new Error(
-      `TODO: getNode() for non-GraphObject node ${handle.constructor.name}`);
-    if (!handle.data.nodeId) throw new Error(
-      `TODO: getNode() for GraphObject without an nodeId`);
-    return this.getNodeById(handle.data.nodeId);
-  }
-
-  // TODO: refactor as caching loader?
-  async getNodeById(nodeId) {
-    if (this.objProxies.has(nodeId))
-      return this.objProxies.get(nodeId);
-
+  async getNodeById(nodeId, graphCtx) {
     const record = await this.loadNodeById(nodeId); // from raw impl
-    const accessor = this.graphStore.accessors.get(record.type);
+    const accessor = this.accessors.get(record.type);
     if (!accessor) throw new Error(
       `Didn't find an accessor for type ${record.type}`);
 
-    const obj = new GraphNode(this.graphStore.rootContext, nodeId, record.type);
-    return accessor.mapOut({nodeId, ...record}, this.graphStore.rootContext, obj);
-
-    if (this.objProxies.has(nodeId))
-      console.warn(`WARN: objProxies load race! for`, nodeId);
-    this.objProxies.set(nodeId, obj);
-
-    obj.ready = Promise.resolve(obj);
-    return obj;
+    const obj = new GraphNode(graphCtx, nodeId, record.type);
+    return accessor.mapOut({nodeId, ...record}, graphCtx, obj);
   }
 }
 
 if (typeof module !== 'undefined') {
   module.exports = {
     BaseRawStore,
-    BaseRawContext,
   };
 }

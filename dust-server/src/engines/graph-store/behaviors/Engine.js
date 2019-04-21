@@ -22,7 +22,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     return matches[0];
   },
 
-  async findOrCreateGraph({selector, fields, buildCb}, world) {
+  async findOrCreateGraph({selector, fields, ...extras}, world) {
 
     // return an existing graph if we find it
     const existingGraph = await this.findGraph({
@@ -35,24 +35,29 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     // ok we have to build the graph
     let tempStore;
     const lifecycleExt = this.realEngine.extensions.lifecycle;
-    if (buildCb) {
-      tempStore = await buildCb(this, fields);
-    } else if (lifecycleExt) {
+    if (!lifecycleExt) throw new Error(
+      `Engine ${this.Source.BuiltIn.EngineKey} lacks a 'lifecycle' extension, can't build a new graph`);
+    if (lifecycleExt.buildNewStore) {
+      tempStore = await lifecycleExt.buildNewStore({
+        engine: this.realEngine,
+        fields, ...extras,
+      });
+    } else if (lifecycleExt.buildNew) {
       tempStore = await RawVolatileStore.new({engine: this.realEngine});
-      await tempStore.transact('build graph', async dbCtx => {
-        const topNode = await dbCtx.getNodeById('top');
-        await lifecycleExt.buildNew(topNode, fields);
+      await tempStore.transactGraph(async graphCtx => {
+        const topNode = await graphCtx.getNodeById('top');
+        await lifecycleExt.buildNew(topNode, {fields, ...extras});
       });
     }
     if (!tempStore) throw new Error(
-      `Not sure how to build graph for ${engineKey}`);
+      `Not sure how to build graph for ${JSON.stringify(selector||fields)}`);
 
     //console.log('built store', tempStore.nodes);
 
     const graphNode = await this.OPERATES.newGraph({
       Tags: fields,
     });
-    await world.STORES.attachGraph(graphNode);
+    //await world.STORES.attachGraph(graphNode);
 
     await graphNode.importExternalGraph(tempStore, 'top');
 

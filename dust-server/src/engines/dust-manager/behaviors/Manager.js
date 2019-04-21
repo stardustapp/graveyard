@@ -65,11 +65,8 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
         originETag: headers.get('ETag'),
         originVersionId: headers.get('x-amz-version-id'),
       },
-      buildCb: async (engine, fields) => {
-        // fill out a graphBuilder for the app
-        const {pocCodec} = GraphEngine.get('dust-app/v1-beta1').extensions;
-        return await pocCodec.inflate(manifest, dependencies);
-      },
+      manifest,
+      dependencies,
     });
 
     return graph;

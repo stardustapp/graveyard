@@ -43,7 +43,8 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   async findOrCreateGraph(opts) {
     if (!opts.engineKey) throw new Error('oops2')
     const engine = await this.getBuiltInEngine(opts);
-    const graph = await engine.findOrCreateGraph(opts, this);
+    const graph = await engine.findOrCreateGraph(opts);
+    await this.STORES.attachGraph(graph);
     return this.openSubContext(graph);
   },
 

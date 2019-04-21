@@ -1,17 +1,9 @@
+// DYING. TODO: REVIVE.
+
 class RawLevelStore extends BaseRawStore {
   constructor(opts, database) {
     super(opts);
     this.database = database;
-
-    //this.ready = this.transact('setup level', this
-    //  .setupLevel.bind(this));
-  }
-
-  // create a new dbCtx for a transaction
-  createDataContext(mode) {
-    const dbCtx = new LevelDataContext(this, mode);
-    dbCtx.actionProcessors.push(this.processDbActions.bind(this));
-    return dbCtx;
   }
 
   static async new(opts) {
@@ -31,13 +23,10 @@ class RawLevelStore extends BaseRawStore {
     });
   }
   */
-}
 
-class LevelDataContext extends BaseRawContext {
-  abort() {
-    console.log('TODO: abort LevelDataContext');
-  }
+  //await this.database.rawLevel.batch(batches);
 
+/*
   async flushActions() {
     const batches = this.generateBatch();
     if (batches.length > 0) {
@@ -81,7 +70,7 @@ class LevelDataContext extends BaseRawContext {
     }
     return batch;
   }
-
+*/
   async loadNodeById(nodeId) {
     const myErr = new Error();
     try {
@@ -107,6 +96,5 @@ class LevelDataContext extends BaseRawContext {
 if (typeof module !== 'undefined') {
   module.exports = {
     RawLevelStore,
-    LevelDataContext,
   };
 }

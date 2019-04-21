@@ -3,6 +3,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
   async importExternalGraph(extStore, topNodeId=null) {
     //console.log('new package', extStore.nodes, extStore.edges);
     console.group('Importing external graph into GraphStore');
+    console.log('External graph has', extStore.nodes.size, 'nodes and', extStore.edges.size, 'edges');
 
     // copy all the nodes
     const nodeIdMap = new Map;

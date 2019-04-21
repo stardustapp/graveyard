@@ -78,6 +78,7 @@ const extraImports = [
   'src/engines/dust-app/model.js',
   'src/engines/dust-app/ddp-api.js',
   'src/engines/dust-app/json-codec.js',
+  'src/engines/dust-app/lifecycle.js',
   'src/engines/dust-app/repository.js',
   'src/engines/dust-app/compile.js',
   'src/engines/dust-app/behaviors/Package.js',

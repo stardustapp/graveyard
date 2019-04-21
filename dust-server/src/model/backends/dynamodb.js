@@ -10,11 +10,6 @@ class RawDynamoDBStore extends BaseRawStore {
     this.edgeTable = opts.tablePrefix + '_Edges';
   }
 
-  // create a new dbCtx for a transaction
-  createDataContext(mode) {
-    return new DynamoDBDataContext(this, mode);
-  }
-
   static new(opts) {
     return BaseRawStore.newFromImpl(RawDynamoDBStore, opts);
   }
@@ -78,29 +73,10 @@ class RawDynamoDBStore extends BaseRawStore {
     }
     //console.debug('DynamoDB store processed', kind, 'event');
   }
-}
-
-class RawDynamoDBNode {
-  constructor(type, fields) {
-    this.type = type;
-    this.fields = fields;
-  }
-
-  static fromGraphObject(obj) {
-    if (obj.constructor !== GraphObject) throw new Error(
-      `fromGraphObject only accepts GraphObjects`);
-    return {
-      type: obj.type.name,
-      fields: JSON.parse(obj.data.toJSON()),
-    };
-  }
-}
-
-class DynamoDBDataContext extends BaseRawContext {
 
   async loadNodeById(nodeId) {
     const result = await dynamoDb.query({
-      TableName: this.graphStore.nodeTable,
+      TableName: this.nodeTable,
       ExpressionAttributeValues: {
         ':nid': nodeId,
        },
@@ -118,13 +94,6 @@ class DynamoDBDataContext extends BaseRawContext {
       const myErr = new Error(`DynamoDB store doesn't have node '${nodeId}'`);
       myErr.status = 404;
       throw myErr;
-    }
-  }
-
-  async flushActions() {
-    // TODO
-    for (const action of this.actions) {
-      console.warn('ignoring volatile action', action);
     }
   }
 
@@ -163,7 +132,7 @@ class DynamoDBDataContext extends BaseRawContext {
     const valPrefix = values.map(encodeURI).join('|');
 
     const result = await dynamoDb.query({
-      TableName: this.graphStore.edgeTable,
+      TableName: this.edgeTable,
       ExpressionAttributeValues: {
         ':sig': signature,
         ':valP': valPrefix,
@@ -196,6 +165,5 @@ class DynamoDBDataContext extends BaseRawContext {
 if (typeof module !== 'undefined') {
   module.exports = {
     RawDynamoDBStore,
-    DynamoDBDataContext,
   };
 }
