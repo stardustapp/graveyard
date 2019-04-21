@@ -225,7 +225,7 @@ class NodeBuilder {
           for (const fieldType of type.slots.values())
             readType(fieldType);
           break;
-        case BuiltinFieldType:
+        case PrimitiveFieldType:
           // no possible reference
           break;
         case OptionalFieldType:

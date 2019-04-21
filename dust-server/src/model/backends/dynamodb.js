@@ -1,4 +1,3 @@
-const AWS = require('aws-sdk');
 const dynamoDb = new AWS.DynamoDB.DocumentClient({
   api_version: '2012-08-10',
 });

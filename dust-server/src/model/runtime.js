@@ -5,6 +5,7 @@ class GraphRuntime {
     this.graphStore = graphStore;
     this.rootNode = rootNode;
 
+    throw new Error('TODO: not used')
     this.graphs = new Map;
     this.objects = new Map;
 
