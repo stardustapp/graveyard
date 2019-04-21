@@ -58,8 +58,6 @@ class RawDynamoDBStore extends BaseRawStore {
             ...extra,
           }));
 
-          
-
         if (record.subject.constructor !== String) throw new Error(
           `DynamoDB can't store subject type ${record.subject.constructor.name}`);
         if (record.object.constructor !== String) throw new Error(
@@ -133,16 +131,6 @@ class DynamoDBDataContext extends BaseRawContext {
 
   async fetchEdges(query) {
     const edges = new Set;
-    console.log('querying edge records from',
-      this.actions.length, 'actions and also AWS');
-
-    for (const action of this.actions) {
-      if (action.kind !== 'put edge') continue;
-      if (action.record.predicate !== query.predicate) continue;
-      if (query.subject && action.record.subject !== query.subject) continue;
-      if (query.object && action.record.object !== query.object) continue;
-      edges.add(action.record);
-    }
 
     let signature, values;
     switch (true) {
@@ -174,7 +162,6 @@ class DynamoDBDataContext extends BaseRawContext {
         throw new Error(`WTF kinda query is that`);
     }
     const valPrefix = values.map(encodeURI).join('|');
-    console.log('dynamo edge query:', query, signature, valPrefix)
 
     const result = await dynamoDb.query({
       TableName: this.graphStore.edgeTable,
@@ -185,8 +172,10 @@ class DynamoDBDataContext extends BaseRawContext {
       KeyConditionExpression: 'Signature = :sig AND begins_with(ValueList, :valP)',
     }).promise();
 
-    console.log('dynamo had', result.Count, 'edges');
-    for (const edge of result.Items) {
+    console.log('dynamo edge query:', query, signature, valPrefix,
+      'matched', result.Count, 'edges');
+
+    return result.Items.map(edge => {
       const {Signature, ValueList, ...extra} = edge;
       const names = ValueList.split('|').map(decodeURI);
       const keyMap = {s: 'subject', p: 'predicate', o: 'object'};
@@ -199,10 +188,8 @@ class DynamoDBDataContext extends BaseRawContext {
       names.forEach((name, idx) => {
         record[keyMap[Signature[idx]]] = name;
       });
-      edges.add(record);
-    }
-
-    return Array.from(edges);
+      return record;
+    });
   }
 }
 

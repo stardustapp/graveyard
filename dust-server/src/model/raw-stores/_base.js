@@ -69,7 +69,7 @@ class BaseRawContext {
 
   async runCb(cb) {
     try {
-      console.group('-', this.constructor.name, 'start:', this.mode);
+      //console.group('-', this.constructor.name, 'start:', this.mode);
       const result = await cb(this);
       this.buildActions();
       await this.flushActions();
@@ -78,7 +78,7 @@ class BaseRawContext {
       console.warn(this.constructor.name, 'failed:', err.message);
       throw err;
     } finally {
-      console.groupEnd();
+      //console.groupEnd();
     }
   }
 
@@ -149,7 +149,7 @@ class BaseRawContext {
       throw new Error(`Don't know how to store that node`);
     }
   }
-
+/*
   // TODO: this is LEGACY
   async createObjectTree(graphNode, rootNode) {
     console.log('CReATING', graphNode, '--WITH--', rootNode);
@@ -314,6 +314,7 @@ class BaseRawContext {
 
     console.log('Stored', readyObjs.size, 'objects');
   }
+  */
 }
 
 if (typeof module !== 'undefined') {

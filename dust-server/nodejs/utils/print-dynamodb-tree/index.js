@@ -127,9 +127,9 @@ async function run({treeTopId}) {
       }
     }
     const topValues = new Array;
+    topValues.push(nodeId);
     searchStruct(node.Fields, topValues);
-
-    return `${nodeId} / ${topValues.join(' / ')}`;
+    return topValues.join(' / ');
   }
 
   function visitNodeForKids(node) {

@@ -5,13 +5,14 @@ class GraphContext {
     this.txnSource = txnSource;
     this.sinkAction = actionSink;
     this.loadedNodes = new Array;
+    this.allEdges = new Array;
     this.loadingNodes = new Map;
   }
 
-  async flush() {
-    await this.txnSource('flush context', dbCtx => {
-      this.flushNodes(dbCtx);
-      // TODO: flush edges
+  flush() {
+    return this.txnSource('flush context', async dbCtx => {
+      await this.flushNodes(dbCtx);
+      await this.flushEdges(dbCtx);
     });
   }
 
@@ -37,34 +38,30 @@ class GraphContext {
         }
       });
 
-      const existingRefs = (await dbCtx.fetchEdges({
-        subject: `${node.nodeType}#${node.nodeId}`,
-        predicate: 'REFERENCES',
-      })).map(x => x.object);
-      console.log('existing refs', existingRefs)
-
-      const extraRefs = new Set(existingRefs);
-      //console.log('i desire refs', refs, 'for', node);
       for (const desiredObj of refs) {
-        extraRefs.delete(desiredObj);
-        if (!existingRefs.includes(desiredObj)) {
-          console.log('Creating ref to', desiredObj);
-          await node.graphCtx.newEdge({
-            subject: node,
-            predicate: 'REFERENCES',
-            object: desiredObj,
-          });
-        }
-      }
-      for (const extra of extraRefs) {
-        console.log('want to remove edge', extra);
-        throw new Error(`TODO: remove reference edge`);
+        await node.graphCtx.newEdge({
+          subject: node,
+          predicate: 'REFERENCES',
+          object: desiredObj,
+        });
       }
     }
     //console.groupEnd();
-    //console.debug('flushed', nodes.size, 'nodes:', Array.from(nodes));
+    console.debug('Flushed', nodes.size, 'nodes');
     this.loadedNodes.length = 0;
     this.loadingNodes.clear();
+  }
+
+  async flushEdges(dbCtx) {
+    const promises = this.allEdges
+      .filter(edge => edge.isDirty)
+      .map(edge => this.sinkAction({
+        kind: 'put edge',
+        record: edge.record,
+      }));
+    await Promise.all(promises);
+    console.debug('Flushed', promises.length, 'edges');
+    this.allEdges.length = 0;
   }
 
   findNodeBuilder(path) {
@@ -110,29 +107,62 @@ class GraphContext {
     return this.putNode(accessor, fields, nodeId);
   }
 
-  newEdge({subject, predicate, object}) {
-    if (!subject) throw new Error(`newEdge() requires 'subject'`);
-    if (!object) throw new Error(`newEdge() requires 'object'`);
 
+  async fetchEdges(query) {
+    const edges = new Map;
+    function addEdge(record) {
+      const valList = [
+        record.subject, record.predicate, record.object,
+      ].map(encodeURI).join('|');
+      edges.set(valList, record);
+    }
+    console.log('querying edge records using', this.allEdges.length, 'loaded edges');
+
+    for (const edge of this.allEdges) {
+      console.log('edge', edge)
+      if (edge.record.predicate !== query.predicate) continue;
+      if (query.subject && edge.record.subject !== query.subject) continue;
+      if (query.object && edge.record.object !== query.object) continue;
+      addEdge(edge.record);
+    }
+
+    // TODO: add edges from backing store
+    const newEdges = await this
+      .txnSource('query edges',
+        dbCtx => dbCtx.fetchEdges(query));
+    newEdges.forEach(addEdge);
+
+    return Array.from(edges.values());
+  }
+
+  newEdge({subject, predicate, object, ...extras}) {
+    // validate/prepare subject
+    if (!subject) throw new Error(`newEdge() requires 'subject'`);
     if (subject.constructor === GraphNode) {
       if (!subject.nodeId || !subject.nodeType) throw new Error(
         `newEdge() requires an ID'd subject`);
       subject = `${subject.nodeType}#${subject.nodeId}`;
     }
+    if (subject.constructor !== String) throw new Error(
+      `newEdge() wants a string for subject, got ${subject.constructor.name}`);
+
+    // validate/prepare object
+    if (!object) throw new Error(`newEdge() requires 'object'`);
     if (object.constructor === GraphNode) {
       if (!object.nodeId || !object.nodeType) throw new Error(
         `newEdge() requires an ID'd object`);
       object = `${object.nodeType}#${object.nodeId}`;
     }
+    if (object.constructor !== String) throw new Error(
+      `newEdge() wants a string for object, got ${object.constructor.name}`);
 
-    return this.sinkAction({
-      kind: 'put edge',
+    // create the edge
+    this.allEdges.push({
+      isDirty: true,
       record: {
-        subject,
-        predicate,
-        object,
-      },
-    });
+        subject, predicate, object,
+        ...extras,
+      }});
 
     // TODO: support uniqueBy by adding name to index
     // TODO: support count constraints
@@ -147,7 +177,6 @@ class GraphContext {
 class GraphEdgeQuery {
   constructor(graphCtx, query) {
     this.graphCtx = graphCtx;
-    this.txnSource = graphCtx.txnSource;
     this.query = {
       subject: query.subject ? `${query.subject.nodeType}#${query.subject.nodeId}` : null,
       predicate: query.predicate,
@@ -156,32 +185,26 @@ class GraphEdgeQuery {
     console.log('building graph query for', this.query);
   }
 
-  fetchAll() {
-    return this.txnSource('read edges', async dbCtx => {
-      const edges = await dbCtx.fetchEdges(this.query);
-      const promises = edges.map(async raw => ({
-        subject: await dbCtx.getNodeById(raw.subject.split('#')[1]),
-        predicate: raw.predicate,
-        object: await dbCtx.getNodeById(raw.object.split('#')[1]),
-      }));
-      return await Promise.all(promises);
-    });
+  async fetchAll() {
+    const edges = await this.graphCtx.fetchEdges(this.query);
+    const promises = edges.map(async raw => ({
+      subject: await this.graphCtx.getNodeById(raw.subject.split('#')[1]),
+      predicate: raw.predicate,
+      object: await this.graphCtx.getNodeById(raw.object.split('#')[1]),
+    }));
+    return await Promise.all(promises);
   }
-  fetchSubjects() {
-    return this.txnSource('read edge subjects', async dbCtx => {
-      const edges = await dbCtx.fetchEdges(this.query);
-      return await Promise.all(edges
-        .map(raw => raw.subject.split('#')[1])
-        .map(raw => dbCtx.getNodeById(raw)));
-      });
+  async fetchSubjects() {
+    const edges = await this.graphCtx.fetchEdges(this.query);
+    return await Promise.all(edges
+      .map(raw => raw.subject.split('#')[1])
+      .map(raw => this.graphCtx.getNodeById(raw)));
   }
-  fetchObjects() {
-    return this.txnSource('read edge objects', async dbCtx => {
-      const edges = await dbCtx.fetchEdges(this.query);
-      return await Promise.all(edges
-        .map(raw => raw.object.split('#')[1])
-        .map(raw => this.graphCtx.getNodeById(raw)));
-    });
+  async fetchObjects() {
+    const edges = await this.graphCtx.fetchEdges(this.query);
+    return await Promise.all(edges
+      .map(raw => raw.object.split('#')[1])
+      .map(raw => this.graphCtx.getNodeById(raw)));
   }
 
   async findOneObject(filter) {
