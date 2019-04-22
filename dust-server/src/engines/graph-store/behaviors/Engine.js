@@ -10,6 +10,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     this.realEngine = GraphEngine.get(engineKey);
     this.names = this.realEngine.names;
     this.nameBehaviors = this.realEngine.nameBehaviors;
+    this.topType = this.realEngine.topType;
     //console.log('engine has names', this.names.keys())
   },
 
@@ -33,26 +34,8 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     console.group('- Building new graph for', selector || fields);
 
     // ok we have to build the graph
-    let tempStore;
-    const lifecycleExt = this.realEngine.extensions.lifecycle;
-    if (!lifecycleExt) throw new Error(
-      `Engine ${this.Source.BuiltIn.EngineKey} lacks a 'lifecycle' extension, can't build a new graph`);
-    if (lifecycleExt.buildNewStore) {
-      tempStore = await lifecycleExt.buildNewStore({
-        engine: this.realEngine,
-        fields, ...extras,
-      });
-    } else if (lifecycleExt.buildNew) {
-      tempStore = await RawVolatileStore.new({engine: this.realEngine});
-      await tempStore.transactGraph(async graphCtx => {
-        const topNode = await graphCtx.getNodeById('top');
-        await lifecycleExt.buildNew(topNode, {fields, ...extras});
-      });
-    }
-    if (!tempStore) throw new Error(
-      `Not sure how to build graph for ${JSON.stringify(selector||fields)}`);
-
-    //console.log('built store', tempStore.nodes);
+    const tempStore = new RawVolatileStore({ engine: this.realEngine });
+    await this.realEngine.buildFromStore({fields, ...extras}, tempStore);
 
     const graphNode = await this.OPERATES.newGraph({
       Tags: fields,
@@ -62,7 +45,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     await graphNode.importExternalGraph(tempStore, 'top');
 
     const graphId = graphNode.nodeId;
-    console.debug('Created graph', graphId, 'for', fields);
+    console.debug('Created graph', graphId);
     console.groupEnd();
 
     // grab the [hopefully] loaded graph

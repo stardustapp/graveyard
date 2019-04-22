@@ -1,15 +1,17 @@
 GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
-  async inflateFromManifest(package, {manifest, dependencies}) {
+  async inflateFromManifest(graphCtx, {manifest, dependencies}) {
     if (manifest._platform !== 'stardust') throw new Error(
       'invalid stardust manifest');
     if (manifest._version !== 3) throw new Error(
       'invalid stardust manifest');
 
-    package.DisplayName = manifest.meta.name;
-    package.PackageKey = manifest.packageId;
-    package.PackageType = manifest.meta.type;
-    package.License = manifest.meta.license;
+    const package = await graphCtx.newTopNode({
+      DisplayName: manifest.meta.name,
+      PackageKey: manifest.packageId,
+      PackageType: manifest.meta.type,
+      License: manifest.meta.license,
+    });
 
     // sort manifest resources for specialized logic
     const resources = {
@@ -220,6 +222,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
     }
 
     await package.linkScripts();
+    return package;
   },
 
   deflate(graph) {

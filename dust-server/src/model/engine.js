@@ -43,6 +43,11 @@ class GraphEngine {
     this.edges = builder.edges;
     GraphEngines.set(key, this);
 
+    this.topType = Array
+      .from(this.edges)
+      .find(x => x.constructor === TopRelationBuilder)
+      .topType;
+
     if (!EngineExtensions.has(key))
       EngineExtensions.set(key, {});
     this.extensions = EngineExtensions.get(key);
@@ -127,6 +132,20 @@ class GraphEngine {
     ].join('\n');
   }
 
+  buildFromStore(buildOpts, rawStore) {
+    const {lifecycle} = this.extensions;
+    if (!lifecycle) throw new Error(
+      `Engine ${this.engineKey} lacks a 'lifecycle' extension, can't build a new graph`);
+    if (!lifecycle.buildNew) throw new Error(
+      `Not sure how to build graph with engine '${this.engineKey}'`);
+
+    return rawStore.transactGraph(graphCtx =>
+      lifecycle.buildNew(graphCtx, buildOpts));
+  }
+  async buildUsingVolatile(buildOpts) {
+    const tempStore = new RawVolatileStore({ engine: this });
+    return await this.buildFromStore(buildOpts, tempStore);
+  }
 }
 
 if (typeof module !== 'undefined') {

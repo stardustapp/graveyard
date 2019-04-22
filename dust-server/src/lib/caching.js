@@ -18,7 +18,7 @@ class LoaderCache {
     const promise = Promise.resolve(this.loader(realInput)).then(value => {
       this.promises.delete(id);
       this.entities.set(id, value);
-      console.debug(`LoaderCache successfully loaded value`, id);
+      //console.debug(`LoaderCache successfully loaded value`, id);
       return value;
     }, err => {
       this.promises.delete(id);

@@ -10,10 +10,6 @@ class RawDynamoDBStore extends BaseRawStore {
     this.edgeTable = opts.tablePrefix + '_Edges';
   }
 
-  static new(opts) {
-    return BaseRawStore.newFromImpl(RawDynamoDBStore, opts);
-  }
-
   async processAction({kind, record}) {
     switch (kind) {
 
@@ -32,7 +28,7 @@ class RawDynamoDBStore extends BaseRawStore {
             Fields: data,
           },
         }).promise();
-        console.log(`stored node '${record.nodeId}' in AWS`);
+        //console.log(`stored node '${record.nodeId}' in AWS`);
         break;
 
       case 'put edge':
@@ -65,7 +61,7 @@ class RawDynamoDBStore extends BaseRawStore {
             }))
           },
         }).promise();
-        console.log(`stored edge ${record.subject} ${record.predicate} ${record.object} in AWS`);
+        //console.log(`stored edge ${record.subject} ${record.predicate} ${record.object} in AWS`);
         break;
 
       default: throw new Error(
@@ -75,6 +71,7 @@ class RawDynamoDBStore extends BaseRawStore {
   }
 
   async loadNodeById(nodeId) {
+    const {stack} = new Error;
     const result = await dynamoDb.query({
       TableName: this.nodeTable,
       ExpressionAttributeValues: {
@@ -93,6 +90,10 @@ class RawDynamoDBStore extends BaseRawStore {
     } else {
       const myErr = new Error(`DynamoDB store doesn't have node '${nodeId}'`);
       myErr.status = 404;
+      myErr.stack = [
+        `${myErr.constructor.name}: ${myErr.message}`,
+        ...stack.split('\n').slice(2),
+      ].join('\n');
       throw myErr;
     }
   }
@@ -140,8 +141,8 @@ class RawDynamoDBStore extends BaseRawStore {
       KeyConditionExpression: 'Signature = :sig AND begins_with(ValueList, :valP)',
     }).promise();
 
-    console.log('dynamo edge query:', query, signature, valPrefix,
-      'matched', result.Count, 'edges');
+    // console.log('dynamo edge query', signature, valPrefix,
+    //   'matched', result.Count, 'edges');
 
     return result.Items.map(edge => {
       const {Signature, ValueList, ...extra} = edge;

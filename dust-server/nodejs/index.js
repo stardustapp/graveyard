@@ -63,6 +63,7 @@ const extraImports = [
 
   'src/engines/graph-daemon/model.js',
   'src/engines/graph-daemon/lifecycle.js',
+  'src/engines/graph-daemon/behaviors/Instance.js',
 
   'src/engines/graph-store/model.js',
   'src/engines/graph-store/lifecycle.js',

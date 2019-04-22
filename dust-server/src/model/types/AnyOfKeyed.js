@@ -81,6 +81,9 @@ class AnyOfKeyedAccessor extends FieldAccessor {
   }
 
   mapIn(newVal, graphCtx, node) {
+    if (newVal == null) throw new Error(
+      `AnyOfKeyed received a null. Consider setting 'optional' to allow.`);
+
     if (newVal.constructor === Object) {
       const keys = Object.keys(newVal);
       if (keys.length !== 1) throw new Error(

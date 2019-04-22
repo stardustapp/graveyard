@@ -6,10 +6,6 @@ class RawVolatileStore extends BaseRawStore {
     this.edges = new Set;
   }
 
-  static new(opts) {
-    return BaseRawStore.newFromImpl(RawVolatileStore, opts);
-  }
-
   processAction({kind, record}) {
     switch (kind) {
 
@@ -19,12 +15,12 @@ class RawVolatileStore extends BaseRawStore {
         if (!record.nodeId) throw new Error(
           `Node ID is required when storing nodes`);
         this.nodes.set(record.nodeId, record);
-        console.log(`stored node '${record.nodeId}'`);
+        //console.log(`stored node '${record.nodeId}'`);
         break;
 
       case 'put edge':
         this.edges.add(record);
-        console.log(`stored ${record.predicate} edge`);
+        //console.log(`stored ${record.predicate} edge`);
         break;
 
       default: throw new Error(

@@ -226,6 +226,7 @@ class NodeBuilder {
             readType(fieldType);
           break;
         case PrimitiveFieldType:
+        case UnstructuredFieldType:
           // no possible reference
           break;
         case OptionalFieldType:

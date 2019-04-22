@@ -1,50 +1,30 @@
 const extensions = GraphEngine.extend('graph-store/v1-beta1');
 extensions.lifecycle = {
 
-  async buildStore(rawStoreClass, coreEngine, storeOpts={}) {
-    const rawStore = await rawStoreClass.new({
-      engineKey: 'graph-store/v1-beta1',
-      topData: {
-        CoreEngine: {
+  async buildNew(graphCtx, opts) {
+    const world = await graphCtx.migrateTopNode(async prevWorld => {
+      if (prevWorld) {
+        //console.log('migrating from previous world top', prevWorld, 'with opts', opts);
+        // TODO: inspect for engine compatibility?
 
-        },
-        ExposedRoot: {
-          Name: 'graph world',
-        },
-        InspectRoot: {
-          Name: 'graph world',
-        },
-      },
-      ...storeOpts,
-    });
-    return rawStore;
-  },
+      } else {
+        console.log('creating new world top with opts', opts);
+        const newWorld = await graphCtx.newTopNode({
+          /*CoreEngine: {
 
-  async createFrom(storeImpl) {
-    console.log('creating graph store graph');
-
-    const oldTop = await storeImpl.transact('read top', async dbCtx => {
-      try {
-        return await dbCtx.getNodeById('top');
-      } catch (err) {
-        if (err.status === 404)
-          return false;
-        throw err;
+          },*/
+          ExposedRoot: {
+            Name: 'graph world exposed',
+            Self: { Directory: true },
+          },
+          InspectRoot: {
+            Name: 'graph world inspect',
+            Self: { Directory: true },
+          },
+        });
       }
     });
-
-    if (oldTop) {
-      // TODO: inspect for compatibility
-      console.warn('TODO: look at worldNode');
-    }
-
-    const worldObj = await storeImpl.replaceTop({
-      RootEntry: {
-        Name: 'world',
-      },
-    });
-    await worldObj.setUp();
-    return worldObj;
+    return world;
   },
 
 };

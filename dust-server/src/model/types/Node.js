@@ -10,7 +10,9 @@ class GraphNode {
     this.rawData = null;
 
     this.isDirty = false;
-    graphCtx.loadedNodes.push(this);
+    if (graphCtx.loadedNodes.has(nodeId)) throw new Error(
+      `GraphNode collision in GraphContext`);
+    graphCtx.loadedNodes.set(nodeId, this);
   }
 
   markDirty() {

@@ -8,8 +8,8 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
     ],
     fields: {
       CoreEngine: { reference: 'Engine', optional: true },
-      ExposedRoot: { reference: 'Entry', optional: true },
-      InspectRoot: { reference: 'Entry', optional: true },
+      ExposedRoot: { reference: 'Entry' },
+      InspectRoot: { reference: 'Entry' },
     },
   });
 
@@ -22,7 +22,7 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
       Name: String,
       Graph: { reference: 'Graph', immutable: true, optional: true },
       Self: { anyOfKeyed: {
-        Empty: Boolean, // TODO: should be Unit
+        Directory: Boolean,
         //LinkTo: String,
         //LiteralStr: String,
         Data: { fields: {

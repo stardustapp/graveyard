@@ -37,6 +37,15 @@ class ListAccessor extends Array {
               return newVal;
             };
 
+          case 'fetchAll':
+            return () => Promise.all(array
+              .map(x => innerAccessor.mapOut(x, graphCtx, node))
+              .map(x => x.fetch()));
+
+          case Symbol.iterator:
+            return array.map(x =>
+              innerAccessor.mapOut(x, graphCtx, node))[Symbol.iterator];
+
           default:
             // intercept item gets
             if (prop.constructor === String) {
@@ -46,7 +55,7 @@ class ListAccessor extends Array {
               }
             }
 
-            console.log('ListAccessor get -', prop);
+            console.log('ListAccessor get -', prop, new Error().stack.split('\n')[2]);
             return Reflect.get(...arguments);
         }
       },

@@ -5,6 +5,7 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
       { kind: 'top' },
     ],
     fields: {
+      GitHash: String,
       Sources: { reference: 'Repository', isList: true },
     },
   });

@@ -94,6 +94,7 @@ async function run({treeTopId}) {
       } else if (value.constructor === Object) {
         searchStruct(value, values);
       } else if (value.constructor === Array) {
+        if (value.length === 0) return;
         const items = value.map(subValue => {
           const subValues = new Array;
           printValue(key, subValue, subValues);

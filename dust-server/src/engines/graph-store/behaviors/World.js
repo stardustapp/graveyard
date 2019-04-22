@@ -63,6 +63,8 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
       predicate: 'OPERATES',
       object: graph,
     }).fetchSubjects().then(x => x[0]);
+    if (!engine) throw new Error(
+      `World failed to find Engine operating ${topObject.nodeId}`)
 
     const subCtx = new GraphSubContext(engine, graph);
     return subCtx.getNodeById(topObject.nodeId);
@@ -117,6 +119,22 @@ class GraphSubContext {
       //console.log('done heh');
     }
     //throw new Error(`TODO: graph transact`);
+  }
+
+  async fetchEdges(query) {
+    async function mapNoun(noun) {
+      if (noun == null) return null;
+      const [nodeType, nodeId] = noun.split('#');
+      return `Object#${nodeId}`;
+    }
+
+    const {subject, predicate, object, ...extra} = query;
+    return await this.graphObject.graphCtx.fetchEdges({
+      subject: await mapNoun(query.subject),
+      predicate: '*'+predicate, // ANY predicate
+      object: await mapNoun(query.object),
+      ...extra,
+    });
   }
 
   processAction(action) {

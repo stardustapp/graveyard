@@ -88,8 +88,8 @@ class ReferenceAccessor extends FieldAccessor {
   gatherRefs(rawVal, refs) {
     if ([ObjectReference, GraphNode].includes(rawVal.constructor)) {
       refs.add(`${rawVal.nodeType}#${rawVal.nodeId}`);
-    } else if (rawVal.constructor === String) {
-      refs.add(rawVal);
+    //} else if (rawVal.constructor === String) {
+    //  refs.add(rawVal);
     } else {
       throw new Error(`TODO: gatherRefs() got weird constr ${rawVal.constructor.name}`)
     }

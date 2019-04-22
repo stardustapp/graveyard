@@ -4,23 +4,27 @@ class GraphContext {
     this.engine = engine;
     this.txnSource = txnSource;
     this.sinkAction = actionSink;
-    this.loadedNodes = new Array;
+    this.loadedNodes = new Map;
     this.allEdges = new Array;
     this.loadingNodes = new Map;
+
+    this.topAccessor = FieldAccessor
+      .forType(engine.topType);
   }
 
   flush() {
     return this.txnSource('flush context', async dbCtx => {
       await this.buildNodeRefs(); // TODO: shuold be done on-reference instead
-      await Promise.all([
+      const outcomes = await Promise.all([
         this.flushNodes(dbCtx),
         this.flushEdges(dbCtx),
       ]);
+      console.log('Flushed GraphContext:', outcomes.join(', '));
     });
   }
 
   async buildNodeRefs() {
-    for (const node of this.loadedNodes) {
+    for (const node of this.loadedNodes.values()) {
       if (!node.isDirty) continue;
       const accessor = FieldAccessor.forType(this.engine.names.get(node.nodeType));
 
@@ -38,7 +42,8 @@ class GraphContext {
   }
 
   async flushNodes(dbCtx) {
-    const actions = this.loadedNodes
+    const actions = Array
+      .from(this.loadedNodes.values())
       .filter(node => node.isDirty)
       .map(({nodeId, nodeType, rawData}) => ({
         kind: 'put node',
@@ -54,9 +59,9 @@ class GraphContext {
       .sinkAction.bind(this));
     await Promise.all(promises);
 
-    console.debug('Flushed', actions.length, 'node actions');
-    this.loadedNodes.length = 0;
+    this.loadedNodes.clear();
     this.loadingNodes.clear();
+    return `${actions.length} nodes`;
   }
 
   async flushEdges(dbCtx) {
@@ -71,8 +76,8 @@ class GraphContext {
       .sinkAction.bind(this));
     await Promise.all(promises);
 
-    console.debug('Flushed', actions.length, 'edge actinos');
     this.allEdges.length = 0;
+    return `${actions.length} edges`;
   }
 
   findNodeBuilder(path) {
@@ -83,8 +88,8 @@ class GraphContext {
   }
 
   getNodeById(nodeId) {
-    const loadedN = this.loadedNodes.find(x => x.nodeId === nodeId);
-    if (loadedN) return loadedN;
+    if (this.loadedNodes.has(nodeId))
+      return this.loadedNodes.get(nodeId);
     return this.txnSource('get node', dbCtx =>
       dbCtx.getNodeById(nodeId, this));
   }
@@ -118,6 +123,32 @@ class GraphContext {
     return this.putNode(accessor, fields, nodeId);
   }
 
+  // use this if there can't already be a top
+  async newTopNode(fields) {
+    try {
+      await this.getNodeById('top');
+    } catch (err) {
+      if (err.status !== 404) throw new Error(
+        `Tried to create a second 'top' node in GraphContext`);
+    }
+
+    const node = this.putNode(this.topAccessor, fields, 'top');
+    await node.ready;
+    return node;
+  }
+
+  // use this to handle existing tops
+  migrateTopNode(migrateCb) {
+    return this
+      .getNodeById('top')
+      .catch(err => {
+        if (err.status === 404)
+          return null;
+        throw err;
+      })
+      .then(migrateCb)
+      .then(newFields => this.getNodeById('top'));
+  }
 
   async fetchEdges(query) {
     const edges = new Map;
@@ -127,7 +158,7 @@ class GraphContext {
       ].map(encodeURI).join('|');
       edges.set(valList, record);
     }
-    console.log('querying edge records using', this.allEdges.length, 'loaded edges');
+    //console.log('querying edge records using', this.allEdges.length, 'loaded edges');
 
     for (const edge of this.allEdges) {
       //console.log('edge', edge)
@@ -193,7 +224,7 @@ class GraphEdgeQuery {
       predicate: query.predicate,
       object: query.object ? `${query.object.nodeType}#${query.object.nodeId}` : null,
     };
-    console.log('building graph query for', this.query);
+    //console.log('building graph query for', this.query);
   }
 
   async fetchAll() {
@@ -220,7 +251,7 @@ class GraphEdgeQuery {
 
   async findOneObject(filter) {
     const objects = await this.fetchObjects();
-    console.log('filtering through', objects.length, 'objects');
+    //console.log('filtering through', objects.length, 'objects');
     for (const object of objects) {
       let isMatch = true;
       for (const key in filter) {
@@ -229,7 +260,7 @@ class GraphEdgeQuery {
           isMatch = false;
       }
       if (isMatch) {
-        console.log('found matching', object.nodeType, object.nodeId);
+        //console.log('found matching', object.nodeType, object.nodeId);
         return object;
       }
     }

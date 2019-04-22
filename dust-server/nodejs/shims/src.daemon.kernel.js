@@ -8,57 +8,22 @@ Kernel = class Kernel {
   }
 
   async init(argv) {
-    const {lifecycle} = GraphEngine.get('graph-daemon/v1-beta1').extensions;
-
-    self.DUST = this.server = await lifecycle.fromProcessArgs(argv);
-    console.debug('Created server.');
-
+    const engine = GraphEngine.get('graph-daemon/v1-beta1');
+    this.daemonInstance = await engine.buildUsingVolatile({argv});
     return this;
   }
 
   // expected to return within 30 seconds
   async boot() {
-    const {Config} = this.server.daemonNode;
-
-    this.appGraph = await this.server.graphWorld.findGraph({
-      engineKey: 'dust-app/v1-beta1',
-      gitHash: 'asdfsdfdf',
-      fields: { foreignKey: Config.PackageKey },
-    });
-    if (!this.appGraph) throw new Error(
-      `Dust app ${JSON.stringify(Config.PackageKey)} not found locally`);
-
+    return this.daemonInstance.boot();
   }
 
-  // should run for the lifetime of the runtime
-  // return to EXIT
-  async run() {
-    const {Config} = this.server.daemonNode;
-    switch (Config.Command) {
-
-      case 'run':
-        const serverMethod = this.appGraph.selectNamed(Config.MethodName);
-        const {JS} = serverMethod.data.Fields;
-
-        console.log('Starting ServerMethod now!');
-        await eval(JS).call().call().call(null, this);
-        break;
-
-      case 'serve':
-        console.log('daemon waiting for work.');
-        await new Promise(resolve => {
-          process.once('SIGINT', resolve);
-        });
-        throw new Error(`Dust server was interrupted.`);
-
-      default:
-        console.error(`unknown kernel command "${Config.Command}"`);
-        process.exit(2);
-    }
+  // should run for the lifetime of the runtime, returning will shut down
+  run() {
+    return this.daemonInstance.run();
   }
 
   unref() {
-    if (this.webServer)
-      this.webServer.unref();
+    return this.daemonInstance.unref();
   }
 }

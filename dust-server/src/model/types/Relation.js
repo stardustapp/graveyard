@@ -84,7 +84,7 @@ class RelationAccessor {
   }
 
   findOneNode(relation, query) {
-    console.log('find one node', relation, query);
+    //console.log('find one node', relation, query);
     return this.graphCtx
       .queryGraph({
         subject: this.localNode,
