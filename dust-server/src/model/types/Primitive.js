@@ -32,6 +32,9 @@ class PrimitiveAccessor extends FieldAccessor {
     if (value == null) throw new Error('PrimitiveAccessor#mapIn() got null '+this.myType.default);
     return this.myType.toExt(value);
   }
+  exportData(node, opts) {
+    return node;
+  }
 }
 
 accessorConstructors.set(PrimitiveFieldType, PrimitiveAccessor);

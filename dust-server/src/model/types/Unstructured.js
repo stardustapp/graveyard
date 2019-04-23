@@ -26,6 +26,10 @@ class UnstructuredAccessor extends FieldAccessor {
     if (value == null) throw new Error('UnstructuredAccessor#mapIn() got null '+this.myType.default);
     return this.myType.toExt(value);
   }
+  exportData(node, opts) {
+    throw new Error(`TODO UNSTRUCT`)
+    return this.structType.exportData(node, opts);
+  }
 }
 
 accessorConstructors.set(UnstructuredFieldType, PrimitiveAccessor);

@@ -38,6 +38,11 @@ class OptionalAccessor extends FieldAccessor {
     if ('gatherRefs' in this.innerAccessor)
       this.innerAccessor.gatherRefs(rawVal, refs);
   }
+  exportData(rawVal, opts) {
+    if (rawVal === undefined || rawVal === null)
+      return;
+    return this.innerAccessor.exportData(rawVal, opts);
+  }
 }
 
 accessorConstructors.set(OptionalFieldType, OptionalAccessor);

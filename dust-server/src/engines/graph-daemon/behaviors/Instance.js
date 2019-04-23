@@ -62,6 +62,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     switch (Config.Command) {
 
       case 'run':
+        console.log('using dust pkg', this.dustPackage)
         const serverMethod = await this.dustPackage
           .HAS_NAME.findServerMethod({
             Name: Config.MethodName,

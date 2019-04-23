@@ -22,6 +22,15 @@ extensions.lifecycle = {
             Self: { Directory: true },
           },
         });
+
+        newWorld.InspectRoot.HAS_NAME.newEntry({
+          Name: 'all graphs',
+          Self: { Directory: true },
+        });
+        newWorld.InspectRoot.HAS_NAME.newEntry({
+          Name: 'all engines',
+          Self: { Directory: true },
+        });
       }
     });
     return world;

@@ -76,6 +76,10 @@ class ListAccessor extends Array {
       this.innerAccessor.gatherRefs(innerVal, refs);
     }
   }
+  exportData(array, opts) {
+    return Promise.all(array.map(item => this
+      .innerAccessor.exportData(item, opts)));
+  }
 }
 
 accessorConstructors.set(ListFieldType, ListAccessor);

@@ -39,11 +39,11 @@ class BaseRawStore {
 
   async getNodeById(nodeId, graphCtx) {
     const record = await this.loadNodeById(nodeId); // from raw impl
-    const accessor = this.accessors.get(record.type);
+    const accessor = this.accessors.get(record.nodeType);
     if (!accessor) throw new Error(
-      `Didn't find an accessor for type ${record.type}`);
+      `Didn't find an accessor for type ${record.nodeType}`);
 
-    const obj = new GraphNode(graphCtx, nodeId, record.type);
+    const obj = new GraphNode(graphCtx, nodeId, record.nodeType);
     return accessor.mapOut({nodeId, ...record}, graphCtx, obj);
   }
 }

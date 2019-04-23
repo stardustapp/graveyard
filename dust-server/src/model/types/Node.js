@@ -1,18 +1,28 @@
 
 class GraphNode {
-  constructor(graphCtx, nodeId, nodeType) {
+  constructor(graphCtx, nodeId, nodeType, nodeScope=null) {
     Object.defineProperty(this, 'graphCtx', {
       enumerable: false,
       value: graphCtx,
     });
     this.nodeId = nodeId;
     this.nodeType = nodeType;
+    this.nodeScope = nodeScope;
     this.rawData = null;
 
+    if (nodeType==='Dependency')
+      console.log('dep created', new Error().stack.split('\n').slice(2).join('\n'))
+
     this.isDirty = false;
-    if (graphCtx.loadedNodes.has(nodeId)) throw new Error(
-      `GraphNode collision in GraphContext`);
-    graphCtx.loadedNodes.set(nodeId, this);
+    if (graphCtx.loadedNodes) {
+      if (graphCtx.loadedNodes.has(nodeId)) throw new Error(
+        `GraphNode collision in GraphContext`);
+      graphCtx.loadedNodes.set(nodeId, this);
+    }
+  }
+
+  identify() {
+    return this.graphCtx.identifyNode(this);
   }
 
   markDirty() {
@@ -42,12 +52,15 @@ class NodeAccessor extends FieldAccessor {
     }
   }
 
-  mapOut({nodeId, type, data}, graphCtx, node) {
-    if (type !== this.typeName) throw new Error(
-      `Can't mapOut Node - expected '${this.typeName}' but type was '${type}'`);
+  mapOut({nodeId, nodeType, nodeScope, data}, graphCtx, node) {
+    if (nodeType !== this.typeName) throw new Error(
+      `Can't mapOut Node - expected '${this.typeName}' but type was '${nodeType}'`);
 
-    const behavior = graphCtx.engine.nameBehaviors.get(type);
+    const behavior = graphCtx.engine.nameBehaviors.get(nodeType);
     node.rawData = data;
+    node.exportData = this.exportData.bind(this, node);
+    if (nodeScope)
+      node.nodeScope = nodeScope;
 
     //Object.defineProperty(node, 'state', {
     //  value: Object.create(null),
@@ -83,13 +96,17 @@ class NodeAccessor extends FieldAccessor {
     return node;
   }
 
-  mapIn({nodeId, fields}, graphCtx, node) {
+  mapIn({nodeId, nodeScope, fields}, graphCtx, node) {
     const data = this.structType.mapIn(fields, graphCtx, node);
-    return {nodeId, data, type: this.typeName};
+    return {nodeId, nodeScope, data, nodeType: this.typeName};
   }
 
   gatherRefs(node, refs) {
+    //console.log('gather refs', node)
     this.structType.gatherRefs(node, refs);
+  }
+  exportData(node, opts) {
+    return this.structType.exportData(node.rawData, opts);
   }
 }
 

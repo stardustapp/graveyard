@@ -110,6 +110,10 @@ class AnyOfKeyedAccessor extends FieldAccessor {
     if ('gatherRefs' in slotAccessor)
       slotAccessor.gatherRefs(rawVal[currentKey], refs);
   }
+  async exportData([liveKey, data], opts) {
+    const accessor = FieldAccessor.forType(this.slots.get(liveKey));
+    return [liveKey, await accessor.exportData(data, opts)];
+  }
 }
 
 accessorConstructors.set(AnyOfKeyedFieldType, AnyOfKeyedAccessor);

@@ -5,7 +5,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
       `Zero Dust Repositories registered, can't fetch anything`);
 
     for (const sourceRef of this.Sources) {
-      const source = await sourceRef.fetch();
+      const source = await sourceRef;
       console.log('checking source', source.Label, 'for', appKey);
 
       const manifest = source.fetchManifest(appKey);

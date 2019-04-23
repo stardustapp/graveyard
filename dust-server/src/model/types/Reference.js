@@ -31,16 +31,15 @@ class ReferenceFieldType extends FieldType {
 
 
 class ObjectReference {
-  constructor(graphCtx, nodeType, nodeId) {
+  constructor(graphCtx, identifier) {
     Object.defineProperty(this, 'graphCtx', {
       enumerable: false,
       value: graphCtx,
     });
-    this.nodeType = nodeType;
-    this.nodeId = nodeId;
+    this.identifier = identifier;
   }
   fetch() {
-    return this.graphCtx.getNodeById(this.nodeId);
+    return this.graphCtx.getNodeByIdentity(this.identifier);
   }
 }
 
@@ -55,10 +54,11 @@ class ReferenceAccessor extends FieldAccessor {
 
   mapOut(rawVal, graphCtx, node) {
     //console.log('ReferenceAccessor#mapOut', rawVal);
-    if (rawVal && rawVal.constructor === String)
-      //return graphCtx.getNodeFast(...rawVal.split('#'));
-      return new ObjectReference(graphCtx, ...rawVal.split('#'));
-    //console.log('reading ref', rawVal, 'from graph', graphCtx);
+    if (rawVal && rawVal.constructor === String) {
+      return graphCtx.getNodeByIdentity(rawVal);
+    }
+      //return new ObjectReference(graphCtx, rawVal);
+    console.log('reading ref', rawVal, 'from graph', graphCtx);
     throw new Error(`ReferenceAccessor can't mapOut, rawVal was weird.`);
   }
 
@@ -72,7 +72,7 @@ class ReferenceAccessor extends FieldAccessor {
       const accessor = FieldAccessor.forType(type);
       //console.log('ref mapping in', accessor, newVal);
       const node = graphCtx.newNode(accessor, newVal);
-      return `${node.nodeType}#${node.nodeId}`;
+      return graphCtx.identifyNode(node);
 
     } else if (newVal.constructor === GraphReference && newVal.target) {
       if (this.targetPath === '')
@@ -80,19 +80,35 @@ class ReferenceAccessor extends FieldAccessor {
 
     } else if (newVal.constructor === GraphNode) {
       const node = newVal;
-      return `${node.nodeType}#${node.nodeId}`;
+      console.log('reffing to', graphCtx.identifyNode(node));
+      return graphCtx.identifyNode(node);
     }
     throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);
   }
 
   gatherRefs(rawVal, refs) {
-    if ([ObjectReference, GraphNode].includes(rawVal.constructor)) {
-      refs.add(`${rawVal.nodeType}#${rawVal.nodeId}`);
+    if (rawVal == null) throw new Error(
+      `Reference gatherRefs() given a null`);
+    if ([ObjectReference].includes(rawVal.constructor)) {
+      refs.add(rawVal);
+    } else if ([GraphNode].includes(rawVal.constructor)) {
+      refs.add(rawVal.identify());
     //} else if (rawVal.constructor === String) {
     //  refs.add(rawVal);
     } else {
       throw new Error(`TODO: gatherRefs() got weird constr ${rawVal.constructor.name}`)
     }
+  }
+  exportData(rawVal, opts) {
+    if (rawVal == null) throw new Error(
+      `Reference#exportData() was given a null`);
+    if ('refMapper' in opts) {
+      const newRef = opts.refMapper(rawVal);
+      if (newRef == null) throw new Error(
+        `Reference#exportData() got null from refMapper for ${rawVal}`);
+      return newRef;
+    }
+    return rawVal;
   }
 }
 

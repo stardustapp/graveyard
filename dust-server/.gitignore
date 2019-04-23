@@ -3,3 +3,4 @@ profiles/
 *.crx
 test-db/
 *.touch
+RAMBLINGS.md

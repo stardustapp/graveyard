@@ -93,7 +93,7 @@ class StructAccessor extends FieldAccessor {
   }
 
   mapIn(newVal, graphCtx, node) {
-    if (newVal.constructor === Object) {
+    if (newVal.constructor === Object || newVal.constructor === GraphNode) {
       const dataObj = Object.create(null);
       // create temporary instance to fill in the data
       const accInst = this.mapOut(dataObj, graphCtx, node);
@@ -118,6 +118,16 @@ class StructAccessor extends FieldAccessor {
       if ('gatherRefs' in fieldAccessor)
         fieldAccessor.gatherRefs(struct[name], refs);
     }
+  }
+  async exportData(struct, opts) {
+    const obj = {};
+    for (const [name, fieldType] of this.fields) {
+      const accessor = FieldAccessor.forType(fieldType);
+      const value = await accessor.exportData(struct[name], opts);
+      if (value !== undefined)
+        obj[name] = value;
+    }
+    return obj;
   }
 }
 

@@ -1,3 +1,4 @@
+/*
 const {promisify, inspect} = require('util');
 
 class GraphRuntime {
@@ -162,3 +163,4 @@ if (typeof module !== 'undefined') {
     GraphRuntime,
   };
 }
+*/

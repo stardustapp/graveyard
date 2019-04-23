@@ -10,8 +10,8 @@ class RawVolatileStore extends BaseRawStore {
     switch (kind) {
 
       case 'put node':
-        if (!this.accessors.has(record.type)) throw new Error(
-          `Can't store unrecognized node type '${record.type}'`);
+        if (!this.accessors.has(record.nodeType)) throw new Error(
+          `Can't store unrecognized node type '${record.nodeType}'`);
         if (!record.nodeId) throw new Error(
           `Node ID is required when storing nodes`);
         this.nodes.set(record.nodeId, record);

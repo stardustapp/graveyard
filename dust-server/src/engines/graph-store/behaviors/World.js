@@ -36,22 +36,19 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     if (!opts.engineKey) throw new Error('oops1')
     const engine = await this.getBuiltInEngine(opts);
     const graph = await engine.findGraph(opts);
-    if (graph) return this.openSubContext(graph);
+    if (graph) return await (await this.openSubContext(graph)).getTopObject();
     return null;
   },
 
   async findOrCreateGraph(opts) {
     if (!opts.engineKey) throw new Error('oops2')
     const engine = await this.getBuiltInEngine(opts);
-    const graph = await engine.findOrCreateGraph(opts);
+    const graph = await engine.findOrCreateGraph(opts, this);
     await this.STORES.attachGraph(graph);
-    return this.openSubContext(graph);
+    return await (await this.openSubContext(graph)).getTopObject();
   },
 
   async openSubContext(graph) {
-    const topObject = await graph.TopObject.fetch();
-    console.log('Opening graph context with top type', topObject.Type);
-
     //if (!engine) throw new Error(
     //  `Didn't find a graph engine`);
     //console.log('Using graph engine', engine);
@@ -64,10 +61,9 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
       object: graph,
     }).fetchSubjects().then(x => x[0]);
     if (!engine) throw new Error(
-      `World failed to find Engine operating ${topObject.nodeId}`)
+      `World failed to find Engine operating ${graph.nodeId}`)
 
-    const subCtx = new GraphSubContext(engine, graph);
-    return subCtx.getNodeById(topObject.nodeId);
+    return new GraphSubContext(engine, graph);
   },
 
   /*
@@ -79,6 +75,16 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   */
 });
 
+// TODO!
+// class ScopedGraphContext extends GraphContext {
+//   constructor(parentCtx, innerEngine) {
+//     this.loadedScopes = new Map;
+//   }
+// }
+//
+//
+// class GraphScope {
+
 class GraphSubContext {
   constructor(engineObject, graphObject) {
     this.graphObject = graphObject;
@@ -86,9 +92,47 @@ class GraphSubContext {
     this.nodeCache = new LoaderCache(this.loadNode.bind(this));
     this.graphCtx = new GraphContext({
       engine: engineObject,
-      txnSource: this.transact.bind(this),
+      txnSource: this.transactRaw.bind(this), // TODO: locking / mutex!
       actionSink: this.processAction.bind(this),
     });
+
+    this.graphCtx.realCtx = this; // TODO, really!
+    this.graphCtx.nodeScope = graphObject.nodeId;
+    this.graphCtx.graphObject = graphObject;
+    this.graphCtx.identifyNode = this.identifyNode;
+    this.graphCtx.getNodeByIdentity = this.getNodeByIdentity;
+  }
+
+  async getTopObject() {
+    const topObject = await this.graphObject.TopObject;
+    console.log('Opening graph context with top type', topObject.Type);
+    return await this.getNodeById(topObject.nodeId);
+  }
+
+  findNodeAccessor(path) {
+    return this.graphCtx.findNodeAccessor(path);
+  }
+
+  // Identifiers of format `nodeScope#nodeType#nodeId`
+  identifyNode(node) {
+    if (!node.nodeId || !node.nodeType) throw new Error(
+      `GraphSubContext#identifyNode requires a node with a nodeId`);
+    if (node.nodeScope && node.nodeScope !== this.graphObject.nodeId) console.warn(
+      `WARN: GraphSubContext#identifyNode got cross-scope node`);
+    return `${this.graphObject.nodeId}#${node.nodeType}#${node.nodeId}`;
+  }
+  getNodeByIdentity(ident) {
+    const parts = ident.split('#');
+    if (parts.length === 2 && parts[0] === 'Object') {
+      console.error('WARN: sub getNodeByIdentity given two-part ident:', ident);
+      return this.getNodeById(parts[1]);
+    }
+    if (parts.length !== 3) throw new Error(
+      `GraphSubContext can only resolve three-part identities (got ${ident})`);
+    if (parts[0] === this.graphObject.nodeId)
+      return this.getNodeById(parts[2]);
+    throw new Error(
+      `TODO: getNodeByIdentity() cross-graph: ${ident} vs ${this.nodeScope}`);
   }
 
   async loadNode(nodeId) {
@@ -99,10 +143,12 @@ class GraphSubContext {
     if (!accessor) throw new Error(
       `Didn't find an accessor for type ${node.Type}`);
 
-    const virtNode = new GraphNode(this.graphCtx, node.nodeId, node.Type);
+    // TODO: DRY as method (duped in context.js putNode)
+    const virtNode = new GraphNode(this.graphCtx, node.nodeId, node.Type, this.graphObject.nodeId);
     return accessor.mapOut({
       nodeId,
-      type: node.Type,
+      nodeType: node.Type,
+      nodeScope: this.graphObject.nodeId,
       data: node.Data,
     }, this.graphCtx, virtNode);
   }
@@ -111,20 +157,14 @@ class GraphSubContext {
     return this.nodeCache.getOne(id);
   }
 
-  async transact(mode, cb) {
-    //console.log('heh a');
-    try {
-      return await cb(this);
-    } finally {
-      //console.log('done heh');
-    }
-    //throw new Error(`TODO: graph transact`);
+  transactRaw(mode, cb) {
+    return cb(this);
   }
 
   async fetchEdges(query) {
     async function mapNoun(noun) {
       if (noun == null) return null;
-      const [nodeType, nodeId] = noun.split('#');
+      const [graphId, nodeType, nodeId] = noun.split('#');
       return `Object#${nodeId}`;
     }
 
