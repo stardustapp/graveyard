@@ -16,8 +16,7 @@ class LoaderCache {
 
     const realInput = input === null ? id : input;
     const promise = Promise.resolve(this.loader(realInput)).then(value => {
-      this.promises.delete(id);
-      this.entities.set(id, value);
+      this.putOne(id, value);
       //console.debug(`LoaderCache successfully loaded value`, id);
       return value;
     }, err => {
@@ -29,6 +28,20 @@ class LoaderCache {
 
     this.promises.set(id, promise);
     return promise;
+  }
+
+  loadedEntities() {
+    return this.entities.values();
+  }
+
+  async setOne(id, output) {
+    this.promises.delete(id);
+    this.entities.set(id, output);
+  }
+
+  clear() {
+    this.entities.clear();
+    this.promises.clear();
   }
 
   async delete(id, input=null) {
