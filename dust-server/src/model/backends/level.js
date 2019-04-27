@@ -1,6 +1,6 @@
 // DYING. TODO: REVIVE.
 
-class RawLevelStore extends BaseRawStore {
+class RawLevelStore extends BaseBackend {
   constructor(opts, database) {
     super(opts);
     this.database = database;
@@ -9,7 +9,7 @@ class RawLevelStore extends BaseRawStore {
   static async new(opts) {
     const serverDb = await ServerDatabase.open(opts.dataPath);
     console.debug('Opened level database at', opts.dataPath);
-    return await BaseRawStore.newFromImpl(RawVolatileStore, opts);
+    return await BaseBackend.newFromImpl(RawVolatileStore, opts);
   }
 
   /*

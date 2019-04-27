@@ -115,6 +115,7 @@ class StructAccessor extends FieldAccessor {
   gatherRefs(struct, refs) {
     for (const [name, fieldType] of this.fields) {
       const fieldAccessor = FieldAccessor.forType(fieldType);
+      //console.log('struct ZgatherRefs', name, struct, struct[name])
       if ('gatherRefs' in fieldAccessor)
         fieldAccessor.gatherRefs(struct[name], refs);
     }

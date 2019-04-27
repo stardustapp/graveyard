@@ -1,21 +1,83 @@
-class BaseRawStore {
+let NextStoreNumber = 1;
+const OpenStores = new Map;
+
+class StoreRecord {
+  constructor(storeId, specifiers, recordData=null) {
+    this.storeId = storeId;
+    this.specifiers = specifiers;
+    this.recordData = recordData;
+    //this.extraArgs = extra;
+
+    // basically, use 'await' when possible to support async reading
+    // just one thing needs to await then the data is available sync :)
+    // promises will only be added at all when necesary, best-effort
+    if (!this.isLoaded) {
+      this.recordData.then(newData => {
+        this.recordData = newData;
+      });
+    }
+  }
+  get isLoaded() {
+    return this.recordData == null || typeof this.recordData.then !== 'function'
+  }
+  cloneData() {
+    return this.isLoaded
+      ? JSON.parse(JSON.stringify(this.recordData))
+      : this.recordData.then(latest =>
+        JSON.parse(JSON.stringify(latest)));
+  }
+  clone() {
+    return new this.constructor(this.storeId, this.specifiers, this.cloneData());
+  }
+}
+class StoreNode extends StoreRecord {
+  constructor(storeId, {nodeId, type}, recordData) {
+    super(storeId, {nodeId, type}, recordData);
+    this.nodeId = nodeId;
+    this.typeName = type;
+  }
+  identify() {
+    return StoreNode.identify(this.specifiers);
+  }
+  static identify({nodeId}) {
+    return nodeId;
+  }
+}
+class StoreEdge extends StoreRecord {
+  constructor(storeId, {subject, predicate, object}, recordData) {
+    super(storeId, {subject, predicate, object}, recordData);
+  }
+  identify() {
+    return StoreEdge.identify(this.specifiers);
+  }
+  static identify({subject, predicate, object}) {
+    return [subject, predicate, object].map(encodeURI).join('|');
+  }
+}
+
+class BaseBackend {
   constructor(opts) {
     this.engine = opts.engine || GraphEngine.get(opts.engineKey);
+
+    this.storeId = NextStoreNumber++;
+    OpenStores.set(this.storeId, this);
 
     this.accessors = new Map;
     for (const name of this.engine.names.values()) {
       this.accessors.set(name.name, FieldAccessor.forType(name));
     }
 
-    this.mutex = new RunnableMutex(this.transactRawNow.bind(this));
-    this.rootContext = this.newContext();
+    const mutex = new RunnableMutex((mode, cb) => cb(this));
+    this.transactRaw = mutex.submit.bind(mutex);
+
+    //this.rootContext = this.newContext();
   }
 
   newContext() {
     return new GraphContext({
+      storeId: this.storeId,
       engine: this.engine,
-      txnSource: this.transactRaw.bind(this),
-      actionSink: this.processAction.bind(this),
+      txnSource: this.transactRaw,
     });
   }
 
@@ -28,28 +90,43 @@ class BaseRawStore {
     return output;
   }
 
-  // raw entrypoint that either runs immediately or queues for later
-  // just passes the existing store - really just a store mutex
-  transactRaw(mode, cb) {
-    return this.mutex.submit(mode, cb);
-  }
-  transactRawNow(mode, cb) {
-    return cb(this);
+  async execActionBatch(actions) {
+    for (const {kind, record} of actions) {
+      switch (kind) {
+
+        case 'put node':
+          await this.putNode(record.nodeId, record.typeName, record.recordData);
+          //console.log(`stored node '${record.nodeId}'`);
+          break;
+
+        case 'put edge':
+          await this.putEdge(record, record.data);
+          //console.log(`stored ${record.predicate} edge`);
+          break;
+
+        default: throw new Error(
+          `${this.constructor.name} got weird action kind '${kind}'`);
+      }
+    }
+    //console.debug('Volatile store processed', kind, 'event');
   }
 
-  async getNodeById(nodeId, graphCtx) {
-    const record = await this.loadNodeById(nodeId); // from raw impl
-    const accessor = this.accessors.get(record.nodeType);
-    if (!accessor) throw new Error(
-      `Didn't find an accessor for type ${record.nodeType}`);
-
-    const obj = new GraphNode(graphCtx, nodeId, record.nodeType);
-    return accessor.mapOut({nodeId, ...record}, graphCtx, obj);
-  }
+  // async getNodeById(nodeId, graphCtx) {
+  //   const record = await this.loadNodeById(nodeId); // from raw impl
+  //   const accessor = this.accessors.get(record.nodeType);
+  //   if (!accessor) throw new Error(
+  //     `Didn't find an accessor for type ${record.nodeType}`);
+  //
+  //   const obj = new GraphNode(graphCtx, nodeId, record.nodeType);
+  //   return accessor.mapOut({nodeId, ...record}, graphCtx, obj);
+  // }
 }
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    BaseRawStore,
+    StoreRecord,
+    StoreNode,
+    StoreEdge,
+    BaseBackend,
   };
 }

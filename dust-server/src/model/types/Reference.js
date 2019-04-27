@@ -54,11 +54,13 @@ class ReferenceAccessor extends FieldAccessor {
 
   mapOut(rawVal, graphCtx, node) {
     //console.log('ReferenceAccessor#mapOut', rawVal);
+    if (rawVal === null || rawVal === undefined) throw new Error(
+      `ReferenceAccessor mapping out null!`);
     if (rawVal && rawVal.constructor === String) {
       return graphCtx.getNodeByIdentity(rawVal);
     }
       //return new ObjectReference(graphCtx, rawVal);
-    console.log('reading ref', rawVal, 'from graph', graphCtx);
+    console.log('reading ref', rawVal, 'from node', node);
     throw new Error(`ReferenceAccessor can't mapOut, rawVal was weird.`);
   }
 
@@ -80,7 +82,8 @@ class ReferenceAccessor extends FieldAccessor {
 
     } else if (newVal.constructor === GraphNode) {
       const node = newVal;
-      console.log('reffing to', graphCtx.identifyNode(node));
+      console.log('reffing to', graphCtx.identifyNode(node), new Error().stack.split('\n')[2]);
+      console.log('     ->', graphCtx.identifyNode(node))
       return graphCtx.identifyNode(node);
     }
     throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);
@@ -89,10 +92,10 @@ class ReferenceAccessor extends FieldAccessor {
   gatherRefs(rawVal, refs) {
     if (rawVal == null) throw new Error(
       `Reference gatherRefs() given a null`);
-    if ([ObjectReference].includes(rawVal.constructor)) {
+    //if ([ObjectReference].includes(rawVal.constructor)) {
+    //  refs.add(rawVal);
+    if (rawVal.constructor === GraphNode) {
       refs.add(rawVal);
-    } else if ([GraphNode].includes(rawVal.constructor)) {
-      refs.add(rawVal.identify());
     //} else if (rawVal.constructor === String) {
     //  refs.add(rawVal);
     } else {

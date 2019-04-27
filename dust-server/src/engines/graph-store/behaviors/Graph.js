@@ -1,79 +1,101 @@
 GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
 
-  async importExternalGraph(extStore, topNodeId=null) {
-    //console.log('new package', extStore.nodes, extStore.edges);
+  // TODO: only works when extStore is a VolatileBackend
+  async importExternalGraph(extStore, topNodeId=null, worldNode) {
+    //console.log('new package', extStore.nodeMap, extStore.edgeMap);
     console.group('Importing external graph into GraphStore');
-    console.log('External graph has', extStore.nodes.size, 'nodes and', extStore.edges.size, 'edges');
-    const worldNode = await this.graphCtx.getNodeById('top');
+    console.log('External graph has', extStore.nodeMap.size, 'nodes and', extStore.edgeMap.size, 'edges');
 
+    const hostGraphCtx = this.getGraphCtx();
     const extGraphCtx = extStore.newContext();
-    const tgtGraphCtx = await worldNode.openSubContext(this);
+    const tgtGraphCtx = await worldNode.getContextForGraph(this);
 
-    // load up every node that is referenced
-    // basically just to rewire the refs
-    // this could probably be better
-    const relevantObjIds = new Set;
-    for (const edge of extStore.edges)
-      if (edge.predicate === 'REFERENCES')
-        relevantObjIds.add(edge.object);
-    const reffedNodes = await Promise
-      .all(Array
-        .from(relevantObjIds)
-        .map(ident => extGraphCtx
-          .getNodeByIdentity(ident)));
-    const refIdMap = new Map;
-    for (const refNode of reffedNodes)  {
-      const extNodeIdent = extGraphCtx.identifyNode(refNode);
-      const tgtNodeIdent = tgtGraphCtx.identifyNode(refNode);
-      console.log('compare', extNodeIdent, tgtNodeIdent)
-      refIdMap.set(extNodeIdent, tgtNodeIdent);
-    }
-
-    // copy all the nodes
-    const nodeIdMap = new Map;
+    // spawn all nodes, without data
+    const createdPhyNodes = new Map;
     let topNode = null;
-    for (const nodeId of extStore.nodes.keys()) {
+    for (const {nodeId, typeName} of extStore.nodeMap.values()) {
       const isTopNode = (topNodeId !== null) && (nodeId === topNodeId);
-      const extNode = await extGraphCtx.getNodeById(nodeId);
-      const extNodeIdent = extGraphCtx.identifyNode(extNode);
       const newNode = await this.OWNS.newObject({
-        Type: extNode.nodeType,
-        Data: await extNode.exportData({
-          async refMapper(refId) {
-            return refIdMap.get(refId);
-            // const extRecord = await extGraphCtx.getNodeByIdentity(refId);
-            // console.log('62622', extRecord.rawData, refId)
-            // const newVirtId = tgtGraphCtx.identifyNode(extRecord);
-            // console.log('mapping ref', refId, 'to', newVirtId);
-            // return 'TODO#FOO';
-          },
-        }),
+        Type: typeName,
+        Data: {},
       }, isTopNode ? null : nodeId);
-      nodeIdMap.set(extNodeIdent, newNode);
+      //console.log('new internal node:', newNode, isTopNode);
+      createdPhyNodes.set(nodeId, newNode);
 
       // store reference to top node
       if (isTopNode)
         this.TopObject = newNode;
     }
 
+    // load up every node that is referenced
+    // basically just to rewire the refs
+    // this could probably be better
+    const relevantObjIds = new Set;
+    for (const edge of extStore.edgeMap.values())
+      if (edge.specifiers.predicate === 'REFERENCES')
+        relevantObjIds.add(edge.specifiers.object);
+    const refIdMap = new Map;
+    for (const relevantIdent of relevantObjIds)  {
+      //const extNodeIdent = extGraphCtx.identifyNode(refNode);
+      const oldNode = await extGraphCtx.getNodeByIdentity(relevantIdent);
+      if (oldNode.ctxId === extGraphCtx.ctxId) {
+        const createdPhyNode = createdPhyNodes.get(oldNode.nodeId);
+        //console.log('old node', oldNode)
+        const tgtNode = await tgtGraphCtx.getNodeById(createdPhyNode.nodeId);
+        //console.log('target node', tgtNode)
+        const tgtNodeIdent = tgtGraphCtx.identifyNode(tgtNode);
+        //console.log('target ident', tgtNodeIdent)
+        refIdMap.set(relevantIdent, tgtNodeIdent);
+      } else {
+        const tgtNodeIdent = tgtGraphCtx.identifyNode(refNode);
+        refIdMap.set(relevantIdent, tgtNodeIdent);
+        throw new Error(`TODO: cross-ctx reffing in graph import`);
+      }
+      //console.log('compare', extNodeIdent, tgtNodeIdent)
+      //const newNode = await tgtGraphCtx.getNodeById(oldNode.nodeId);
+    }
+
+    // copy all the nodes
+    const nodeIdMap = new Map;
+    for (const nodeId of extStore.nodeMap.keys()) {
+      const isTopNode = (topNodeId !== null) && (nodeId === topNodeId);
+      const extNode = await extGraphCtx.getNodeById(nodeId);
+      const extNodeIdent = extGraphCtx.identifyNode(extNode);
+      //console.log('storing external node', extNode);
+      const newNode = createdPhyNodes.get(nodeId);
+      newNode.Data = await extNode.exportData({
+        async refMapper(refId) {
+          console.log('refMapper() resolving refId', refId, 'as', refIdMap.get(refId));
+          return refIdMap.get(refId);
+          // const extRecord = await extGraphCtx.getNodeByIdentity(refId);
+          // console.log('62622', extRecord.rawData, refId)
+          // const newVirtId = tgtGraphCtx.identifyNode(extRecord);
+          // console.log('mapping ref', refId, 'to', newVirtId);
+          // return 'TODO#FOO';
+        },
+      }),
+      console.log('new imported node:', newNode)
+      nodeIdMap.set(extNodeIdent, newNode);
+    }
+
     // TODO: relink all the refs using nodeIdMap
 
     // and then the relations
-    for (const edge of extStore.edges) {
-      console.log('importing edge', edge.subject, edge.predicate, edge.object);
+    for (const [edgeKey, edge] of extStore.edgeMap) {
+      console.log('importing edge', edgeKey);
 
-      const subject = nodeIdMap.get(edge.subject);
-      if (!subject) throw new Error(`Didn't find subject '${edge.subject}'`);
-      const object = nodeIdMap.get(edge.object);
-      if (!object) throw new Error(`Didn't find object '${edge.object}'`);
-      await this.graphCtx.newEdge({
+      const subject = nodeIdMap.get(edge.specifiers.subject);
+      if (!subject) throw new Error(`Didn't find subject for '${edgeKey}'`);
+      const object = nodeIdMap.get(edge.specifiers.object);
+      if (!object) throw new Error(`Didn't find object for '${edgeKey}'`);
+      await hostGraphCtx.newEdge({
         subject,
-        predicate: '*'+edge.predicate,
+        predicate: '*'+edge.specifiers.predicate,
         object,
       });
     }
 
-    await this.graphCtx.flush();
+    await hostGraphCtx.flush();
     console.groupEnd();
   },
 

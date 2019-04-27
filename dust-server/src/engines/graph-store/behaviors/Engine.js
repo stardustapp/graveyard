@@ -3,6 +3,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
   async setup() {
     // TODO: other kinds of engines!
 
+    console.log(this)
     const engineKey = this.Source.BuiltIn.EngineKey;
     if (!engineKey || engineKey === 'undefined') throw new Error(
       `Can't set up Engine without Source.BuiltIn.EngineKey`);
@@ -42,7 +43,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     });
     //await world.STORES.attachGraph(graphNode);
 
-    await graphNode.importExternalGraph(tempStore, 'top');
+    await graphNode.importExternalGraph(tempStore, 'top', world);
 
     const graphId = graphNode.nodeId;
     console.debug('Created graph', graphId);

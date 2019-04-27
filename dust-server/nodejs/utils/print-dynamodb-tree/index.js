@@ -129,7 +129,7 @@ async function run({treeTopId}) {
     }
     const topValues = new Array;
     topValues.push(nodeId);
-    searchStruct(node.Fields, topValues);
+    searchStruct(node.Data, topValues);
     return topValues.join(' / ');
   }
 

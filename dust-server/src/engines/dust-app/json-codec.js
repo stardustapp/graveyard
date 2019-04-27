@@ -42,6 +42,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
         otherPkg = package;
       } else {
         otherPkg = dependencies[res.childPackage];
+        console.log('depping otherPkg', otherPkg);
         if (!otherPkg) throw new Error(
           `Package ${manifest.packageId} Dependency couldn't find package ${JSON.stringify(res.childPackage)}`);
       }
@@ -59,7 +60,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       // translate the fields
       const fields = res.fields.map(field => ({
         Key: field.key,
-        Type: schemaCache.getOne(field.type),
+        Type: schemaCache.get(field.type),
         IsList: field.isList,
         Optional: field.optional,
         Immutable: field.immutable,
@@ -69,18 +70,18 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       // add deps for behaviors
       // TODO: belongs here?
       if (res.timestamp) {
-        fields.createdAt = {Type: schemaCache.getOne('core:timestamp'), Mutable: false };
-        fields.updatedAt = {Type: schemaCache.getOne('core:timestamp'), Mutable: true };
+        fields.createdAt = {Type: schemaCache.get('core:timestamp'), Mutable: false };
+        fields.updatedAt = {Type: schemaCache.get('core:timestamp'), Mutable: true };
       }
       if (res.slugField) {
-        fields.slug = {Type: schemaCache.getOne('core:string'), Mutable: true }
+        fields.slug = {Type: schemaCache.get('core:string'), Mutable: true }
       }
 
       // wait for stuff
       for (const field of fields) {
         field.Type = await field.Type;
       }
-      const baseSchema = await schemaCache.getOne(res.base);
+      const baseSchema = await schemaCache.get(res.base);
 
       return await package.HAS_NAME.newRecordSchema({
         Name: res.name,
@@ -116,7 +117,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
     const schemaCache = new LoaderCache(loadRecordSchema);
 
     for (const res of resources.CustomRecord) {
-      await schemaCache.getOne(res.name);
+      await schemaCache.get(res.name);
     }
 
 
@@ -130,7 +131,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
 
 
     async function mapDocLocator(child) {
-      const typeRef = await schemaCache.getOne(child.recordType)
+      const typeRef = await schemaCache.get(child.recordType)
       const children = await Promise.all(child.children.map(mapDocLocator));
       return {
         Children: children,

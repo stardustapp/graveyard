@@ -1,6 +1,17 @@
 GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   // constructor: nodeType, data
 
+  setup() {
+    this.graphBackendCache = new LoaderCache(this
+      .createGraphBackend.bind(this),
+      graph => graph.nodeId);
+  },
+  async getContextForGraph(graph) {
+    const virtBackend = await this
+      .graphBackendCache.get(graph);
+    return virtBackend.newContext();
+  },
+
   // TODO: should leverage the EdgeQuery better
   async getBuiltInEngine({engineKey, gitHash}) {
     if (!gitHash) throw new Error(
@@ -22,6 +33,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     }
 
     // make fresh engine, none found
+    console.log('Storing new engine for builtin', engineKey);
     return await this.OPERATES.newEngine({
       Source: {
         BuiltIn: {
@@ -36,7 +48,9 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     if (!opts.engineKey) throw new Error('oops1')
     const engine = await this.getBuiltInEngine(opts);
     const graph = await engine.findGraph(opts);
-    if (graph) return await (await this.openSubContext(graph)).getTopObject();
+    if (graph) return await this
+      .getContextForGraph(graph)
+      .then(x => x.getTopObject());
     return null;
   },
 
@@ -45,10 +59,12 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     const engine = await this.getBuiltInEngine(opts);
     const graph = await engine.findOrCreateGraph(opts, this);
     await this.STORES.attachGraph(graph);
-    return await (await this.openSubContext(graph)).getTopObject();
+    return await this
+      .getContextForGraph(graph)
+      .then(x => x.getTopObject());
   },
 
-  async openSubContext(graph) {
+  async createGraphBackend(graph) {
     //if (!engine) throw new Error(
     //  `Didn't find a graph engine`);
     //console.log('Using graph engine', engine);
@@ -56,14 +72,16 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     //const allTypes = await graph.OWNS.fetchObjectList();
     //console.log('all types:', allTypes.map(x => x.Type));
 
-    const engine = await this.graphCtx.queryGraph({
+    console.log('creating graph-store backend')
+    const engine = await this.getGraphCtx().queryGraph({
       predicate: 'OPERATES',
       object: graph,
     }).fetchSubjects().then(x => x[0]);
+    //console.log('found engines', engine);
     if (!engine) throw new Error(
-      `World failed to find Engine operating ${graph.nodeId}`)
+      `World failed to find any Engine operating ${graph.nodeId}`)
 
-    return new GraphSubContext(engine, graph);
+    return new VirtualGraphBackend(graph, engine, this);
   },
 
   /*
@@ -75,32 +93,86 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   */
 });
 
-// TODO!
-// class ScopedGraphContext extends GraphContext {
-//   constructor(parentCtx, innerEngine) {
-//     this.loadedScopes = new Map;
-//   }
-// }
-//
-//
-// class GraphScope {
 
-class GraphSubContext {
-  constructor(engineObject, graphObject) {
-    this.graphObject = graphObject;
-
-    this.nodeCache = new LoaderCache(this.loadNode.bind(this));
-    this.graphCtx = new GraphContext({
+class VirtualGraphBackend extends BaseBackend {
+  constructor(graphObject, engineObject, worldObject) {
+    super({
       engine: engineObject,
-      txnSource: this.transactRaw.bind(this), // TODO: locking / mutex!
-      actionSink: this.processAction.bind(this),
     });
 
-    this.graphCtx.realCtx = this; // TODO, really!
-    this.graphCtx.nodeScope = graphObject.nodeId;
-    this.graphCtx.graphObject = graphObject;
-    this.graphCtx.identifyNode = this.identifyNode;
-    this.graphCtx.getNodeByIdentity = this.getNodeByIdentity;
+    this.graphObject = graphObject;
+    this.engineObject = engineObject;
+    this.worldObject = worldObject;
+
+    this.hostGraphCtx = this.graphObject.getGraphCtx();
+  }
+
+  putNode(nodeId, type, recordData) {
+    throw new Error('TODO World#putNode');
+    const node = new StoreNode(this.storeId, {nodeId, type}, recordData);
+    node.recordData = node.cloneData(); // extra safety
+    this.nodeMap.set(node.identify(), node);
+  }
+  async fetchNode(nodeId) {
+    // TODO: check if node is really in this graph
+    //       like fetch edge Graph#world|OWNS|Object#id
+    const phyNode = await this.hostGraphCtx.getNodeById(nodeId);
+    //console.log('fetched', phyNode)
+    const accessor = this.accessors.get(phyNode.Type);
+    if (!accessor) throw new Error(
+      `Didn't find an accessor for type ${phyNode.Type}`);
+
+    // TODO: DRY as method (duped in context.js putNode)
+    return new StoreNode(this.storeId, {
+      nodeId,
+      type: phyNode.Type,
+    }, phyNode.Data);
+  }
+
+  putEdge(triple, recordData) {
+    throw new Error('TODO World#putEdge');
+    const edge = new StoreEdge(this.storeId, triple, recordData);
+    edge.recordData = edge.cloneData(); // extra safety
+    this.edgeMap.set(edge.identify(), edge);
+  }
+  fetchEdge(specifier) {
+    throw new Error('TODO World#fetchEdge');
+    const key = StoreEdge.identify(specifier);
+    if (this.edgeMap.has(key)) {
+      return this.edgeMap.get(key).clone();
+    } else {
+      return null;
+    }
+  }
+  queryEdges(query) {
+    console.log('querying', query)
+    throw new Error('TODO World#queryEdges');
+    const matches = new Array;
+    for (const edge of this.edgeMap.values()) {
+      if (edge.predicate !== query.predicate) continue;
+      if (query.subject && edge.subject !== query.subject) continue;
+      if (query.object && edge.object !== query.object) continue;
+      matches.push(edge.clone());
+    }
+    console.log('Volatile query matched', matches.length,
+      'of', this.edgeMap.size, 'edgeMap');
+    return matches;
+  }
+
+  newContext() {
+    return new VirtualGraphContext({
+      graphObject: this.graphObject,
+      storeId: this.storeId,
+      engine: this.engine,
+      txnSource: this.transactRaw,
+    });
+  }
+}
+
+class VirtualGraphContext extends GraphContext {
+  constructor(opts) {
+    super(opts);
+    this.graphObject = opts.graphObject;
   }
 
   async getTopObject() {
@@ -109,17 +181,17 @@ class GraphSubContext {
     return await this.getNodeById(topObject.nodeId);
   }
 
-  findNodeAccessor(path) {
-    return this.graphCtx.findNodeAccessor(path);
-  }
-
   // Identifiers of format `nodeScope#nodeType#nodeId`
   identifyNode(node) {
     if (!node.nodeId || !node.nodeType) throw new Error(
       `GraphSubContext#identifyNode requires a node with a nodeId`);
-    if (node.nodeScope && node.nodeScope !== this.graphObject.nodeId) console.warn(
-      `WARN: GraphSubContext#identifyNode got cross-scope node`);
-    return `${this.graphObject.nodeId}#${node.nodeType}#${node.nodeId}`;
+    // if (node.nodeScope && node.nodeScope !== this.graphObject.nodeId) console.warn(
+    //   `WARN: GraphSubContext#identifyNode got cross-scope node`);
+    if (node.ctxId === this.ctxId)
+      return `${this.graphObject.nodeId}#${node.nodeType}#${node.nodeId}`;
+    //console.log(GraphContext.forId(node.ctxId), 'while i am', this)
+    throw new Error(
+      `VirtualGraphContext#identifyNode can't identify cross-GraphContext nodes`);
   }
   getNodeByIdentity(ident) {
     const parts = ident.split('#');
@@ -134,7 +206,7 @@ class GraphSubContext {
     throw new Error(
       `TODO: getNodeByIdentity() cross-graph: ${ident} vs ${this.nodeScope}`);
   }
-
+/*
   async loadNode(nodeId) {
     const node = await this.graphObject.graphCtx.getNodeById(nodeId);
 
@@ -160,7 +232,6 @@ class GraphSubContext {
   transactRaw(mode, cb) {
     return cb(this);
   }
-
   async fetchEdges(query) {
     async function mapNoun(noun) {
       if (noun == null) return null;
@@ -176,9 +247,5 @@ class GraphSubContext {
       ...extra,
     });
   }
-
-  processAction(action) {
-    console.log('failing at action', action);
-    throw new Error(`TODO: handle inner graph actions`);
-  }
+*/
 }

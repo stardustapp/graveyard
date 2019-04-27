@@ -22,6 +22,7 @@ extensions.lifecycle = {
             Self: { Directory: true },
           },
         });
+        console.log('new world:', newWorld.rawData, newWorld.ExposedRoot)
 
         newWorld.InspectRoot.HAS_NAME.newEntry({
           Name: 'all graphs',

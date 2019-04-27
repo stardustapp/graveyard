@@ -302,10 +302,12 @@ class NodeBuilder {
     const {inspect} = require('util');
     const newOptions = Object.assign({}, options, {
       depth: options.depth === null ? null : options.depth - 1,
+      indentationLvl: options.indentationLvl + 2,
     });
+    const prefix = ' '.repeat(options.indentationLvl);
     const body = ['inner', 'relations', 'behavior'].map(prop =>
-      `  ${prop}: ${inspect(this[prop], newOptions)}`
-        .replace(/\n/g, `    \n`));
+      `${prefix}  ${prop}: ${inspect(this[prop], newOptions)}`
+        .replace(/\n/g, `${prefix}    \n`));
 
     return [
       [
@@ -317,7 +319,7 @@ class NodeBuilder {
         options.stylize('>', 'date'),
       ].join(' '),
       ...body,
-      options.stylize('</node>', 'date'),
+      options.stylize(`${prefix}</node>`, 'date'),
     ].join('\n');
   }
 }

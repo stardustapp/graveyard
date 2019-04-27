@@ -1,58 +1,51 @@
-class RawVolatileStore extends BaseRawStore {
+// TODO: rename RawLocalStore, local.js
+class RawVolatileStore extends BaseBackend {
   constructor(opts) {
     super(opts);
 
-    this.nodes = new Map;
-    this.edges = new Set;
+    this.nodeMap = new Map;
+    this.edgeMap = new Map;
   }
 
-  processAction({kind, record}) {
-    switch (kind) {
-
-      case 'put node':
-        if (!this.accessors.has(record.nodeType)) throw new Error(
-          `Can't store unrecognized node type '${record.nodeType}'`);
-        if (!record.nodeId) throw new Error(
-          `Node ID is required when storing nodes`);
-        this.nodes.set(record.nodeId, record);
-        //console.log(`stored node '${record.nodeId}'`);
-        break;
-
-      case 'put edge':
-        this.edges.add(record);
-        //console.log(`stored ${record.predicate} edge`);
-        break;
-
-      default: throw new Error(
-        `Volatile store got weird action kind '${kind}'`);
-    }
-    //console.debug('Volatile store processed', kind, 'event');
+  putNode(nodeId, type, recordData) {
+    const node = new StoreNode(this.storeId, {nodeId, type}, recordData);
+    node.recordData = node.cloneData(); // extra safety
+    this.nodeMap.set(node.identify(), node);
   }
-
-  loadNodeById(nodeId) {
-    if (this.nodes.has(nodeId)) {
-      return this.nodes.get(nodeId);
+  fetchNode(nodeId) {
+    if (this.nodeMap.has(nodeId)) {
+      return this.nodeMap.get(nodeId).clone();
     } else {
-      const myErr = new Error(`Volatile store doesn't have node '${nodeId}'`);
-      myErr.status = 404;
-      throw myErr;
+      return null;
     }
   }
 
-  fetchEdges(query) {
+  putEdge(triple, recordData) {
+    const edge = new StoreEdge(this.storeId, triple, recordData);
+    edge.recordData = edge.cloneData(); // extra safety
+    this.edgeMap.set(edge.identify(), edge);
+  }
+  fetchEdge(specifier) {
+    const key = StoreEdge.identify(specifier);
+    if (this.edgeMap.has(key)) {
+      return this.edgeMap.get(key).clone();
+    } else {
+      return null;
+    }
+  }
+  queryEdges(query) {
     const matches = new Array;
-    for (const edge of this.edges) {
+    for (const edge of this.edgeMap.values()) {
       if (edge.predicate !== query.predicate) continue;
       if (query.subject && edge.subject !== query.subject) continue;
       if (query.object && edge.object !== query.object) continue;
-      matches.push(edge);
+      matches.push(edge.clone());
     }
     console.log('Volatile query matched', matches.length,
-      'of', this.edges.size, 'edges');
+      'of', this.edgeMap.size, 'edgeMap');
     return matches;
   }
 }
-
 
 if (typeof module !== 'undefined') {
   module.exports = {

@@ -89,7 +89,7 @@ class RelationAccessor {
       .queryGraph({
         subject: this.localNode,
         predicate: relation.predicate,
-        objectType: relation.otherType,
+        objectType: relation.otherType.typeName,
       })
       .findOneObject(query);
   }
@@ -99,7 +99,7 @@ class RelationAccessor {
       .queryGraph({
         subject: this.localNode,
         predicate: relation.predicate,
-        objectType: relation.otherType,
+        objectType: relation.otherType.typeName,
       })
       .fetchObjects();
   }
