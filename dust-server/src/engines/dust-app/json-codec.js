@@ -47,14 +47,14 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
           `Package ${manifest.packageId} Dependency couldn't find package ${JSON.stringify(res.childPackage)}`);
       }
 
-      package.HAS_NAME.newDependency({
+      await package.HAS_NAME.newDependency({
         Name: res.name,
         Version: res.version,
         PackageKey: res.childPackage,
         ChildRoot: otherPkg,
       });
     }
-
+/*
 
     async function createRecordSchema(res) {
       // translate the fields
@@ -222,7 +222,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       }
     }
 
-    await package.linkScripts();
+    await package.linkScripts();*/
     return package;
   },
 

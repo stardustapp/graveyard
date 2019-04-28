@@ -42,10 +42,20 @@ class StoreNode extends StoreRecord {
   static identify({nodeId}) {
     return nodeId;
   }
+  [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
+    const prefix = ' '.repeat(options.indentationLvl);
+    const header = `StoreNode [ ${this.typeName} id '${this.nodeId}' store#${this.storeId} ]`;
+    return header+' '+JSON
+      .stringify(this.recordData, null, 2)
+      .split('\n').join('\n'+prefix);
+  }
 }
 class StoreEdge extends StoreRecord {
   constructor(storeId, {subject, predicate, object}, recordData) {
     super(storeId, {subject, predicate, object}, recordData);
+    this.subject = subject;
+    this.predicate = predicate;
+    this.object = object;
   }
   identify() {
     return StoreEdge.identify(this.specifiers);
@@ -56,6 +66,8 @@ class StoreEdge extends StoreRecord {
 }
 
 class BaseBackend {
+  static allOpenStores() { return OpenStores.values(); }
+  static forId(id) { return OpenStores.get(id); }
   constructor(opts) {
     this.engine = opts.engine || GraphEngine.get(opts.engineKey);
 
@@ -90,24 +102,24 @@ class BaseBackend {
     return output;
   }
 
-  async execActionBatch(actions) {
-    for (const {kind, record} of actions) {
+  execActionBatch(actions) {
+    return Promise.all(actions.map(({kind, record}) => {
       switch (kind) {
 
         case 'put node':
-          await this.putNode(record.nodeId, record.typeName, record.recordData);
+          return this.putNode(record.nodeId, record.typeName, record.recordData);
           //console.log(`stored node '${record.nodeId}'`);
           break;
 
         case 'put edge':
-          await this.putEdge(record, record.data);
+          return this.putEdge(record, record.data);
           //console.log(`stored ${record.predicate} edge`);
           break;
 
         default: throw new Error(
           `${this.constructor.name} got weird action kind '${kind}'`);
       }
-    }
+    }));
     //console.debug('Volatile store processed', kind, 'event');
   }
 

@@ -63,6 +63,7 @@ class GraphEdge {
 }
 
 class GraphContext {
+  static allOpenContexts() { return OpenContexts.values(); }
   static forId(id) { return OpenContexts.get(id); }
   constructor({storeId, engine, txnSource}) {
     // NOTE: this.engine is also referenced by accessors
@@ -135,6 +136,9 @@ class GraphContext {
     if (edge.constructor === GraphEdge) {
       if (edge.ctxId !== this.ctxId) throw new Error(
         `Refusing to identify edge from another GraphContext`);
+    } else if (edge.constructor === StoreEdge) {
+      if (edge.storeId !== this.storeId) throw new Error(
+        `Refusing to identify edge from another GraphBackend`);
     } else if (edge.constructor !== Object) throw new Error(
       `Cannot identify edge of type ${edge.constructor.name}`);
     return [
@@ -165,33 +169,38 @@ class GraphContext {
       object: object ? this.identifyNode(object) : null,
       ...others,
     };
-    console.log('GraphContext querying edges with', query);
+    //console.log('GraphContext querying edges with', query);
     //console.log('querying edge records using', this.allEdges.length, 'loaded edges');
 
     for (const edge of this.graphEdges.loadedEntities()) {
-      console.log('query matched edge', edge)
       if (edge.predicate !== query.predicate) continue;
       if (query.subject && edge.subject !== query.subject) continue;
       if (query.object && edge.object !== query.object) continue;
+      //console.log('query matched edge', edge);
       addEdge(edge);
     }
 
     // TODO: add edges from backing store
     const storeEdges = await this.edgeQueryCache.get(query);
     for (const storeEdge of storeEdges) {
-      //console.log('adding store edges in query result', storeEdge, query);
+      //console.log('adding store edges in query result', storeEdge);
+      // const {subject, object, ...others} = storeEdge;
+      // const query = {
+      //   subject: subject ? this.identifyNode(subject) : null,
+      //   object: object ? this.identifyNode(object) : null,
+      //   ...others,
+      // };
       addEdge(storeEdge); // TODO: why is this just a bare object?
       //throw new Error(`todo 2856hyuzkiliodtrhj`)
     }
 
     return Array.from(edges.values());
   }
-  async queryStoreEdges(query) {
-    const edges = await this
+  queryStoreEdges(query) {
+    //console.log('queryStoreEdges', query);
+    return this
       .txnSource('query edges',
         dbCtx => dbCtx.queryEdges(query));
-    console.log('queryStoreEdges', query, edges);
-    return edges;
   }
 
 
@@ -215,7 +224,7 @@ class GraphContext {
         this.flushNodes(dbCtx),
         this.flushEdges(dbCtx),
       ]);
-      console.log('Flushed GraphContext:', stats.join(', '));
+      console.log(`Flushed ${dbCtx.constructor.name} GraphContext:`, stats.join(', '));
       this.flushRefMapper = null;
     });
   }
@@ -226,8 +235,9 @@ class GraphContext {
       const accessor = FieldAccessor.forType(this.engine.names.get(node.nodeType));
 
       const refs = new Set;
-      //console.log('gathering refs from', node);
-      accessor.gatherRefs(node, refs);
+      console.log('gathering refs from', node);
+      if (node.Name === 'Ui') throw new Error(`WHERE IS ChildRoot!`);
+      accessor.gatherRefs(node, refs, this);
       for (const desiredObj of refs) {
         // TODO: check if this.allEdges already has the ref edge
         await this.newEdge({
@@ -293,7 +303,7 @@ class GraphContext {
     if (!node.nodeId || !node.nodeType) throw new Error(
       `GraphContext#identifyNode requires a node with a nodeId and nodeType`);
     if (node.ctxId !== this.ctxId) throw new Error(
-      `GraphContext#identifyNode can't identify cross-GraphContext nodes`);
+      `GraphContext #${this.ctxId} can't identify node from GraphContext #${node.ctxId}`);
     return `${node.nodeType}#${node.nodeId}`;
   }
   getNodeByIdentity(ident) {

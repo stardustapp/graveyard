@@ -1,4 +1,15 @@
-# ProfileServ: Stardust home-server appliance
+# dust-server: Canonical Javascript model implementation, plus various engines
+
+This repo was originally a ChromeOS packaged application,
+specifically targeting Kiosk Mode.
+Now there's also a NodeJS entrypoint and Chrome probably doesn't work anymore.
+Current focus is getting a NodeJS backend that can persist real data on AWS
+and package up the available DUST applications for serving.
+
+Full support requires NodeJS 10.x or later.
+
+
+## Original README for ProfileServ: Stardust home-server appliance
 
 This repository contains a self-sustaining Stardust profile server
   targetted at Chromeboxes and other ChromeOS devices,
@@ -34,7 +45,7 @@ Configuring many self-contained personal or communal servers
 Supporting nonzero amounts of cloud users isn't expected until Q4 2019.
 This gives time to create a final nonscalable prototype-as-v1
   and use it to orchestrate the scalable cloud experiance.
-  
+
 ## Target Runtime
 
 Though this project contains little more than pure Javascript/HTML/CSS source,

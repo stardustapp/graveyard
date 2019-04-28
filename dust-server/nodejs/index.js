@@ -163,6 +163,26 @@ function runDust(argv) {
     console.error();
     console.error(`!-> Daemon crashed unexpectedly!`);
     console.error(err.stack);
+
+    try {
+      console.log();
+      console.log('Open GraphContexts:');
+      for (graphCtx of GraphContext.allOpenContexts()) {
+        console.log(`#${graphCtx.ctxId}`, graphCtx.constructor.name);
+      }
+      console.log();
+      console.log('Open GraphStores:');
+      for (store of BaseBackend.allOpenStores()) {
+        console.log(`#${store.storeId}`, store.constructor.name);
+      }
+      console.log();
+    } catch (err) {
+      console.error();
+      console.error('Failed to print post-crash debugging info too, sorry.');
+      console.error(err.stack);
+      console.error();
+    }
+
     process.exit(1);
   });
 }

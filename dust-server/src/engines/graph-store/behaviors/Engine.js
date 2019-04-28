@@ -10,6 +10,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
 
     this.realEngine = GraphEngine.get(engineKey);
     this.names = this.realEngine.names;
+    this.engineKey = this.realEngine.engineKey;
     this.nameBehaviors = this.realEngine.nameBehaviors;
     this.topType = this.realEngine.topType;
     //console.log('engine has names', this.names.keys())

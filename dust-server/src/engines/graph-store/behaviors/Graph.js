@@ -73,8 +73,8 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
           // console.log('mapping ref', refId, 'to', newVirtId);
           // return 'TODO#FOO';
         },
-      }),
-      console.log('new imported node:', newNode)
+      });
+      //console.log('new imported node:', newNode)
       nodeIdMap.set(extNodeIdent, newNode);
     }
 

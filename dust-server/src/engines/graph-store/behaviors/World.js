@@ -144,19 +144,41 @@ class VirtualGraphBackend extends BaseBackend {
       return null;
     }
   }
-  queryEdges(query) {
+  async queryEdges(query) {
     console.log('querying', query)
-    throw new Error('TODO World#queryEdges');
-    const matches = new Array;
-    for (const edge of this.edgeMap.values()) {
-      if (edge.predicate !== query.predicate) continue;
-      if (query.subject && edge.subject !== query.subject) continue;
-      if (query.object && edge.object !== query.object) continue;
-      matches.push(edge.clone());
+    const mapNoun = async noun => {
+      if (noun == null) return null;
+      const [graphId, nodeType, nodeId] = noun.split('#');
+      return this.hostGraphCtx.getNodeByIdentity(`Object#${nodeId}`);
     }
-    console.log('Volatile query matched', matches.length,
-      'of', this.edgeMap.size, 'edgeMap');
-    return matches;
+
+    const {subject, predicate, object, ...extra} = query;
+    const hostEdges = await this.hostGraphCtx.queryEdges({
+      subject: await mapNoun(query.subject),
+      predicate: '*'+predicate, // ANY predicate
+      object: await mapNoun(query.object),
+      ...extra,
+    });
+
+    const mapNounBack = async noun => {
+      if (noun == null) return null;
+      const [nodeType, nodeId] = noun.split('#');
+      if (nodeType !== 'Object') throw new Error(
+        `SubGraphContext got edge with unexpected nodeType ${nodeType}`);
+      const hostNode = await this.hostGraphCtx.getNodeById(nodeId);
+      return [this.graphObject.nodeId, hostNode.Type, nodeId].join('#');
+    }
+
+    return Promise.all(hostEdges.map(async hostEdge => {
+      const {subject, predicate, object, ...extraData} = hostEdge;
+      if (!predicate.startsWith('*')) throw new Error(
+        `SubGraphContext got non-ANY edge from backing context: ${predicate}`);
+      return new StoreEdge(this.storeId, {
+        subject: await mapNounBack(subject),
+        predicate: predicate.slice(1),
+        object: await mapNounBack(object),
+      }, extraData);
+    }));
   }
 
   newContext() {
@@ -195,10 +217,9 @@ class VirtualGraphContext extends GraphContext {
   }
   getNodeByIdentity(ident) {
     const parts = ident.split('#');
-    if (parts.length === 2 && parts[0] === 'Object') {
-      console.error('WARN: sub getNodeByIdentity given two-part ident:', ident);
-      return this.getNodeById(parts[1]);
-    }
+    if (parts.length === 2 && parts[0] === 'Object') throw new Error(
+      `sub getNodeByIdentity given two-part ident: ${ident}`);
+      //return this.getNodeById(parts[1]);
     if (parts.length !== 3) throw new Error(
       `GraphSubContext can only resolve three-part identities (got ${ident})`);
     if (parts[0] === this.graphObject.nodeId)
@@ -223,29 +244,6 @@ class VirtualGraphContext extends GraphContext {
       nodeScope: this.graphObject.nodeId,
       data: node.Data,
     }, this.graphCtx, virtNode);
-  }
-
-  getNodeById(id) {
-    return this.nodeCache.getOne(id);
-  }
-
-  transactRaw(mode, cb) {
-    return cb(this);
-  }
-  async fetchEdges(query) {
-    async function mapNoun(noun) {
-      if (noun == null) return null;
-      const [graphId, nodeType, nodeId] = noun.split('#');
-      return `Object#${nodeId}`;
-    }
-
-    const {subject, predicate, object, ...extra} = query;
-    return await this.graphObject.graphCtx.fetchEdges({
-      subject: await mapNoun(query.subject),
-      predicate: '*'+predicate, // ANY predicate
-      object: await mapNoun(query.object),
-      ...extra,
-    });
   }
 */
 }

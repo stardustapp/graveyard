@@ -18,7 +18,7 @@ class NodeAccessor extends FieldAccessor {
   }
 
   mapOut(storeNode, graphCtx) {
-    const node = new GraphNode(graphCtx.ctxId, storeNode.nodeId, this.typeName, storeNode.recordData);
+    const node = new GraphNode(graphCtx.ctxId, storeNode.nodeId, this.typeName);
 
     const struct = this.structType.mapOut(storeNode.recordData, graphCtx, node);
     for (const key in struct) {

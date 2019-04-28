@@ -21,7 +21,7 @@ class RawDynamoDBStore extends BaseBackend {
         Data: recordData,
       },
     }).promise();
-    console.log(`stored '${type}' node '${nodeId}' in AWS`, recordData);
+    console.log(`stored '${type}' node '${nodeId}' in AWS`);
   }
   async fetchNode(nodeId) {
     //const {stack} = new Error;

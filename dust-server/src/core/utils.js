@@ -25,3 +25,16 @@ ExtendableError = class ExtendableError extends Error {
     }
   }
 }
+
+PrintCallSite = function PrintCallSite({
+  indent = '',
+  trimFrames = 1,
+  trimBuiltins = false,
+}={}) {
+  const stackLines = new Error().stack.split('\n').slice(trimFrames + 2);
+  if (trimBuiltins) {
+    const firstRealLine = stackLines.findIndex(line => line.includes(' (/'));
+    if (firstRealLine >= 0) stackLines.splice(0, firstRealLine);
+  }
+  console.warn(stackLines.map(x => `${indent}${x}`).join('\n'));
+}
