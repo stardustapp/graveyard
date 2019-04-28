@@ -166,14 +166,14 @@ function runDust(argv) {
 
     try {
       console.log();
-      console.log('Open GraphContexts:');
-      for (graphCtx of GraphContext.allOpenContexts()) {
-        console.log(`#${graphCtx.ctxId}`, graphCtx.constructor.name);
-      }
-      console.log();
       console.log('Open GraphStores:');
       for (store of BaseBackend.allOpenStores()) {
-        console.log(`#${store.storeId}`, store.constructor.name);
+        console.log(`#${store.storeId}`, store.constructor.name, store.engine.engineKey);
+      }
+      console.log();
+      console.log('Open GraphContexts:');
+      for (graphCtx of GraphContext.allOpenContexts()) {
+        console.log(`#${graphCtx.ctxId}`, graphCtx.constructor.name, '- store', `#${graphCtx.storeId}`, graphCtx.countDirty());
       }
       console.log();
     } catch (err) {

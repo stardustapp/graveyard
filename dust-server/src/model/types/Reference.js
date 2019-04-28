@@ -82,8 +82,8 @@ class ReferenceAccessor extends FieldAccessor {
 
     } else if (newVal.constructor === GraphNode) {
       const node = newVal;
-      console.log('reffing to', graphCtx.identifyNode(node), new Error().stack.split('\n')[2]);
-      console.log('     ->', graphCtx.identifyNode(node))
+      console.log('reffing to', graphCtx.identifyNode(node));
+      console.log(new Error().stack.split('\n')[2]);
       return graphCtx.identifyNode(node);
     }
     throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);

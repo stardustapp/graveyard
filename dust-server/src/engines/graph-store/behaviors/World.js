@@ -48,10 +48,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     if (!opts.engineKey) throw new Error('oops1')
     const engine = await this.getBuiltInEngine(opts);
     const graph = await engine.findGraph(opts);
-    if (graph) return await this
-      .getContextForGraph(graph)
-      .then(x => x.getTopObject());
-    return null;
+    return graph;
   },
 
   async findOrCreateGraph(opts) {
@@ -59,9 +56,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     const engine = await this.getBuiltInEngine(opts);
     const graph = await engine.findOrCreateGraph(opts, this);
     await this.STORES.attachGraph(graph);
-    return await this
-      .getContextForGraph(graph)
-      .then(x => x.getTopObject());
+    return graph;
   },
 
   async createGraphBackend(graph) {
@@ -211,11 +206,21 @@ class VirtualGraphContext extends GraphContext {
     //   `WARN: GraphSubContext#identifyNode got cross-scope node`);
     if (node.ctxId === this.ctxId)
       return `${this.graphObject.nodeId}#${node.nodeType}#${node.nodeId}`;
-    //console.log(GraphContext.forId(node.ctxId), 'while i am', this)
+    const foreignCtx = GraphContext.forId(node.ctxId);
+    if (foreignCtx.constructor === VirtualGraphContext) {
+      // TODO: check that we're based on the same phy context
+      return `@${node.ctxId}@`+foreignCtx.identifyNode(node);
+    }
+    console.log(foreignCtx.constructor.name, 'while i am', this.constructor.name);
     throw new Error(
       `VirtualGraphContext#identifyNode can't identify cross-GraphContext nodes`);
   }
   getNodeByIdentity(ident) {
+    if (ident.startsWith('@')) {
+      const [ctxId, foreignIdent] = ident.slice(1).split('@');
+      const foreignCtx = GraphContext.forId(parseInt(ctxId));
+      return foreignCtx.getNodeByIdentity(foreignIdent);
+    }
     const parts = ident.split('#');
     if (parts.length === 2 && parts[0] === 'Object') throw new Error(
       `sub getNodeByIdentity given two-part ident: ${ident}`);
@@ -224,8 +229,11 @@ class VirtualGraphContext extends GraphContext {
       `GraphSubContext can only resolve three-part identities (got ${ident})`);
     if (parts[0] === this.graphObject.nodeId)
       return this.getNodeById(parts[2]);
-    throw new Error(
-      `TODO: getNodeByIdentity() cross-graph: ${ident} vs ${this.nodeScope}`);
+
+    // cross-graph nodes
+    const foreignGraph = this.graphObject.getGraphCtx().getNodeById(parts[0]);
+    console.log('found foreign graph', foreignGraph);
+    throw new Error(`TODO World getNodeByIdentity`);
   }
 /*
   async loadNode(nodeId) {

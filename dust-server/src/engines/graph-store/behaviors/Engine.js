@@ -3,10 +3,10 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
   async setup() {
     // TODO: other kinds of engines!
 
-    console.log(this)
     const engineKey = this.Source.BuiltIn.EngineKey;
     if (!engineKey || engineKey === 'undefined') throw new Error(
       `Can't set up Engine without Source.BuiltIn.EngineKey`);
+    console.log('setting up engine', engineKey)
 
     this.realEngine = GraphEngine.get(engineKey);
     this.names = this.realEngine.names;

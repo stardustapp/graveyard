@@ -47,8 +47,11 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
       console.info('Checking package', res.childPackage, 'for Dependency', res.name, 'of', appKey);
 
       // store the dep for the codec to reference
-      const depPkg = await this.findOrInstallByPackageKey(graphWorld, res.childPackage);
-      dependencies[res.childPackage] = depPkg;
+      const depGraph = await this.findOrInstallByPackageKey(graphWorld, res.childPackage);
+      const depCtx = await graphWorld.getContextForGraph(depGraph)
+      const depPackage = await depCtx.getTopObject();
+      console.log('Found depped pkg:', depPackage);
+      dependencies[res.childPackage] = depPackage;
     }
 
     const graph = await graphWorld.findOrCreateGraph({

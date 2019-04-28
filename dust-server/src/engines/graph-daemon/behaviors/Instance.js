@@ -24,13 +24,15 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
 
     // GET DUST MANAGER
 
-    this.dustManager = await this.graphWorld.findOrCreateGraph({
+    this.dustManagerGraph = await this.graphWorld.findOrCreateGraph({
       engineKey: 'dust-manager/v1-beta1',
       gitHash: this.GitHash,
       fields: {
         system: true,
       },
     });
+    this.dustManagerCtx = await this.graphWorld.getContextForGraph(this.dustManagerGraph)
+    this.dustManager = await this.dustManagerCtx.getTopObject();
 
     // BRING UP WEBSERVER
 
@@ -51,8 +53,10 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     //const {pocRepository, compileToHtml} = GraphEngine
     //  .get('dust-app/v1-beta1').extensions;
 
-    this.dustPackage = await this.dustManager
+    this.dustPackageGraph = await this.dustManager
       .findOrInstallByPackageKey(this.graphWorld, appKey);
+    this.dustPackageCtx = await this.graphWorld.getContextForGraph(this.dustPackageGraph)
+    this.dustPackage = await this.dustPackageCtx.getTopObject();
 
     //await LaunchRepl({serverDb, graphWorld, instance, appKey, pocRepository, appGraph});
   },

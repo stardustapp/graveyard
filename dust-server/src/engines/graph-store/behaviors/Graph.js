@@ -47,9 +47,11 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
         //console.log('target ident', tgtNodeIdent)
         refIdMap.set(relevantIdent, tgtNodeIdent);
       } else {
-        const tgtNodeIdent = tgtGraphCtx.identifyNode(refNode);
+        const foreignCtx = GraphContext.forId(oldNode.ctxId);
+        const foreignNode = await foreignCtx.getNodeById(oldNode.nodeId);
+        const tgtNodeIdent = tgtGraphCtx.identifyNode(foreignNode);
         refIdMap.set(relevantIdent, tgtNodeIdent);
-        throw new Error(`TODO: cross-ctx reffing in graph import`);
+        //throw new Error(`TODO: cross-ctx reffing in graph import`);
       }
       //console.log('compare', extNodeIdent, tgtNodeIdent)
       //const newNode = await tgtGraphCtx.getNodeById(oldNode.nodeId);
@@ -78,15 +80,23 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
       nodeIdMap.set(extNodeIdent, newNode);
     }
 
+    function findNodeByIdent(ident) {
+      if (nodeIdMap.has(ident))
+        return nodeIdMap.get(ident);
+      if (refIdMap.has(ident))
+        return tgtGraphCtx.getNodeByIdentity(refIdMap.get(ident));
+      throw new Error(`Graph import findNodeByIdent couldn't find ${ident}`);
+    }
+
     // TODO: relink all the refs using nodeIdMap
 
     // and then the relations
     for (const [edgeKey, edge] of extStore.edgeMap) {
       console.log('importing edge', edgeKey);
 
-      const subject = nodeIdMap.get(edge.specifiers.subject);
+      const subject = findNodeByIdent(edge.specifiers.subject);
       if (!subject) throw new Error(`Didn't find subject for '${edgeKey}'`);
-      const object = nodeIdMap.get(edge.specifiers.object);
+      const object = findNodeByIdent(edge.specifiers.object);
       if (!object) throw new Error(`Didn't find object for '${edgeKey}'`);
       await hostGraphCtx.newEdge({
         subject,

@@ -76,7 +76,7 @@ class GraphContext {
     OpenContexts.set(this.ctxId, this);
 
     console.log('Created GraphContext', this.ctxId, 'for', engine.engineKey, 'store #', storeId);
-    //console.log(new Error().stack.split('\n').slice(2).join('\n'))
+    PrintCallSite();
 
     this.graphNodes = new LoaderCache(
       this.loadGraphNode.bind(this),
@@ -106,10 +106,12 @@ class GraphContext {
     return id;
   }
   async loadGraphNode(nodeId) {
-    //if (this.nodeAccessors)
     const storeNode = await this.storedNodes.get(nodeId);
-    if (storeNode == null)
-      throw new Error(`Node Not Found`);
+    if (storeNode == null) {
+      const err = new Error(`StoreNode ${nodeId} Not Found in GraphContext #${this.ctxId}`);
+      err.status = 404;
+      throw err;
+    }
     //console.log('raw node:', nodeId, storeNode);
 
     const accessor = FieldAccessor
@@ -135,7 +137,7 @@ class GraphContext {
   identifyEdge(edge) {
     if (edge.constructor === GraphEdge) {
       if (edge.ctxId !== this.ctxId) throw new Error(
-        `Refusing to identify edge from another GraphContext`);
+        `GraphContext #${this.ctxId} can't identify edge from another GraphContext #${edge.ctxId}`);
     } else if (edge.constructor === StoreEdge) {
       if (edge.storeId !== this.storeId) throw new Error(
         `Refusing to identify edge from another GraphBackend`);
@@ -236,7 +238,6 @@ class GraphContext {
 
       const refs = new Set;
       console.log('gathering refs from', node);
-      if (node.Name === 'Ui') throw new Error(`WHERE IS ChildRoot!`);
       accessor.gatherRefs(node, refs, this);
       for (const desiredObj of refs) {
         // TODO: check if this.allEdges already has the ref edge
@@ -287,6 +288,21 @@ class GraphContext {
     return `${actions.length} edges`;
   }
 
+  countDirty() {
+    const dirtyEdges = Array
+      .from(this.graphEdges.loadedEntities())
+      .filter(edge => edge.isDirty)
+      .length;
+    const dirtyNodes = Array
+      .from(this.graphNodes.loadedEntities())
+      .filter(node => node.isDirty)
+      .length;
+    return [
+      dirtyEdges && `${dirtyEdges} dirty edges`,
+      dirtyNodes && `${dirtyNodes} dirty nodes`,
+    ].filter(x => x).join(', ');
+  }
+
   findNodeBuilder(path) {
     if (this.engine.names.has(path))
       return this.engine.names.get(path);
@@ -302,14 +318,25 @@ class GraphContext {
   identifyNode(node) {
     if (!node.nodeId || !node.nodeType) throw new Error(
       `GraphContext#identifyNode requires a node with a nodeId and nodeType`);
-    if (node.ctxId !== this.ctxId) throw new Error(
-      `GraphContext #${this.ctxId} can't identify node from GraphContext #${node.ctxId}`);
-    return `${node.nodeType}#${node.nodeId}`;
+    if (node.ctxId === this.ctxId)
+      return `${node.nodeType}#${node.nodeId}`;
+    const foreignCtx = GraphContext.forId(node.ctxId);
+    console.debug(`GraphContext #${this.ctxId} asked to identify node from GraphContext #${foreignCtx.ctxId}`);
+    return `@${node.ctxId}@${foreignCtx.identifyNode(node)}`;
   }
   getNodeByIdentity(ident) {
+    if (ident.startsWith('@')) {
+      const [ctxId, foreignIdent] = ident.slice(1).split('@');
+      const foreignCtx = GraphContext.forId(parseInt(ctxId));
+      return foreignCtx.getNodeByIdentity(foreignIdent);
+    }
     const parts = ident.split('#');
+    if (parts.length > 2) {
+      const firstPart = parts.shift();
+
+    }
     if (parts.length !== 2) throw new Error(
-      `GraphContext can only resolve two-part identities`);
+      `GraphContext #${this.ctxId} can only resolve two-part identities`);
     return this.getNodeById(parts[1]);
     // TODO? check for
   }
@@ -333,9 +360,9 @@ class GraphContext {
     if (!accessor || accessor.constructor !== NodeAccessor) throw new Error(
       `NodeAccessor instance is required for new nodes`);
     if (this.graphNodes.peek(nodeId)) throw new Error(
-      `GraphNode collision in GraphContext`);
+      `GraphNode collision in GraphContext #${this.ctxId}`);
     if (this.storedNodes.peek(nodeId)) throw new Error(
-      `StoreNode collision in GraphContext`);
+      `StoreNode collision in GraphContext #${this.ctxId}`);
 
     // const accessor = FieldAccessor
     //   .forType(this.engine
@@ -378,9 +405,9 @@ class GraphContext {
     try {
       await this.getNodeById('top');
       throw new Error(
-        `Tried to create a second 'top' node in GraphContext`);
+        `Tried to create a second 'top' node in GraphContext #${this.ctxId}`);
     } catch (err) {
-      if (err.message !== 'Node Not Found')
+      if (err.status !== 404)
         throw err;
     }
 
@@ -394,7 +421,7 @@ class GraphContext {
     return this
       .getNodeById('top')
       .catch(err => {
-        if (err.message !== 'Node Not Found')
+        if (err.status !== 404)
           throw err;
         return null;
       })
@@ -406,6 +433,7 @@ class GraphContext {
     // validate/prepare subject
     if (!subject) throw new Error(`newEdge() requires 'subject'`);
     if (subject.constructor === GraphNode) {
+      if (subject.ctxId !== this.ctxId) throw new Error('cross ctx subject')
       subject = this.identifyNode(subject);
     }
     if (subject.constructor !== String) throw new Error(
@@ -414,7 +442,15 @@ class GraphContext {
     // validate/prepare object
     if (!object) throw new Error(`newEdge() requires 'object'`);
     if (object.constructor === GraphNode) {
-      object = this.identifyNode(object);
+      if (object.ctxId === this.ctxId) {
+        object = this.identifyNode(object);
+      } else {
+        const foreignCtx = GraphContext.forId(object.ctxId);
+        console.log('local', this.constructor.name, this.ctxId, 'other', foreignCtx.constructor.name, object.ctxId);
+        //throw new Error('cross ctx object')
+        //if (foreignCtx.phyStoreId)
+        object = foreignCtx.identifyNode(object);
+      }
     }
     if (object.constructor !== String) throw new Error(
       `newEdge() wants a String for object, got ${object.constructor.name}`);
