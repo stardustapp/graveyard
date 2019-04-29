@@ -112,6 +112,10 @@ class VirtualGraphBackend extends BaseBackend {
     //       like fetch edge Graph#world|OWNS|Object#id
     const phyNode = await this.hostGraphCtx.getNodeById(nodeId);
     //console.log('fetched', phyNode)
+    if (!phyNode.Type) {
+      console.log("weird phyNode", phyNode);
+      throw new Error(`fetchNode() got miswired`);
+    }
     const accessor = this.accessors.get(phyNode.Type);
     if (!accessor) throw new Error(
       `Didn't find an accessor for type ${phyNode.Type}`);
@@ -139,27 +143,38 @@ class VirtualGraphBackend extends BaseBackend {
     }
   }
   async queryEdges(query) {
-    console.log('querying', query)
+    console.log('querying', query);
     const mapNoun = async noun => {
       if (noun == null) return null;
       const [graphId, nodeType, nodeId] = noun.split('#');
       return this.hostGraphCtx.getNodeByIdentity(`Object#${nodeId}`);
     }
 
-    const {subject, predicate, object, ...extra} = query;
+    const {subject, subjectType, predicate, object, objectType, ...extra} = query;
     const hostEdges = await this.hostGraphCtx.queryEdges({
       subject: await mapNoun(query.subject),
+      //subjectType: 'Object',
       predicate: '*'+predicate, // ANY predicate
       object: await mapNoun(query.object),
+      //objectType: 'Object',
       ...extra,
     });
 
     const mapNounBack = async noun => {
-      if (noun == null) return null;
       const [nodeType, nodeId] = noun.split('#');
       if (nodeType !== 'Object') throw new Error(
         `SubGraphContext got edge with unexpected nodeType ${nodeType}`);
       const hostNode = await this.hostGraphCtx.getNodeById(nodeId);
+      // TODO TODO: handle nodes belonging to other graphs
+      //const otherGraph = await hostNode.walk_yo_on_HAS_NAME.findOneGraph();
+      /*const otherGraph = await hostNode.getGraphCtx().queryEdges({
+        subjectType: 'Graph',
+        predicate: 'OWNS',
+        object: hostNode,
+      });
+      console.log('otherGraph is', otherGraph);
+      throw new Error('aaa')*/
+      //console.log('edge mapping hostNode', hostNode);
       return [this.graphObject.nodeId, hostNode.Type, nodeId].join('#');
     }
 
@@ -172,7 +187,11 @@ class VirtualGraphBackend extends BaseBackend {
         predicate: predicate.slice(1),
         object: await mapNounBack(object),
       }, extraData);
-    }));
+    }))
+      .then(list => list
+        .filter(edge => !subjectType || edge.subject.split('#')[1] === subjectType)
+        .filter(edge => !objectType || edge.object.split('#')[1] === objectType)
+      );
   }
 
   describe() {
@@ -242,6 +261,11 @@ class VirtualGraphContext extends GraphContext {
     const foreignGraph = this.graphObject.getGraphCtx().getNodeById(parts[0]);
     //console.log('found foreign graph', foreignGraph);
     const foreignBackend = this.worldObject.graphBackendCache.peek(foreignGraph);
+    if (!foreignBackend) {
+      console.log('Looked at foreign graph', foreignGraph);
+      throw new Error(
+        `No foreign backend found for ${ident}`);
+    }
     const foreignCtx = foreignBackend.defaultCtx;
     //console.log('found foreign context', foreignCtx);
     const foreignNode = foreignCtx.getNodeById(parts[2]);

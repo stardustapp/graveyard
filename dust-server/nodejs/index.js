@@ -164,6 +164,10 @@ function runDust(argv) {
     console.error(`!-> Daemon crashed unexpectedly!`);
     console.error(err.stack);
 
+    // TODO: when do we want to show debug info?
+    if (true)
+      process.exit(1);
+
     try {
       console.log();
       console.log('Open GraphStores:');

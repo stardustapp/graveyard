@@ -36,9 +36,39 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
 
     // BRING UP WEBSERVER
 
+    const mainVHost = {
+      handleGET: async (meta, responder) => {
+        const {method, uri, headers, queryParams, ip} = meta;
+        const parts = uri.slice(1).split('/');
+        if (parts[0] === 'dust-app' && parts[1]) {
+          return responder.sendJson({hello: 'world'}, 200);
+        }
+        if (parts[0] === 'raw-dust-app' && parts[1]) {
+          return await this.dustManager.serveAppPage(this.graphWorld, parts[1], meta, responder);
+        }
+        if (parts[0] === '~~libs' && parts[3] === 'meteor-bundle.js') {
+          const fs = require('fs');
+          const data = fs.readFileSync('vendor/libraries/meteor-bundle.js', 'utf-8');
+          return responder.sendJavaScript(data);
+        }
+        if (parts[0] === '~~src' && parts[4] === 'runtime.js') {
+          const fs = require('fs');
+          const data = fs.readFileSync('src/engines/dust-app/runtime.js', 'utf-8');
+          return responder.sendJavaScript(data);
+        }
+        // const dustApp = await this.dustManager
+        //   .findByPackageKey(this.graphWorld, parts[1]);
+        return responder.sendJson({error: 'not-found'}, 404);
+      },
+    };
+
     let webServer;
     if (this.Config.Command === 'serve') {
-      webServer = new HttpServer(this.TODO, hostname => new VirtualHost(hostname, null));
+      webServer = new HttpServer(this.TODO, async hostname => {
+        //console.log('building hostname', hostname);
+        //return await vhost[`handle${method}`](meta, responder);
+        return mainVHost;
+      });
       //ExposeSkylinkOverHttp(this.systemEnv, webServer);
       await webServer.startServer({
         host: this.Config.HttpHost,

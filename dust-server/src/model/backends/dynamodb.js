@@ -87,7 +87,7 @@ class RawDynamoDBStore extends BaseBackend {
     switch (true) {
       case !!(query.subject && query.predicate):
         signature = 'spo';
-        values = [query.subject, query.predicate, ''];
+        values = [query.subject, query.predicate, query.objectType ? query.objectType+'#' : ''];
         break;
       case !!(query.subject && query.object):
         signature = 'sop';
@@ -95,11 +95,11 @@ class RawDynamoDBStore extends BaseBackend {
         break;
       case !!(query.predicate && query.subject):
         signature = 'pso';
-        values = [query.predicate, query.subject, ''];
+        values = [query.predicate, query.subject, query.objectType ? query.objectType+'#' : ''];
         break;
       case !!(query.predicate && query.object):
         signature = 'pos';
-        values = [query.predicate, query.object, ''];
+        values = [query.predicate, query.object, query.subjectType ? query.subjectType+'#' : ''];
         break;
       case !!(query.object && query.subject):
         signature = 'osp';
@@ -107,12 +107,14 @@ class RawDynamoDBStore extends BaseBackend {
         break;
       case !!(query.object && query.predicate):
         signature = 'ops';
-        values = [query.object, query.predicate, ''];
+        values = [query.object, query.predicate, query.subjectType ? query.subjectType+'#' : ''];
         break;
       default:
         throw new Error(`WTF kinda query is that`);
     }
     const valPrefix = values.map(encodeURI).join('|');
+
+    console.log('dynamo edge query', query, 'became', signature, valPrefix);
 
     const result = await dynamoDb.query({
       TableName: this.edgeTable,

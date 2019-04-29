@@ -15,15 +15,19 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
     throw new Error(`Dust Manager didn't locate manifest for ${appKey}, checked ${this.Sources.length} sources`);
   },
 
-  async findOrInstallByPackageKey(graphWorld, appKey) {
-    const existing = await graphWorld.findGraph({
+  findByPackageKey(graphWorld, appKey) {
+    return graphWorld.findGraph({
       engineKey: 'dust-app/v1-beta1',
-      gitHash: 'asdf',
+      gitHash: this.GitHash,
       fields: {
         foreignKey: appKey,
         heritage: 'stardust-poc',
       },
     });
+  },
+
+  async findOrInstallByPackageKey(graphWorld, appKey) {
+    const existing = await this.findByPackageKey(graphWorld, appKey);
     if (existing) return existing;
 
     const newInstall = await this.installWithDeps(graphWorld, appKey);
@@ -56,7 +60,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
 
     const graph = await graphWorld.findOrCreateGraph({
       engineKey: 'dust-app/v1-beta1',
-      gitHash: 'asdf',
+      gitHash: this.GitHash,
       selector: {
         foreignKey: appKey,
         heritage: 'stardust-poc',
@@ -73,6 +77,30 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
     });
 
     return graph;
+  },
+
+  async serveAppPage(graphWorld, appKey, meta, responder) {
+    const dustGraph = await this.findByPackageKey(graphWorld, appKey);
+    if (!dustGraph) {
+      return responder.sendJson({
+        message: `Application "${appKey}" not installed`,
+        status: 404,
+      }, 404);
+    }
+
+    console.log('serving dust app', dustGraph);
+    const appCtx = await graphWorld.getContextForGraph(dustGraph);
+    const appPackage = await appCtx.getTopObject();
+    console.log('serving dust package', appPackage);
+
+    const {compileToHtml} = GraphEngine.extend('dust-app/v1-beta1');
+    const compiled = await compileToHtml(this, dustGraph, appPackage, {
+      appRoot: '/raw-dust-app/build-ng',
+      usesLegacyDB: false,
+    });
+    console.log('compiled as', compiled);
+
+    return responder.sendHtml(compiled, 200);
   },
 
 });

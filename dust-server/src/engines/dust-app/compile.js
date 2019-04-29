@@ -31,15 +31,16 @@ function unwrapJs(input) {
 }
 
 class ResourceCompiler {
-  constructor(store, graph) {
-    this.graphStore = store;
+  constructor(dustManager, appGraph, appPackage) {
+    this.dustManager = dustManager;
     this.readyDeps = new Set;
-    this.resources = Array.from(graph.objects.values());
+    this.resources = new Array;
     // TODO: add extra 'resources' from Dependency resources (probably before this point tho)
-    this.rootNode = Array.from(graph.roots)[0];
+    this.appGraph = appGraph;
+    this.appPackage = appPackage;
   }
-  processPrelude() {
-    const rootObjId = this.rootNode.data.nodeId;
+  async processPrelude() {
+    const rootObjId = this.appPackage.nodeId;
     const lines = [commonTags.codeBlock`
       const DUST = scriptHelpers; // TODO
       DUST.objects = {};
@@ -55,40 +56,52 @@ class ResourceCompiler {
           Blob: Blob,
         },`];
 
-    const printObjectTree = (data, indent) => {
-      const children = this.resources
-        .filter(other => other.data.parentObjId === data.nodeId);
+    const printObjectTree = async (resNode, indent) => {
+      //const children = this.resources
+      //  .filter(other => other.data.parentObjId === data.nodeId);
+      const children = await resNode.HAS_NAME.fetchAllObjects();
       if (children.length) {
-        lines.push(`${indent}${Js(data.name)}: {nodeId: ${Js(data.nodeId)}, children: {`);
+        lines.push(`${indent}${Js(resNode.Name)}: {nodeId: ${Js(resNode.nodeId)}, children: {`);
         for (const child of children) {
-          printObjectTree(child.data, indent+'  ');
+          this.resources.push(child);
+          await printObjectTree(child, indent+'  ');
         }
         lines.push(`${indent}}},`);
       } else {
-        lines.push(`${indent}${Js(data.name)}: ${Js(data.nodeId)},`);
+        lines.push(`${indent}${Js(resNode.Name)}: ${Js(resNode.nodeId)},`);
       }
     };
 
     lines.push(`  my: {`);
-    for (const res of this.resources) {
-      if (res.data.parentObjId === rootObjId)
-        printObjectTree(res.data, '    ');
+    for (const res of await this.appPackage.HAS_NAME.fetchAllObjects()) {
+      this.resources.push(res);
+      await printObjectTree(res, '    ');
     }
     lines.push(`  },`);
 
     // also include dependency name tree
-    for (const obj of this.resources.filter(x => x.data.type === 'Dependency')) {
-      lines.push(`  ${obj.data.name}: {`);
-      const depRoot = this.graphStore.objects.get(obj.data.fields.ChildRoot);
-      const depGraph = this.graphStore.graphs.get(depRoot.data.nodeId);
+    for (const depObj of await this.appPackage.HAS_NAME.fetchDependencyList()) {
+      lines.push(`  ${depObj.Name}: {`);
+      console.log('loading up dependency', depObj.PackageKey);
+      const graphWorld = await this.appGraph.getGraphCtx().getNodeById('top');
+      const depGraph = await this.dustManager.findByPackageKey(
+        graphWorld, depObj.PackageKey);
+      const depCtx = await graphWorld.getContextForGraph(depGraph);
+      console.log('dep', depObj.PackageKey, 'loaded as', depGraph, depCtx);
+      const childPackage = depObj.ChildRoot;
+
+      //console.log('dep', depObj, 'led to child package', childPackage);
+      console.log('dep led to child package', depObj);
+      throw new Error(`compile DUST Dependency TODO`);
+      //const depRoot = await this.dustManager.objects.get(obj.data.fields.ChildRoot);
+      //const depGraph = await this.dustManager.graphs.get(depRoot.data.nodeId);
       // loop through all objects belonging to the dep
-      const depResources = Array.from(depGraph.objects.values());
+      //const depResources = Array.from(depGraph.objects.values());
       for (const res of depResources) {
         // prepend to compiled program
         this.resources.unshift(res);
         // print out name map
-        if (res.data.parentObjId === depRoot.data.nodeId)
-          printObjectTree(res.data, '    ');
+        printObjectTree(res, '    ');
       }
       lines.push(`  },`);
     }
@@ -119,8 +132,8 @@ class ResourceCompiler {
       }
     }
 
-    for (const obj of this.resources.filter(x => x.data.type === type)) {
-      const {name, nodeId} = obj.data;
+    for (const obj of this.resources.filter(x => x.nodeType === type)) {
+      const {nodeId} = obj;
       const missingDeps = new Set;
       const self = {
         addDep(nodeId) {
@@ -131,7 +144,7 @@ class ResourceCompiler {
 
       const script = `
   DUST.objects[${Js(nodeId)}] =
-  ${callback.call(self, obj.data)}`;
+  ${callback.call(self, obj)}`;
       if (missingDeps.size > 0) {
         pendingChunks.push({nodeId, script, missingDeps, complete: false});
       } else {
@@ -145,7 +158,7 @@ class ResourceCompiler {
       .forEach(x => {
         console.warn(`Resource ${Js(x.name)} never completed!`, x);
         readyChunks.push(`
-  // WARN: ${Js(x.name)} depends on missing objects ${Js(Array.from(x.missingDeps))}`);
+  // WARN: ${Js(x.name)} depends on missing objects ${Js(Array.from(x.missingDeps).map(x=>x.nodeId))}`);
         readyChunks.push(x.script);
       });
 
@@ -154,13 +167,12 @@ class ResourceCompiler {
 }
 
 GraphEngine.extend('dust-app/v1-beta1').compileToHtml =
-async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
-  const {nodeId} = graph.data;
-  const application = Array.from(graph.roots)[0];
-  if (!application) throw new Error(`app-missing:
+async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesLegacyDB}) {
+  const {nodeId} = appGraph;
+  if (appPackage.PackageType !== 'App') throw new Error(`app-missing:
     Graph '${nodeId}' does not contain a web application.`);
 
-  const compiler = new ResourceCompiler(store, graph);
+  const compiler = new ResourceCompiler(dustManager, appGraph, appPackage);
 
   const scriptChunks = new Array('');
   function addChunk(name, code) {
@@ -172,10 +184,10 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
     scriptChunks.push(code);
   }
 
-  addChunk('Application Prelude', compiler.processPrelude());
+  addChunk('Application Prelude', await compiler.processPrelude());
 
   addChunk('Mongo Collections', compiler.process('RecordSchema', function (res) {
-    const {Fields, Base, SlugBehavior, TimestampBehavior} = res.fields;
+    const {Fields, Base, SlugBehavior, TimestampBehavior} = res;
 
     let bareBase;
     if (Base.BuiltIn) {
@@ -183,7 +195,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
         DUST.get(${Js('core:' + Base.BuiltIn)}, "CustomRecord")`;
     } else if (Base.SchemaRef) {
       bareBase = commonTags.source`
-        DUST.objects[${Js(Base.SchemaRef)}]`;
+        DUST.objects[${Js(Base.SchemaRef.nodeId)}]`;
       this.addDep(Base.SchemaRef);
     }
 
@@ -195,7 +207,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
         bareType = `DUST.get(${Js('core:'+Type.BuiltIn)}, "CustomRecord")`
       } else if (Type.SchemaRef) {
         this.addDep(Type.SchemaRef);
-        bareType = `DUST.objects[${Js(Type.SchemaRef)}]`;
+        bareType = `DUST.objects[${Js(Type.SchemaRef.nodeId)}]`;
       } else if (Type.SchemaEmbed) {
         throw new Error(`TODO: SchemaEmbed`);
       }
@@ -221,7 +233,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
 
     return `${bareBase}
     .inherit({
-      name: ${Js(res.name)},
+      name: ${Js(res.Name)},
       fields: {${fieldLines.join('')}
       },${(Object.keys(behaviors).length ? `
       behaviors: ${Js(behaviors, null, 2).replace(/\n/g, `\n      `)},`:'')}
@@ -229,15 +241,15 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   }));
 
   addChunk('DDP Publications', compiler.process('Publication', function (res) {
-    return `new DustPublication(${Js(nodeId)}, ${Js(res.name)}, ${Js(res.fields)});`;
+    return `new DustPublication(${Js(nodeId)}, ${Js(res.Name)}, ${Js(res.Fields)});`;
   }));
 
   addChunk('Server Methods', compiler.process('ServerMethod', function (res) {
-    return `DustMethod(${Js(nodeId)}, ${Js(res.name)});`;
+    return `DustMethod(${Js(nodeId)}, ${Js(res.Name)});`;
   }));
 
   addChunk('Blaze Templates', compiler.process('Template', function (res) {
-    const {Handlebars, Scripts, Style} = res.fields;
+    const {Handlebars, Scripts, Style} = res;
 
     const scriptLines = [];
     for (const {Coffee, JS, Refs, Type} of Scripts) {
@@ -247,7 +259,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   .addScript(${Js(type)}, ${Js(param)}, ${unwrapJs(JS)})`);
     }
     return `InflateBlazeTemplate({
-    name: ${Js(res.name)},
+    name: ${Js(res.Name)},
     nodeId: ${Js(res.nodeId)},
     template: \`\n${escapeTicks(Handlebars)}\`,
     css: \`\n${escapeTicks(Style.CSS)}\`,
@@ -256,7 +268,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   }));
 
   addChunk('Application Router', compiler.process('AppRouter', function (res) {
-    const {DefaultLayout, IconUrl} = res.fields;
+    const {DefaultLayout, IconUrl} = res;
     const lines = [commonTags.source`
       new DustRouter({
           baseUrl: APP_ROOT,
@@ -265,7 +277,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
 
     if (DefaultLayout) {
       this.addDep(DefaultLayout);
-      lines.push(`    defaultLayout: DUST.objects[${Js(DefaultLayout)}],`);
+      lines.push(`    defaultLayout: DUST.objects[${Js(DefaultLayout.nodeId)}],`);
     }
 
     lines.push(`  });\n`);
@@ -273,14 +285,14 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
   }));
 
   addChunk('App Routes', compiler.process('Route', function (res) {
-    const {Path, Action} = res.fields;
+    const {Path, Action} = res;
     let callback = '() => {}';
     switch (true) {
 
       case 'Render' in Action:
         const {Template} = Action.Render;
         this.addDep(Template);
-        callback = `function() { this.render(DUST.objects[${Js(Template)}]); }`;
+        callback = `function() { this.render(DUST.objects[${Js(Template.nodeId)}]); }`;
         break;
 
       case 'Script' in Action:
@@ -291,7 +303,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
       default:
         throw new Error('weird route type '+Js(route.type));
     }
-    return `DUST.objects[${Js(res.parentObjId)}]
+    return `DUST.objects[${Js(res.parentObjId)}] // TODO
     .add(${Js(Path)}, ${callback});\n`;
   }));
 
@@ -302,7 +314,7 @@ async function CompileDustApp(store, graph, {appRoot, usesLegacyDB}) {
     }
   `);
 
-  return new Response(commonTags.html`<!doctype html>
+  return commonTags.html`<!doctype html>
 <title></title>
 <link href="/~~libs/vendor/fonts/roboto.css" type="text/css" rel="stylesheet">
 <link href="/~~libs/vendor/fonts/material-icons.css" type="text/css" rel="stylesheet">
@@ -335,9 +347,5 @@ ${usesLegacyDB ? `<script src="/~~src/model/impl/dust-app/runtime-build.js"></sc
     appPath: APP_ROOT,
   });
   ${usesLegacyDB ? `const buildSub = Meteor.subscribe("/legacy-dust-app-data");` : ''}
-`+scriptChunks.join("\n")+`\n\n</script>`, {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-    },
-  });
+`+scriptChunks.join("\n")+`\n\n</script>`;
 };

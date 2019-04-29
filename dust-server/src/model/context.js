@@ -75,8 +75,8 @@ class GraphContext {
     this.ctxId = NextContextNumber++;
     OpenContexts.set(this.ctxId, this);
 
-    console.log('Created GraphContext', this.ctxId, 'for', engine.engineKey, 'store #', storeId);
-    PrintCallSite();
+    console.log('Created', this.constructor.name, this.ctxId, 'for', engine.engineKey, 'store #', storeId);
+    //PrintCallSite();
 
     this.graphNodes = new LoaderCache(
       this.loadGraphNode.bind(this),
@@ -145,8 +145,11 @@ class GraphContext {
         `Refusing to identify edge from another GraphBackend`);
     } else if (edge.constructor !== Object) throw new Error(
       `Cannot identify edge of type ${edge.constructor.name}`);
+    //console.log('identifying edge', edge)
     return [
-      edge.subject, edge.predicate, edge.object,
+      edge.subject ? edge.subject : (edge.subjectType ? `${edge.subjectType}#` : null),
+      edge.predicate,
+      edge.object ? edge.object : (edge.objectType ? `${edge.objectType}#` : null),
     ].map(encodeURI).join('|');
   }
   async loadGraphEdge(query, edgeString) {
@@ -180,7 +183,9 @@ class GraphContext {
       if (edge.predicate !== query.predicate) continue;
       if (query.subject && edge.subject !== query.subject) continue;
       if (query.object && edge.object !== query.object) continue;
-      //console.log('query matched edge', edge);
+      if (query.objectType || query.subjectType) throw new Error(
+        `queryEdges() todo: *Type`);
+      //console.log('query matched edge', query, edge);
       addEdge(edge);
     }
 

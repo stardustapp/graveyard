@@ -19,6 +19,7 @@ class LoaderCache {
   // returns existing value or promise, or loads the node afresh
   get(input) {
     const key = this.keyFunc(input);
+    //console.log('cache is using key', key)
     if (this.entities.has(key))
       return this.entities.get(key);
     if (this.promises.has(key))

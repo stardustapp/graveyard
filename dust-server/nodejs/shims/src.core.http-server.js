@@ -249,7 +249,12 @@ class Responder {
     handler.finish();
   }
 
-   // Helpers
+  // Helpers
+
+  sendJavaScript(data) {
+    this.addHeader('Content-Type', 'application/javascript');
+    this.emitResponse(200, data);
+  }
 
   sendJson(data, status=200) {
     this.addHeader('Content-Type', 'application/json');
