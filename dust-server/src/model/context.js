@@ -106,10 +106,12 @@ class GraphContext {
     return id;
   }
   async loadGraphNode(nodeId) {
+    const {stack} = new Error;
     const storeNode = await this.storedNodes.get(nodeId);
     if (storeNode == null) {
       const err = new Error(`StoreNode ${nodeId} Not Found in GraphContext #${this.ctxId}`);
       err.status = 404;
+      err.stack = [err.stack.split('\n')[0], ...stack.split('\n').slice(1)].join('\n');
       throw err;
     }
     //console.log('raw node:', nodeId, storeNode);
@@ -237,7 +239,7 @@ class GraphContext {
       const accessor = FieldAccessor.forType(this.engine.names.get(node.nodeType));
 
       const refs = new Set;
-      console.log('gathering refs from', node);
+      //console.log('gathering refs from', node);
       accessor.gatherRefs(node, refs, this);
       for (const desiredObj of refs) {
         // TODO: check if this.allEdges already has the ref edge
@@ -291,15 +293,13 @@ class GraphContext {
   countDirty() {
     const dirtyEdges = Array
       .from(this.graphEdges.loadedEntities())
-      .filter(edge => edge.isDirty)
-      .length;
+      .filter(edge => edge.isDirty);
     const dirtyNodes = Array
       .from(this.graphNodes.loadedEntities())
-      .filter(node => node.isDirty)
-      .length;
+      .filter(node => node.isDirty);
     return [
-      dirtyEdges && `${dirtyEdges} dirty edges`,
-      dirtyNodes && `${dirtyNodes} dirty nodes`,
+      dirtyEdges.length && `${dirtyEdges.length} dirty edges: ${dirtyEdges.map(x=>this.identifyEdge(x)).join(', ')}`,
+      dirtyNodes.length && `${dirtyNodes.length} dirty nodes: ${dirtyNodes.map(x=>this.identifyNode(x)).join(', ')}`,
     ].filter(x => x).join(', ');
   }
 
@@ -333,7 +333,8 @@ class GraphContext {
     const parts = ident.split('#');
     if (parts.length > 2) {
       const firstPart = parts.shift();
-
+      console.log('the weird ident is', ident);
+      throw new Error('hol up')
     }
     if (parts.length !== 2) throw new Error(
       `GraphContext #${this.ctxId} can only resolve two-part identities`);

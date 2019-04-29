@@ -39,8 +39,7 @@ class ListAccessor extends Array {
 
           case 'fetchAll':
             return () => Promise.all(array
-              .map(x => innerAccessor.mapOut(x, graphCtx, node))
-              .map(x => x.fetch()));
+              .map(x => innerAccessor.mapOut(x, graphCtx, node)));
 
           case Symbol.iterator:
             return array.map(x =>

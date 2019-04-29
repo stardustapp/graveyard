@@ -85,6 +85,10 @@ class BaseBackend {
     //this.rootContext = this.newContext();
   }
 
+  describe() {
+    return `${this.engine.engineKey}`;
+  }
+
   newContext() {
     return new GraphContext({
       storeId: this.storeId,

@@ -168,7 +168,7 @@ function runDust(argv) {
       console.log();
       console.log('Open GraphStores:');
       for (store of BaseBackend.allOpenStores()) {
-        console.log(`#${store.storeId}`, store.constructor.name, store.engine.engineKey);
+        console.log(`#${store.storeId}`, store.constructor.name, store.describe());
       }
       console.log();
       console.log('Open GraphContexts:');

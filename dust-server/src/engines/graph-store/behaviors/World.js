@@ -9,7 +9,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   async getContextForGraph(graph) {
     const virtBackend = await this
       .graphBackendCache.get(graph);
-    return virtBackend.newContext();
+    return virtBackend.defaultCtx;
   },
 
   // TODO: should leverage the EdgeQuery better
@@ -47,16 +47,13 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   async findGraph(opts) {
     if (!opts.engineKey) throw new Error('oops1')
     const engine = await this.getBuiltInEngine(opts);
-    const graph = await engine.findGraph(opts);
-    return graph;
+    return await engine.findGraph(opts);
   },
 
   async findOrCreateGraph(opts) {
     if (!opts.engineKey) throw new Error('oops2')
     const engine = await this.getBuiltInEngine(opts);
-    const graph = await engine.findOrCreateGraph(opts, this);
-    await this.STORES.attachGraph(graph);
-    return graph;
+    return await engine.findOrCreateGraph(opts, this);
   },
 
   async createGraphBackend(graph) {
@@ -76,7 +73,9 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     if (!engine) throw new Error(
       `World failed to find any Engine operating ${graph.nodeId}`)
 
-    return new VirtualGraphBackend(graph, engine, this);
+    const backend = new VirtualGraphBackend(graph, engine, this);
+    backend.defaultCtx = backend.newContext();
+    return backend;
   },
 
   /*
@@ -176,9 +175,14 @@ class VirtualGraphBackend extends BaseBackend {
     }));
   }
 
+  describe() {
+    return `${this.graphObject.nodeId} ${super.describe()} (host ctx #${this.hostGraphCtx.ctxId} store #${this.hostGraphCtx.storeId})`;
+  }
+
   newContext() {
     return new VirtualGraphContext({
       graphObject: this.graphObject,
+      worldObject: this.worldObject,
       storeId: this.storeId,
       engine: this.engine,
       txnSource: this.transactRaw,
@@ -190,6 +194,7 @@ class VirtualGraphContext extends GraphContext {
   constructor(opts) {
     super(opts);
     this.graphObject = opts.graphObject;
+    this.worldObject = opts.worldObject;
   }
 
   async getTopObject() {
@@ -209,7 +214,10 @@ class VirtualGraphContext extends GraphContext {
     const foreignCtx = GraphContext.forId(node.ctxId);
     if (foreignCtx.constructor === VirtualGraphContext) {
       // TODO: check that we're based on the same phy context
-      return `@${node.ctxId}@`+foreignCtx.identifyNode(node);
+      //const foreignStore = StoreBackend.forId(foreignCtx.storeId);
+      //console.log('the other store is', )
+      //return `@${node.ctxId}@`+foreignCtx.identifyNode(node);
+      return foreignCtx.identifyNode(node);
     }
     console.log(foreignCtx.constructor.name, 'while i am', this.constructor.name);
     throw new Error(
@@ -232,8 +240,13 @@ class VirtualGraphContext extends GraphContext {
 
     // cross-graph nodes
     const foreignGraph = this.graphObject.getGraphCtx().getNodeById(parts[0]);
-    console.log('found foreign graph', foreignGraph);
-    throw new Error(`TODO World getNodeByIdentity`);
+    //console.log('found foreign graph', foreignGraph);
+    const foreignBackend = this.worldObject.graphBackendCache.peek(foreignGraph);
+    const foreignCtx = foreignBackend.defaultCtx;
+    //console.log('found foreign context', foreignCtx);
+    const foreignNode = foreignCtx.getNodeById(parts[2]);
+    console.log('found foreign node', foreignNode);
+    return foreignNode;
   }
 /*
   async loadNode(nodeId) {

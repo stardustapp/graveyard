@@ -54,7 +54,6 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
         ChildRoot: otherPkg,
       });
     }
-/*
 
     async function createRecordSchema(res) {
       // translate the fields
@@ -222,7 +221,7 @@ GraphEngine.extend('dust-app/v1-beta1').pocCodec = {
       }
     }
 
-    await package.linkScripts();*/
+    await package.linkScripts();
     return package;
   },
 

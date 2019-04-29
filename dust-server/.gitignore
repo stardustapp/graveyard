@@ -4,3 +4,4 @@ profiles/
 test-db/
 *.touch
 RAMBLINGS.md
+*.diff

@@ -1,5 +1,10 @@
 GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
 
+  // async setup() {
+  //   const world = await this.getGraphCtx().getNodeById('top');
+  //   this.innerGraphCtx = await world.getContextForGraph(this);
+  // },
+
   // TODO: only works when extStore is a VolatileBackend
   async importExternalGraph(extStore, topNodeId=null, worldNode) {
     //console.log('new package', extStore.nodeMap, extStore.edgeMap);
@@ -37,8 +42,15 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
     const refIdMap = new Map;
     for (const relevantIdent of relevantObjIds)  {
       //const extNodeIdent = extGraphCtx.identifyNode(refNode);
-      const oldNode = await extGraphCtx.getNodeByIdentity(relevantIdent);
-      if (oldNode.ctxId === extGraphCtx.ctxId) {
+      //const oldNode = await extGraphCtx.getNodeByIdentity(relevantIdent);
+      let oldNode;
+      try {
+        oldNode = await extGraphCtx.getNodeByIdentity(relevantIdent);
+      } catch (err) {
+        console.log('WARN: ref to', relevantIdent, `wasn't resolved locally`, err.message);
+      }
+
+      if (oldNode && oldNode.ctxId === extGraphCtx.ctxId) {
         const createdPhyNode = createdPhyNodes.get(oldNode.nodeId);
         //console.log('old node', oldNode)
         const tgtNode = await tgtGraphCtx.getNodeById(createdPhyNode.nodeId);
@@ -47,10 +59,16 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
         //console.log('target ident', tgtNodeIdent)
         refIdMap.set(relevantIdent, tgtNodeIdent);
       } else {
-        const foreignCtx = GraphContext.forId(oldNode.ctxId);
-        const foreignNode = await foreignCtx.getNodeById(oldNode.nodeId);
+        console.log('looking up ref', relevantIdent);
+        const parts = relevantIdent.split('#');
+        if (parts.length !== 3) throw new Error(
+          `that isn't a proper ident for this`)
+        //const foreignCtx = GraphContext.forId(oldNode.ctxId);
+        const foreignCtx = await worldNode.getContextForGraph({nodeId: parts[0]});
+        const foreignNode = await foreignCtx.getNodeById(parts[2]);
         const tgtNodeIdent = tgtGraphCtx.identifyNode(foreignNode);
         refIdMap.set(relevantIdent, tgtNodeIdent);
+        console.log('ref resolved to', tgtNodeIdent, 'by', tgtGraphCtx.ctxId)
         //throw new Error(`TODO: cross-ctx reffing in graph import`);
       }
       //console.log('compare', extNodeIdent, tgtNodeIdent)
@@ -67,8 +85,17 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
       const newNode = createdPhyNodes.get(nodeId);
       newNode.Data = await extNode.exportData({
         async refMapper(refId) {
-          console.log('refMapper() resolving refId', refId, 'as', refIdMap.get(refId));
-          return refIdMap.get(refId);
+          if (refIdMap.has(refId)) {
+            console.log('refMapper() resolving refId', refId, 'as', refIdMap.get(refId));
+            return refIdMap.get(refId);
+          }
+          if (refId.startsWith('@')) {
+            const realNode = tgtGraphCtx.getNodeByIdentity(refId);
+            const realIdent = realNode.getGraphCtx().identifyNode(realNode);
+            console.log('refMapper() resolved refId', refId, 'as', realIdent);
+            return realIdent;
+          }
+          throw new Error('refMapper() got weiord ref', refId)
           // const extRecord = await extGraphCtx.getNodeByIdentity(refId);
           // console.log('62622', extRecord.rawData, refId)
           // const newVirtId = tgtGraphCtx.identifyNode(extRecord);
@@ -99,13 +126,14 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
       const object = findNodeByIdent(edge.specifiers.object);
       if (!object) throw new Error(`Didn't find object for '${edgeKey}'`);
       await hostGraphCtx.newEdge({
-        subject,
+        subject: `Object#${subject.nodeId}`,
         predicate: '*'+edge.specifiers.predicate,
-        object,
+        object: `Object#${object.nodeId}`,
       });
     }
 
     await hostGraphCtx.flush();
+    await tgtGraphCtx.flush();
     console.groupEnd();
   },
 

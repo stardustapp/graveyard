@@ -42,7 +42,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     const graphNode = await this.OPERATES.newGraph({
       Tags: fields,
     });
-    //await world.STORES.attachGraph(graphNode);
+    await world.STORES.attachGraph(graphNode);
 
     await graphNode.importExternalGraph(tempStore, 'top', world);
 
