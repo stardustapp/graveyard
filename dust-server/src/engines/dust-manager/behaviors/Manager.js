@@ -95,7 +95,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
 
     const {compileToHtml} = GraphEngine.extend('dust-app/v1-beta1');
     const compiled = await compileToHtml(this, dustGraph, appPackage, {
-      appRoot: '/raw-dust-app/build-ng',
+      appRoot: '/raw-dust-app/'+appKey,
       usesLegacyDB: false,
     });
     //console.log('compiled as', compiled);

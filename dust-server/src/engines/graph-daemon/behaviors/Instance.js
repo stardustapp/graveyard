@@ -41,23 +41,28 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
         const {method, uri, headers, queryParams, ip} = meta;
         const parts = uri.slice(1).split('/');
         if (parts[0] === 'dust-app' && parts[1]) {
-          return responder.sendJson({hello: 'world'}, 200);
+          return responder.sendJson({hello: 'world'});
         }
         if (parts[0] === 'raw-dust-app' && parts[1]) {
+          if (parts[2] === '~~ddp') {
+            return responder.sendJson({todo: true});
+          }
           return await this.dustManager.serveAppPage(this.graphWorld, parts[1], meta, responder);
         }
-        if (parts[0] === '~~libs' && parts[3] === 'meteor-bundle.js') {
-          const fs = require('fs');
-          const data = fs.readFileSync('vendor/libraries/meteor-bundle.js', 'utf-8');
-          return responder.sendJavaScript(data);
+        if (parts[0] === '~~src' && parts.slice(-1)[0].endsWith('.js')) {
+          const filePath = ['src', ...parts.slice(1)].join('/');
+          console.log('streaming JS source file', filePath);
+          const fs = require('fs'); // TODO: nodejs specific
+          const stream = fs.createReadStream(filePath);
+          return responder.sendStream(stream, 'application/javascript');
         }
-        if (parts[0] === '~~src' && parts[4] === 'runtime.js') {
-          const fs = require('fs');
-          const data = fs.readFileSync('src/engines/dust-app/runtime.js', 'utf-8');
-          return responder.sendJavaScript(data);
+        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.js')) {
+          const filePath = ['vendor', ...parts.slice(1)].join('/');
+          console.log('streaming JS source file', filePath);
+          const fs = require('fs'); // TODO: nodejs specific
+          const stream = fs.createReadStream(filePath);
+          return responder.sendStream(stream, 'application/javascript');
         }
-        // const dustApp = await this.dustManager
-        //   .findByPackageKey(this.graphWorld, parts[1]);
         return responder.sendJson({error: 'not-found'}, 404);
       },
     };

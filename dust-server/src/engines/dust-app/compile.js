@@ -330,14 +330,14 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
 
   return commonTags.html`<!doctype html>
 <title></title>
-<link href="/~~libs/vendor/fonts/roboto.css" type="text/css" rel="stylesheet">
-<link href="/~~libs/vendor/fonts/material-icons.css" type="text/css" rel="stylesheet">
+<link href="/~~vendor/fonts/roboto.css" type="text/css" rel="stylesheet">
+<link href="/~~vendor/fonts/material-icons.css" type="text/css" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <base href=${Js(appRoot+'/')}>
 <script>
   const APP_ROOT = ${Js(appRoot)};
   __meteor_runtime_config__ = {
-    DDP_DEFAULT_CONNECTION_URL: "http://ddp",
+    DDP_DEFAULT_CONNECTION_URL: document.baseURI + '~~ddp',
     meteorEnv: {},
   };
 </script>
@@ -352,14 +352,14 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
     flex-direction: column;
   }
 </style>
-<script src="/~~libs/vendor/libraries/meteor-bundle.js"></script>
-<script src="/~~src/model/impl/dust-app/runtime.js"></script>
-${usesLegacyDB ? `<script src="/~~src/model/impl/dust-app/runtime-build.js"></script>` : ''}
+<script src="/~~vendor/libraries/meteor-bundle.js"></script>
+<script src="/~~src/engines/dust-app/runtime.js"></script>
+${usesLegacyDB ? `<script src="/~~src/engines/dust-app/runtime-build.js"></script>` : ''}
 <script>
-  const appSub = Meteor.subscribe("/app-runtime", {
-    nodeId: ${Js(nodeId)},
-    appPath: APP_ROOT,
-  });
+  // const appSub = Meteor.subscribe("/app-runtime", {
+  //   nodeId: ${Js(nodeId)},
+  //   appPath: APP_ROOT,
+  // });
   ${usesLegacyDB ? `const buildSub = Meteor.subscribe("/legacy-dust-app-data");` : ''}
 `+scriptChunks.join("\n")+`\n\n</script>`;
 };

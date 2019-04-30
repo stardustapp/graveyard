@@ -233,17 +233,26 @@ class Responder {
     this.handler.setHeader(key, val);
   }
 
-  emitResponse(statusCode, payload) {
+  buildResponseHeader(statusCode, responseLength) {
     if (this.statusCode != null) {
       throw new Error(`App tried to send additional HTTP responses`);
     }
     const {handler} = this;
     handler.statusCode = statusCode;
 
-    handler.responseLength = payload.length || payload.byteLength;
+    handler.responseLength = responseLength;
     handler.setHeader('Date', moment.utc().format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
     handler.setHeader('Server', HttpServer.SERVER_HEADER);
     handler.isDirectoryListing = true; // disables forced auto-MIME functionality
+    return handler;
+  }
+
+  // write & finish one-shot
+  emitResponse(statusCode, payload) {
+    const contentLength = payload.length || payload.byteLength
+    const handler = this
+      .buildResponseHeader(statusCode, contentLength);
+
     handler.writeHeaders(statusCode);
     handler.write(payload);
     handler.finish();
@@ -251,9 +260,22 @@ class Responder {
 
   // Helpers
 
-  sendJavaScript(data) {
-    this.addHeader('Content-Type', 'application/javascript');
-    this.emitResponse(200, data);
+  // NodeJS read streams
+  sendStream(stream, mimeType='application/octet-stream') {
+    this.addHeader('Content-Type', mimeType);
+    const handler = this.buildResponseHeader(200);
+
+    stream.once('error', err => {
+      console.log('http send stream error:', err.message);
+      try {
+        this.sendJson({error: err.name, message: err.message}, 500);
+      } catch (err) {
+        console.log('http encountered new error reporting stream error', err.stack);
+        handler.write(JSON.stringify({error: err.name, message: err.message}));
+        handler.finish();
+      }
+    });
+    handler.writeStream(stream);
   }
 
   sendJson(data, status=200) {

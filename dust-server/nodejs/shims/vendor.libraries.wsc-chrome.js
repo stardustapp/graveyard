@@ -1,7 +1,8 @@
 // map API to node's net.ClientResponse
 class BaseHandler {
   set responseLength(length) {
-    this.response.setHeader('content-length', length);
+    if (typeof length === 'number')
+      this.response.setHeader('content-length', length);
   }
   set statusCode(code) {
     this.response.statusCode = code;
@@ -15,15 +16,15 @@ class BaseHandler {
   write(data) {
     this.response.write(data);
   }
+  writeStream(stream) {
+    stream.pipe(this.response);
+  }
   finish() {
     this.response.end();
   }
 
   async readBody(req) {
-    const cType = req.headers['content-type'];
-    if (!cType) throw new Error(
-      `400: need Content-Type when sending body`);
-
+    const cType = req.headers['content-type'] || 'application/octet-stream';
     const [mime, ...extra] = cType.split(';');
 
     this.request.body = await new Promise(resolve => {
