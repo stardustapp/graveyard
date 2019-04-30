@@ -14,11 +14,11 @@ const epilog3 = ";\n\n}).call();\n";
 
 function unwrapJs(input) {
   if (input.startsWith(prolog1) && input.endsWith(epilog1)) {
-    return input.slice(prolog1.length, input.length - epilog1.length).replace(/\n  /g, `\n`);
+    return input.slice(prolog1.length, input.length - epilog1.length);//.replace(/\n  /g, `\n`);
   }
 
   if (input.startsWith(prolog2) && input.endsWith(epilog2)) {
-    return input.slice(prolog2.length, input.length - epilog2.length).replace(/\n  /g, `\n`);
+    return input.slice(prolog2.length, input.length - epilog2.length);//.replace(/\n  /g, `\n`);
   }
 
   if (input.endsWith(epilog3)) {
@@ -57,18 +57,25 @@ class ResourceCompiler {
         },`];
 
     const printObjectTree = async (resNode, indent) => {
-      //const children = this.resources
-      //  .filter(other => other.data.parentObjId === data.nodeId);
-      const children = await resNode.HAS_NAME.fetchAllObjects();
+      let children = [];
+      let resName = resNode.Name;
+      switch (resNode.nodeType) {
+        case 'AppRouter':
+          children = await resNode.REFERENCES.fetchRouteList();
+          break;
+        case 'Route':
+          resName = resNode.nodeId;
+      }
+
       if (children.length) {
-        lines.push(`${indent}${Js(resNode.Name)}: {nodeId: ${Js(resNode.nodeId)}, children: {`);
+        lines.push(`${indent}${Js(resName)}: {nodeId: ${Js(resNode.nodeId)}, children: {`);
         for (const child of children) {
           this.resources.push(child);
           await printObjectTree(child, indent+'  ');
         }
         lines.push(`${indent}}},`);
       } else {
-        lines.push(`${indent}${Js(resNode.Name)}: ${Js(resNode.nodeId)},`);
+        lines.push(`${indent}${Js(resName)}: ${Js(resNode.nodeId)},`);
       }
     };
 
@@ -156,9 +163,9 @@ class ResourceCompiler {
     pendingChunks
       .filter(x => !x.complete)
       .forEach(x => {
-        console.warn(`Resource ${Js(x.name)} never completed!`, x);
+        console.warn(`Resource ${Js(x.Name)} never completed!`, x);
         readyChunks.push(`
-  // WARN: ${Js(x.name)} depends on missing objects ${Js(Array.from(x.missingDeps).map(x=>x.nodeId))}`);
+  // WARN: ${Js(x.Name)} depends on missing objects ${Js(Array.from(x.missingDeps).map(x=>x.nodeId))}`);
         readyChunks.push(x.script);
       });
 
@@ -196,7 +203,7 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
     } else if (Base.SchemaRef) {
       bareBase = commonTags.source`
         DUST.objects[${Js(Base.SchemaRef.nodeId)}]`;
-      this.addDep(Base.SchemaRef);
+      this.addDep(Base.SchemaRef.nodeId);
     }
 
     const fieldLines = [];
@@ -206,7 +213,7 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
       if (Type.BuiltIn) {
         bareType = `DUST.get(${Js('core:'+Type.BuiltIn)}, "CustomRecord")`
       } else if (Type.SchemaRef) {
-        this.addDep(Type.SchemaRef);
+        this.addDep(Type.SchemaRef.nodeId);
         bareType = `DUST.objects[${Js(Type.SchemaRef.nodeId)}]`;
       } else if (Type.SchemaEmbed) {
         throw new Error(`TODO: SchemaEmbed`);
@@ -253,7 +260,7 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
 
     const scriptLines = [];
     for (const {Coffee, JS, Refs, Type} of Scripts) {
-      const type = Object.keys(Type)[0];
+      const type = Type.currentKey;
       const param = Type[type];
       scriptLines.push(`
   .addScript(${Js(type)}, ${Js(param)}, ${unwrapJs(JS)})`);
@@ -267,23 +274,6 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
 `;
   }));
 
-  addChunk('Application Router', compiler.process('AppRouter', function (res) {
-    const {DefaultLayout, IconUrl} = res;
-    const lines = [commonTags.source`
-      new DustRouter({
-          baseUrl: APP_ROOT,
-          iconUrl: ${Js(IconUrl || null)},
-    `];
-
-    if (DefaultLayout) {
-      this.addDep(DefaultLayout);
-      lines.push(`    defaultLayout: DUST.objects[${Js(DefaultLayout.nodeId)}],`);
-    }
-
-    lines.push(`  });\n`);
-    return lines.join('\n');
-  }));
-
   addChunk('App Routes', compiler.process('Route', function (res) {
     const {Path, Action} = res;
     let callback = '() => {}';
@@ -291,7 +281,7 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
 
       case 'Render' in Action:
         const {Template} = Action.Render;
-        this.addDep(Template);
+        this.addDep(Template.nodeId);
         callback = `function() { this.render(DUST.objects[${Js(Template.nodeId)}]); }`;
         break;
 
@@ -303,8 +293,32 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
       default:
         throw new Error('weird route type '+Js(route.type));
     }
-    return `DUST.objects[${Js(res.parentObjId)}] // TODO
-    .add(${Js(Path)}, ${callback});\n`;
+    return commonTags.source`
+      new DustRouteHandler(${Js(Path)}, ${callback});
+    `;
+  }));
+
+  addChunk('Application Router', compiler.process('AppRouter', function (res) {
+    const {DefaultLayout, IconUrl, RouteTable} = res;
+    const lines = [commonTags.source`
+      new DustRouter({
+          baseUrl: APP_ROOT,
+          iconUrl: ${Js(IconUrl || null)},
+    `];
+
+    if (DefaultLayout) {
+      this.addDep(DefaultLayout.nodeId);
+      lines.push(`    defaultLayout: DUST.objects[${Js(DefaultLayout.nodeId)}],`);
+    }
+    lines.push(`    routeTable: [`);
+    for (const route of RouteTable) {
+      this.addDep(route.nodeId);
+      lines.push(`      DUST.objects[${Js(route.nodeId)}], // ${Js(route.Path)}`);
+    }
+    lines.push(`    ],`);
+
+    lines.push(`  });\n`);
+    return lines.join('\n');
   }));
 
   addChunk('Default Subscription', commonTags.source`

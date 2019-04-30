@@ -98,7 +98,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
       appRoot: '/raw-dust-app/build-ng',
       usesLegacyDB: false,
     });
-    console.log('compiled as', compiled);
+    //console.log('compiled as', compiled);
 
     return responder.sendHtml(compiled, 200);
   },
