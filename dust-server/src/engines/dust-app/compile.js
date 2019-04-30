@@ -248,7 +248,7 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
   }));
 
   addChunk('DDP Publications', compiler.process('Publication', function (res) {
-    return `new DustPublication(${Js(nodeId)}, ${Js(res.Name)}, ${Js(res.Fields)});`;
+    return `new DustPublication(${Js(nodeId)}, ${Js(res.Name)}, ${Js(res.asStruct)});`;
   }));
 
   addChunk('Server Methods', compiler.process('ServerMethod', function (res) {

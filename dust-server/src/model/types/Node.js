@@ -50,6 +50,10 @@ class NodeAccessor extends FieldAccessor {
       },
     });
 
+    Object.defineProperty(node, 'asStruct', {
+      value: struct,
+    });
+
     return node;
   }
 

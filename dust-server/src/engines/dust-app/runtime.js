@@ -60,7 +60,7 @@ const BaseRecord = Astro.Class.create({
   collection: Records,
   typeField: 'type',
   fields: {
-    objectId  : { type: String, immutable: true },
+    nodeId  : { type: String, immutable: true },
     packageId : { type: String, immutable: true },
     recordId  : { type: String, immutable: true },
     version   : { type: Number, default: 0 },
@@ -142,9 +142,9 @@ const scriptHelpers = {
     if (node.constructor === String) {
       if (node in this.objects)
         return this.objects[node];
-    } else if ('objectId' in node) {
-      if (node.objectId in this.objects)
-        return this.objects[node.objectId];
+    } else if ('nodeId' in node) {
+      if (node.nodeId in this.objects)
+        return this.objects[node.nodeId];
     } else {
       return node;
     }
@@ -270,7 +270,7 @@ Spacebars.mustache = function(...thing) {
 HTML.getSmartTag = RenderSmartTag.bind(this);
 
 function InflateBlazeTemplate(template) {
-  const {name, objectId} = template;
+  const {name, nodeId} = template;
   const parts = [template.template];
   if (template.css) {
     parts.push(`<style type="text/css">${template.css}</style>`);
@@ -280,63 +280,63 @@ function InflateBlazeTemplate(template) {
     .compile(source, {isTemplate: true})
     .replace(/HTML\.getTag\("/g, 'HTML.getSmartTag(view, "');
   const renderer = eval(compiled);
-  UI.Template.__define__(objectId, renderer);
+  UI.Template.__define__(nodeId, renderer);
 
   // register template for outside hooking
-  if (!scriptHelpers._liveTemplates.has(objectId)) {
-    scriptHelpers._liveTemplates.set(objectId, {
+  if (!scriptHelpers._liveTemplates.has(nodeId)) {
+    scriptHelpers._liveTemplates.set(nodeId, {
       dep: new Tracker.Dependency(),
       instances: new Set()
     });
   }
-  const liveSet = scriptHelpers._liveTemplates.get(objectId);
+  const liveSet = scriptHelpers._liveTemplates.get(nodeId);
 
   // init hook system
-  Template[objectId].hooks = {};
-  Template[objectId].onCreated(function() {
+  Template[nodeId].hooks = {};
+  Template[nodeId].onCreated(function() {
     liveSet.instances.add(this);
     return liveSet.dep.changed();
   });
-  Template[objectId].onDestroyed(function() {
+  Template[nodeId].onDestroyed(function() {
     liveSet.instances.delete(this);
     return liveSet.dep.changed();
   });
-  Template[objectId].injector = scriptHelpers;
+  Template[nodeId].injector = scriptHelpers;
 
-  Template[objectId].addScript = function(type, param, factory) {
+  Template[nodeId].addScript = function(type, param, factory) {
     var err, func;
     try {
       func = factory.apply();
     } catch (error) {
       err = error;
-      console.log("Couldn't compile", type, param, "for", objectId, name, '-', err);
+      console.log("Couldn't compile", type, param, "for", nodeId, name, '-', err);
     return this;
     }
     // TODO: report error
     switch (type) {
       case 'Helper':
-        Template[objectId].helpers({
+        Template[nodeId].helpers({
           [`${param}`]: func
         });
         break;
       case 'Event':
-        Template[objectId].events({
+        Template[nodeId].events({
           [`${param}`]: func
         });
         break;
       case 'Hook':
-        Template[objectId].registerHook(param, func);
+        Template[nodeId].registerHook(param, func);
         break;
       case 'Lifecycle':
         switch (param) {
           case 'Create':
-            Template[objectId].onCreated(func);
+            Template[nodeId].onCreated(func);
             break;
           case 'Render':
-            Template[objectId].onRendered(func);
+            Template[nodeId].onRendered(func);
             break;
           case 'Destroy':
-            Template[objectId].onDestroyed(func);
+            Template[nodeId].onDestroyed(func);
             break;
         }
         break;
@@ -344,9 +344,9 @@ function InflateBlazeTemplate(template) {
     return this;
   };
 
-  Template[objectId].baseName = name;
-  Template[objectId].dynName = objectId;
-  return Template[objectId];
+  Template[nodeId].baseName = name;
+  Template[nodeId].dynName = nodeId;
+  return Template[nodeId];
 }
 
 class DustPublication {
@@ -424,7 +424,12 @@ function DustMethod(context, name) {
 class DustRouter {
   constructor(opts) {
     this.baseUrl = opts.baseUrl;
+    this.iconUrl =
     this.defaultLayout = opts.defaultLayout;
+
+    for (const route of opts.routeTable) {
+      this.add(route.path, route.func);
+    }
   }
 
   add(path, callback) {
@@ -452,5 +457,12 @@ class DustRouter {
       callback.call(ctx);
     });
     return 'route noop';
+  }
+}
+
+class DustRouteHandler {
+  constructor(path, func) {
+    this.path = path;
+    this.func = func;
   }
 }
