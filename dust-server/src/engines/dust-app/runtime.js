@@ -16,6 +16,7 @@ const moment = Package['momentjs:moment'].moment;
 const check = Package.check.check;
 
 // register our serviceWorker
+/* TODO
 (async function() {
   const registration = await navigator.serviceWorker.register('/~/apps/sw.js');
 
@@ -49,6 +50,7 @@ const check = Package.check.check;
     // PS: actually refreshing here seems to break stuff
   });
 })();
+*/
 
 // Astronomy minimongo collections
 const Records = new Mongo.Collection('records');

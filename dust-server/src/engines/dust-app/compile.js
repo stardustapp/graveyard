@@ -248,7 +248,7 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
   }));
 
   addChunk('DDP Publications', compiler.process('Publication', function (res) {
-    return `new DustPublication(${Js(nodeId)}, ${Js(res.Name)}, ${Js(res.asStruct)});`;
+    return `new DustPublication(${Js(nodeId)}, ${Js(res.Name)}, ${Js(res.exportData())});`;
   }));
 
   addChunk('Server Methods', compiler.process('ServerMethod', function (res) {
@@ -279,13 +279,13 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
     let callback = '() => {}';
     switch (true) {
 
-      case 'Render' in Action:
+      case !!Action.Render:
         const {Template} = Action.Render;
         this.addDep(Template.nodeId);
         callback = `function() { this.render(DUST.objects[${Js(Template.nodeId)}]); }`;
         break;
 
-      case 'Script' in Action:
+      case !!Action.Script:
         const {JS} = Action.Script;
         // Compile the route action
         callback = unwrapJs(JS).replace(/\n/g, `\n  `)+`.call(DUST)`;

@@ -183,9 +183,8 @@ class GraphContext {
       if (edge.predicate !== query.predicate) continue;
       if (query.subject && edge.subject !== query.subject) continue;
       if (query.object && edge.object !== query.object) continue;
-      if (query.objectType || query.subjectType) throw new Error(
-        `queryEdges() todo: *Type`);
-      //console.log('query matched edge', query, edge);
+      if (query.objectType && edge.object.split('#')[0] !== query.objectType) continue;
+      if (query.subjectType && edge.subject.split('#')[0] !== query.subjectType) continue;
       addEdge(edge);
     }
 

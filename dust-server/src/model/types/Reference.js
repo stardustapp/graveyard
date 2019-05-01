@@ -102,7 +102,7 @@ class ReferenceAccessor extends FieldAccessor {
       throw new Error(`TODO: gatherRefs() got weird constr ${rawVal.constructor.name}`)
     }
   }
-  exportData(rawVal, opts) {
+  exportData(rawVal, opts={}) {
     if (rawVal == null) throw new Error(
       `Reference#exportData() was given a null`);
     if ('refMapper' in opts) {

@@ -76,8 +76,8 @@ class ListAccessor extends Array {
     }
   }
   exportData(array, opts) {
-    return Promise.all(array.map(item => this
-      .innerAccessor.exportData(item, opts)));
+    return array.map(item => this
+      .innerAccessor.exportData(item, opts));
   }
 }
 

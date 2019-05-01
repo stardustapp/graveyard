@@ -1,12 +1,10 @@
 GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Repository', {
 
-  fetchManifest(appKey) {
-    return this.downloadManifest(appKey)
-      .then(resp => {
-        if (resp.status === 200)
-          return resp;
-        else return null;
-      });
+  async fetchManifest(appKey) {
+    const resp = await this.downloadManifest(appKey)
+    if (resp.status === 200)
+      return resp;
+    else return null;
   },
 
   async listPackages() {

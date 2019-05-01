@@ -120,11 +120,11 @@ class StructAccessor extends FieldAccessor {
         fieldAccessor.gatherRefs(struct[name], refs);
     }
   }
-  async exportData(struct, opts) {
+  exportData(struct, opts) {
     const obj = {};
     for (const [name, fieldType] of this.fields) {
       const accessor = FieldAccessor.forType(fieldType);
-      const value = await accessor.exportData(struct[name], opts);
+      const value =  accessor.exportData(struct[name], opts);
       if (value !== undefined)
         obj[name] = value;
     }
