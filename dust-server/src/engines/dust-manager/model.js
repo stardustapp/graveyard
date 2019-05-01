@@ -3,6 +3,7 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
   build.node('Manager', {
     relations: [
       { kind: 'top' },
+      { predicate: 'SERVES', object: 'WebTarget' },
     ],
     fields: {
       GitHash: String,
@@ -11,6 +12,9 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
   });
 
   build.node('Repository', {
+    relations: [
+      { predicate: 'PROVIDED', object: 'WebTarget' },
+    ],
     fields: {
       Label: String,
       Location: { anyOfKeyed: {
@@ -20,17 +24,33 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
         }},
       }},
     },
-    // TODO: support prefab objects like this (no impl yet)
-    prefabs: {
-      public: {
-        Label: 'Public Store',
-        Location: {
-          S3Bucket: {
-            BucketOrigin: 'https://stardust-repo.s3.amazonaws.com',
-            ObjectPrefix: 'packages/',
-          },
-        },
-      },
+  });
+
+  build.node('WebTarget', {
+    relations: [
+      { subject: 'Repository', predicate: 'PROVIDED' },
+      { subject: 'Manager', predicate: 'SERVES' },
+    ],
+    fields: {
+      UriOrigin: String,
+      BasePath: '/',
+      MainPackage: { reference: 'dust-app/v1-beta1/Package' },
+      UseRouter: { reference: 'dust-app/v1-beta1/AppRouter', optional: true },
+      PreferredRendering: { type: String, allowedValues: [
+        //'FullClientSide',
+        'LiveCompiledMeteor',
+        //'ServerSide',
+      ], default: 'LiveCompiledMeteor' },
+      IncludeServiceWorker: false,
+      AppProfile: { reference: 'app-profile/v1-beta1/Instance', optional: true },
+      AccessMethods: { fields: { anyOfKeyed: {
+        Public: true, // TODO: Unit
+        IpCidr: String,
+        EmailDomain: String,
+        EmailAddress: String,
+        SharedPassword: String,
+        //GoogleGroup: {...},
+      }}, isList: true },
     },
   });
 
