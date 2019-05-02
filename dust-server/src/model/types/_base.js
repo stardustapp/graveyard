@@ -35,6 +35,8 @@ class FieldType {
 
     let type = '';
     switch (true) {
+      case !['object', 'function'].includes(typeof config):
+        throw new Error(`Unrecognized type value type ${typeof config}`)
       case FieldType.prototype.isPrototypeOf(config.type):
         type = config.type;
         break;

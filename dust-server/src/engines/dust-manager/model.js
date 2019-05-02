@@ -33,24 +33,24 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
     ],
     fields: {
       UriOrigin: String,
-      BasePath: '/',
+      BasePath: { type: String, defaultValue: '/' }, // TODO: support defaults like this, at least better error
       MainPackage: { reference: 'dust-app/v1-beta1/Package' },
       UseRouter: { reference: 'dust-app/v1-beta1/AppRouter', optional: true },
       PreferredRendering: { type: String, allowedValues: [
         //'FullClientSide',
         'LiveCompiledMeteor',
         //'ServerSide',
-      ], default: 'LiveCompiledMeteor' },
-      IncludeServiceWorker: false,
+      ], defaultValue: 'LiveCompiledMeteor' },
+      IncludeServiceWorker: { type: Boolean, defaultValue: false },
       AppProfile: { reference: 'app-profile/v1-beta1/Instance', optional: true },
-      AccessMethods: { fields: { anyOfKeyed: {
-        Public: true, // TODO: Unit
+      AccessMethods: { anyOfKeyed: {
+        Public: Boolean, // TODO: Unit
         IpCidr: String,
         EmailDomain: String,
         EmailAddress: String,
         SharedPassword: String,
         //GoogleGroup: {...},
-      }}, isList: true },
+      }, isList: true },
     },
   });
 
