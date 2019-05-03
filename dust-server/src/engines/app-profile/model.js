@@ -6,13 +6,13 @@ new GraphEngineBuilder('app-profile/v1-beta1', build => {
       { predicate: 'POINTS_TO', atMost: 1, object: 'Link' },
       { predicate: 'HAS_NAME', object: 'LocalCollection' },
       { predicate: 'HAS_NAME', object: 'LocalTree' },
-    ]
+    ],
     fields: {
       IconUrl: { type: String },
       Source: { anyOfKeyed: {
         DustApp: { reference: {
           engine: 'dust-app/v1-beta1',
-          type: 'AppRouter',
+          name: 'AppRouter',
         }},
       }},
       // more about what push/pull operations should be enabled
@@ -37,7 +37,7 @@ new GraphEngineBuilder('app-profile/v1-beta1', build => {
           AppId: String,
           Schemas: { reference: {
             engine: 'dust-app/v1-beta1',
-            type: 'RecordSchema',
+            name: 'RecordSchema',
           }, isList: true },
         }},
         /* TODO
@@ -56,9 +56,12 @@ new GraphEngineBuilder('app-profile/v1-beta1', build => {
       { subject: 'Instance', predicate: 'HAS_NAME' },
       { subject: 'Link', predicate: 'REFERENCES' },
     ],
-    behavior: AppProfileLocalCollection,
+    //behavior: AppProfileLocalCollection,
     fields: {
-      Schemas: { reference: true, isList: true },
+      Schemas: { reference: {
+        engine: 'dust-app/v1-beta1',
+        name: 'RecordSchema',
+      }, isList: true },
     },
   });
 

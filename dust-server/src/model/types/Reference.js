@@ -10,9 +10,26 @@ class GraphReference {
 }
 
 class ReferenceFieldType extends FieldType {
-  constructor(targetPath) {
+  constructor(targetDef) {
     super('core', 'Reference');
-    this.targetPath = targetPath;
+    if (targetDef === true) {
+      this.anyType = true;
+      return;
+    } else if (typeof targetDef === 'string') {
+      this.targetName = targetDef;
+    } else if (typeof targetDef === 'object') {
+      this.engineKey = targetDef.engine;
+      this.targetName = targetDef.name;
+    } else throw new Error(
+      `Can't construct reference from ${typeof targetDef} definition`);
+
+    if (typeof this.targetName !== 'string') throw new Error(
+      `References must have a string 'type', got '${typeof this.targetName}'`);
+    if (this.engineKey) {
+      const targetEngine = GraphEngine.get(this.engineKey);
+      this.targetType = targetEngine.names.get(this.targetName);
+      //console.log('reference is to', this.targetType);
+    }
   }
   fromExt(input) {
     if (!input) throw new FieldTypeError(this,
@@ -23,9 +40,12 @@ class ReferenceFieldType extends FieldType {
     if (GraphObject.prototype.isPrototypeOf(input)) return new GraphReference(input);
     if (input.constructor !== GraphBuilderNode) throw new FieldTypeError(this,
       `Reference must be to a GraphBuilderNode or GraphReference or GraphGhostNode or GraphObject or NodeProxyHandler, was ${input.constructor.name} (TODO)`);
-    if (input.type !== this.targetPath) throw new FieldTypeError(this,
-      `Reference expected to be ${this.targetPath}, was ${input.type}`);
+    if (input.type !== this.targetDef.type) throw new FieldTypeError(this,
+      `Reference expected to be ${this.targetDef.type}, was ${input.type}`);
     return new GraphReference(input);
+  }
+  get isForeign() {
+    return !!this.engineKey;
   }
 }
 
@@ -46,7 +66,7 @@ class ObjectReference {
 class ReferenceAccessor extends FieldAccessor {
   constructor(type) {
     super(type);
-    this.targetPath = type.targetPath;
+    this.refType = type;
     // unfortunately the reference isn't resolved yet
     // maybe we can change that and resolve the ref here but it'll be rough
     // i think we can assume that we point to a Node, or at least a Struct
@@ -70,7 +90,7 @@ class ReferenceAccessor extends FieldAccessor {
       console.log('ReferenceAccessor#mapIn', newVal.constructor.name);
 
     if (newVal.constructor === Object) {
-      const type = graphCtx.findNodeBuilder(this.myType.targetPath);
+      const type = this.refType.targetType || graphCtx.findNodeBuilder(this.refType.targetName);
       const accessor = FieldAccessor.forType(type);
       //console.log('ref mapping in', accessor, newVal);
       const node = graphCtx.newNode(accessor, newVal);

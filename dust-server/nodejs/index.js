@@ -71,11 +71,6 @@ const extraImports = [
   'src/engines/graph-store/behaviors/Engine.js',
   'src/engines/graph-store/behaviors/Graph.js',
 
-  'src/engines/dust-manager/model.js',
-  'src/engines/dust-manager/lifecycle.js',
-  'src/engines/dust-manager/behaviors/Manager.js',
-  'src/engines/dust-manager/behaviors/Repository.js',
-
   'src/engines/dust-app/model.js',
   'src/engines/dust-app/ddp-api.js',
   'src/engines/dust-app/json-codec.js',
@@ -90,6 +85,14 @@ const extraImports = [
   'src/engines/dust-app/behaviors/Dependency.js',
   'src/engines/dust-app/behaviors/Publication.js',
   'src/engines/dust-app/behaviors/ServerMethod.js',
+
+  'src/engines/app-profile/model.js',
+
+  'src/engines/dust-manager/model.js',
+  'src/engines/dust-manager/lifecycle.js',
+  'src/engines/dust-manager/behaviors/Manager.js',
+  'src/engines/dust-manager/behaviors/Repository.js',
+  'src/engines/dust-manager/behaviors/WebTarget.js',
 ];
 
 let shimCount = 0;

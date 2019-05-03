@@ -46,7 +46,7 @@ class RelationBuilder {
   static forConfig(config, allowedExtras=[]) {
     try {
       const {
-        kind, subject, predicate, object,
+        kind, subject, predicate, object, engineKey,
         exactly, atMost, uniqueBy,
         ...extras
       } = config;
@@ -67,7 +67,7 @@ class RelationBuilder {
 
       switch (kind || (predicate ? 'arbitrary' : null)) {
         case 'arbitrary':
-          return new ArbitraryRelationBuilder(constraints, subject, predicate, object);
+          return new ArbitraryRelationBuilder(constraints, subject, predicate, object, engineKey);
         case 'top':
           if (object || predicate || subject) throw new Error(
             `'top' relation cannot have any explicit 'object' or 'predicate' or 'subject'`);
@@ -75,11 +75,11 @@ class RelationBuilder {
         case 'any':
           if (predicate) throw new Error(
             `'any' relation cannot have any explicit 'predicate'`);
-          return new AnyRelationBuilder(constraints, subject, object);
+          return new AnyRelationBuilder(constraints, subject, object, engineKey);
         case 'ref':
           if (predicate) throw new Error(
             `'ref' relation cannot have an explicit 'predicate'`);
-          return new RefRelationBuilder(constraints, subject, object);
+          return new RefRelationBuilder(constraints, subject, object, engineKey);
         default: throw new Error(
           `Relationship must have a 'predicate' value or a valid 'kind'`);
       }
@@ -109,7 +109,7 @@ class RelationBuilder {
 }
 
 class ArbitraryRelationBuilder extends RelationBuilder {
-  constructor(constraints, subject, predicate, object) {
+  constructor(constraints, subject, predicate, object, engineKey) {
     if (!predicate || predicate.constructor !== String) throw new Error(
       `Relationship 'predicate' must be a String`);
     if (!object && !subject) throw new Error(
@@ -122,6 +122,7 @@ class ArbitraryRelationBuilder extends RelationBuilder {
     this.predicate = predicate;
     this.direction = subject ? 'in' : 'out';
     this.otherName = subject || object;
+    this.otherEngineKey = engineKey;
 
     this.specifier = (this.direction === 'in') ? 'from' : 'to';
     this.stringForm = `${predicate} ${this.direction} ${this.specifier} '${this.otherName}'`;
@@ -130,14 +131,19 @@ class ArbitraryRelationBuilder extends RelationBuilder {
   link(nodeCtx, resolver) {
     super.link(nodeCtx, resolver);
     this.localType = nodeCtx;
-    this.otherType = resolver.resolveName(this.otherName);
+    if (this.otherEngineKey) {
+      const targetEngine = GraphEngine.get(this.otherEngineKey);
+      this.otherType = targetEngine.names.get(this.otherName);
+    } else {
+      this.otherType = resolver.resolveName(this.otherName);
+    }
     if (!this.otherType) throw new Error(
       `Arbitrary relation ${this.stringForm} didn't resolve to a type.`);
   }
 }
 
 class RefRelationBuilder extends RelationBuilder {
-  constructor(constraints, subject, object) {
+  constructor(constraints, subject, object, engineKey) {
     if (!object && !subject) throw new Error(
       `'ref' relation must explicitly have either an 'object' or a 'subject'`);
     if (object && subject) throw new Error(
@@ -148,6 +154,7 @@ class RefRelationBuilder extends RelationBuilder {
     this.predicate = 'REFERENCES';
     this.direction = subject ? 'in' : 'out';
     this.otherName = subject || object;
+    this.otherEngineKey = engineKey;
 
     this.specifier = (this.direction === 'in') ? 'from' : 'to';
     this.stringForm = `${this.predicate} ${this.direction} ${this.specifier} '${this.otherName}'`;
@@ -156,7 +163,12 @@ class RefRelationBuilder extends RelationBuilder {
   link(nodeCtx, resolver) {
     super.link(nodeCtx, resolver);
     this.localType = nodeCtx;
-    this.otherType = resolver.resolveName(this.otherName);
+    if (this.otherEngineKey) {
+      const targetEngine = GraphEngine.get(this.otherEngineKey);
+      this.otherType = targetEngine.names.get(this.otherName);
+    } else {
+      this.otherType = resolver.resolveName(this.otherName);
+    }
     if (!this.otherType) throw new Error(
       `Ref relation ${this.stringForm} didn't resolve to a type.`);
   }
@@ -207,7 +219,7 @@ class NodeBuilder {
     this.inner = FieldType.from(config); // TODO: 'REFERS TO' relations
     this.relations = [];
 
-    const references = new Set;
+    const references = new Map;
     const visited = new Set;
     function readType(type) {
       if (visited.has(type)) return;
@@ -215,7 +227,7 @@ class NodeBuilder {
 
       switch (type.constructor) {
         case ReferenceFieldType:
-          references.add(type.targetPath);
+          references.set([type.engineKey, type.targetName].join('#'), type);
           break;
         case StructFieldType:
           for (const fieldType of type.fields.values())
@@ -244,13 +256,14 @@ class NodeBuilder {
     }
     readType(this.inner);
 
-    for (const refType of references) {
-      if (refType.constructor === Boolean)
+    for (const refType of references.values()) {
+      if (refType.anyType)
         continue;
       this.relations.push(RelationBuilder
         .forConfig({
           kind: 'ref',
-          object: refType,
+          engineKey: refType.engineKey,
+          object: refType.targetName,
         }));
     }
     if (config.relations) {

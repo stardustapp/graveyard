@@ -84,7 +84,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
       //console.log('storing external node', extNode);
       const newNode = createdPhyNodes.get(nodeId);
       newNode.Data = await extNode.exportData({
-        async refMapper(refId) {
+        refMapper(refId) {
           if (refIdMap.has(refId)) {
             console.log('refMapper() resolving refId', refId, 'as', refIdMap.get(refId));
             return refIdMap.get(refId);

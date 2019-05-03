@@ -34,15 +34,22 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
     fields: {
       UriOrigin: String,
       BasePath: { type: String, defaultValue: '/' }, // TODO: support defaults like this, at least better error
-      MainPackage: { reference: 'dust-app/v1-beta1/Package' },
-      UseRouter: { reference: 'dust-app/v1-beta1/AppRouter', optional: true },
+      Source: { anyOfKeyed: {
+        AppProfile: { reference: {
+          engine: 'app-profile/v1-beta1',
+          name: 'Instance',
+        }},
+        RawDustRouter: { reference: {
+          engine: 'dust-app/v1-beta1',
+          name: 'AppRouter',
+        }},
+      }},
       PreferredRendering: { type: String, allowedValues: [
         //'FullClientSide',
         'LiveCompiledMeteor',
         //'ServerSide',
       ], defaultValue: 'LiveCompiledMeteor' },
       IncludeServiceWorker: { type: Boolean, defaultValue: false },
-      AppProfile: { reference: 'app-profile/v1-beta1/Instance', optional: true },
       AccessMethods: { anyOfKeyed: {
         Public: Boolean, // TODO: Unit
         IpCidr: String,
