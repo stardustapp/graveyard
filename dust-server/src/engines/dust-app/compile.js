@@ -175,7 +175,7 @@ class ResourceCompiler {
 }
 
 GraphEngine.extend('dust-app/v1-beta1').compileToHtml =
-async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesLegacyDB}) {
+async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, enableDDP, usesLegacyDB}) {
   const {nodeId} = appGraph;
   if (appPackage.PackageType !== 'App') throw new Error(`app-missing:
     Graph '${nodeId}' does not contain a web application.`);
@@ -357,6 +357,7 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
 <script src="/~~src/engines/dust-app/runtime.js"></script>
 ${usesLegacyDB ? `<script src="/~~src/engines/dust-app/runtime-build.js"></script>` : ''}
 <script>
+  ${enableDDP?'// ':''}Meteor.disconnect();
   const appSub = Meteor.subscribe('/default-data');
   ${usesLegacyDB ? `const buildSub = Meteor.subscribe("/legacy-dust-app-data");` : ''}
 `+scriptChunks.join("\n")+`\n\n</script>`;
