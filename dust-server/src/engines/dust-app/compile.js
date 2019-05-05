@@ -88,23 +88,24 @@ class ResourceCompiler {
 
     // also include dependency name tree
     for (const depObj of await this.appPackage.HAS_NAME.fetchDependencyList()) {
-      lines.push(`  ${depObj.Name}: {`);
       console.log('loading up dependency', depObj.PackageKey);
       const graphWorld = await this.appGraph.getGraphCtx().getNodeById('top');
       const depGraph = await this.dustManager.findByPackageKey(
         graphWorld, depObj.PackageKey);
       const depCtx = await graphWorld.getContextForGraph(depGraph);
-      console.log('dep', depObj.PackageKey, 'loaded as', depGraph, depCtx);
-      const childPackage = depObj.ChildRoot;
+      //console.log('dep', depObj.PackageKey, 'loaded as', depGraph, depCtx);
+      const childPackage = await depObj.ChildRoot;
 
       //console.log('dep', depObj, 'led to child package', childPackage);
-      console.log('dep led to child package', depObj);
-      throw new Error(`compile DUST Dependency TODO`);
+      console.log('dep led to child package', childPackage);
+      //throw new Error(`compile DUST Dependency TODO`);
       //const depRoot = await this.dustManager.objects.get(obj.data.fields.ChildRoot);
       //const depGraph = await this.dustManager.graphs.get(depRoot.data.nodeId);
       // loop through all objects belonging to the dep
       //const depResources = Array.from(depGraph.objects.values());
-      for (const res of depResources) {
+
+      lines.push(`  ${depObj.Name}: {`);
+      for (const res of await childPackage.HAS_NAME.fetchAllObjects()) {
         // prepend to compiled program
         this.resources.unshift(res);
         // print out name map

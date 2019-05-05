@@ -1,10 +1,15 @@
 GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   // constructor: nodeType, data
 
-  setup() {
+  async setup() {
     this.graphBackendCache = new LoaderCache(this
       .createGraphBackend.bind(this),
       graph => graph.nodeId);
+
+    const allGraphs = await this.STORES.fetchGraphList();
+    for (const graph of allGraphs) {
+      await this.graphBackendCache.get(graph);
+    }
   },
   async getContextForGraph(graph) {
     const virtBackend = await this
