@@ -2,15 +2,13 @@ class GraphEngineBuilder {
   constructor(key, cb) {
     this.key = key;
     this.names = new Map;
+    this.engineDeps = new Set;
     this.allRelations = new Set;
+    cb(this);
+  }
 
-    console.group(`[${key}] Building graph engine...`);
-    try {
-      cb(this);
-      //console.log('Successfully built graph engine!', this);
-    } finally {
-      console.groupEnd();
-    }
+  needsEngine(key) {
+    this.engineDeps.add(key);
   }
 
   node(name, conf) {
@@ -26,15 +24,24 @@ class GraphEngineBuilder {
   }
 
   install() {
+    const promise = this.build();
+    GraphEngine.setEngine(this.key, promise);
+    return promise;
+  }
+  async build() {
+    for (const engineDep of this.engineDeps) {
+      await GraphEngine.load(engineDep);
+    }
+
     // also links relations
     for (const entry of this.names.values()) {
-      entry.link(this);
+      await entry.link(this);
     }
 
     // TODO: deduplicate relations into edges properly
     this.edges = this.allRelations;
 
-    new GraphEngine(this);
+    return new GraphEngine(this);
   }
 }
 
@@ -279,11 +286,11 @@ class NodeBuilder {
     this.behavior = config.behavior || GraphObject;
   }
 
-  link(resolver) {
+  async link(resolver) {
     let worked = false;
     try {
       for (const relation of this.relations) {
-        relation.link(this, resolver);
+        await relation.link(this, resolver);
       }
       worked = true;
     } finally {

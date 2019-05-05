@@ -1,4 +1,5 @@
 new GraphEngineBuilder('dust-manager/v1-beta1', build => {
+  build.needsEngine('app-profile/v1-beta1');
 
   build.node('Manager', {
     relations: [

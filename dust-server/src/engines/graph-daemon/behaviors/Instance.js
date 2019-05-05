@@ -12,7 +12,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     const {Config} = this;
     console.debug('\r--> Launching Graph Daemon');
 
-    const storeEngine = GraphEngine.get('graph-store/v1-beta1');
+    const storeEngine = await GraphEngine.load('graph-store/v1-beta1');
     const worldStore = new RawDynamoDBStore({
     //const worldStore = new RawVolatileStore({
       engineKey: 'graph-store/v1-beta1',

@@ -8,7 +8,7 @@ Kernel = class Kernel {
   }
 
   async init(argv) {
-    const engine = GraphEngine.get('graph-daemon/v1-beta1');
+    const engine = await GraphEngine.load('graph-daemon/v1-beta1');
     this.daemonInstance = await engine.buildUsingVolatile({argv});
     return this;
   }

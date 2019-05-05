@@ -25,10 +25,13 @@ class ReferenceFieldType extends FieldType {
 
     if (typeof this.targetName !== 'string') throw new Error(
       `References must have a string 'type', got '${typeof this.targetName}'`);
+  }
+  resolveTarget(graphCtx) {
     if (this.engineKey) {
       const targetEngine = GraphEngine.get(this.engineKey);
-      this.targetType = targetEngine.names.get(this.targetName);
-      //console.log('reference is to', this.targetType);
+      return targetEngine.names.get(this.targetName);
+    } else {
+      return graphCtx.findNodeBuilder(this.refType.targetName);
     }
   }
   fromExt(input) {

@@ -8,7 +8,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
       `Can't set up Engine without Source.BuiltIn.EngineKey`);
     console.log('setting up engine', engineKey)
 
-    this.realEngine = GraphEngine.get(engineKey);
+    this.realEngine = await GraphEngine.load(engineKey);
     this.names = this.realEngine.names;
     this.engineKey = this.realEngine.engineKey;
     this.nameBehaviors = this.realEngine.nameBehaviors;

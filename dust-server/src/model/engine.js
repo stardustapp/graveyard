@@ -28,14 +28,18 @@ class GraphObject {
   }
 }
 
-const GraphEngines = new Map;
+const GraphEngines = new LoaderCache(key => {
+  throw new Error(`Engine ${key} isn't loaded`);
+});
 const EngineExtensions = new Map;
 const EngineNameBehaviors = new Map;
+
+const dynamicLoader = new DynamicEngineLoader;
 
 class GraphEngine {
   constructor(builder) {
     const {key} = builder;
-    if (GraphEngines.has(key)) throw new Error(
+    if (GraphEngines.peek(key)) throw new Error(
       `Graph Engine ${key} is already registered, can't re-register`);
 
     this.engineKey = key;
@@ -58,9 +62,24 @@ class GraphEngine {
   }
 
   static get(key) {
-    if (!GraphEngines.has(key)) throw new Error(
+    const engine = GraphEngines.peek(key);
+    if (engine) return engine;
+    if (dynamicLoader.canLoad(key)) throw new Error(
+      `BUG: Graph Engine ${JSON.stringify(key)} hasn't been loaded yet. Maybe you want .load(...) instead`);
+    throw new Error(
       `Graph Engine ${JSON.stringify(key)} is not registered`);
+  }
+
+  static getOrPromise(key) {
     return GraphEngines.get(key);
+  }
+
+  static async load(key) {
+    return dynamicLoader.getEngine(key);
+  }
+
+  static setEngine(key, promise) {
+    GraphEngines.set(key, promise);
   }
 
   static extend(key) {

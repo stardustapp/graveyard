@@ -1,4 +1,5 @@
 new GraphEngineBuilder('app-profile/v1-beta1', build => {
+  build.needsEngine('dust-app/v1-beta1');
 
   build.node('Instance', {
     relations: [

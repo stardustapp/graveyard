@@ -125,7 +125,8 @@ class GraphContext {
     if (typeof node.setup === 'function') {
       this.graphNodes.set(nodeId, node);
       // TODO: seed this properly before calling setup (loadercache feature?)
-      node.ready = node.setup();
+      //node.ready = node.setup();
+      await node.setup();
     }
 
     return node;

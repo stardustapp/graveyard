@@ -114,7 +114,7 @@ class RawDynamoDBStore extends BaseBackend {
     }
     const valPrefix = values.map(encodeURI).join('|');
 
-    console.log('dynamo edge query', query, 'became', signature, valPrefix);
+    //console.log('dynamo edge query', query, 'became', signature, valPrefix);
 
     const result = await dynamoDb.query({
       TableName: this.edgeTable,

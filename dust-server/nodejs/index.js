@@ -32,6 +32,7 @@ const extraImports = [
 
   'src/lib/locking.js',
 
+  'src/model/engine_loader.js',
   'src/model/engine.js',
   'src/model/engine_builder.js',
   'src/model/graph.js',
@@ -60,39 +61,6 @@ const extraImports = [
   //'src/model/node-proxy.js',
   //'src/model/runtime.js',
   'src/model/context.js',
-
-  'src/engines/graph-daemon/model.js',
-  'src/engines/graph-daemon/lifecycle.js',
-  'src/engines/graph-daemon/behaviors/Instance.js',
-
-  'src/engines/graph-store/model.js',
-  'src/engines/graph-store/lifecycle.js',
-  'src/engines/graph-store/behaviors/World.js',
-  'src/engines/graph-store/behaviors/Engine.js',
-  'src/engines/graph-store/behaviors/Graph.js',
-
-  'src/engines/dust-app/model.js',
-  'src/engines/dust-app/ddp-api.js',
-  'src/engines/dust-app/json-codec.js',
-  'src/engines/dust-app/lifecycle.js',
-  'src/engines/dust-app/repository.js',
-  'src/engines/dust-app/compile.js',
-  'src/engines/dust-app/behaviors/Package.js',
-  'src/engines/dust-app/behaviors/AppRouter.js',
-  'src/engines/dust-app/behaviors/Route.js',
-  'src/engines/dust-app/behaviors/Template.js',
-  'src/engines/dust-app/behaviors/RecordSchema.js',
-  'src/engines/dust-app/behaviors/Dependency.js',
-  'src/engines/dust-app/behaviors/Publication.js',
-  'src/engines/dust-app/behaviors/ServerMethod.js',
-
-  'src/engines/app-profile/model.js',
-
-  'src/engines/dust-manager/model.js',
-  'src/engines/dust-manager/lifecycle.js',
-  'src/engines/dust-manager/behaviors/Manager.js',
-  'src/engines/dust-manager/behaviors/Repository.js',
-  'src/engines/dust-manager/behaviors/WebTarget.js',
 ];
 
 let shimCount = 0;
