@@ -37,7 +37,6 @@ const extraImports = [
   'src/model/engine_builder.js',
   'src/model/graph.js',
   'src/model/graph_builder.js',
-  'src/model/transaction.js',
   'src/model/record-filter.js',
 
   'src/model/backends/_base.js',
