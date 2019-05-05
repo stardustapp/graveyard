@@ -426,7 +426,7 @@ function DustMethod(context, name) {
 class DustRouter {
   constructor(opts) {
     this.baseUrl = opts.baseUrl;
-    this.iconUrl =
+    this.iconUrl = opts.iconUrl;
     this.defaultLayout = opts.defaultLayout;
 
     for (const route of opts.routeTable) {

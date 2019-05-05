@@ -49,6 +49,8 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
           }
           return await this.dustManager.serveAppPage(this.graphWorld, parts[1], meta, responder);
         }
+
+        // TODO: proper filesystem serving support
         if (parts[0] === '~~src' && parts.slice(-1)[0].endsWith('.js')) {
           const filePath = ['src', ...parts.slice(1)].join('/');
           console.log('streaming JS source file', filePath);
@@ -63,6 +65,21 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
           const stream = fs.createReadStream(filePath);
           return responder.sendStream(stream, 'application/javascript');
         }
+        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.css')) {
+          const filePath = ['vendor', ...parts.slice(1)].join('/');
+          console.log('streaming CSS file', filePath);
+          const fs = require('fs'); // TODO: nodejs specific
+          const stream = fs.createReadStream(filePath);
+          return responder.sendStream(stream, 'text/css');
+        }
+        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.woff2')) {
+          const filePath = ['vendor', ...parts.slice(1)].join('/');
+          console.log('streaming font file', filePath);
+          const fs = require('fs'); // TODO: nodejs specific
+          const stream = fs.createReadStream(filePath);
+          return responder.sendStream(stream, 'application/font-woff2');
+        }
+
         return responder.sendJson({error: 'not-found'}, 404);
       },
     };

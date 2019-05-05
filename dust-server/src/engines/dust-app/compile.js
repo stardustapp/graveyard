@@ -356,10 +356,7 @@ async function CompileDustApp(dustManager, appGraph, appPackage, {appRoot, usesL
 <script src="/~~src/engines/dust-app/runtime.js"></script>
 ${usesLegacyDB ? `<script src="/~~src/engines/dust-app/runtime-build.js"></script>` : ''}
 <script>
-  // const appSub = Meteor.subscribe("/app-runtime", {
-  //   nodeId: ${Js(nodeId)},
-  //   appPath: APP_ROOT,
-  // });
+  const appSub = Meteor.subscribe('/default-data');
   ${usesLegacyDB ? `const buildSub = Meteor.subscribe("/legacy-dust-app-data");` : ''}
 `+scriptChunks.join("\n")+`\n\n</script>`;
 };

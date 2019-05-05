@@ -1,8 +1,9 @@
 // map API to node's net.ClientResponse
 class BaseHandler {
   set responseLength(length) {
-    if (typeof length === 'number')
-      this.response.setHeader('content-length', length);
+    // TODO: seems to conflict with chunking, trimming long response bodies
+    // if (typeof length === 'number')
+    //   this.response.setHeader('content-length', length);
   }
   set statusCode(code) {
     this.response.statusCode = code;
