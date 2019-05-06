@@ -106,6 +106,9 @@ class AnyOfKeyedAccessor extends FieldAccessor {
       `AnyOfKeyed#gatherRefs() got external value ${rawVal.constructor.name}`);
 
     const {currentKey} = rawVal;
+    if (!this.slots.has(currentKey)) throw new Error(
+      `AnyOfKeyed#gatherRefs() got unrecognized currentKey '${currentKey}'`);
+
     const slotAccessor = FieldAccessor.forType(this.slots.get(currentKey));
     if ('gatherRefs' in slotAccessor)
       slotAccessor.gatherRefs(rawVal[currentKey], refs);

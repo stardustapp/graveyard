@@ -28,7 +28,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
       engineKey: 'dust-manager/v1-beta1',
       gitHash: this.GitHash,
       fields: {
-        system: true,
+        system: 'dust-manager',
       },
     });
     this.dustManagerCtx = await this.graphWorld.getContextForGraph(this.dustManagerGraph)
@@ -36,66 +36,19 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
 
     // BRING UP WEBSERVER
 
-    const mainVHost = {
-      handleGET: async (meta, responder) => {
-        const {method, uri, headers, queryParams, ip} = meta;
-        const parts = uri.slice(1).split('/');
-        if (parts[0] === 'dust-app' && parts[1]) {
-          return responder.sendJson({hello: 'world'});
-        }
-        if (parts[0] === 'raw-dust-app' && parts[1]) {
-          if (parts[2] === '~~ddp') {
-            return responder.sendJson({todo: true});
-          }
-          return await this.dustManager.serveAppPage(this.graphWorld, parts[1], meta, responder);
-        }
-
-        // TODO: proper filesystem serving support
-        if (parts[0] === '~~src' && parts.slice(-1)[0].endsWith('.js')) {
-          const filePath = ['src', ...parts.slice(1)].join('/');
-          console.log('streaming JS source file', filePath);
-          const fs = require('fs'); // TODO: nodejs specific
-          const stream = fs.createReadStream(filePath);
-          return responder.sendStream(stream, 'application/javascript');
-        }
-        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.js')) {
-          const filePath = ['vendor', ...parts.slice(1)].join('/');
-          console.log('streaming JS source file', filePath);
-          const fs = require('fs'); // TODO: nodejs specific
-          const stream = fs.createReadStream(filePath);
-          return responder.sendStream(stream, 'application/javascript');
-        }
-        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.css')) {
-          const filePath = ['vendor', ...parts.slice(1)].join('/');
-          console.log('streaming CSS file', filePath);
-          const fs = require('fs'); // TODO: nodejs specific
-          const stream = fs.createReadStream(filePath);
-          return responder.sendStream(stream, 'text/css');
-        }
-        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.woff2')) {
-          const filePath = ['vendor', ...parts.slice(1)].join('/');
-          console.log('streaming font file', filePath);
-          const fs = require('fs'); // TODO: nodejs specific
-          const stream = fs.createReadStream(filePath);
-          return responder.sendStream(stream, 'application/font-woff2');
-        }
-
-        return responder.sendJson({error: 'not-found'}, 404);
-      },
-    };
-
     let webServer;
     if (this.Config.Command === 'serve') {
-      webServer = new HttpServer(this.TODO, async hostname => {
-        //console.log('building hostname', hostname);
-        //return await vhost[`handle${method}`](meta, responder);
-        return mainVHost;
+      //await LaunchRepl(this)
+      this.webServerGraph = await this.graphWorld.findOrCreateGraph({
+        engineKey: 'http-server/v1-beta1',
+        gitHash: this.GitHash,
+        fields: {
+          system: 'http-server',
+        },
       });
-      //ExposeSkylinkOverHttp(this.systemEnv, webServer);
-      await webServer.startServer({
-        host: this.Config.HttpHost,
-        port: this.Config.HttpPort || 9237,
-      });
+      this.webServerCtx = await this.graphWorld.getContextForGraph(this.webServerGraph)
+      this.webServer = await this.webServerCtx.getTopObject();
+      console.log('brought up web server', this.webServer);
     }
 
     // INSTALL DUST PACKAGE

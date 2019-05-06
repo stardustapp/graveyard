@@ -1,7 +1,8 @@
 
 class UnstructuredFieldType extends FieldType {
-  constructor() {
+  constructor(rawConf) {
     super('core', 'JSON');
+    this.rawConf = rawConf;
   }
   fromExt(input) {
     if (input == null) throw new FieldTypeError(this,
@@ -15,7 +16,7 @@ class UnstructuredFieldType extends FieldType {
     return JSON.stringify(input);
   }
 }
-builtinTypes.set(JSON, new UnstructuredFieldType());
+builtinTypes.set(JSON, rawConf => new UnstructuredFieldType(rawConf));
 
 class UnstructuredAccessor extends FieldAccessor {
   mapOut(value, graphCtx, node) {

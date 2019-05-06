@@ -1,6 +1,7 @@
 class PrimitiveFieldType extends FieldType {
-  constructor(name, jsConstr, serialize, extConstr, parse) {
-    super('core', name);
+  constructor(rawConf, jsConstr, serialize, extConstr, parse) {
+    super('core', jsConstr.name);
+    this.rawConf = rawConf;
     this.jsConstr = jsConstr;
     this.extConstr = extConstr || jsConstr;
     this.parse = parse || jsConstr;
@@ -17,19 +18,25 @@ class PrimitiveFieldType extends FieldType {
     return this.serialize(input);
   }
 }
-builtinTypes.set(String, new PrimitiveFieldType('String', String));
-if (self.Blob) builtinTypes.set(Blob, new PrimitiveFieldType('Blob', Blob));
-builtinTypes.set(Date, new PrimitiveFieldType('Date', Date, d => d.toISOString(), String, x => new Date(x)));
-builtinTypes.set(Number, new PrimitiveFieldType('Number', Number));
-builtinTypes.set(Boolean, new PrimitiveFieldType('Boolean', Boolean));
+builtinTypes.set(String, rawConf => new PrimitiveFieldType(rawConf, String));
+if (self.Blob) builtinTypes.set(Blob, rawConf => new PrimitiveFieldType(rawConf, Blob));
+builtinTypes.set(Date, rawConf => new PrimitiveFieldType(rawConf, Date, d => d.toISOString(), String, x => new Date(x)));
+builtinTypes.set(Number, rawConf => new PrimitiveFieldType(rawConf, Number));
+builtinTypes.set(Boolean, rawConf => new PrimitiveFieldType(rawConf, Boolean));
 
 class PrimitiveAccessor extends FieldAccessor {
   mapOut(value, graphCtx, node) {
-    if (value == null) throw new Error('PrimitiveAccessor#mapOut() got null');
+    if (value == null) throw new Error(
+      `PrimitiveAccessor#mapOut() got null`);
     return this.myType.fromExt(value);
   }
   mapIn(value, graphCtx, node) {
-    if (value == null) throw new Error('PrimitiveAccessor#mapIn() got null '+this.myType.default);
+    if (value == null) {
+      if (this.myType.rawConf.defaultValue != null) {
+        return this.myType.toExt(this.myType.rawConf.defaultValue);
+      }
+      throw new Error('PrimitiveAccessor#mapIn() got null '+this.myType.name);
+    }
     return this.myType.toExt(value);
   }
   exportData(node, opts) {

@@ -42,7 +42,7 @@ class FieldType {
         break;
       case builtinTypes.has(config.type):
         // TODO: 'choices'
-        type = builtinTypes.get(config.type);
+        type = builtinTypes.get(config.type)(config);
         break;
       case 'reference' in config:
         type = new ReferenceFieldType(config.reference);

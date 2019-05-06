@@ -135,7 +135,7 @@ function runDust(argv) {
     console.error(err.stack);
 
     // TODO: when do we want to show debug info?
-    if (true)
+    if (false)
       process.exit(1);
 
     try {

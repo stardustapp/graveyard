@@ -212,20 +212,6 @@ class GraphContext {
         dbCtx => dbCtx.queryEdges(query));
   }
 
-
-  // spawnNode(nodeId, nodeType, rawData) {
-  //   if (this.graphNodes.peek(nodeId)) throw new Error(
-  //     `GraphNode collision in GraphContext`);
-  //   const accessor = FieldAccessor
-  //     .forType(this.engine
-  //       .names.get(nodeType));
-  //
-  //   console.log(rawData);
-  //   const node = new GraphNode(this.ctxId, nodeId, nodeType, {});
-  //   accessor.mapOut(rawData, this, node);
-  //   return node;
-  // }
-
   flush() {
     return this.txnSource('flush context', async dbCtx => {
       await this.buildNodeRefs(); // TODO: shuold be done on-reference instead
@@ -370,10 +356,6 @@ class GraphContext {
     if (this.storedNodes.peek(nodeId)) throw new Error(
       `StoreNode collision in GraphContext #${this.ctxId}`);
 
-    // const accessor = FieldAccessor
-    //   .forType(this.engine
-    //     .names.get(nodeType));
-
     const type = accessor.typeName;
     //console.log('putNode', type, fields);
     const newRecord = new StoreNode('new', {nodeId, type}, {});
@@ -382,10 +364,21 @@ class GraphContext {
     const node = accessor.mapOut(newRecord, this);
     this.graphNodes.set(nodeId, node);
 
-    //const node = this.spawnNode(nodeId, accessor.typeName, {});
-    for (const key in fields)
-      node[key] = fields[key];
+    const expectedFields = accessor.getKeySet();
+    for (const key in fields) {
+      if (expectedFields.has(key)) {
+        expectedFields.delete(key);
+        node[key] = fields[key];
+      } else throw new Error(
+        `Received unexpected field '${key}' for '${type}' node`);
+    }
+    for (const missingField of expectedFields) {
+      node[missingField] = null;
+    }
 
+    // TODO: VALIDATE NODE
+
+    node.markDirty();
     if (typeof node.setup === 'function')
       node.ready = node.setup();
 

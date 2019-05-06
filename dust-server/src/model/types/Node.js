@@ -64,6 +64,10 @@ class NodeAccessor extends FieldAccessor {
   exportData(node, opts) {
     return this.structType.exportData(node.recordData, opts);
   }
+
+  getKeySet() {
+    return new Set(this.structType.fields.keys());
+  }
 }
 
 accessorConstructors.set(NodeBuilder, NodeAccessor);
