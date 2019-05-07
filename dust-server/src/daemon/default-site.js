@@ -1,6 +1,6 @@
 // Serves up enough HTML to nicely direct users to the account pages
 
-class DefaultSite {
+DefaultSite = class DefaultSite {
   constructor(domainName) {
     if (!domainName)
       throw new Error(`DefaultSite requires a domain name`);

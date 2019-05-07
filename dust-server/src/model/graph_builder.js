@@ -1,22 +1,29 @@
 class GraphBuilder {
-  constructor(engine) {
+  constructor(engine, topData) {
+    this.store = RawVolatileStore.open(engine, topData);
+
     this.engine = engine;
     this.ghosts = new Set;
-    this.rootNode = null;
 
+    //this.rootNode = this.store.rootNode;
+/*
     for (const [name, part] of engine.names.entries()) {
-      if (part.treeRole !== 'root') continue;
-
-      Object.defineProperty(this, `with${name}`, {
+      Object.defineProperty(this, `new${name}`, {
         value: function(objName, objVersion, opts) {
           // TODO: throw if not first root
-          console.log('building', objName, objVersion, part, 'with', opts);
+          console.log('building', objName, objVersion, part.name, 'with', opts);
           const object = new GraphBuilderNode(this, null, objName, name, part, objVersion, opts);
           if (this.rootNode) throw new Error(`Graph already has a root node`);
           return this.rootNode = object;
         },
       });
     }
+    */
+  }
+
+  getRoot() {
+    return this.store.transact('readonly', dbCtx =>
+      dbCtx.getNodeById('top'));
   }
 
   create(worker) {
@@ -67,40 +74,50 @@ class GraphBuilderNode {
       throw new Error(`Part ${part.inner.origin} ${part.inner.name} not implemented`);
     }
 
-    if (part.treeRole !== 'leaf') {
-      this.names = new Map;
-      this.ghosts = new Set;
+    this.names = new Map;
+    this.ghosts = new Set;
 
-      for (const [name, part] of builder.engine.names.entries()) {
-        if (part.treeRole === 'root') continue;
+    for (const [name, part] of builder.engine.names.entries()) {
+      const isRelevant = this.part.relations.some(x =>
+        x.type === 'Arbitrary' &&
+        x.direction === 'out' &&
+        x.otherType.name === name);
+      if (!isRelevant) continue;
 
-        Object.defineProperty(this, `with${name}`, {
-          value: function(objName, objVersion, opts) {
-            //console.log('building', objName, objVersion, type, part, 'with', opts, 'from', this);
-            const object = new GraphBuilderNode(builder, this, objName, name, part, objVersion, opts);
-            this.names.set(objName, object);
-            return object;
-          },
-        });
-        Object.defineProperty(this, `get${name}`, {
-          value: function(objName) {
-            if (!this.names.has(objName)) {
-              const node = new GraphGhostNode(this, objName);
-              this.ghosts.add(node);
-              this.names.set(objName, node)
-            }
-            const object = this.names.get(objName);
-            // TODO: typecheck at some point!~
-            if (object.constructor !== GraphGhostNode && object.type !== name) {
-              console.log('-->', object)
-              throw new Error(
-                `Failed to get ${JSON.stringify(name)} ${JSON.stringify(objName)}, was actually ${JSON.stringify(object.type)}`);
-            }
-            return object;
-          },
-        });
-      }
+      Object.defineProperty(this, `with${name}`, {
+        value: function(objName, objVersion, opts) {
+          //console.log('building', objName, objVersion, type, part, 'with', opts, 'from', this);
+          const object = new GraphBuilderNode(builder, this, objName, name, part, objVersion, opts);
+          this.names.set(objName, object);
+          return object;
+        },
+      });
+      Object.defineProperty(this, `get${name}`, {
+        value: function(objName) {
+          if (!this.names.has(objName)) {
+            const node = new GraphGhostNode(this, objName);
+            this.ghosts.add(node);
+            this.names.set(objName, node)
+          }
+          const object = this.names.get(objName);
+          // TODO: typecheck at some point!~
+          if (object.constructor !== GraphGhostNode && object.type !== name) {
+            console.log('-->', object)
+            throw new Error(
+              `Failed to get ${JSON.stringify(name)} ${JSON.stringify(objName)}, was actually ${JSON.stringify(object.type)}`);
+          }
+          return object;
+        },
+      });
     }
 
   }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    //GraphBuilder,
+    GraphGhostNode,
+    GraphBuilderNode,
+  };
 }

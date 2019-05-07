@@ -1,4 +1,4 @@
-class GateApi {
+GateApi = class GateApi {
 
   constructor(systemEnv, accountManager, sessionManager, domainManager) {
     this.env = systemEnv;

@@ -1,4 +1,4 @@
-class Workload extends PlatformApi  {
+Workload = class Workload extends PlatformApi  {
   constructor(record, session, runtime) {
     super(`workload ${record.wid} ${record.wlKey} ${record.appKey}`);
 

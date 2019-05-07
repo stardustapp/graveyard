@@ -1,4 +1,4 @@
-class Kernel {
+Kernel = class Kernel {
   constructor(db) {
     this.systemEnv = new Environment();
     this.ready = this.init(db);

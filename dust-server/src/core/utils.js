@@ -1,4 +1,4 @@
-window.runMain = (main) => {
+runMain = (main) => {
   console.log(`==> Starting runtime...`);
   Sync(main, (err, ret) => {
     console.log();
@@ -14,7 +14,7 @@ window.runMain = (main) => {
   });
 };
 
-class ExtendableError extends Error {
+ExtendableError = class ExtendableError extends Error {
   constructor(message) {
     super(message);
     this.name = this.constructor.name;
@@ -24,4 +24,17 @@ class ExtendableError extends Error {
       this.stack = (new Error(message)).stack;
     }
   }
+}
+
+PrintCallSite = function PrintCallSite({
+  indent = '',
+  trimFrames = 1,
+  trimBuiltins = false,
+}={}) {
+  const stackLines = new Error().stack.split('\n').slice(trimFrames + 2);
+  if (trimBuiltins) {
+    const firstRealLine = stackLines.findIndex(line => line.includes(' (/'));
+    if (firstRealLine >= 0) stackLines.splice(0, firstRealLine);
+  }
+  console.warn(stackLines.map(x => `${indent}${x}`).join('\n'));
 }

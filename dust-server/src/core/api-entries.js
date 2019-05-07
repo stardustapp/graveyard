@@ -76,7 +76,7 @@ class BlobLiteral {
   }
 }
 
-function InflateSkylinkLiteral(raw) {
+InflateSkylinkLiteral = function InflateSkylinkLiteral(raw) {
   if (!raw) {
     return null;
   }

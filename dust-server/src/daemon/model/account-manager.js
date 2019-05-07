@@ -1,4 +1,4 @@
-class AccountManager {
+AccountManager = class AccountManager {
   constructor(idb, packageManager) {
     this.idb = idb;
     this.packageManager = packageManager;

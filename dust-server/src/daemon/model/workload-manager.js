@@ -1,4 +1,4 @@
-class WorkloadManager {
+WorkloadManager = class WorkloadManager {
   constructor(idb, sessionManager, ownerImpls) {
     this.idb = idb;
     this.sessionManager = sessionManager;

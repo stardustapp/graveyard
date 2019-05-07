@@ -66,7 +66,7 @@ const DEFAULT_PACKAGES = [
   },
 ];
 
-class PackageManager {
+PackageManager = class PackageManager {
   constructor(idb) {
     this.idb = idb;
     this.all = new Map();
@@ -89,7 +89,7 @@ class PackageManager {
       const packages = list.map(r =>
           r.constructor === Package ? r : new Package(r));
       await Promise.all(packages.map(p => p.ready))
-      // store everything into 
+      // store everything into
       packages.forEach(pkg => {
         this.all.set(pkg.record.pid, pkg);
       });
