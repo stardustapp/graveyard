@@ -25,7 +25,7 @@ extensions.lifecycle = {
                       StringData: 'Hello, World!',
                     },
                     Headers: [{
-                      Key: 'content-type',
+                      Key: 'Content-Type',
                       Value: 'text/plain',
                     }],
                   },
@@ -39,7 +39,7 @@ extensions.lifecycle = {
                   StringData: '421 Misdirected Request',
                 },
                 Headers: [{
-                  Key: 'content-type',
+                  Key: 'Content-Type',
                   Value: 'text/plain',
                 }],
               },
