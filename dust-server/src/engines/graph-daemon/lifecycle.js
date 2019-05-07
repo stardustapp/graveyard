@@ -19,6 +19,7 @@ extensions.lifecycle = {
     return await graphCtx.newTopNode({
       CreatedAt: new Date,
       GitHash: await execForLine(`git describe --always --long --dirty`),
+      LaunchFlags: argv,
       Config: {
         DataPath: argv.dataPath,
         Command: argv.command,

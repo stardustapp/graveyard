@@ -13,7 +13,9 @@ extensions.lifecycle = {
           DefaultHandler: {
             InnerRules: [{
               Conditions: [{
-                Host: { Name: 'localhost' },
+                Host: {
+                  Names: ['localhost'],
+                },
               }],
               ForwardTo: {
                 DefaultAction: {

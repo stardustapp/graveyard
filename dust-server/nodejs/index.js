@@ -187,6 +187,14 @@ const argv = yargs
         default: 'profile-server',
       })
     }, runDust)
+  .command('test-http',
+    'launches, tests, and stops http-server',
+    yargs => { yargs
+      .positional('path', {
+        describe: 'HTTP url to hit as a test',
+        default: '/raw-dust-app/muffler/home',
+      })
+    }, runDust)
   .command('run <package> <method> [args...]',
     `execute a server method`,
     yargs => { yargs

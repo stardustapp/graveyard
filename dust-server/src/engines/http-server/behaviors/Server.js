@@ -7,4 +7,9 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Server', {
     console.log('Started', listeners.length, 'HTTP listeners');
   },
 
+  unrefAll() {
+    for (const l of this.ActiveListeners)
+      l.unref();
+  },
+
 });

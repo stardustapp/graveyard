@@ -1,7 +1,7 @@
-setTimeout(() => {
-  console.log('stopping');
-  require('process').exit();
-}, 10000);
+// setTimeout(() => {
+//   console.log('stopping');
+//   require('process').exit();
+// }, 10000);
 
 new GraphEngineBuilder('http-server/v1-beta1', build => {
   //build.needsEngine('app-profile/v1-beta1');
@@ -52,20 +52,20 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
       InnerRules: { fields: {
         Conditions: { anyOfKeyed: {
           Host: { fields: {
-            Name: { type: String, isList: true },
+            Names: { type: String, isList: true },
             AltPort: { type: Number, optional: true },
           }},
-          Method: { type: String, isList: true },
-          MatchPathPattern: String,
-          StripPathPrefix: String,
+          Methods: { type: String, isList: true },
+          MatchPath: String,
+          StripPath: String,
           HttpHeader: { fields: {
             Key: String,
             Values: { type: String, isList: true },
           }},
           QueryString: { fields: {
             Key: String,
-            Values: { type: String, isList: true },
-          }},
+            Values: String,
+          }, isList: true },
           SourceIps: { type: String, isList: true },
         }, isList: true },
         ForwardTo: { reference: 'Handler' },

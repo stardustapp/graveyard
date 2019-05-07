@@ -94,9 +94,13 @@ class AnyOfKeyedAccessor extends FieldAccessor {
       const accInst = this.mapOut(data, graphCtx, node);
       accInst[liveKey] = newVal[liveKey];
       return data;
-    } else if (newVal.constructor === 'TODO') {
-      // this is probably us, right?
-      return newVal;
+    } else if (newVal.constructor === AnyOfKeyed) {
+      const slotType = this.slots.get(newVal.currentKey);
+      if (!slotType) throw new Error(
+        `Incompatible key ${newVal.currentKey} for AnyOfKeyed`);
+      const accessor = FieldAccessor.forType(slotType);
+      const innerVal = newVal[newVal.currentKey];
+      return [newVal.currentKey, accessor.mapIn(innerVal, graphCtx, node)];
     } else throw new Error(
       `AnyOfKeyedAccessor can't map in values of ${newVal.constructor.name}`);
   }

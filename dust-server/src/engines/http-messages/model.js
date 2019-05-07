@@ -27,6 +27,7 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
       { predicate: 'RETURNED', object: 'Response' },
     ],
     fields: {
+      Timestamp: Date,
       // raw request line
       Method: String,
       Url: String,
@@ -40,7 +41,7 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
       RemoteAddress: String, // accounts for proxies
       HostName: String,
       AltPort: { type: Number, optional: true },
-      //Origin: String, // TODO: calculate uri
+      Origin: String,
       Path: String,
       Query: { fields: {
         Key: String,
@@ -61,9 +62,10 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
       { subject: 'Request', predicate: 'RETURNED' },
     ],
     fields: {
+      Timestamp: Date,
       Status: { fields: {
         Code: Number,
-        Message: String,
+        Message: { type: String, optional: true },
       }},
       Headers: { fields: {
         Key: String,
@@ -73,8 +75,6 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
         StringData: String,
         Base64: String,
         // TODO: Stream: { reference: { engine: 'streaming', name: 'ByteStream' }}
-      }, defaultValue: {
-        Base64: '',
       }},
     },
   });

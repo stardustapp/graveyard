@@ -71,9 +71,9 @@ class ListAccessor extends Array {
   }
 
   gatherRefs(rawVal, refs) {
-    for (const innerVal of rawVal) {
-      this.innerAccessor.gatherRefs(innerVal, refs);
-    }
+    if ('gatherRefs' in this.innerAccessor)
+      for (const innerVal of rawVal)
+        this.innerAccessor.gatherRefs(innerVal, refs);
   }
   exportData(array, opts) {
     return array.map(item => this

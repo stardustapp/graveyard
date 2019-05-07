@@ -49,21 +49,26 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
 
     const {address, port} = this.nodeServer.address();
     console.debug('http-server listening on http://%s:%s', address, port);
+
+    // store a heartbeat blob on the
     this.Status = {
       State: 'Ready',
       Message: `Listening on http://${address}:${port}`,
+      Host: 'nodejs',
       LastChange: new Date,
       Heartbeat: new Date,
     };
     // TODO: clearing, standardization
-    setInterval(() => {
+    this.heartbeatInterval = setInterval(() => {
       this.Status.Heartbeat = new Date;
     }, 20 * 1000);
+
     return {address, port};
   },
 
   unref() {
     this.nodeServer.unref();
+    this.heartbeatInterval.unref();
   },
 
   async routeRequest(req, res) {
@@ -85,14 +90,15 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
       if (!hostMatch) {
         console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
         res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end(`
+        return res.end(`
           The "Host" HTTP header could not be parsed.
           If your request is reasonable, please file a bug.
         `, 'utf-8');
         return;
       }
-      const [_, ipv4, ipv6, hostname, port] = hostMatch;
+      const [_, ipv4, ipv6, hostname, altPort] = hostMatch;
 
+      // reconstruct duplicated queries as
       const queryList = new Array;
       for (var param in query) {
         if (query[param].constructor === Array)
@@ -105,12 +111,11 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
       if (!req.url.startsWith('/')) {
         console.log(remoteAddress, 'send bad url', req.url, 'with method', method);
         res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end(`Your request URI doesn't smell right.`, 'utf-8');
-        return;
-        return req.end('400 sent non-path http request');
+        return res.end(`Your request URI doesn't smell right.`, 'utf-8');
       }
 
       const reqMsg = await connMsg.ISSUED.newRequest({
+        Timestamp: new Date,
         Method: req.method,
         Url: req.url,
         HttpVersion: req.httpVersion,
@@ -120,22 +125,35 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
 
         RemoteAddress: req.connection.remoteAddress, // TODO: X-Forwarded-For
         HostName: hostname || ipv4 || ipv6,
-        AltPort: port.length ? parseInt(port) : null,
-        // Origin: '...', (TODO)
+        AltPort: altPort.length ? parseInt(altPort) : null,
+        Origin: `http://${hostname || ipv4 || ipv6}${altPort.length ? ':' : ''}${altPort}`,
         Path: pathname,
         Query: queryList,
-        Body: { Base64: '' },
+        Body: { Base64: '' }, // TODO
       });
-      console.log('built http request message', reqMsg);
+      //console.log('built http request message', reqMsg);
 
-      // Find the correct handler
-      await this.Handler.handle(reqMsg);
+      // Process into a response
+      const response = await (await this.Handler).handle(reqMsg);
+      if (!response) throw new Error(
+        `http-server/Handler didn't return a response`);
 
-      //res.writeHead(520, { 'Content-Type': 'text/plain' });
-      //res.end(`TODO: draw the rest of the owl`, 'utf-8');
-      // message: `421 Misdirected Request: The website you tried to access doesn't exist here`,
-      // cause: `This server doesn't have a domain configured with a website for the hostname ${domain}. If this is your domain, go ahead and claim it from within your personal dashboard.`,
-      return;
+      // write HTTP head
+      for (const {Key, Value} of response.Headers)
+        res.setHeader(Key, Value);
+      res.writeHead(response.Status.Code, response.Status.Message);
+
+      // write body
+      switch (response.Body.currentKey) {
+        case 'StringData':
+          res.end(response.Body.StringData, 'utf-8');
+          break;
+        case 'Base64':
+          res.end(response.Body.StringData, 'utf-8');
+          break;
+        default:
+          throw new Error(`unhandled Body key ${response.Body.currentKey}`)
+      }
 
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
