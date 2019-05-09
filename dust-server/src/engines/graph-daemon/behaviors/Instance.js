@@ -23,26 +23,26 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
 
     // BRING UP PERSISTENT DATA
     const storeEngine = await GraphEngine.load('graph-store/v1-beta1');
-    const worldStore = new RawDynamoDBStore({
-    //const worldStore = new RawVolatileStore({
+    //const worldStore = new RawDynamoDBStore({
+    const worldStore = new RawVolatileStore({
       engineKey: 'graph-store/v1-beta1',
       tablePrefix: 'DustGraph',
     });
     await worldStore.ready;
     this.graphWorld = await storeEngine.buildFromStore({}, worldStore);
 
-    if (this.Config.Command === 'run') {
-      // GET DUST MANAGER
-      this.dustManagerGraph = await this.graphWorld.findOrCreateGraph({
-        engineKey: 'dust-manager/v1-beta1',
-        gitHash: this.GitHash,
-        fields: {
-          system: 'dust-manager',
-        },
-      });
-      this.dustManagerCtx = await this.graphWorld.getContextForGraph(this.dustManagerGraph)
-      this.dustManager = await this.dustManagerCtx.getTopObject();
+    // GET DUST MANAGER
+    this.dustManagerGraph = await this.graphWorld.findOrCreateGraph({
+      engineKey: 'dust-manager/v1-beta1',
+      gitHash: this.GitHash,
+      fields: {
+        system: 'dust-manager',
+      },
+    });
+    this.dustManagerCtx = await this.graphWorld.getContextForGraph(this.dustManagerGraph)
+    this.dustManager = await this.dustManagerCtx.getTopObject();
 
+    if (this.Config.Command === 'run') {
       // INSTALL DUST PACKAGE
       const appKey = this.Config.PackageKey;
       console.log('\r--> graph-daemon.lifecycle now setting up Dust app', appKey);
@@ -50,7 +50,6 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
         .findOrInstallByPackageKey(this.graphWorld, appKey);
       this.dustPackageCtx = await this.graphWorld.getContextForGraph(this.dustPackageGraph)
       this.dustPackage = await this.dustPackageCtx.getTopObject();
-
     }
 
     // BRING UP WEBSERVER
@@ -65,7 +64,21 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
       });
       this.webServerCtx = await this.graphWorld.getContextForGraph(this.webServerGraph)
       this.webServer = await this.webServerCtx.getTopObject();
+      await this.webServer.activate();
       console.log('brought up web server', this.webServer);
+
+      await this.webServer.DefaultHandler;
+      await this.webServer.DefaultHandler.InnerRules[0].ForwardTo; // 'localhost'
+      this.webServer.DefaultHandler.InnerRules[0].ForwardTo.InnerRules.push({
+        Conditions: [{
+          PathPatterns: ['/dust-app/*'],
+        }],
+        ForwardTo: {
+          DefaultAction: {
+            Reference: this.dustManager,
+          },
+        },
+      });
     }
   },
 

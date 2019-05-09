@@ -88,7 +88,10 @@ class AnyOfKeyedAccessor extends FieldAccessor {
       const keys = Object.keys(newVal);
       if (keys.length !== 1) throw new Error(
         `AnyOfKeyed got ${keys.length} keys instead of exactly 1. Received: ${keys.join(', ')}`);
+
       const [liveKey] = keys;
+      if (!this.slots.has(liveKey)) throw new Error(
+        `AnyOfKeyed#mapIn() got unrecognized liveKey '${liveKey}'`);
 
       const data = [liveKey, undefined];
       const accInst = this.mapOut(data, graphCtx, node);

@@ -78,4 +78,15 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
       }},
     },
   });
+
+  build.node('BodyChunk', {
+    fields: {
+      Timestamp: Date,
+      Sequence: Number,
+      Data: { anyOfKeyed: {
+        StringData: String,
+        Base64: String,
+      }},
+    },
+  });
 }).install();

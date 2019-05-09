@@ -143,12 +143,9 @@ Datadog = class Datadog {
       array.length = 0;
     }
 
-    if (series.length === 0)
-      return;
-
     // Actually transmit data to Datadog
     await Promise.all([
-      this.doHTTP('/v1/series', {series}),
+      (series.length === 0) ? Promise.resolve() : this.doHTTP('/v1/series', {series}),
       this.statusCheck('starbox.alive', 0, 'Datadog pump is running'),
     ]);
   }
@@ -168,12 +165,20 @@ if (typeof chrome === 'object' && chrome.storage) {
     Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', host, {});
   });
 } else if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+  // we're in a web worker
   if (location.pathname.startsWith('/src/runtimes/')) {
     const runtime = location.pathname.split('/')[3].split('.').slice(0, -1).join('.');
     Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', 'runtime-'+runtime, {runtime});
   } else {
     Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', 'webworker', {});
   }
+} else if (typeof require === 'function') {
+  const os = require('os');
+  const ifaces = os.networkInterfaces();
+  const iface = Object.keys(ifaces).filter(x => !ifaces[x].some(y => y.internal)).map(x => ifaces[x][0].address)[0]; // TODO: maybe mac?
+  const hostName = os.hostname() === 'localhost' ? os.userInfo().username : os.hostname();
+  const fullHost = `nodejs-${iface || 'no_ip'}-${hostName}`;
+  Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', fullHost, {});
 } else {
   Datadog.Instance = new Datadog('e59ac011e926a7eaf6ff485f0a5d2660', 'webbrowser', {});
 }

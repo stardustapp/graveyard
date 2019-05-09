@@ -1,3 +1,11 @@
+function matchPattern(input, pattern) {
+  const regex = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // excludes * and ?
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.?');
+  return new RegExp(`^${regex}$`).test(input);
+}
+
 GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
 
   async handle(request) {
@@ -11,10 +19,15 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
           case 'Host':
             if (!condition.Host.Names.includes(request.HostName))
               ruleMatches = false;
-              break;
+            break;
+
+          case 'PathPatterns':
+            if (!condition.PathPatterns.some(pattern => matchPattern(request.Path, pattern)))
+              ruleMatches = false;
+            break;
 
           default:
-            throw new Error(`unhandled http-server/Handler.Condition`);
+            throw new Error(`unhandled http-server/Handler.Condition ${condition.currentKey}`);
         }
         if (!ruleMatches) break;
       }
@@ -37,8 +50,12 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
           Headers, Body,
         });
 
+      case 'Reference':
+        console.log('the ref', await this.DefaultAction.Reference);
+        throw new Error('TODO')
+
       default:
-        throw new Error(`unhandled http-server/Handler.Action`);
+        throw new Error(`unhandled http-server/Handler.Action ${this.DefaultAction.currentKey}`);
     }
   },
 

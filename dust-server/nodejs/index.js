@@ -187,7 +187,7 @@ const argv = yargs
         default: 'profile-server',
       })
     }, runDust)
-  .command('test-http',
+  .command('test-http [path]',
     'launches, tests, and stops http-server',
     yargs => { yargs
       .positional('path', {

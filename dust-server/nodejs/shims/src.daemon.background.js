@@ -14,8 +14,13 @@ launchDaemon = async function launchDaemon(argv) {
   console.log('==> Completed kernel boot :)');
   console.log();
 
-  await kernel.boot(); // returns within 30s
-  await kernel.run(); // may never return
+  try {
+    await kernel.boot(); // returns within 30s
+    await kernel.run(); // may never return
+  } finally {
+    console.log('flushing datadog')
+    await Datadog.Instance.flushNow();
+  }
 
   console.log();
   console.log(`==> Daemon function returned.`);

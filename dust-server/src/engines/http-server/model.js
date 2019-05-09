@@ -4,7 +4,7 @@
 // }, 10000);
 
 new GraphEngineBuilder('http-server/v1-beta1', build => {
-  //build.needsEngine('app-profile/v1-beta1');
+  build.needsEngine('http-messages/v1-beta1');
 
   build.node('Server', {
     relations: [
@@ -49,6 +49,9 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
       { subject: 'Listener', predicate: 'REFERENCES' },
     ],
     fields: {
+      // Table of other handlers that the request can be forwarded to.
+      // This concept nests and lets traffic fan out to different destinations.
+      // Once there are no more matching rules, the request gets handled there.
       InnerRules: { fields: {
         Conditions: { anyOfKeyed: {
           Host: { fields: {
@@ -56,8 +59,7 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
             AltPort: { type: Number, optional: true },
           }},
           Methods: { type: String, isList: true },
-          MatchPath: String,
-          StripPath: String,
+          PathPatterns: { type: String, isList: true },
           HttpHeader: { fields: {
             Key: String,
             Values: { type: String, isList: true },
@@ -70,7 +72,7 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
         }, isList: true },
         ForwardTo: { reference: 'Handler' },
       }, isList: true },
-
+      // How requests that stop at this handler get responded to.
       DefaultAction: { anyOfKeyed: {
         Reference: { reference: true },
         FixedResponse: { fields: {

@@ -7,7 +7,7 @@ global.HTTP_SERVER_HEADER = `${pkgMeta.name}/${pkgMeta.version}`;
 GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
   // constructor: nodeType, data
 
-  async start() {
+  async activate() {
     this.connNodes = new LoaderCache(async conn => {
       const localEndpoint = conn.address();
       const connNode = await this.msgEngine.buildFromStore({
