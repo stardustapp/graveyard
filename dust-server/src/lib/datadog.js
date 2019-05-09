@@ -50,6 +50,11 @@ Datadog = class Datadog {
       headers: {
         'Content-Type': 'application/json',
       },
+    }).catch(err => {
+      // TODO: cache and retry the request
+      // don't we only get this in nodejs? because no-cors
+      console.log('Datadog request failed:', err.message);
+      return err;
     });
   }
 
