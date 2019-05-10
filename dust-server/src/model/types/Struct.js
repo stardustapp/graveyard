@@ -98,10 +98,14 @@ class StructAccessor extends FieldAccessor {
       // create temporary instance to fill in the data
       const accInst = this.mapOut(dataObj, graphCtx, node);
       const allKeys = new Set(this.fields.keys());
-      Object.keys(newVal).forEach(x => allKeys.add(x));
+      const givenKeys = new Set(Object.keys(newVal));
+      //Object.keys(newVal).forEach(x => allKeys.add(x));
       for (const key of allKeys) {
         accInst[key] = newVal[key] != null ? newVal[key] : this.defaults.get(key);
+        givenKeys.delete(key);
       }
+      if (givenKeys.size !== 0) throw new Error(
+        `Struct in ${node.nodeType} got unknown keys ${Array.from(givenKeys).join(', ')}, expected ${Array.from(allKeys).join(', ')}`);
       return dataObj;
 
     } else if (newVal.constructor === undefined) {

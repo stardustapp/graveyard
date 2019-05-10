@@ -264,6 +264,10 @@ class VirtualGraphContext extends GraphContext {
 
     // cross-graph nodes
     const foreignGraph = this.graphObject.getGraphCtx().getNodeById(parts[0]);
+    if (foreignGraph.then) // Wait for graph to load first.
+      return foreignGraph.then(() => this
+        .getNodeByIdentity(ident)); // TODO: can this recurse to infinity?
+
     //console.log('found foreign graph', foreignGraph);
     const foreignBackend = this.worldObject.graphBackendCache.peek(foreignGraph);
     if (!foreignBackend) {

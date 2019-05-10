@@ -8,7 +8,7 @@ function matchPattern(input, pattern) {
 
 GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
 
-  async handle(request) {
+  async handle(request, graphWorld, tags) {
     //console.log('handling request', request);
 
     for (const rule of this.InnerRules) {
@@ -36,10 +36,24 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
         // TODO: any rerouting or rewriting?
         console.log('forwarding request to other handler')
         const otherHandler = await rule.ForwardTo;
-        return otherHandler.handle(request);
+        return otherHandler.handle(request, graphWorld, tags);
       }
     }
 
+    const response = await this.performAction(request, graphWorld);
+    response.Headers.push({
+      Key: 'X-Dust-Listener-ID',
+      Value: tags.listener_id,
+    },{
+      Key: 'X-Dust-Handler-ID',
+      Value: this.nodeId,
+    });
+    tags.action_type = this.DefaultAction.currentKey;
+    return response;
+  },
+
+  async performAction(request, graphWorld) {
+    if (!graphWorld) throw new Error(`no graphWorld`);
     switch (this.DefaultAction.currentKey) {
 
       case 'FixedResponse':
@@ -50,9 +64,15 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
           Headers, Body,
         });
 
-      case 'Reference':
-        console.log('the ref', await this.DefaultAction.Reference);
-        throw new Error('TODO')
+      case 'ForeignNode':
+        const {Ref, Behavior, Input} = await this.DefaultAction.ForeignNode;
+        const target = await Ref;
+        if (!target || typeof target[Behavior] !== 'function') throw new Error(
+          `http-server/Handler.ForeignNode failed to resolve to a behavior`);
+        const response = await target[Behavior](graphWorld, request, Input);
+        if (!response || !response.Headers) throw new Error(
+          `ForeignNode behavior didn't return a good response`);
+        return response;
 
       default:
         throw new Error(`unhandled http-server/Handler.Action ${this.DefaultAction.currentKey}`);

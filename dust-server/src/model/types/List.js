@@ -54,7 +54,8 @@ class ListAccessor extends Array {
               }
             }
 
-            console.log('ListAccessor get -', prop, new Error().stack.split('\n')[2]);
+            // TODO: WHAT IS OK? do we want to return raw or mapped for some, includes, map, slice, etc
+            //console.log('ListAccessor get -', prop, new Error().stack.split('\n')[2]);
             return Reflect.get(...arguments);
         }
       },

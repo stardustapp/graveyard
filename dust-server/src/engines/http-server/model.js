@@ -74,7 +74,11 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
       }, isList: true },
       // How requests that stop at this handler get responded to.
       DefaultAction: { anyOfKeyed: {
-        Reference: { reference: true },
+        ForeignNode: { fields: {
+          Ref: { reference: true },
+          Behavior: { type: String },
+          Input: { type: JSON, optional: true },
+        }},
         FixedResponse: { fields: {
           StatusCode: Number,
           Body: { anyOfKeyed: {

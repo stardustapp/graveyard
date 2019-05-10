@@ -7,7 +7,9 @@ global.HTTP_SERVER_HEADER = `${pkgMeta.name}/${pkgMeta.version}`;
 GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
   // constructor: nodeType, data
 
-  async activate() {
+  async activate(graphWorld) {
+    this.graphWorld = graphWorld;
+
     this.connNodes = new LoaderCache(async conn => {
       const localEndpoint = conn.address();
       const connNode = await this.msgEngine.buildFromStore({
@@ -32,7 +34,7 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     //this.graphWorld = await msgEngine.buildFromStore({}, msgStore);
     //msgStore.engine.buildUsingVolatile({argv});
 
-    this.nodeServer = http.createServer(this.routeRequest.bind(this));
+    this.nodeServer = http.createServer(this.handleRequest.bind(this));
     await new Promise((resolve, reject) => {
       this.nodeServer.on('error', (err) => {
         if (err.syscall === 'listen')
@@ -55,7 +57,6 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     this.Status = {
       State: 'Ready',
       Message: `Listening on http://${address}:${port}`,
-      Host: 'nodejs',
       LastChange: new Date,
       Heartbeat: new Date,
     };
@@ -72,111 +73,120 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     this.heartbeatInterval.unref();
   },
 
-  async routeRequest(req, res) {
+  async handleRequest(req, res) {
+    const startDate = new Date;
+    const tags = {
+      listener_id: this.nodeId,
+      host_header: req.headers.host,
+      method: req.method,
+      http_version: req.httpVersion,
+    };
+
     try {
-      console.log(req.method, req.url);
-      const {pathname, query} = url.parse(req.url, true);
-
-      const connMsg = await this.connNodes.get(req.connection);
-
-      if (!req.headers.host) {
-        console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end(`The "Host" HTTP header is required.`, 'utf-8');
-        return;
-      }
-
-      const hostMatch = req.headers.host.match(
-    /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z][a-z0-9]+))(?::(\d+))?$/i);
-      if (!hostMatch) {
-        console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        return res.end(`
-          The "Host" HTTP header could not be parsed.
-          If your request is reasonable, please file a bug.
-        `, 'utf-8');
-        return;
-      }
-      const [_, ipv4, ipv6, hostname, altPort] = hostMatch;
-
-      // reconstruct duplicated queries as
-      const queryList = new Array;
-      for (var param in query) {
-        if (query[param].constructor === Array)
-          for (const subVal of query[param])
-            queryList.push({Key: param, Value: subVal});
-        else
-          queryList.push({Key: param, Value: query[param]});
-      }
-
-      if (!req.url.startsWith('/')) {
-        console.log(remoteAddress, 'send bad url', req.url, 'with method', method);
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        return res.end(`Your request URI doesn't smell right.`, 'utf-8');
-      }
-
-      const reqMsg = await connMsg.ISSUED.newRequest({
-        Timestamp: new Date,
-        Method: req.method,
-        Url: req.url,
-        HttpVersion: req.httpVersion,
-        Headers: Object.keys(req.headers).map(x => ({
-          Key: x, Value: req.headers[x],
-        })),
-
-        RemoteAddress: req.connection.remoteAddress, // TODO: X-Forwarded-For
-        HostName: hostname || ipv4 || ipv6,
-        AltPort: altPort.length ? parseInt(altPort) : null,
-        Origin: `http://${hostname || ipv4 || ipv6}${altPort.length ? ':' : ''}${altPort}`,
-        Path: pathname,
-        Query: queryList,
-        Body: { Base64: '' }, // TODO
-      });
-      //console.log('built http request message', reqMsg);
-
-      // Process into a response
-      const response = await (await this.Handler).handle(reqMsg);
-      if (!response) throw new Error(
-        `http-server/Handler didn't return a response`);
-
-      // write HTTP head
-      res.setHeader('Date', moment.utc(response.Timestamp).format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
-      res.setHeader('Server', HTTP_SERVER_HEADER);
-      for (const {Key, Value} of response.Headers)
-        res.setHeader(Key, Value);
-      res.writeHead(response.Status.Code, response.Status.Message);
-
-      // write body
-      switch (response.Body.currentKey) {
-        case 'StringData':
-          res.end(response.Body.StringData, 'utf-8');
-          break;
-        case 'Base64':
-          res.end(response.Body.StringData, 'utf-8');
-          break;
-        default:
-          throw new Error(`unhandled Body key ${response.Body.currentKey}`)
-      }
-
-      Datadog.Instance.count('dust.http-server.web_request', 1, {
-        listener_id: this.nodeId,
-        host_header: req.headers.host,
-        method: req.method,
-        http_version: req.httpVersion,
-        ok: true,
-      });
-
+      await this.routeRequest(req, res, tags);
+      tags.ok = true;
     } catch (err) {
-      Datadog.Instance.count('dust.http-server.web_request', 1, {
-        listener_id: this.nodeId,
-        host_header: req.headers.host,
-        method: req.method,
-        http_version: req.httpVersion,
-        ok: false,
-      });
+      if (err instanceof HttpErrorResponse) {
+        tags.ok = true;
+        tags.statuscode = err.statusCode;
+        res.writeHead(err.statusCode, { 'Content-Type': 'text/plain' });
+        res.end(err.message, 'utf-8');
+      } else {
+        tags.ok = false;
+        tags.statuscode = 500;
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(`Dust Server encountered an internal error.\n\n`+err.stack, 'utf-8');
+      }
+    } finally {
+      const endDate = new Date;
+      Datadog.Instance.gauge('dust.http-server.elapsed_ms', endDate-startDate, tags);
+      Datadog.Instance.count('dust.http-server.web_request', 1, tags);
+    }
+  },
 
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end(`Dust Server encountered an internal error.\n\n`+err.stack, 'utf-8');
+  async routeRequest(req, res, tags) {
+    console.log(req.method, req.url);
+    const {pathname, query} = url.parse(req.url, true);
+
+    const connMsg = await this.connNodes.get(req.connection);
+
+    if (!req.headers.host) {
+      console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end(`The "Host" HTTP header is required.`, 'utf-8');
+      return;
+    }
+
+    const hostMatch = req.headers.host.match(
+  /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z][a-z0-9]+))(?::(\d+))?$/i);
+    if (!hostMatch) {
+      console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      return res.end(`
+        The "Host" HTTP header could not be parsed.
+        If your request is reasonable, please file a bug.
+      `, 'utf-8');
+      return;
+    }
+    const [_, ipv4, ipv6, hostname, altPort] = hostMatch;
+
+    // reconstruct repeated query keys as a pair list
+    const queryList = new Array;
+    for (var param in query) {
+      if (query[param].constructor === Array)
+        for (const subVal of query[param])
+          queryList.push({Key: param, Value: subVal});
+      else
+        queryList.push({Key: param, Value: query[param]});
+    }
+
+    if (!req.url.startsWith('/')) {
+      console.log(remoteAddress, 'send bad url', req.url, 'with method', method);
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      return res.end(`Your request URI doesn't smell right.`, 'utf-8');
+    }
+
+    const reqMsg = await connMsg.ISSUED.newRequest({
+      Timestamp: new Date,
+      Method: req.method,
+      Url: req.url,
+      HttpVersion: req.httpVersion,
+      Headers: Object.keys(req.headers).map(x => ({
+        Key: x, Value: req.headers[x],
+      })),
+
+      RemoteAddress: req.connection.remoteAddress, // TODO: X-Forwarded-For
+      HostName: hostname || ipv4 || ipv6,
+      AltPort: altPort.length ? parseInt(altPort) : null,
+      Origin: `http://${hostname || ipv4 || ipv6}${altPort.length ? ':' : ''}${altPort}`,
+      Path: pathname,
+      Query: queryList,
+      Body: { Base64: '' }, // TODO
+    });
+    //console.log('built http request message', reqMsg);
+
+    // Process into a response
+    const response = await (await this.Handler).handle(reqMsg, this.graphWorld, tags);
+    if (!response) throw new Error(
+      `http-server/Handler didn't return a response`);
+
+    // write HTTP head
+    res.setHeader('Date', moment.utc(response.Timestamp).format('ddd, DD MMM YYYY HH:mm:ss [GMT]'));
+    res.setHeader('Server', HTTP_SERVER_HEADER);
+    for (const {Key, Value} of response.Headers)
+      res.setHeader(Key, Value);
+    res.writeHead(response.Status.Code, response.Status.Message);
+
+    // write body
+    switch (response.Body.currentKey) {
+      case 'StringData':
+        res.end(response.Body.StringData, 'utf-8');
+        break;
+      case 'Base64':
+        res.end(response.Body.StringData, 'utf-8');
+        break;
+      default:
+        throw new Error(`unhandled Body key ${response.Body.currentKey}`)
     }
   },
 

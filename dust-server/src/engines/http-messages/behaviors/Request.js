@@ -9,7 +9,7 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
       */
 
   makeStringResponse(contentType, StringData, statusCode=200) {
-    return request.RETURNED.newResponse({
+    return this.RETURNED.newResponse({
       Timestamp: new Date,
       Status: { Code: statusCode },
       Headers: [{
@@ -36,7 +36,7 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
     `, statusCode);
     resp.setHeader('Location', target);
     return resp;
-  }
+  },
 
   // for browsers
   makeBlobResponse(blob, statusCode=200) {
@@ -46,7 +46,7 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
       type += '; charset=utf-8';
     }
     // TODO: some sort of prefab for this
-    return request.RETURNED.newResponse({
+    return this.RETURNED.newResponse({
       Timestamp: new Date,
       Status: { Code: statusCode },
       Headers: [{
@@ -103,4 +103,4 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
     return await this.respondWithString(html, 'text/html');
   },
 
-}
+});

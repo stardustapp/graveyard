@@ -1,3 +1,10 @@
+global.HttpErrorResponse = class HttpErrorResponse extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
 const extensions = GraphEngine.extend('http-server/v1-beta1');
 extensions.lifecycle = {
 
@@ -14,7 +21,7 @@ extensions.lifecycle = {
             InnerRules: [{
               Conditions: [{
                 Host: {
-                  Names: ['localhost'],
+                  Names: ['localhost', '127.0.0.1'],
                 },
               }],
               ForwardTo: {

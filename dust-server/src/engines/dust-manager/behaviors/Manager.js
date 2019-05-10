@@ -103,4 +103,25 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
     return responder.sendHtml(compiled, 200);
   },
 
+  async serveAppReq(graphWorld, request, {
+    PathDepth = 0,
+  }={}) {
+    const pathParts = request.Path.split('/').slice(1);
+    const [appKey, ...extra] = pathParts.slice(PathDepth);
+    const appRoot = '/' + pathParts.slice(0, PathDepth+1).join('/');
+    const usesLegacyDB = appKey.startsWith('build-');
+
+    // INSTALL DUST PACKAGE
+    const dustPackageGraph = await this
+      .findOrInstallByPackageKey(graphWorld, appKey);
+    const dustPackageCtx = await graphWorld.getContextForGraph(dustPackageGraph)
+    const dustPackage = await dustPackageCtx.getTopObject();
+
+    const compiled = await GraphEngine
+      .extend('dust-app/v1-beta1')
+      .compileToHtml(this, dustPackageGraph, dustPackage, { appRoot, usesLegacyDB });
+
+    return request.makeHtmlResponse(compiled);
+  },
+
 });

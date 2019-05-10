@@ -64,7 +64,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
       });
       this.webServerCtx = await this.graphWorld.getContextForGraph(this.webServerGraph)
       this.webServer = await this.webServerCtx.getTopObject();
-      await this.webServer.activate();
+      await this.webServer.activate(this.graphWorld);
       console.log('brought up web server', this.webServer);
 
       await this.webServer.DefaultHandler;
@@ -75,7 +75,13 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
         }],
         ForwardTo: {
           DefaultAction: {
-            Reference: this.dustManager,
+            ForeignNode: {
+              Ref: this.dustManager,
+              Behavior: 'serveAppReq',
+              Input: {
+                PathDepth: 1,
+              },
+            },
           },
         },
       });
@@ -105,7 +111,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
 
       case 'test-http':
         console.log('sending test request...');
-        const stdout = await execForLine(`curl -s http://localhost:9238${LaunchFlags.path}`);
+        const stdout = await execForLine(`curl -sv http://127.0.0.1:9238${LaunchFlags.path}`);
         console.log();
         console.log('>', stdout.split('\n').join('\n> '));
         break;
