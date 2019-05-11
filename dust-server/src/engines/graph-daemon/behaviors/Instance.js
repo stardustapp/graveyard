@@ -1,7 +1,12 @@
 const {promisify} = require('util');
-const exec = promisify(require('child_process').exec);
-async function execForLine(cmd) {
-  const {stdout, stderr} = await exec(cmd);
+const execAsync = promisify(require('child_process').exec);
+const setTimeoutAsync = promisify(setTimeout)
+async function execForLine(cmd, {timeoutMs=1000}={}) {
+
+  const {stdout, stderr} = await Promise.race([
+    execAsync(cmd),
+    setTimeoutAsync(timeoutMs).then(() => Promise.reject(new Error('execForLine() timeout'))),
+  ]);
   if (stderr.length > 0)
     console.warn('WARN: exec() stderr:', stderr);
   return stdout.trim();
@@ -30,6 +35,23 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     });
     await worldStore.ready;
     this.graphWorld = await storeEngine.buildFromStore({}, worldStore);
+
+    // BRING UP HOST FILESYSTEM
+    // const fsEngine = await GraphEngine.load('host-filesystem/v1-beta1');
+    // this.vendorFileSystem = await fsEngine.buildUsingVolatile({
+    //   hostRoot: '/home/dan/Code/dust-server/vendor',
+    // });
+    this.workDirGraph = await this.graphWorld.findOrCreateGraph({
+      engineKey: 'host-filesystem/v1-beta1',
+      gitHash: this.GitHash,
+      fields: {
+        system: 'work dir',
+      },
+      hostRoot: this.Host.WorkDir,
+    });
+    this.workDirCtx = await this.graphWorld.getContextForGraph(this.workDirGraph)
+    this.workDir = await this.workDirCtx.getTopObject();
+    await this.workDir.Root;
 
     // GET DUST MANAGER
     this.dustManagerGraph = await this.graphWorld.findOrCreateGraph({
@@ -68,8 +90,10 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
       console.log('brought up web server', this.webServer);
 
       await this.webServer.DefaultHandler;
-      await this.webServer.DefaultHandler.InnerRules[0].ForwardTo; // 'localhost'
-      this.webServer.DefaultHandler.InnerRules[0].ForwardTo.InnerRules.push({
+      const localhostHandler = await this.webServer
+        .DefaultHandler.InnerRules[0].ForwardTo; // 'localhost'
+
+      localhostHandler.InnerRules.push({
         Conditions: [{
           PathPatterns: ['/dust-app/*'],
         }],
@@ -81,6 +105,38 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
               Input: {
                 PathDepth: 1,
               },
+            },
+          },
+        },
+      });
+
+      localhostHandler.InnerRules.push({
+        Conditions: [{
+          PathPatterns: ['/~~vendor/*'],
+        }],
+        ForwardTo: {
+          DefaultAction: {
+            StreamFiles: {
+              PathDepth: 1,
+              RootDir: await this.workDir.Root.getDirectory('vendor'),
+              DotFiles: 'deny',
+              Immutable: { type: Boolean, defaultValue: false },
+            },
+          },
+        },
+      });
+
+      localhostHandler.InnerRules.push({
+        Conditions: [{
+          PathPatterns: ['/~~src/*'],
+        }],
+        ForwardTo: {
+          DefaultAction: {
+            StreamFiles: {
+              PathDepth: 1,
+              RootDir: await this.workDir.Root.getDirectory('src'),
+              DotFiles: 'deny',
+              Immutable: { type: Boolean, defaultValue: false },
             },
           },
         },

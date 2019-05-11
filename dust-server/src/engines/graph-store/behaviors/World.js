@@ -278,7 +278,7 @@ class VirtualGraphContext extends GraphContext {
     const foreignCtx = foreignBackend.defaultCtx;
     //console.log('found foreign context', foreignCtx);
     const foreignNode = foreignCtx.getNodeById(parts[2]);
-    console.log('found foreign node', foreignNode);
+    console.log('found foreign', foreignNode.nodeType, foreignNode.nodeId);
     return foreignNode;
   }
 /*

@@ -86,15 +86,19 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
       await this.routeRequest(req, res, tags);
       tags.ok = true;
     } catch (err) {
-      if (err instanceof HttpErrorResponse) {
+      if (res.headersSent) throw err;
+      res.setHeader('Content-Security-Policy', "default-src 'none'");
+      res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      if (err instanceof HttpBodyThrowable) {
         tags.ok = true;
         tags.statuscode = err.statusCode;
-        res.writeHead(err.statusCode, { 'Content-Type': 'text/plain' });
+        res.writeHead(err.statusCode);
         res.end(err.message, 'utf-8');
       } else {
         tags.ok = false;
         tags.statuscode = 500;
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.writeHead(500);
         res.end(`Dust Server encountered an internal error.\n\n`+err.stack, 'utf-8');
       }
     } finally {
@@ -183,7 +187,10 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
         res.end(response.Body.StringData, 'utf-8');
         break;
       case 'Base64':
-        res.end(response.Body.StringData, 'utf-8');
+        res.end(new Buffer(response.Body.Base64, 'base64'));
+        break;
+      case 'NativeStream':
+        response.nodeJsStream.pipe(res);
         break;
       default:
         throw new Error(`unhandled Body key ${response.Body.currentKey}`)

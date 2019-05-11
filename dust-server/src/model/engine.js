@@ -106,6 +106,8 @@ class GraphEngine {
 
   spawnObject(data, type=null) {
     const nodeType = type || this.names.get(data.Type);
+    if (!this.nameBehaviors.has(data.typeName)) console.log(
+      `! Missing type behavior for ${data.typeName} in ${this.engineKey}`);
     const behavior = this.nameBehaviors.get(data.typeName) || nodeType.behavior;
     if (!nodeType) throw new Error(
       `Object ${data.objectId} ${JSON.stringify(data.Name)

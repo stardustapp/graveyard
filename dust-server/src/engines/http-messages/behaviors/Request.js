@@ -1,12 +1,63 @@
 GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
 
-      /*
-      TODO: getters?
-        RemoteAddress: req.connection.remoteAddress, // TODO: X-Forwarded-For
-        HostName: hostname || ipv4 || ipv6,
-        AltPort: altPort.length ? parseInt(altPort) : null,
-        Origin: `http://${hostname || ipv4 || ipv6}${altPort.length ? ':' : ''}${altPort}`,
-      */
+  /*
+  TODO: getters?
+    RemoteAddress: req.connection.remoteAddress, // TODO: X-Forwarded-For
+    HostName: hostname || ipv4 || ipv6,
+    AltPort: altPort.length ? parseInt(altPort) : null,
+    Origin: `http://${hostname || ipv4 || ipv6}${altPort.length ? ':' : ''}${altPort}`,
+  */
+
+  getHeader(header) {
+    const key = header.toLowerCase();
+    return this.Headers.find(x => x
+      .Key.toLowerCase() === key);
+  },
+
+  hasTrailingSlash() {
+    return this.Path[this.Path.length - 1] === '/'
+  },
+  isConditionalGET() {
+    return this.getHeader('if-match') ||
+      this.getHeader('if-unmodified-since') ||
+      this.getHeader('if-none-match') ||
+      this.getHeader('if-modified-since');
+  },
+  /*
+  isPreconditionFailure () {
+    var req = this.req
+    var res = this.res
+
+    // if-match
+    var match = req.headers['if-match']
+    if (match) {
+      var etag = res.getHeader('ETag')
+      return !etag || (match !== '*' && parseTokenList(match).every(function (match) {
+        return match !== etag && match !== 'W/' + etag && 'W/' + match !== etag
+      }))
+    }
+
+    // if-unmodified-since
+    var unmodifiedSince = parseHttpDate(req.headers['if-unmodified-since'])
+    if (!isNaN(unmodifiedSince)) {
+      var lastModified = parseHttpDate(res.getHeader('Last-Modified'))
+      return isNaN(lastModified) || lastModified > unmodifiedSince
+    }
+
+    return false
+  },
+  */
+
+  async makeNodeJsStreamingResponse(stream, statusCode=200) {
+    const resp = await this.RETURNED.newResponse({
+      Timestamp: new Date,
+      Status: { Code: statusCode },
+      Body: { NativeStream: true },
+    });
+    resp.nodeJsStream = stream;
+    //console.log('stream in', resp);
+    return resp;
+  },
 
   makeStringResponse(contentType, StringData, statusCode=200) {
     return this.RETURNED.newResponse({
@@ -23,9 +74,17 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
   makeJsonResponse(data, statusCode=200) {
     return this.makeStringResponse('application/json', JSON.stringify(data, null, 2), statusCode);
   },
-
   makeHtmlResponse(data, statusCode=200) {
     return this.makeStringResponse('text/html', data, statusCode);
+  },
+  makePlaintextResponse(data, statusCode=200) {
+    return this.makeStringResponse('text/plain', data, statusCode);
+  },
+
+  async makeNotModifiedResponse() {
+    const resp = await this.makeStringResponse('text/html', '', 304);
+    resp.removeContentHeaderFields();
+    return resp;
   },
 
   async makeRedirect(target, statusCode=303) {
@@ -55,25 +114,6 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
       }],
       Body: { Base64: blob.Data },
     });
-  },
-
-  // NodeJS read streams
-  // TODO!!!
-  sendStream(stream, mimeType='application/octet-stream') {
-    this.addHeader('Content-Type', mimeType);
-    const handler = this.buildResponseHeader(200);
-
-    stream.once('error', err => {
-      console.log('http send stream error:', err.message);
-      try {
-        this.sendJson({error: err.name, message: err.message}, 500);
-      } catch (err) {
-        console.log('http encountered new error reporting stream error', err.stack);
-        handler.write(JSON.stringify({error: err.name, message: err.message}));
-        handler.finish();
-      }
-    });
-    handler.writeStream(stream);
   },
 
   async respondWithFolderIndex(target) {

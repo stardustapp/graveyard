@@ -26,6 +26,13 @@ ExtendableError = class ExtendableError extends Error {
   }
 }
 
+global.HttpBodyThrowable = class HttpBodyThrowable extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
 PrintCallSite = function PrintCallSite({
   indent = '',
   trimFrames = 1,
