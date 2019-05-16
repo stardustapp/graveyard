@@ -153,7 +153,6 @@ async function streamFile({
   }
 
   const response = await request.makeNodeJsStreamingResponse(stream);
-  response.setHeader('Content-Type', 'application/octet-stream');
-  //stream.pipe(response.bodyStream);
+  response.setHeader('Content-Type', entry.guessMime());
   return response;
 }
