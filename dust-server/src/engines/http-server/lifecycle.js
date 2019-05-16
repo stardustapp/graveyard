@@ -1,10 +1,3 @@
-global.HttpErrorResponse = class HttpErrorResponse extends Error {
-  constructor(statusCode, message) {
-    super(message);
-    this.statusCode = statusCode;
-  }
-}
-
 const extensions = GraphEngine.extend('http-server/v1-beta1');
 extensions.lifecycle = {
 

@@ -74,11 +74,7 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
       }, isList: true },
       // How requests that stop at this handler get responded to.
       DefaultAction: { anyOfKeyed: {
-        ForeignNode: { fields: {
-          Ref: { reference: true },
-          Behavior: { type: String },
-          Input: { type: JSON, optional: true },
-        }},
+        // Hardcoded HTTP response
         FixedResponse: { fields: {
           StatusCode: Number,
           Body: { anyOfKeyed: {
@@ -89,7 +85,34 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
             Key: String,
             Value: { type: String },
           }, isList: true },
-        }}
+        }},
+        // Arbitrary logic from outside behavior
+        ForeignNode: { fields: {
+          Ref: { reference: true },
+          Behavior: { type: String },
+          Input: { type: JSON, optional: true },
+        }},
+        // Rich file serving from outside filesystem
+        StreamFiles: { fields: {
+          PathDepth: Number,
+          RootDir: { reference: {
+            engine: 'host-filesystem/v1-beta1',
+            name: 'Directory',
+          }},
+          AcceptRanges: { type: Boolean, defaultValue: true },
+          CacheControl: { type: Boolean, defaultValue: true },
+          ETag: { type: Boolean, defaultValue: true },
+          DotFiles: {
+            type: String,
+            allowedValues: ['ignore', 'allow', 'deny'],
+            defaultValue: 'ignore',
+          },
+          Extensions: { type: String, isList: true },
+          Immutable: { type: Boolean, defaultValue: false },
+          IndexFiles: { type: String, isList: true, defaultValue: ['index.html'] },
+          LastModified: { type: Boolean, defaultValue: true },
+          MaxAge: { type: Boolean, defaultValue: 0 }, // 60 * 60 * 24 * 365 * 1000 // 1 year
+        }},
       }},
     },
   });

@@ -26,6 +26,7 @@ class GraphNode {
     const header = `GraphNode [ ${this.nodeType} id '${this.nodeId}' ctxId ${this.ctxId} ]`;
     const storedNode = OpenContexts.get(this.ctxId).storedNodes.peek(this.nodeId);
     if (storedNode) {
+      //console.log('node inspect', storedNode)
       return header+' '+JSON
         .stringify(storedNode.recordData, null, 2)
         .split('\n').join('\n'+prefix);
@@ -116,20 +117,30 @@ class GraphContext {
     }
     //console.log('raw node:', nodeId, storeNode);
 
-    const accessor = FieldAccessor
-      .forType(this.engine
-        .names.get(storeNode.typeName));
-    const node = accessor.mapOut(storeNode, this);
+    try {
+      const accessor = FieldAccessor
+        .forType(this.engine
+          .names.get(storeNode.typeName));
+      const node = accessor.mapOut(storeNode, this);
 
-    // optionally run startup code
-    if (typeof node.setup === 'function') {
-      this.graphNodes.set(nodeId, node);
-      // TODO: seed this properly before calling setup (loadercache feature?)
-      //node.ready = node.setup();
-      await node.setup();
+      // optionally run startup code
+      if (typeof node.setup === 'function') {
+        this.graphNodes.set(nodeId, node);
+        // TODO: seed this properly before calling setup (loadercache feature?)
+        //node.ready = node.setup();
+        await node.setup();
+      }
+
+      return node;
+
+    } catch (err) {
+      err.stack = [
+        ...err.stack.split('\n'),
+        '    -- via',
+        ...stack.split('\n').slice(2),
+      ].join('\n');
+      throw err;
     }
-
-    return node;
   }
   loadStoreNode(nodeId) {
     return this
@@ -397,6 +408,13 @@ class GraphContext {
     const nodeId = randomString(3); // TODO: check for uniqueness
     console.log('assigned new nodeId', nodeId);
     return this.putNode(accessor, fields, nodeId);
+  }
+
+  newTypedFields(typeName, fields) {
+    const accessor = this.findNodeAccessor(typeName);
+    if (!accessor) throw new Error(
+      `no accessor for ${typeName}`);
+    return this.newNode(accessor, fields);
   }
 
   // use this if there can't already be a top

@@ -37,7 +37,8 @@ class NodeAccessor extends FieldAccessor {
     }
 
     const behavior = graphCtx.engine.nameBehaviors.get(this.typeName);
-    //console.log('mapOut behavior', this.typeName, graphCtx.engine.engineKey, Object.keys(behavior || {missing:true}))
+    // if (!behavior) console.log(`! Missing type behavior for ${this.typeName} in ${graphCtx.engine.engineKey}`);
+    //console.log('mapOut behavior', this.typeName, storeNode.nodeId, graphCtx.engine.engineKey, Object.keys(behavior || {missing:true}))
     for (const key in behavior) {
       Object.defineProperty(node, key, {
         value: behavior[key],

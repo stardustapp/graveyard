@@ -3,6 +3,7 @@ class ListFieldType extends FieldType {
   constructor(config, inner) {
     super('composite', 'List');
     this.inner = inner;
+    this.defaultValue = config.defaultValue;
   }
   fromExt(input) {
     //console.log(input);
@@ -13,7 +14,7 @@ class ListFieldType extends FieldType {
 }
 
 
-class ListAccessor extends Array {
+class ListAccessor extends FieldAccessor {
   constructor(type) {
     super(type);
     this.innerAccessor = FieldAccessor.forType(type.inner);
@@ -64,7 +65,11 @@ class ListAccessor extends Array {
   }
 
   mapIn(newVal, graphCtx, node) {
-    if (!newVal) return [];
+    if (newVal == null) {
+      if (this.myType.defaultValue != null)
+        return this.mapIn(this.myType.defaultValue, graphCtx, node);
+      return [];
+    }
     if (newVal.constructor === Array) {
       return newVal.map(x => this.innerAccessor.mapIn(x, graphCtx, node));
     } else throw new Error(
