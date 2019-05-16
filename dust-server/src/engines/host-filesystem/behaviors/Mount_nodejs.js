@@ -1,6 +1,4 @@
-const fs = require('fs');
-const {promisify} = require('util');
-const fsStat = promisify(fs.stat);
+const fsPromises = require('fs').promises;
 const {extname, join, normalize, resolve, sep} = require('path');
 
 const BYTES_RANGE_REGEXP = /^ *bytes=/;
@@ -40,10 +38,24 @@ GraphEngine.attachBehavior('host-filesystem/v1-beta1', 'Mount', {
     });
   },
 
+  async listChildren(path) {
+    const realPath = this.resolvePath(path);
+    console.log('readdir "%s"', realPath);
+    const entries = await fsPromises.readdir(realPath, {
+      withFileTypes: true,
+    });
+    return entries.map(x => ({
+      name: x.name,
+      isFile: x.isFile(),
+      isDirectory: x.isDirectory(),
+    }));
+  },
+
   async readMeta(path) {
-    console.log('stat "%s"', this.resolvePath(path));
+    const realPath = this.resolvePath(path);
+    console.log('stat "%s"', realPath);
     try {
-      const stats = await fsStat(this.resolvePath(path));
+      const stats = await fsPromises.stat(realPath);
       return { Posix: {
         FileType: FILE_TYPE_KEYS.find(type => stats[`is${type}`]()),
 
@@ -90,40 +102,6 @@ GraphEngine.attachBehavior('host-filesystem/v1-beta1', 'Mount', {
     // join / normalize from root dir
     const rootPath = resolve(this.Anchor.HostPath);
     return normalize(join(rootPath, parts.join(sep)));
-  },
-
-  sendFile (path) {
-    var i = 0;
-
-    console.log('stat "%s"', path)
-    fs.stat(path, function onstat (err, stat) {
-      if (err && err.code === 'ENOENT' && !extname(path) && path[path.length - 1] !== sep) {
-        // not found, check extensions
-        return next(err)
-      }
-      if (err) return self.onStatError(err)
-      if (stat.isDirectory()) return self.redirect(path)
-      self.emit('file', path, stat)
-      self.send(path, stat)
-    })
-
-    function next (err) {
-      if (self._extensions.length <= i) {
-        return err
-          ? self.onStatError(err)
-          : self.error(404)
-      }
-
-      var p = path + '.' + self._extensions[i++]
-
-      console.log('stat "%s"', p)
-      fs.stat(p, function (err, stat) {
-        if (err) return next(err)
-        if (stat.isDirectory()) return next()
-        self.emit('file', p, stat)
-        self.send(p, stat)
-      })
-    }
   },
 
 });

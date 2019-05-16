@@ -15,6 +15,10 @@ GraphEngine.attachBehavior('host-filesystem/v1-beta1', 'File', {
     return 'application/octet-stream';
   },
 
+  baseName() {
+    return path.basename(this.Path);
+  },
+
 });
 
 // web-oriented subset of https://github.com/stardustapp/dust-server/blob/59dba97cc466c54c2c16e3137652d5951ceafd8e/vendor/libraries/wsc-chrome.js#L4698-L5681
@@ -111,6 +115,7 @@ var ExtensionMimes = {
   ".weba": "audio/webm",
   ".webm": "video/webm",
   ".webp": "image/webp",
+  ".woff2": "font/woff2",
   ".xhtml": "application/xhtml+xml",
   ".xml": "application/xml",
   ".xslt": "application/xslt+xml",

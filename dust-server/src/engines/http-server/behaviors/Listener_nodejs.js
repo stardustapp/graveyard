@@ -88,16 +88,20 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     } catch (err) {
       if (res.headersSent) throw err;
       res.setHeader('Content-Security-Policy', "default-src 'none'");
-      res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       if (err instanceof HttpBodyThrowable) {
         tags.ok = true;
         tags.statuscode = err.statusCode;
+        for (key in err.headers)
+          res.setHeader(key, err.headers[key]);
+        if (!('Content-Type' in err.headers))
+          res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
         res.writeHead(err.statusCode);
         res.end(err.message, 'utf-8');
       } else {
         tags.ok = false;
         tags.statuscode = 500;
+        res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
         res.writeHead(500);
         res.end(`Dust Server encountered an internal error.\n\n`+err.stack, 'utf-8');
       }
@@ -200,14 +204,6 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
 });
 
 /*
-    // If it's a directory, try filling entry with index.html
-    if (reqPath.endsWith('/')) {
-      const indexEntry = await this.webEnv.getEntry(reqPath+'index.html');
-      if (indexEntry && indexEntry.get) {
-        target = await indexEntry.get();
-      }
-    }
-
     // If we don't have a target yet just get it directly
     // TODO: redirect to add slash for Folders. this broke when trailing slash became meaningless
     if (!target) {
@@ -235,38 +231,6 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
       }
     }
 
-
-  // Specifically for routing POST to function invocations
-  // Not very forgiving, since POSTs generally come from ourself
-  async handlePOST(req, responder) {
-    const [reqPath, queryStr] = (req.uri || '/').split('?');
-
-    const entry = await this.webEnv.getEntry(reqPath);
-    if (!entry) {
-      return responder.sendJson({error: 'not-found'}, 404);
-    }
-    if (!entry.invoke) {
-      const allowed = [];
-      if (entry.get) allowed.push('GET');
-      if (entry.get) allowed.push('HEAD');
-      responder.addHeader('Allow', allowed.join(', '));
-      return responder.sendJson({error: 'post-not-allowed'}, 405);
-    }
-    const response = await entry.invoke(new StringLiteral('request', JSON.stringify(req)));
-
-    if (!response) {
-      return responder.sendJson({error: 'null-response'}, 500);
-    } else if (response.Type === 'Blob') {
-      responder.sendBlob(response);
-    } else if (response.Type === 'Folder' && response.Name === 'http response') {
-      // allows submission receivers to do things like redirect and set cookies
-      responder.sendStarResponse(response);
-    } else {
-      responder.sendJson(response);
-    }
-  }
-}
-
     const mainVHost = {
       handleGET: async (meta, responder) => {
         const {method, uri, headers, queryParams, ip} = meta;
@@ -280,37 +244,7 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
           }
           return await this.dustManager.serveAppPage(this.graphWorld, parts[1], meta, responder);
         }
-
-        // TODO: proper filesystem serving support
-        if (parts[0] === '~~src' && parts.slice(-1)[0].endsWith('.js')) {
-          const filePath = ['src', ...parts.slice(1)].join('/');
-          console.log('streaming JS source file', filePath);
-          const fs = require('fs'); // TODO: nodejs specific
-          const stream = fs.createReadStream(filePath);
-          return responder.sendStream(stream, 'application/javascript');
-        }
-        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.js')) {
-          const filePath = ['vendor', ...parts.slice(1)].join('/');
-          console.log('streaming JS source file', filePath);
-          const fs = require('fs'); // TODO: nodejs specific
-          const stream = fs.createReadStream(filePath);
-          return responder.sendStream(stream, 'application/javascript');
-        }
-        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.css')) {
-          const filePath = ['vendor', ...parts.slice(1)].join('/');
-          console.log('streaming CSS file', filePath);
-          const fs = require('fs'); // TODO: nodejs specific
-          const stream = fs.createReadStream(filePath);
-          return responder.sendStream(stream, 'text/css');
-        }
-        if (parts[0] === '~~vendor' && parts.slice(-1)[0].endsWith('.woff2')) {
-          const filePath = ['vendor', ...parts.slice(1)].join('/');
-          console.log('streaming font file', filePath);
-          const fs = require('fs'); // TODO: nodejs specific
-          const stream = fs.createReadStream(filePath);
-          return responder.sendStream(stream, 'application/font-woff2');
-        }
-
+        // serve static files
         return responder.sendJson({error: 'not-found'}, 404);
       },
     };

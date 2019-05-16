@@ -27,9 +27,10 @@ ExtendableError = class ExtendableError extends Error {
 }
 
 global.HttpBodyThrowable = class HttpBodyThrowable extends Error {
-  constructor(statusCode, message) {
+  constructor(statusCode, message, headers) {
     super(message);
     this.statusCode = statusCode;
+    this.headers = headers;
   }
 }
 
