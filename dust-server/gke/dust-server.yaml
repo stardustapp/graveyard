@@ -13,7 +13,7 @@ spec:
     metadata:
       labels:
         app: dust-server
-        revision: "1"
+        revision: "3"
     spec:
       containers:
       - name: dust-server
@@ -25,8 +25,12 @@ spec:
         - serve
         ports:
         - containerPort: 9238
-      nodeSelector:
-        cloud.google.com/gke-nodepool: micro
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9238
+          initialDelaySeconds: 5
+          periodSeconds: 15
 
 ---
 apiVersion: v1
@@ -40,14 +44,26 @@ spec:
   ports:
   - protocol: TCP
     port: 80
-    targetPort: 9328
+    targetPort: 9238
 
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: dust-server-fe
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: dust-server
+    networking.gke.io/managed-certificates: devmodecloud-gke
 spec:
   backend:
     serviceName: dust-server
     servicePort: 80
+
+---
+apiVersion: networking.gke.io/v1beta1
+kind: ManagedCertificate
+metadata:
+  name: devmodecloud-gke
+spec:
+  domains:
+    - gke.devmode.cloud

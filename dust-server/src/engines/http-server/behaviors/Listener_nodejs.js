@@ -165,8 +165,8 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
 
       RemoteAddress: req.connection.remoteAddress, // TODO: X-Forwarded-For
       HostName: hostname || ipv4 || ipv6,
-      AltPort: altPort.length ? parseInt(altPort) : null,
-      Origin: `http://${hostname || ipv4 || ipv6}${altPort.length ? ':' : ''}${altPort}`,
+      AltPort: altPort ? parseInt(altPort) : null,
+      Origin: `http://${hostname || ipv4 || ipv6}${altPort ? ':' : ''}${altPort}`,
       Path: pathname,
       Query: queryList,
       Body: { Base64: '' }, // TODO
@@ -184,6 +184,7 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     for (const {Key, Value} of response.Headers)
       res.setHeader(Key, Value);
     res.writeHead(response.Status.Code, response.Status.Message);
+    console.log('Sent HTTP', response.Status.Code, 'in response to', req.method, req.url)
 
     // write body
     switch (response.Body.currentKey) {
