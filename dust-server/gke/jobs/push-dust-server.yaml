@@ -5,6 +5,7 @@ metadata:
   labels:
     purpose: build
 spec:
+  ttlSecondsAfterFinished: 30
   template:
     spec:
       containers:
@@ -19,11 +20,15 @@ spec:
           dockerd --host=unix:///var/run/docker.sock &
           git clone https://github.com/stardustapp/dust-server
           ;cd dust-server
-          ;docker build -t gcr.io/stardust-156404/dust-server:latest .
-          ;docker push gcr.io/stardust-156404/dust-server
+          ;GitHash="$(git describe --always --long --dirty)"
+          ;ImageTag="gcr.io/stardust-156404/dust-server:$GitHash"
+          ;docker build -t $ImageTag .
+          ;docker push $ImageTag
+          ;kubectl set image deployment.v1.apps/dust-server dust-server=$ImageTag
+          ;kubectl delete job push-dust-server &
       restartPolicy: Never
       nodeSelector:
-        cloud.google.com/gke-nodepool: build
+        purpose: build
       tolerations:
       - key: cloud.google.com/gke-preemptible
         operator: Equal

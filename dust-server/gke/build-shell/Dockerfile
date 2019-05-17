@@ -1,10 +1,16 @@
 FROM docker:dind
-WORKDIR /root
 RUN apk add python2 git bash vim
-RUN wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-246.0.0-linux-x86_64.tar.gz && \
-    tar -xf google-cloud-sdk-246.0.0-linux-x86_64.tar.gz && \
+WORKDIR /root
+
+ARG CloudSdkPath=dl/cloudsdk/channels/rapid/downloads/
+ARG CloudSdkFile=google-cloud-sdk-246.0.0-linux-x86_64.tar.gz
+RUN wget "https://dl.google.com/${CloudSdkPath}${CloudSdkFile}" && \
+    tar -xf "${CloudSdkFile}" && \
+    rm "${CloudSdkFile}" && \
     ./google-cloud-sdk/install.sh
+
 ENV PATH="/root/google-cloud-sdk/bin:${PATH}"
-RUN ./google-cloud-sdk/bin/gcloud init && \
+RUN gcloud init && \
+    gcloud components install kubectl && \
     gcloud auth configure-docker && \
-    gcloud components install kubectl
+    gcloud container clusters get-credentials

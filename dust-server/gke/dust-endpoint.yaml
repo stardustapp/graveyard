@@ -1,0 +1,21 @@
+---
+apiVersion: networking.gke.io/v1beta1
+kind: ManagedCertificate
+metadata:
+  name: devmodecloud-gke
+spec:
+  domains:
+    - gke.devmode.cloud
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: dust-server-fe
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: dust-server
+    networking.gke.io/managed-certificates: devmodecloud-gke
+spec:
+  backend:
+    serviceName: dust-server
+    servicePort: 80

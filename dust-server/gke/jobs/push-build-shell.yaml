@@ -5,6 +5,7 @@ metadata:
   labels:
     purpose: build
 spec:
+  ttlSecondsAfterFinished: 30
   template:
     spec:
       containers:
@@ -23,7 +24,7 @@ spec:
           ;docker push gcr.io/stardust-156404/build-shell
       restartPolicy: Never
       nodeSelector:
-        cloud.google.com/gke-nodepool: build
+        purpose: build
       tolerations:
       - key: cloud.google.com/gke-preemptible
         operator: Equal
