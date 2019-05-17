@@ -29,8 +29,8 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
         }},
         Tcp: { fields: {
           Interface: { type: String, optional: true },
-          Host: { type: String, defaultValue: '0.0.0.0' },
-          Port: { type: Number, optional: true },
+          Host: String,
+          Port: Number,
         }},
       }},
       TrustProxyLevels: { type: Number, defaultValue: 1 },

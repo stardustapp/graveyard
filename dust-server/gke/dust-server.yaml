@@ -13,10 +13,12 @@ spec:
     metadata:
       labels:
         app: dust-server
+        revision: "1"
     spec:
       containers:
       - name: dust-server
         image: gcr.io/stardust-156404/dust-server:latest
+        imagePullPolicy: Always
         args:
         - node
         - nodejs
