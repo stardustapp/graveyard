@@ -13,6 +13,24 @@ extensions.lifecycle = {
           DefaultHandler: {
             InnerRules: [{
               Conditions: [{
+                PathPatterns: ['/healthz'],
+              }],
+              ForwardTo: {
+                DefaultAction: {
+                  FixedResponse: {
+                    StatusCode: 200,
+                    Body: {
+                      StringData: 'ok',
+                    },
+                    Headers: [{
+                      Key: 'Content-Type',
+                      Value: 'text/plain',
+                    }],
+                  },
+                },
+              },
+            },{
+              Conditions: [{
                 Host: {
                   Names: ['localhost', '127.0.0.1'],
                 },
