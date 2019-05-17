@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: push-dust-server
+  labels:
+    purpose: build
+spec:
+  template:
+    spec:
+      containers:
+      - name: docker
+        image: gcr.io/stardust-156404/build-shell:latest
+        securityContext:
+          privileged: true
+        args:
+        - bash
+        - -exc
+        - >
+          dockerd --host=unix:///var/run/docker.sock &
+          git clone https://github.com/stardustapp/dust-server
+          ;cd dust-server
+          ;docker build -t gcr.io/stardust-156404/dust-server:latest .
+          ;docker push gcr.io/stardust-156404/dust-server
+      restartPolicy: Never
+      nodeSelector:
+        cloud.google.com/gke-nodepool: build
+      tolerations:
+      - key: cloud.google.com/gke-preemptible
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+  backoffLimit: 1

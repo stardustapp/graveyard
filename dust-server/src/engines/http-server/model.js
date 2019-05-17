@@ -29,7 +29,7 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
         }},
         Tcp: { fields: {
           Interface: { type: String, optional: true },
-          Host: { type: String, defaultValue: '127.0.0.1' },
+          Host: { type: String, defaultValue: '0.0.0.0' },
           Port: { type: Number, optional: true },
         }},
       }},
