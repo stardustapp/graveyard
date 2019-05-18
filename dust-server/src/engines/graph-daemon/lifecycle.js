@@ -18,7 +18,7 @@ extensions.lifecycle = {
   async buildNew(graphCtx, {argv}) {
     return await graphCtx.newTopNode({
       CreatedAt: new Date,
-      GitHash: await execForLine(`git describe --always --long --dirty`),
+      GitHash: process.env.DUST_GIT_HASH || await execForLine(`git describe --always --long --dirty`),
       LaunchFlags: argv,
       Config: {
         DataPath: argv.dataPath,
