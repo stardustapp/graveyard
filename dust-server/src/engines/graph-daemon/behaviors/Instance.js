@@ -120,7 +120,6 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
               PathDepth: 1,
               RootDir: await this.workDir.Root.getDirectory('vendor'),
               DotFiles: 'deny',
-              Immutable: { type: Boolean, defaultValue: false },
             },
           },
         },
@@ -136,11 +135,17 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
               PathDepth: 1,
               RootDir: await this.workDir.Root.getDirectory('src'),
               DotFiles: 'deny',
-              Immutable: { type: Boolean, defaultValue: false },
             },
           },
         },
       });
+
+      localhostHandler.DefaultAction = {
+        StreamFiles: {
+          PathDepth: 0,
+          RootDir: await this.workDir.Root.getDirectory('src/default-www'),
+        },
+      };
     }
   },
 
