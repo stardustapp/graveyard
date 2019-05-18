@@ -13,4 +13,4 @@ ENV PATH="/root/google-cloud-sdk/bin:${PATH}"
 RUN gcloud init && \
     gcloud components install kubectl && \
     gcloud auth configure-docker && \
-    gcloud container clusters get-credentials
+    gcloud container clusters get-credentials dust --zone us-west1-a
