@@ -21,10 +21,13 @@ spec:
           git clone https://github.com/stardustapp/dust-server
           ;cd dust-server
           ;GitHash="$(git describe --always --long --dirty)"
-          ;ImageTag="gcr.io/stardust-156404/dust-server:$GitHash"
-          ;docker build -t $ImageTag .
-          ;docker push $ImageTag
-          ;kubectl set image deployment.v1.apps/dust-server dust-server=$ImageTag
+          ;Image="gcr.io/stardust-156404/dust-server"
+          ;GitImage="$Image:$GitHash"
+          ;docker build --build-arg GitHash="$GitHash" -t "$GitImage" .
+          ;docker push "$GitImage"
+          ;docker tag "$GitImage" "$Image:latest"
+          ;docker push "$Image:latest"
+          ;kubectl set image deployment.v1.apps/dust-server dust-server="$GitImage"
           ;kubectl delete job push-dust-server
       restartPolicy: Never
       nodeSelector:

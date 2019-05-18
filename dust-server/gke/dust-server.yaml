@@ -36,12 +36,18 @@ spec:
           httpGet:
             path: /healthz
             port: 9238
+            httpHeaders:
+            - name: Host
+              value: healthcheck
           initialDelaySeconds: 5
-          periodSeconds: 15
+          periodSeconds: 30
         livenessProbe:
           httpGet:
             path: /healthz
             port: 9238
+            httpHeaders:
+            - name: Host
+              value: healthcheck
           initialDelaySeconds: 5
           periodSeconds: 60
 

@@ -73,10 +73,20 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     this.heartbeatInterval.unref();
   },
 
+  describeInterface() {
+    if (this.Interface.Unix)
+      return `unix-${this.Interface.Unix.Path}`;
+    if (this.Interface.Tcp) {
+      const {Interface, Host, Port} = this.Interface.Tcp;
+      return [`tcp`, Interface, Host, Port].filter(x=>x).join('-');
+    }
+    throw new Error(`Cannot describe unknown Listener.Interface`);
+  },
+
   async handleRequest(req, res) {
     const startDate = new Date;
     const tags = {
-      listener_id: this.nodeId,
+      listener: this.describeInterface(),
       host_header: req.headers.host,
       method: req.method,
       http_version: req.httpVersion,

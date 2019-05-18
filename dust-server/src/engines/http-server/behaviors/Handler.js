@@ -43,8 +43,8 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
     const response = await this.performAction(request, graphWorld);
     if (response) {
       response.Headers.push({
-        Key: 'X-Dust-Listener-ID',
-        Value: tags.listener_id,
+        Key: 'X-Dust-Listener',
+        Value: tags.listener,
       },{
         Key: 'X-Dust-Handler-ID',
         Value: this.nodeId,
