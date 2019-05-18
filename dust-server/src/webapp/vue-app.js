@@ -1,5 +1,5 @@
 window.orbiter = new Orbiter();
-var promise = orbiter.autoLaunch()
+var promise = orbiter.autoLaunch(new Launchpad(location.hostname, 'public'))
   .then(() => {
     window.skylink = orbiter.mountTable.api;
     return window.skylink;

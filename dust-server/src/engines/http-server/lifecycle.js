@@ -29,12 +29,11 @@ extensions.lifecycle = {
                   },
                 },
               },
-            },{
+            }/*,{
               Conditions: [{
                 Host: {
                   Names: [
                     'localhost', '127.0.0.1',
-                    '*.devmode.cloud', // TODO: better way to specify this
                   ],
                 },
               }],
@@ -52,7 +51,7 @@ extensions.lifecycle = {
                   },
                 },
               },
-            }],
+            }*/],
             DefaultAction: {
               FixedResponse: {
                 StatusCode: 421,

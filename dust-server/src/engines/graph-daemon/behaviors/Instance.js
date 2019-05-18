@@ -74,6 +74,18 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
       this.dustPackage = await this.dustPackageCtx.getTopObject();
     }
 
+    // GET PRIMARY DUST DOMAIN
+    this.dustDomainGraph = await this.graphWorld.findOrCreateGraph({
+      engineKey: 'dust-domain/v1-beta1',
+      gitHash: this.GitHash,
+      fields: {
+        system: 'dust-domain',
+        domain: 'gke.devmode.cloud',
+      },
+    });
+    this.dustDomainCtx = await this.graphWorld.getContextForGraph(this.dustDomainGraph)
+    this.dustDomain = await this.dustDomainCtx.getTopObject();
+
     // BRING UP WEBSERVER
     let webServer;
     if (this.Config.Command === 'serve' || this.Config.Command === 'test-http') {
@@ -90,62 +102,82 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
       console.log('brought up web server', this.webServer);
 
       await this.webServer.DefaultHandler;
-      const localhostHandler = await this.webServer
-        .DefaultHandler.InnerRules[1].ForwardTo; // 'localhost'
 
-      localhostHandler.InnerRules.push({
-        Conditions: [{
-          PathPatterns: ['/dust-app/*'],
-        }],
-        ForwardTo: {
-          DefaultAction: {
-            ForeignNode: {
-              Ref: this.dustManager,
-              Behavior: 'serveAppReq',
-              Input: {
-                PathDepth: 1,
+      const domainHandler = await this.webServer
+        .DefaultHandler.InnerRules.push({
+          Conditions: [{
+            Host: { Names: [
+              'localhost', 'localhost', '127.0.0.1',
+              this.dustDomain.DomainName,
+              `*.${this.dustDomain.DomainName}`,
+            ]},
+          }],
+          ForwardTo: {
+            InnerRules: [{
+              Conditions: [{
+                PathPatterns: ['/dust-app/*'],
+              }],
+              ForwardTo: {
+                DefaultAction: {
+                  ForeignNode: {
+                    Ref: this.dustManager,
+                    Behavior: 'serveAppReq',
+                    Input: {
+                      PathDepth: 1,
+                    },
+                  },
+                },
+              },
+            },{
+              Conditions: [{
+                PathPatterns: ['/~~vendor/*'],
+              }],
+              ForwardTo: {
+                DefaultAction: {
+                  StreamFiles: {
+                    PathDepth: 1,
+                    RootDir: await this.workDir.Root.getDirectory('vendor'),
+                    DotFiles: 'deny',
+                  },
+                },
+              },
+            },{
+              Conditions: [{
+                PathPatterns: ['/~~src/*'],
+              }],
+              ForwardTo: {
+                DefaultAction: {
+                  StreamFiles: {
+                    PathDepth: 1,
+                    RootDir: await this.workDir.Root.getDirectory('src'),
+                    DotFiles: 'deny',
+                  },
+                },
+              },
+            },{
+              Conditions: [{
+                PathPatterns: ['/~/*', '/~~export/*'],
+              }],
+              ForwardTo: {
+                DefaultAction: {
+                  ForeignNode: {
+                    Ref: this.dustDomain,
+                    Behavior: 'serveHttpRequest',
+                  },
+                },
+              },
+            }],
+            DefaultAction: {
+              StreamFiles: {
+                PathDepth: 0,
+                RootDir: await this.workDir.Root.getDirectory('src/default-www'),
               },
             },
           },
-        },
-      });
+        });
 
-      localhostHandler.InnerRules.push({
-        Conditions: [{
-          PathPatterns: ['/~~vendor/*'],
-        }],
-        ForwardTo: {
-          DefaultAction: {
-            StreamFiles: {
-              PathDepth: 1,
-              RootDir: await this.workDir.Root.getDirectory('vendor'),
-              DotFiles: 'deny',
-            },
-          },
-        },
-      });
-
-      localhostHandler.InnerRules.push({
-        Conditions: [{
-          PathPatterns: ['/~~src/*'],
-        }],
-        ForwardTo: {
-          DefaultAction: {
-            StreamFiles: {
-              PathDepth: 1,
-              RootDir: await this.workDir.Root.getDirectory('src'),
-              DotFiles: 'deny',
-            },
-          },
-        },
-      });
-
-      localhostHandler.DefaultAction = {
-        StreamFiles: {
-          PathDepth: 0,
-          RootDir: await this.workDir.Root.getDirectory('src/default-www'),
-        },
-      };
+      // const localhostHandler = await this.webServer
+      //   .DefaultHandler.InnerRules[1].ForwardTo; // 'localhost'
     }
   },
 
