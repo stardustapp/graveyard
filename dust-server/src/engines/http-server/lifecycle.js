@@ -32,7 +32,10 @@ extensions.lifecycle = {
             },{
               Conditions: [{
                 Host: {
-                  Names: ['localhost', '127.0.0.1'],
+                  Names: [
+                    'localhost', '127.0.0.1',
+                    '*.devmode.cloud', // TODO: better way to specify this
+                  ],
                 },
               }],
               ForwardTo: {

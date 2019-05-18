@@ -91,7 +91,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
 
       await this.webServer.DefaultHandler;
       const localhostHandler = await this.webServer
-        .DefaultHandler.InnerRules[0].ForwardTo; // 'localhost'
+        .DefaultHandler.InnerRules[1].ForwardTo; // 'localhost'
 
       localhostHandler.InnerRules.push({
         Conditions: [{
