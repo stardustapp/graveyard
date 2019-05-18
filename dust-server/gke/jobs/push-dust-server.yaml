@@ -25,7 +25,7 @@ spec:
           ;docker build -t $ImageTag .
           ;docker push $ImageTag
           ;kubectl set image deployment.v1.apps/dust-server dust-server=$ImageTag
-          ;kubectl delete job push-dust-server &
+          ;kubectl delete job push-dust-server
       restartPolicy: Never
       nodeSelector:
         purpose: build

@@ -17,7 +17,7 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
         switch (condition.currentKey) {
 
           case 'Host':
-            if (!condition.Host.Names.includes(request.HostName))
+            if (!condition.Host.Names.some(pattern => matchPattern(request.HostName, pattern)))
               ruleMatches = false;
             break;
 

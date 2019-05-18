@@ -22,6 +22,7 @@ spec:
           ;cd dust-server/gke/build-shell
           ;docker build -t gcr.io/stardust-156404/build-shell:latest .
           ;docker push gcr.io/stardust-156404/build-shell
+          ;kubectl delete job push-build-shell
       restartPolicy: Never
       nodeSelector:
         purpose: build
