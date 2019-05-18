@@ -104,7 +104,7 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
         tags.statuscode = err.statusCode;
         for (key in err.headers)
           res.setHeader(key, err.headers[key]);
-        if (!('Content-Type' in err.headers))
+        if (!err.headers || !('Content-Type' in err.headers))
           res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
         res.writeHead(err.statusCode);
         res.end(err.message, 'utf-8');
