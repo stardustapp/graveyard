@@ -12,11 +12,19 @@ spec:
   - hosts:
     - gke.devmode.cloud
     secretName: gke-devmodecloud-tls
+  - hosts:
+    - blog.gke.devmode.cloud
+    - diary.gke.devmode.cloud
+    secretName: apps-gke-devmodecloud-tls
   rules:
   - host: gke.devmode.cloud
-    http:
+    http: &http_rules
       paths:
       - path: /
         backend:
           serviceName: dust-server
           servicePort: 80
+  - host: blog.gke.devmode.cloud
+    http: *http_rules
+  - host: gke.devmode.cloud
+    http: *http_rules
