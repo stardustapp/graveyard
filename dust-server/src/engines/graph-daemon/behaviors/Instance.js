@@ -85,6 +85,8 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     });
     this.dustDomainCtx = await this.graphWorld.getContextForGraph(this.dustDomainGraph)
     this.dustDomain = await this.dustDomainCtx.getTopObject();
+    this.dustDomain.graphDaemon = this;
+    await this.dustDomain.activate();
 
     // BRING UP WEBSERVER
     let webServer;

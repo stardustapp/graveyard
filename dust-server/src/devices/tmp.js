@@ -34,3 +34,9 @@ class TmpEntry {
     return this.mount.entries.set(this.path, value);
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    TemporaryMount,
+  };
+}

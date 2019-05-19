@@ -135,3 +135,9 @@ SKYLINK_CORE_OPS.set('invoke', async function invoke(request) {
     throw new Error(`Output of ${Path} isn't gettable, please use Dest`);
   }
 });
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    SKYLINK_CORE_OPS,
+  };
+}

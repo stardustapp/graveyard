@@ -16,11 +16,22 @@ const importRules = {
   // multiple named exports
   'src/core/api-entries.js': true,
   'src/core/enumeration.js': true,
+  'src/devices/tmp.js': true,
   'src/lib/caching.js': true,
   'src/lib/locking.js': true,
   'src/lib/path-fragment.js': true,
   'src/daemon/background.js': true,
   'src/daemon/database.js': true,
+
+  'src/skylink/channel-client.js': true,
+  'src/skylink/channel-server.js': true,
+  'src/skylink/client.js': true,
+  'src/skylink/core-ops.js': true,
+  'src/skylink/ext-channel.js': true,
+  'src/skylink/ext-reversal.js': true,
+  'src/skylink/messageport.js': true,
+  'src/skylink/server.js': true,
+  'src/webapp/core/data/channel.js': true,
 
   'src/model/runtime.js': true,
   'src/model/node-proxy.js': true,

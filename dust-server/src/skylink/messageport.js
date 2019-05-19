@@ -76,3 +76,10 @@ class MessagePortChannelClient {
     this.channels.clear();
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    MessagePortChannelCarrier,
+    MessagePortChannelClient,
+  };
+}

@@ -134,3 +134,9 @@ class Channel {
     return chan;
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    Channel,
+  };
+}

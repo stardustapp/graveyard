@@ -25,3 +25,9 @@ class SkylinkReversalExtension {
       });
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    SkylinkReversalExtension,
+  };
+}

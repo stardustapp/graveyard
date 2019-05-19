@@ -28,3 +28,9 @@ class InlineChannelCarrier {
     }, () => {/* already handled */});
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    InlineChannelCarrier,
+  };
+}

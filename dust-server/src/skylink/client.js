@@ -210,3 +210,12 @@ class WebsocketSkylinkClient extends SkylinkClient {
     },
   };*/
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    SkylinkClient,
+    StatelessHttpSkylinkClient,
+    MessagePassingSkylinkClient,
+    WebsocketSkylinkClient,
+  };
+}

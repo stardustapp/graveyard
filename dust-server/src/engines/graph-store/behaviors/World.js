@@ -90,6 +90,14 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
         .filter(x => x.data.engine === engineKey);
     },
   */
+
+  async getEntry(path) {
+    console.log('--->', path);
+    return { get: () => new FolderLiteral('graph world', [
+      new FolderLiteral('exposed', this.ExposedRoot),
+      new FolderLiteral('inspect', this.InspectRoot),
+    ]) };
+  },
 });
 
 

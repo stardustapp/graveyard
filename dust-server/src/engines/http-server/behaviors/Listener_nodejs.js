@@ -102,6 +102,7 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
       const response = await this.routeNormalRequest(req, res, tags);
       tags.statuscode = response.Status.Code;
     } catch (err) {
+      tags.errortype = err.constructor.name;
       tags.statuscode = this.writeThrowable(res, err);
     } finally {
       tags.statusclass = (tags.statuscode || 0).toString()[0]; // if 0, then bug
@@ -191,11 +192,10 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     }
   },
 
-  writeThrowable(res, err, tags) {
+  writeThrowable(res, err) {
     if (res.headersSent) throw err;
     res.setHeader('Content-Security-Policy', "default-src 'none'");
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    tags.errortype = err.constructor.name;
     if (err instanceof HttpBodyThrowable) {
       const statusCode = err.statusCode || 500;
       for (key in err.headers)
@@ -207,7 +207,6 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
       res.end(err.message, 'utf-8');
       return statusCode;
     } else {
-      tags.statuscode = 500;
       res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
       res.writeHead(500);
       res.end(`Dust Server encountered an internal error.\n\n`+err.stack, 'utf-8');

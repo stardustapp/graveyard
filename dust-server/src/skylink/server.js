@@ -1,4 +1,4 @@
-SkylinkServer = class SkylinkServer {
+class SkylinkServer {
   constructor(env) {
     this.env = env;
     this.ops = new Map(SKYLINK_CORE_OPS);
@@ -84,4 +84,10 @@ SkylinkServer = class SkylinkServer {
       throw new Error(`Server doesn't implement ${request.Op} operation`);
     }
   }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    SkylinkServer,
+  };
 }

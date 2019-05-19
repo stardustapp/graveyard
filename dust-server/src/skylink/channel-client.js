@@ -47,3 +47,9 @@ class InlineChannelClient {
     this.channels.clear();
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    InlineChannelClient,
+  };
+}

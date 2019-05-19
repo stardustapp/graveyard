@@ -74,3 +74,9 @@ class ChannelExtension {
     return this.channels.get(chanId).triggerStop(input);
   }
 }
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    ChannelExtension,
+  };
+}

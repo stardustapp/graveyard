@@ -15,7 +15,7 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
   },
 
   assertNormalRequest() {
-    if (request.Body.currentKey === 'HttpUpgrade')
+    if (this.Body.currentKey === 'HttpUpgrade')
       throw new HttpBodyThrowable(400,
         `Upgrade Not Allowed`);
   },
