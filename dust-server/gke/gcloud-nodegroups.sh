@@ -8,11 +8,22 @@ gcloud container \
   --image-type COS_CONTAINERD \
   --machine-type f1-micro \
   --max-pods-per-node 25 \
-  --num-nodes 3 \
+  --num-nodes 2 \
   --node-labels purpose=app \
   --enable-autoscaling \
-  --min-nodes 2 \
+  --min-nodes 1 \
   --max-nodes 3
+
+gcloud container \
+  node-pools create small3 \
+  --disk-size 10GB \
+  --enable-autorepair \
+  --enable-autoupgrade \
+  --image-type COS_CONTAINERD \
+  --machine-type g1-small \
+  --max-pods-per-node 25 \
+  --num-nodes 1 \
+  --node-labels purpose=app
 
 gcloud container \
   node-pools create build1 \
