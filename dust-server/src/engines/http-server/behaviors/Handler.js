@@ -59,6 +59,7 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
     switch (this.DefaultAction.currentKey) {
 
       case 'FixedResponse':
+        request.assertNormalRequest();
         const {StatusCode, Body, Headers} = this.DefaultAction.FixedResponse;
         return await request.RETURNED.newResponse({
           Timestamp: new Date,
@@ -67,10 +68,13 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Handler', {
         });
 
       case 'ForeignNode':
-        const {Ref, Behavior, Input} = await this.DefaultAction.ForeignNode;
+        const {Ref, Behavior, Input, AllowUpgrades} = await this.DefaultAction.ForeignNode;
         const target = await Ref;
+
+        if (!AllowUpgrades) request.assertNormalRequest(); // TODO: actually check allowed list
         if (!target || typeof target[Behavior] !== 'function') throw new Error(
           `http-server/Handler.ForeignNode failed to resolve to a behavior`);
+
         const response = await target[Behavior](graphWorld, request, Input);
         if (!response || !response.Headers) throw new Error(
           `ForeignNode behavior didn't return a good response`);
@@ -176,6 +180,7 @@ async function selectFileToStream(request, {
 }
 
 async function streamFile(request, configuration) {
+  request.assertNormalRequest();
   if (!['GET', 'HEAD'].includes(request.Method))
     throw new HttpBodyThrowable(405,
       `Method Not Allowed - must be GET or HEAD`);

@@ -107,7 +107,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
         .DefaultHandler.InnerRules.push({
           Conditions: [{
             Host: { Names: [
-              'localhost', 'localhost', '127.0.0.1',
+              'localhost', '127.0.0.1',
               this.dustDomain.DomainName,
               `*.${this.dustDomain.DomainName}`,
             ]},
@@ -163,6 +163,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
                   ForeignNode: {
                     Ref: this.dustDomain,
                     Behavior: 'serveHttpRequest',
+                    AllowUpgrades: ['websocket'],
                   },
                 },
               },

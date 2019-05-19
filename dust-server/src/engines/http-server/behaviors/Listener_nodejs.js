@@ -34,7 +34,9 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     //this.graphWorld = await msgEngine.buildFromStore({}, msgStore);
     //msgStore.engine.buildUsingVolatile({argv});
 
-    this.nodeServer = http.createServer(this.handleRequest.bind(this));
+    this.nodeServer = http.createServer(this.handleNormalRequest.bind(this));
+    this.nodeServer.on('upgrade', this.handleUpgradeRequest.bind(this));
+
     await new Promise((resolve, reject) => {
       this.nodeServer.on('error', (err) => {
         if (err.syscall === 'listen')
@@ -83,7 +85,7 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
     throw new Error(`Cannot describe unknown Listener.Interface`);
   },
 
-  async handleRequest(req, res) {
+  async handleNormalRequest(req, res) {
     const startDate = new Date;
     const tags = {
       listener: this.describeInterface(),
@@ -91,97 +93,26 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
       method: req.method,
       http_version: req.httpVersion,
     };
+    res.on('finish', () => {
+      const finishDate = new Date;
+      Datadog.Instance.gauge('dust.http-server.finished_ms', finishDate-startDate, tags);
+    });
 
     try {
-      await this.routeRequest(req, res, tags);
-      tags.ok = true;
+      const response = await this.routeNormalRequest(req, res, tags);
+      tags.statuscode = response.Status.Code;
     } catch (err) {
-      if (res.headersSent) throw err;
-      res.setHeader('Content-Security-Policy', "default-src 'none'");
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      if (err instanceof HttpBodyThrowable) {
-        tags.ok = true;
-        tags.statuscode = err.statusCode;
-        for (key in err.headers)
-          res.setHeader(key, err.headers[key]);
-        if (!err.headers || !('Content-Type' in err.headers))
-          res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
-        res.writeHead(err.statusCode);
-        res.end(err.message, 'utf-8');
-      } else {
-        tags.ok = false;
-        tags.statuscode = 500;
-        res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
-        res.writeHead(500);
-        res.end(`Dust Server encountered an internal error.\n\n`+err.stack, 'utf-8');
-      }
+      tags.statuscode = this.writeThrowable(res, err);
     } finally {
+      tags.statusclass = (tags.statuscode || 0).toString()[0]; // if 0, then bug
+
       const endDate = new Date;
       Datadog.Instance.gauge('dust.http-server.elapsed_ms', endDate-startDate, tags);
       Datadog.Instance.count('dust.http-server.web_request', 1, tags);
     }
   },
-
-  async routeRequest(req, res, tags) {
-    console.log(req.method, req.url);
-    const {pathname, query} = url.parse(req.url, true);
-
-    const connMsg = await this.connNodes.get(req.connection);
-
-    if (!req.headers.host) {
-      console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.end(`The "Host" HTTP header is required.`, 'utf-8');
-      return;
-    }
-
-    const hostMatch = req.headers.host.match(
-  /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z][a-z0-9]+))(?::(\d+))?$/i);
-    if (!hostMatch) {
-      console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
-      return res.end(`
-        The "Host" HTTP header could not be parsed.
-        If your request is reasonable, please file a bug.
-      `, 'utf-8');
-      return;
-    }
-    const [_, ipv4, ipv6, hostname, altPort] = hostMatch;
-
-    // reconstruct repeated query keys as a pair list
-    const queryList = new Array;
-    for (var param in query) {
-      if (query[param].constructor === Array)
-        for (const subVal of query[param])
-          queryList.push({Key: param, Value: subVal});
-      else
-        queryList.push({Key: param, Value: query[param]});
-    }
-
-    if (!req.url.startsWith('/')) {
-      console.log(remoteAddress, 'send bad url', req.url, 'with method', method);
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
-      return res.end(`Your request URI doesn't smell right.`, 'utf-8');
-    }
-
-    const reqMsg = await connMsg.ISSUED.newRequest({
-      Timestamp: new Date,
-      Method: req.method,
-      Url: req.url,
-      HttpVersion: req.httpVersion,
-      Headers: Object.keys(req.headers).map(x => ({
-        Key: x, Value: req.headers[x],
-      })),
-
-      RemoteAddress: req.connection.remoteAddress, // TODO: X-Forwarded-For
-      HostName: hostname || ipv4 || ipv6,
-      AltPort: altPort ? parseInt(altPort) : null,
-      Origin: `http://${hostname || ipv4 || ipv6}${altPort ? ':' : ''}${altPort}`,
-      Path: pathname,
-      Query: queryList,
-      Body: { Base64: '' }, // TODO
-    });
-    //console.log('built http request message', reqMsg);
+  async routeNormalRequest(req, res, tags) {
+    const reqMsg = await this.ingestRequest(req);
 
     // Process into a response
     const response = await (await this.Handler).handle(reqMsg, this.graphWorld, tags);
@@ -210,6 +141,135 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
       default:
         throw new Error(`unhandled Body key ${response.Body.currentKey}`)
     }
+    return response;
+  },
+
+  async handleUpgradeRequest(request, socket, head) {
+    const startDate = new Date;
+    const tags = {
+      listener: this.describeInterface(),
+      host_header: request.headers.host,
+      upgrade_header: request.headers.upgrade,
+      method: request.method,
+      http_version: request.httpVersion,
+    };
+
+    try {
+      tags.ok = await this.routeUpgradeRequest(request, socket, head, tags);
+    } catch (err) {
+      console.log('WARN: http-server upgrade crash:', err.stack);
+      tags.ok = false;
+      socket.destroy();
+    } finally {
+      Datadog.Instance.count('dust.http-server.upgrade_request', 1, tags);
+    }
+  },
+  async routeUpgradeRequest(request, socket, head, tags) {
+    if (!this.wsServer) {
+      const ws = require('ws');
+      this.wsServer = new ws.Server({noServer: true});
+      this.wsServer.on('error', err => this.onWsServerError(err));
+    }
+
+    const reqMsg = await this.ingestRequest(request);
+    reqMsg.Body = { HttpUpgrade: true };
+
+    // Process into a fake response
+    const response = await (await this.Handler).handle(reqMsg, this.graphWorld, tags);
+    if (!response) throw new Error(
+      `http-server/Handler didn't return a response`);
+
+    if (response.Status.Code === 101 && response.Body.currentKey === 'WebSocket') {
+      const {WebSocket} = response.Body;
+      this.wsServer.handleUpgrade(request, socket, head, WebSocket.connCallback);
+      return true;
+    } else {
+      // TODO: fatal?
+      console.error('WARN: Upgrade got bad response status', response.Status.Code, response.Body.currentKey);
+      socket.destroy();
+      return false;
+    }
+  },
+
+  writeThrowable(res, err, tags) {
+    if (res.headersSent) throw err;
+    res.setHeader('Content-Security-Policy', "default-src 'none'");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    tags.errortype = err.constructor.name;
+    if (err instanceof HttpBodyThrowable) {
+      const statusCode = err.statusCode || 500;
+      for (key in err.headers)
+        res.setHeader(key, err.headers[key]);
+      if (!err.headers || !('Content-Type' in err.headers))
+        res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
+
+      res.writeHead(statusCode);
+      res.end(err.message, 'utf-8');
+      return statusCode;
+    } else {
+      tags.statuscode = 500;
+      res.setHeader('Content-Type', 'text/plain; charset=UTF-8');
+      res.writeHead(500);
+      res.end(`Dust Server encountered an internal error.\n\n`+err.stack, 'utf-8');
+      return 500;
+    }
+  },
+
+  async ingestRequest(req) {
+    console.log(req.method, req.url);
+    const {pathname, query} = url.parse(req.url, true);
+
+    const connMsg = await this.connNodes.get(req.connection);
+
+    if (!req.headers.host) {
+      console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
+      throw new HttpBodyThrowable(400, `The "Host" HTTP header is required.`);
+    }
+
+    const hostMatch = req.headers.host.match(
+  /^(?:([0-9]{1,3}(?:\.[0-9]{1,3}){3})|\[([0-9a-f:]+(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?)\]|((?:[a-z0-9_.-]+\.)?[a-z][a-z0-9]+))(?::(\d+))?$/i);
+    if (!hostMatch) {
+      console.log(`${req.method} //${req.headers.host}${req.url}`, 400);
+      throw new HttpBodyThrowable(400, `
+        The "Host" HTTP header could not be parsed.
+        If your request is reasonable, please file a bug.
+      `);
+    }
+    const [_, ipv4, ipv6, hostname, altPort] = hostMatch;
+
+    // reconstruct repeated query keys as a pair list
+    const queryList = new Array;
+    for (var param in query) {
+      if (query[param].constructor === Array)
+        for (const subVal of query[param])
+          queryList.push({Key: param, Value: subVal});
+      else
+        queryList.push({Key: param, Value: query[param]});
+    }
+
+    if (!req.url.startsWith('/')) {
+      console.log(remoteAddress, 'send bad url', req.url, 'with method', method);
+      throw new HttpBodyThrowable(400, `Your request URI doesn't smell right.`);
+    }
+
+    return await connMsg.ISSUED.newRequest({
+      Timestamp: new Date,
+      Method: req.method,
+      Url: req.url,
+      HttpVersion: req.httpVersion,
+      Headers: Object.keys(req.headers).map(x => ({
+        Key: x, Value: req.headers[x],
+      })),
+
+      RemoteAddress: req.connection.remoteAddress, // TODO: X-Forwarded-For
+      HostName: hostname || ipv4 || ipv6,
+      AltPort: altPort ? parseInt(altPort) : null,
+      Origin: `http://${hostname || ipv4 || ipv6}${altPort ? ':' : ''}${altPort}`,
+      Path: pathname,
+      Query: queryList,
+      Body: { Base64: '' }, // TODO
+    });
+    //console.log('built http request message', reqMsg);
   },
 
 });
@@ -234,30 +294,5 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
 
         return responder.sendJson({error: 'not-found'}, 404);
       }
-
-      if (entry.get) {
-        target = await entry.get();
-      } else if (entry.invoke) {
-        target = await entry.invoke(new StringLiteral('request', JSON.stringify(req)));
-      }
     }
-
-    const mainVHost = {
-      handleGET: async (meta, responder) => {
-        const {method, uri, headers, queryParams, ip} = meta;
-        const parts = uri.slice(1).split('/');
-        if (parts[0] === 'dust-app' && parts[1]) {
-          return responder.sendJson({hello: 'world'});
-        }
-        if (parts[0] === 'raw-dust-app' && parts[1]) {
-          if (parts[2] === '~~ddp') {
-            return responder.sendJson({todo: true});
-          }
-          return await this.dustManager.serveAppPage(this.graphWorld, parts[1], meta, responder);
-        }
-        // serve static files
-        return responder.sendJson({error: 'not-found'}, 404);
-      },
-    };
-
 */

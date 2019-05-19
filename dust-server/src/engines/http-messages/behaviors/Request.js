@@ -14,6 +14,12 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
       .Key.toLowerCase() === key);
   },
 
+  assertNormalRequest() {
+    if (request.Body.currentKey === 'HttpUpgrade')
+      throw new HttpBodyThrowable(400,
+        `Upgrade Not Allowed`);
+  },
+
   hasTrailingSlash() {
     return this.Path[this.Path.length - 1] === '/'
   },
@@ -127,6 +133,18 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
       }],
       Body: { Base64: blob.Data },
     });
+  },
+
+  async makeWebSocketResponse(callback) {
+    const response = await this.RETURNED.newResponse({
+      Timestamp: new Date,
+      Status: { Code: 101 },
+      Body: { WebSocket: {
+        ReadyState: 0,
+      }},
+    });
+    response.Body.WebSocket.attachCallback(callback);
+    return response;
   },
 
 });

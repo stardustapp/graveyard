@@ -90,6 +90,7 @@ new GraphEngineBuilder('http-server/v1-beta1', build => {
         ForeignNode: { fields: {
           Ref: { reference: true },
           Behavior: { type: String },
+          AllowUpgrades: { type: String, isList: true },
           Input: { type: JSON, optional: true },
         }},
         // Rich file serving from outside filesystem

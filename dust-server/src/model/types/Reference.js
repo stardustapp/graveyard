@@ -90,7 +90,7 @@ class ReferenceAccessor extends FieldAccessor {
   mapIn(newVal, graphCtx, node) {
     if (newVal === undefined || newVal === null) throw new Error(
       `ReferenceAccessor will not allow null values. Try Optional if you want.`);
-      console.log('ReferenceAccessor#mapIn', newVal.constructor.name);
+      //console.debug('ReferenceAccessor#mapIn', newVal.constructor.name);
 
     if (newVal.constructor === Object) {
       const type = this.refType.targetType || graphCtx.findNodeBuilder(this.refType.targetName);
@@ -105,8 +105,8 @@ class ReferenceAccessor extends FieldAccessor {
 
     } else if (newVal.constructor === GraphNode) {
       const node = newVal;
-      console.log('reffing to', graphCtx.identifyNode(node));
-      console.log(new Error().stack.split('\n')[2]);
+      //console.debug('reffing to', graphCtx.identifyNode(node));
+      //console.debug(new Error().stack.split('\n')[2]);
       return graphCtx.identifyNode(node);
     }
     throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);

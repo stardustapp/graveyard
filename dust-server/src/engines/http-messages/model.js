@@ -12,6 +12,7 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
       // Messages that can pass over a connection.
       { predicate: 'ISSUED', object: 'Request' },
       { predicate: 'RETURNED', object: 'Response' },
+      { predicate: 'UPGRADED', object: 'WebSocket' },
     ],
     fields: {
       OpenedAt: Date,
@@ -35,7 +36,7 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
     relations: [
       { subject: 'Connection', predicate: 'ISSUED' },
       { predicate: 'RETURNED', object: 'Response' },
-      { predicate: 'STREAMED', object: 'BodyChunk' },
+      { predicate: 'STREAMED', object: 'Frame' },
     ],
     fields: {
       Timestamp: Date,
@@ -63,6 +64,7 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
         StringData: String,
         Base64: String,
         Stream: Boolean,
+        HttpUpgrade: Boolean,
       }},
     },
   });
@@ -72,7 +74,7 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
     relations: [
       { subject: 'Connection', predicate: 'RETURNED' },
       { subject: 'Request', predicate: 'RETURNED' },
-      { predicate: 'STREAMED', object: 'BodyChunk' },
+      { predicate: 'STREAMED', object: 'Frame' },
     ],
     fields: {
       Timestamp: Date,
@@ -90,26 +92,53 @@ new GraphEngineBuilder('http-messages/v1-beta1', build => {
         NativeStream: Boolean,
         ChunkStream: Boolean,
         // TODO: Stream: { reference: { engine: 'streaming', name: 'ByteStream' }}
+        WebSocket: { reference: 'WebSocket' },
       }},
     },
   });
 
   // Ordered data chunk to support streaming responses.
   // Sending a zero-length Data packet (of either encoding) terminates the stream.
-  build.node('BodyChunk', {
+  build.node('Frame', {
     relations: [
       { subject: 'Request', predicate: 'STREAMED' },
       { subject: 'Response', predicate: 'STREAMED' },
+      { subject: 'WebSocket', predicate: 'STREAMED' },
     ],
     fields: {
       Timestamp: Date,
       Sequence: Number,
+      // inner value
       Data: { anyOfKeyed: {
         StringData: String,
         Base64: String,
-        NativeStream: Boolean,
-        ChunkStream: Boolean,
+      }},
+      // extra stuff for WS
+      WebSocketFlags: { fields: {
+        Incomplete: { type: Boolean, defaultValue: false },
+        Source: { type: String, allowedValues: [
+          'Client', 'Server'
+        ]},
+        // markers can only have 126 bytes of data
+        Control: { type: String, allowedValues: [
+          'Continuation', // 0x00
+          'CloseSocket', // 0x08
+          'Ping', // 0x09
+          'Pong', // 0x0a
+        ]},
       }},
     },
   });
+
+  build.node('WebSocket', {
+    relations: [
+      { subject: 'Connection', predicate: 'UPGRADED' },
+      { subject: 'Request', predicate: 'UPGRADED' },
+      { predicate: 'STREAMED', object: 'Frame' },
+    ],
+    fields: {
+      ReadyState: Number,
+    },
+  });
+
 }).install();
