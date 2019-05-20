@@ -67,6 +67,7 @@ class StoreEdge extends StoreRecord {
 
 class BaseBackend {
   static allOpenStores() { return OpenStores.values(); }
+  static deleteStore(id) { OpenStores.delete(id); }
   static forId(id) { return OpenStores.get(id); }
   constructor(opts) {
     this.engine = opts.engine || GraphEngine.get(opts.engineKey);
@@ -79,8 +80,8 @@ class BaseBackend {
       this.accessors.set(name.name, FieldAccessor.forType(name));
     }
 
-    const mutex = new RunnableMutex((mode, cb) => cb(this));
-    this.transactRaw = mutex.submit.bind(mutex);
+    this.mutex = new RunnableMutex((mode, cb) => cb(this));
+    this.transactRaw = this.mutex.submit.bind(this.mutex);
 
     //this.rootContext = this.newContext();
   }
@@ -104,6 +105,22 @@ class BaseBackend {
     const output = await cb(graphCtx);
     await graphCtx.flush();
     return output;
+  }
+
+  freeStore() {
+    console.log('Freeing store #', this.storeId);
+    if (!OpenStores.has(this.storeId)) throw new Error(
+      `BaseBackend #${this.storeId} double-free`);
+
+    for (const context of GraphContext.allOpenContexts()) {
+      if (context.storeId === this.storeId) {
+        context.freeContext();
+      }
+    }
+
+    OpenStores.delete(this.storeId);
+    this.mutex.stop();
+    console.log('Eradicated store #', this.storeId);
   }
 
   execActionBatch(actions) {

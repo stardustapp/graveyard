@@ -4,13 +4,17 @@ class RunnableMutex {
     this.isLocked = false;
     this.waitQueue = new Array;
 
-    const warnInterval = setInterval(() => {
+    this.warnInterval = setInterval(() => {
       if (this.waitQueue.length) {
         console.warn('RunnableMutex has', this.waitQueue.length, 'waiting calls');
       }
     }, 1000);
-    if (warnInterval.unref)
-      warnInterval.unref();
+    if (this.warnInterval.unref)
+      this.warnInterval.unref();
+  }
+  stop() {
+    delete this.innerFunc;
+    clearInterval(this.warnInterval);
   }
 
   // user entrypoint that either runs immediately or queues for later

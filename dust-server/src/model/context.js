@@ -65,6 +65,7 @@ class GraphEdge {
 
 class GraphContext {
   static allOpenContexts() { return OpenContexts.values(); }
+  static deleteContext(id) { OpenContexts.delete(id); }
   static forId(id) { return OpenContexts.get(id); }
   constructor({storeId, engine, txnSource}) {
     // NOTE: this.engine is also referenced by accessors
@@ -484,6 +485,18 @@ class GraphContext {
 
   queryGraph(query) {
     return new GraphEdgeQuery(this, query);
+  }
+
+  freeBackingStore() {
+    return this
+      .txnSource('free store', dbCtx =>
+        dbCtx.freeStore());
+  }
+  freeContext() {
+    console.log('Freeing context', this.ctxId);
+    if (!OpenContexts.has(this.ctxId)) throw new Error(
+      `GraphContext #${this.ctxId} double-free`);
+    OpenContexts.delete(this.ctxId);
   }
 }
 

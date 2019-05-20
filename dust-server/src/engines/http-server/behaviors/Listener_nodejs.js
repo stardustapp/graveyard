@@ -7,10 +7,22 @@ global.HTTP_SERVER_HEADER = `${pkgMeta.name}/${pkgMeta.version}`;
 GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
   // constructor: nodeType, data
 
+  async deleteConnection(rawConn) {
+    const connNode = this.connNodes.peek(rawConn);
+    if (!connNode) throw new Error(
+      `Tried freeing HTTP connectiont that wasn't registered`);
+    this.connNodes.delete(rawConn);
+    connNode.getGraphCtx().freeBackingStore();
+  },
+
   async activate(graphWorld) {
     this.graphWorld = graphWorld;
 
     this.connNodes = new LoaderCache(async conn => {
+      const localStore = new RawVolatileStore({
+        engineKey: 'http-messages/v1-beta1',
+      });
+
       const localEndpoint = conn.address();
       const connNode = await this.msgEngine.buildFromStore({
         WireProtocol: 'HTTP/1',
@@ -23,14 +35,18 @@ GraphEngine.attachBehavior('http-server/v1-beta1', 'Listener', {
           Address: conn.remoteAddress,
           Port: conn.remotePort,
         },
-      }, this.msgStore);
+      }, localStore);
+      conn.on('close', hadError => {
+        // TODO: store ClosedAt and allow more automatic GC
+        this.deleteConnection(conn);
+      });
       return connNode.getGraphCtx().getNodeById(connNode.nodeId);
     });
 
     this.msgEngine = await GraphEngine.load('http-messages/v1-beta1');
-    this.msgStore = new RawVolatileStore({
-      engineKey: 'http-messages/v1-beta1',
-    });
+    // this.msgStore = new RawVolatileStore({
+    //   engineKey: 'http-messages/v1-beta1',
+    // });
     //this.graphWorld = await msgEngine.buildFromStore({}, msgStore);
     //msgStore.engine.buildUsingVolatile({argv});
 

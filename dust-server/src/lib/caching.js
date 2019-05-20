@@ -73,7 +73,7 @@ class LoaderCache {
     this.entities.clear();
     this.promises.clear();
   }
-/*
+
   async delete(id, input=null) {
     if (this.entities.has(id)) {
       const value = this.entities.get(id);
@@ -95,7 +95,7 @@ class LoaderCache {
       console.warn('not purging value', id, `- it wasn't started (??)`);
     }
   }
-*/
+
 }
 
 if (typeof module !== 'undefined') {
