@@ -9,6 +9,7 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
   */
 
   getHeader(header) {
+    // TODO: what about repeated headers?
     const key = header.toLowerCase();
     return this.Headers.find(x => x
       .Key.toLowerCase() === key);
@@ -18,6 +19,22 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
     if (this.Body.currentKey === 'HttpUpgrade')
       throw new HttpBodyThrowable(400,
         `Upgrade Not Allowed`);
+  },
+
+  // Also Accept-Encoding, Accept-Language
+  parseAcceptHeader(key='Accept') {
+    const header = this.getHeader(key);
+    if (!header) return [];
+    return new AcceptSet(key.toLowerCase(), header.Value.split(',').map(token => {
+      const parts = token.trim().split(';');
+      if (parts.length < 2) return [parts[0], {}];
+      const opts = Object.create(null);
+      for (const part of parts.slice(1)) {
+        const [key, ...val] = part.split('=');
+        opts[key] = val.join('=');
+      }
+      return [parts[0].toLowerCase(), opts];
+    }));
   },
 
   hasTrailingSlash() {
@@ -148,3 +165,24 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
   },
 
 });
+
+// obviously very flawed and opinionated
+// TODO: uses first matching token
+class AcceptSet {
+  constructor(headerKey, tokens) {
+    this.tokens = tokens;
+    this.headerKey = headerKey;
+  }
+  qualityFor(givenToken) {
+    return this.tokens
+      .filter(([token, opts]) => {
+        if (this.headerKey === 'accept') {
+          if (token === '*/*') return true;
+          if (token.endsWith('/*'))
+            return token.split('/')[0] === givenToken.split('/')[0];
+        } else if (token === '*') return true;
+        return token === givenToken;
+      })
+      .map(x => 'q' in x[1] ? parseFloat(x[1].q) : 1)[0] || 0;
+  }
+}

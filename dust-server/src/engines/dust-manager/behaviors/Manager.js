@@ -106,10 +106,21 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
   async serveAppReq(graphWorld, request, {
     PathDepth = 0,
   }={}) {
+    // If we don't have a browser wanting HTML,
+    // let's not throw the whole app source at them.
+    const acceptList = request.parseAcceptHeader();
+    const htmlQuality = acceptList.qualityFor('text/html');
+    const wildQuality = acceptList.qualityFor('*/*');
+    if (htmlQuality <= wildQuality) return request.makePlaintextResponse(`
+      HTTP 406 Not Acceptable.
+      This URL references a 'DUST' client-side web application.
+      However, your user agent's Accept header doesn't favor HTML content.
+      Please navigate to this page using a modern web browser to continue.
+    `, 406);
+
     const pathParts = request.Path.split('/').slice(1);
     const [appKey, ...extra] = pathParts.slice(PathDepth);
     const appRoot = '/' + pathParts.slice(0, PathDepth+1).join('/');
-    const usesLegacyDB = appKey.startsWith('build-');
 
     // INSTALL DUST PACKAGE
     const dustPackageGraph = await this
@@ -119,7 +130,11 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
 
     const compiled = await GraphEngine
       .extend('dust-app/v1-beta1')
-      .compileToHtml(this, dustPackageGraph, dustPackage, { appRoot, usesLegacyDB });
+      .compileToHtml(this, dustPackageGraph, dustPackage, {
+        appRoot,
+        usesLegacyDB: appKey.startsWith('build-'),
+        enableDDP: false,
+      });
 
     return request.makeHtmlResponse(compiled);
   },
