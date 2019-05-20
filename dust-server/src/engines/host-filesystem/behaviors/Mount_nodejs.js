@@ -15,27 +15,19 @@ GraphEngine.attachBehavior('host-filesystem/v1-beta1', 'Mount', {
     this.rootPath = resolve(this.Anchor.HostPath);
     this.Root.Meta = await this.readMeta('.');
     this.Root.Mount = this;
+
+    this.metaCache = new LoaderCache(this.readMeta.bind(this));
+    this.entryCache = new LoaderCache(this.readEntry.bind(this));
   },
 
   async getEntry(subPath, expectType=null) {
-    const Meta = await this.readMeta(subPath);
-    if (Meta.Code) {
-      if (Meta.Code === 'ENOENT') return null;
-      throw new Error(
-        `host-filesystem/Mount.getEntry() encountered ${Meta.Code}`);
-    }
-
-    const {FileType} = Meta[Object.keys(Meta)[0]]; // TODO: currentKey
+    const entry = await this.entryCache.get(subPath);
+    const {FileType} = entry.Meta[entry.Meta.currentKey];
     if (!FileType) throw new Error(
-      `didn't find FileType for ${subPath}`);
+      `didn't find FileType on Entry for ${subPath}`);
     if (expectType !== null && FileType !== expectType) throw new Error(
       `Mount#getEntry() called expecting ${expectType}, but found ${FileType}`);
-
-    return await this.getGraphCtx().newTypedFields(FileType, {
-      Path: normalize(subPath),
-      Meta,
-      Mount: this,
-    });
+    return entry;
   },
 
   async listChildren(path) {
@@ -51,6 +43,24 @@ GraphEngine.attachBehavior('host-filesystem/v1-beta1', 'Mount', {
     }));
   },
 
+  async readEntry(subPath) {
+    const Meta = await this.metaCache.get(subPath);
+    if (Meta.Code) {
+      if (Meta.Code === 'ENOENT') return null;
+      throw new Error(
+        `host-filesystem/Mount.getEntry() encountered ${Meta.Code}`);
+    }
+
+    const {FileType} = Meta[Object.keys(Meta)[0]]; // TODO: currentKey
+    if (!FileType) throw new Error(
+      `didn't find FileType for ${subPath}`);
+
+    return await this.getGraphCtx().newTypedFields(FileType, {
+      Path: normalize(subPath),
+      Meta,
+      Mount: this,
+    });
+  },
   async readMeta(path) {
     const realPath = this.resolvePath(path);
     console.log('stat "%s"', realPath);

@@ -52,6 +52,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     this.workDirCtx = await this.graphWorld.getContextForGraph(this.workDirGraph)
     this.workDir = await this.workDirCtx.getTopObject();
     await this.workDir.Root;
+    await this.workDir.activate();
 
     // GET DUST MANAGER
     this.dustManagerGraph = await this.graphWorld.findOrCreateGraph({
