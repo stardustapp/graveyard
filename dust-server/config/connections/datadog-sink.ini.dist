@@ -1,0 +1,8 @@
+EngineKey = datadog-metrics/v1-beta1
+
+[Config]
+ApiKey = xxxxxxxxxxxxxxxxx
+# no AppKey, to only allow submissions
+
+[Config.GlobalTags]
+env = development
