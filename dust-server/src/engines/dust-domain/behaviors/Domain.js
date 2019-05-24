@@ -1,9 +1,10 @@
 GraphEngine.attachBehavior('dust-domain/v1-beta1', 'Domain', {
 
-  async activate() {
-    this.systemEnv = new Environment();
-    await this.systemEnv.bind('/data/graph%20world', this.graphDaemon.graphWorld);
-    this.skylinkServer = new SkylinkServer(this.systemEnv);
+  async activate(kernel) {
+    this.kernel = kernel;
+    this.skylinkEnv = new Environment();
+    //this.skylinkEnv.bind('/kernel', kernel.env);
+    this.skylinkServer = new SkylinkServer(this.skylinkEnv);
   },
 
   async serveHttpRequest(graphWorld, request) {
@@ -11,7 +12,7 @@ GraphEngine.attachBehavior('dust-domain/v1-beta1', 'Domain', {
       if (request.Path !== '/~~export/ws') throw new Error(`bad ws path ${request.Path}`);
       return await request.makeWebSocketResponse(webSocket => {
         console.log('upgraded websocket for', request.Path);
-        new SkylinkWebsocket(webSocket, this.systemEnv);
+        new SkylinkWebsocket(webSocket, this.skylinkEnv);
       });
     }
 
@@ -32,7 +33,29 @@ GraphEngine.attachBehavior('dust-domain/v1-beta1', 'Domain', {
     }
 
     if (request.Path === '/~/app-session') {
-      if (request.Method !== 'POST') throw new HttpBodyThrowable(405, 'POST-only endpoint');
+      if (request.Method !== 'POST') throw new HttpBodyThrowable(405,
+        'POST-only endpoint');
+      const origin = request.getHeaders('Origin')[0];
+      const referer = request.getHeaders('Referer')[0];
+      if (!origin || !referer || !referer.startsWith(origin+'/')) throw new HttpBodyThrowable(400,
+        `Referer isn't from this Origin`);
+
+      const refererPath = referer.slice(origin.length);
+      if (refererPath.startsWith('/editor/')) {
+        const sessionId = randomString();
+        this.skylinkEnv.bind('/sessions/'+sessionId+'/data/kernel', this.kernel.env);
+        return request.makeJsonResponse({
+          metadata: {
+            chartName: 'dust',
+            homeDomain: this.DomainName,
+            ownerName: 'dust demo',
+            ownerEmail: 'dust@example.com',
+          },
+          sessionPath: '/pub/sessions/' + sessionId,
+        });
+      }
+
+      // catchall
       return request.makeJsonResponse({
         metadata: {
           chartName: 'dust',

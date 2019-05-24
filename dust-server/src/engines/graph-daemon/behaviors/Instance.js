@@ -19,7 +19,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
   // runs on every bring-up, might not be the right one
   //async setup() {  },
 
-  async boot() {
+  async boot(kernel) {
     if (isLaunched) throw new Error(
       `Tried to launch a second GraphDaemon in one JavaScript sandbox!`);
 
@@ -87,7 +87,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     this.dustDomainCtx = await this.graphWorld.getContextForGraph(this.dustDomainGraph)
     this.dustDomain = await this.dustDomainCtx.getTopObject();
     this.dustDomain.graphDaemon = this;
-    await this.dustDomain.activate();
+    await this.dustDomain.activate(kernel);
 
     // BRING UP WEBSERVER
     let webServer;
@@ -185,7 +185,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     }
   },
 
-  async run() {
+  async run(kernel) {
     const {LaunchFlags, Config} = this;
     switch (Config.Command) {
 

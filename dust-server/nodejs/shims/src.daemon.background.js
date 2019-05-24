@@ -1,3 +1,37 @@
+const ini = require('ini');
+const fs = require('fs');
+const path = require('path');
+
+class IniLoader {
+  constructor(fsPath, extension='.ini') {
+    this.fsPath = fsPath;
+    this.extension = extension;
+  }
+  listComponents() {
+    return fs
+      .readdirSync(this.fsPath)
+      .filter(x => x.endsWith(this.extension))
+      .map(x => x.slice(0, x.length - this.extension.length));
+  }
+  readComponent(key) {
+    const filePath = path.join(this.fsPath, key+this.extension);
+    return ini.parse(fs.readFileSync(filePath, 'utf-8'));
+  }
+}
+
+const RootFolder = 'config';
+function registerComponentFolder(folderName, type, registerFunc) {
+  const loader = new IniLoader(path.join(RootFolder, folderName));
+  return Promise.all(loader
+    .listComponents()
+    .map(key => registerFunc.invoke(new FolderLiteral('input', [
+      new StringLiteral('type', type),
+      new StringLiteral('key', key),
+      new StringLiteral('load source', 'host-filesystem'),
+      new StringLiteral('data', JSON.stringify(loader.readComponent(key))),
+    ]))));
+}
+
 launchDaemon = async function launchDaemon(argv) {
   let kernel;
 
@@ -6,6 +40,11 @@ launchDaemon = async function launchDaemon(argv) {
 
     kernel = new Kernel(argv);
     await kernel.ready;
+
+    const registerFunc = await kernel.env.getEntry('/Components/Register/invoke');
+    await registerComponentFolder('connections', 'Connection', registerFunc);
+    await registerComponentFolder('daemons', 'Daemon', registerFunc);
+    await registerComponentFolder('services', 'Service', registerFunc);
 
   } finally {
     console.groupEnd();

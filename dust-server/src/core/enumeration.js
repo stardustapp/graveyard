@@ -107,13 +107,6 @@ function EnumerateIntoSubscription(enumHandler, depth, newChannel) {
   });
 }
 
-if (typeof module !== 'undefined') {
-  module.exports = {
-    EnumerationWriter,
-    EnumerateIntoSubscription,
-  };
-}
-
 class FlatEnumerable {
   constructor(...things) {
     this.list = things.slice(0);
@@ -136,4 +129,12 @@ class FlatEnumerable {
       enumer.ascend();
     }
   }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    EnumerationWriter,
+    EnumerateIntoSubscription,
+    FlatEnumerable,
+  };
 }

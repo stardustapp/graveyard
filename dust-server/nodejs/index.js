@@ -43,6 +43,8 @@ const extraImports = [
 
   'src/lib/locking.js',
 
+  'src/daemon/component.js',
+
   'src/model/engine_loader.js',
   'src/model/engine.js',
   'src/model/engine_builder.js',

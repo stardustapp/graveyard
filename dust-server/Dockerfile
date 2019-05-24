@@ -12,4 +12,3 @@ RUN cd nodejs && npm ci && cd - && \
 
 ARG GitHash=""
 ENV DUST_GIT_HASH="${GitHash}"
-RUN node nodejs test-http

@@ -8,11 +8,13 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
     Origin: `http://${hostname || ipv4 || ipv6}${altPort.length ? ':' : ''}${altPort}`,
   */
 
-  getHeader(header) {
+  getHeaders(header) {
     // TODO: what about repeated headers?
     const key = header.toLowerCase();
-    return this.Headers.find(x => x
-      .Key.toLowerCase() === key);
+    return this.Headers
+      .filter(x => x
+        .Key.toLowerCase() === key)
+      .map(x => x.Value);
   },
 
   assertNormalRequest() {
@@ -23,9 +25,9 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
 
   // Also Accept-Encoding, Accept-Language
   parseAcceptHeader(key='Accept') {
-    const header = this.getHeader(key);
+    const header = this.getHeaders(key)[0];
     if (!header) return [];
-    return new AcceptSet(key.toLowerCase(), header.Value.split(',').map(token => {
+    return new AcceptSet(key.toLowerCase(), header.split(',').map(token => {
       const parts = token.trim().split(';');
       if (parts.length < 2) return [parts[0], {}];
       const opts = Object.create(null);
@@ -41,10 +43,10 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
     return this.Path[this.Path.length - 1] === '/'
   },
   isConditionalGET() {
-    return this.getHeader('if-match') ||
-      this.getHeader('if-unmodified-since') ||
-      this.getHeader('if-none-match') ||
-      this.getHeader('if-modified-since');
+    return this.getHeaders('if-match').length > 0 ||
+      this.getHeaders('if-unmodified-since').length > 0 ||
+      this.getHeaders('if-none-match').length > 0 ||
+      this.getHeaders('if-modified-since').length > 0;
   },
   /*
   isPreconditionFailure () {
@@ -54,7 +56,7 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
     // if-match
     var match = req.headers['if-match']
     if (match) {
-      var etag = res.getHeader('ETag')
+      var etag = res.getHeaders('ETag')[0]
       return !etag || (match !== '*' && parseTokenList(match).every(function (match) {
         return match !== etag && match !== 'W/' + etag && 'W/' + match !== etag
       }))
@@ -63,7 +65,7 @@ GraphEngine.attachBehavior('http-messages/v1-beta1', 'Request', {
     // if-unmodified-since
     var unmodifiedSince = parseHttpDate(req.headers['if-unmodified-since'])
     if (!isNaN(unmodifiedSince)) {
-      var lastModified = parseHttpDate(res.getHeader('Last-Modified'))
+      var lastModified = parseHttpDate(res.getHeaders('Last-Modified')[0])
       return isNaN(lastModified) || lastModified > unmodifiedSince
     }
 
