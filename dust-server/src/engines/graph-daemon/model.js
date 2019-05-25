@@ -8,7 +8,6 @@ new GraphEngineBuilder('graph-daemon/v1-beta1', (build, ref) => {
     ],
     fields: {
       CreatedAt: { type: Date },
-      GitHash: { type: String },
       LaunchFlags: { type: JSON },
       Config: { fields: {
         Command: { type: String, choices: [ 'serve', 'run' ] },

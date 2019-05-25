@@ -420,6 +420,7 @@ class GraphContext {
 
   // use this if there can't already be a top
   async newTopNode(fields) {
+    const {stack} = new Error;
     try {
       await this.getNodeById('top');
       throw new Error(
@@ -429,9 +430,14 @@ class GraphContext {
         throw err;
     }
 
-    const node = this.putNode(this.topAccessor, fields, 'top');
-    await node.ready;
-    return node;
+    try {
+      const node = this.putNode(this.topAccessor, fields, 'top');
+      await node.ready;
+      return node;
+    } catch (err) {
+      err.stack = [...err.stack.split('\n'), '---', ...stack.split('\n').slice(2)].join('\n');
+      throw err;
+    }
   }
 
   // use this to handle existing tops

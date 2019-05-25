@@ -20,6 +20,26 @@ spec:
         imagePullPolicy: Always
         securityContext:
           privileged: true
+        volumeMounts:
+        - name: connections
+          readOnly: true
+          mountPath: /app/config/connections
+        - name: daemons
+          readOnly: true
+          mountPath: /app/config/daemons
+        - name: services
+          readOnly: true
+          mountPath: /app/config/services
+      volumes:
+      - name: connections
+        secret:
+          secretName: dust-connections
+      - name: daemons
+        configMap:
+          name: dust-daemons
+      - name: services
+        configMap:
+          name: dust-services
       nodeSelector:
         purpose: build
       tolerations:

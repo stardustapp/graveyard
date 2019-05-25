@@ -18,45 +18,45 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   },
 
   // TODO: should leverage the EdgeQuery better
-  async getBuiltInEngine({engineKey, gitHash}) {
-    if (!gitHash) throw new Error(
-      `gitHash is required`);
+  async getBuiltInEngine({EngineKey, GitHash}) {
+    if (!GitHash) throw new Error(
+      `GitHash is required`);
     const allEngines = await this.OPERATES.fetchEngineList();
     const engine = allEngines
       .filter(x => x.Source.BuiltIn)
-      .filter(x => x.Source.BuiltIn.EngineKey === engineKey)
-      //.filter(x => x.Source.BuiltIn.GitHash === gitHash)
+      .filter(x => x.Source.BuiltIn.EngineKey === EngineKey)
+      //.filter(x => x.Source.BuiltIn.GitHash === GitHash)
       [0];
 
     if (engine) {
       // update the found engine if necesary
-      if (engine.Source.BuiltIn.GitHash !== gitHash) {
-        engine.Source.BuiltIn.GitHash = gitHash;
+      if (engine.Source.BuiltIn.GitHash !== GitHash) {
+        engine.Source.BuiltIn.GitHash = GitHash;
       }
 
       return engine;
     }
 
     // make fresh engine, none found
-    console.log('Storing new engine for builtin', engineKey);
+    console.log('Storing new engine for builtin', EngineKey);
     return await this.OPERATES.newEngine({
       Source: {
         BuiltIn: {
-          GitHash: gitHash,
-          EngineKey: engineKey,
+          GitHash: GitHash,
+          EngineKey: EngineKey,
         },
       },
     });
   },
 
   async findGraph(opts) {
-    if (!opts.engineKey) throw new Error('oops1')
+    if (!opts.EngineKey) throw new Error('oops1')
     const engine = await this.getBuiltInEngine(opts);
     return await engine.findGraph(opts);
   },
 
   async findOrCreateGraph(opts) {
-    if (!opts.engineKey) throw new Error('oops2')
+    if (!opts.EngineKey) throw new Error('oops2')
     const engine = await this.getBuiltInEngine(opts);
     return await engine.findOrCreateGraph(opts, this);
   },
@@ -84,10 +84,10 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
   },
 
   /*
-    getGraphsUsingEngine(engineKey) {
+    getGraphsUsingEngine(EngineKey) {
       return Array
         .from(this.graphs.values())
-        .filter(x => x.data.engine === engineKey);
+        .filter(x => x.data.engine === EngineKey);
     },
   */
 

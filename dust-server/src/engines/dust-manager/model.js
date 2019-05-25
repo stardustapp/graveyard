@@ -7,7 +7,7 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
       { predicate: 'SERVES', object: 'WebTarget' },
     ],
     fields: {
-      GitHash: String,
+      //GitHash: String,
       Sources: { reference: 'Repository', isList: true },
     },
   });

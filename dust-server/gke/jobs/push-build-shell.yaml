@@ -16,13 +16,13 @@ spec:
         args:
         - bash
         - -exc
-        - >
+        - |
           dockerd --host=unix:///var/run/docker.sock &
           git clone https://github.com/stardustapp/dust-server
-          ;cd dust-server/gke/build-shell
-          ;docker build -t gcr.io/stardust-156404/build-shell:latest .
-          ;docker push gcr.io/stardust-156404/build-shell
-          ;kubectl delete job push-build-shell
+          cd dust-server/gke/build-shell
+          docker build -t gcr.io/stardust-156404/build-shell:latest .
+          docker push gcr.io/stardust-156404/build-shell
+          kubectl delete job push-build-shell
       restartPolicy: Never
       nodeSelector:
         purpose: build

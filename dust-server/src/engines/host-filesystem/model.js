@@ -10,6 +10,7 @@ new GraphEngineBuilder('host-filesystem/v1-beta1', build => {
       Anchor: { anyOfKeyed: {
         HostPath: String,
       }},
+      AllowWrites: Boolean,
       Root: { reference: 'Directory' },
     },
   });

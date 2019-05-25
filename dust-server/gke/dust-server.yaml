@@ -50,6 +50,26 @@ spec:
               value: healthcheck
           initialDelaySeconds: 5
           periodSeconds: 60
+        volumeMounts:
+        - name: connections
+          readOnly: true
+          mountPath: /app/config/connections
+        - name: daemons
+          readOnly: true
+          mountPath: /app/config/daemons
+        - name: services
+          readOnly: true
+          mountPath: /app/config/services
+      volumes:
+      - name: connections
+        secret:
+          secretName: dust-connections
+      - name: daemons
+        configMap:
+          name: dust-daemons
+      - name: services
+        configMap:
+          name: dust-services
 
 ---
 apiVersion: v1

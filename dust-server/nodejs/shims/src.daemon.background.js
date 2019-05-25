@@ -1,3 +1,17 @@
+const os = require('os');
+const process = require('process');
+const {promisify} = require('util');
+const exec = promisify(require('child_process').exec);
+const asyncTimeout = promisify(setTimeout);
+
+async function execForLine(cmd) {
+  const {stdout, stderr} = await exec(cmd);
+  if (stderr.length > 0) {
+    console.warn('WARN: exec() stderr:', stderr);
+  }
+  return stdout.trim();
+}
+
 const ini = require('ini');
 const fs = require('fs');
 const path = require('path');
@@ -38,10 +52,13 @@ launchDaemon = async function launchDaemon(argv) {
   console.debug('Starting server boot');
   try {
 
-    kernel = new Kernel(argv);
+    const gitHash = process.env.DUST_GIT_HASH ||
+      await execForLine(`git describe --always --long --dirty`);
+
+    kernel = new Kernel(argv, gitHash);
     await kernel.ready;
 
-    const registerFunc = await kernel.env.getEntry('/Components/Register/invoke');
+    const registerFunc = await kernel.env.getEntry('/register%20Component/invoke');
     await registerComponentFolder('connections', 'Connection', registerFunc);
     await registerComponentFolder('daemons', 'Daemon', registerFunc);
     await registerComponentFolder('services', 'Service', registerFunc);

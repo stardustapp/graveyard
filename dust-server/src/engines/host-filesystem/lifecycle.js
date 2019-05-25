@@ -1,7 +1,7 @@
 const extensions = GraphEngine.extend('host-filesystem/v1-beta1');
 extensions.lifecycle = {
 
-  async buildNew(graphCtx, opts) {
+  async buildNew(graphCtx, {Config}) {
     //console.log('building host-filesystem with', opts);
 
     //const dirAccessor = graphCtx.findNodeAccessor('Directory');
@@ -9,8 +9,9 @@ extensions.lifecycle = {
 
     const mount = await graphCtx.newTopNode({
       Anchor: {
-        HostPath: require('path').resolve(opts.hostRoot),
+        HostPath: require('path').resolve(Config.RootPath),
       },
+      AllowWrites: Config.ReadOnly !== 'yes',
       Root: {
         Path: '.',
         Meta: {

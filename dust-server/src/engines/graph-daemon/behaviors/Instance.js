@@ -36,35 +36,6 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
     await worldStore.ready;
     this.graphWorld = await storeEngine.buildFromStore({}, worldStore);
 
-    // BRING UP HOST FILESYSTEM
-    // const fsEngine = await GraphEngine.load('host-filesystem/v1-beta1');
-    // this.vendorFileSystem = await fsEngine.buildUsingVolatile({
-    //   hostRoot: '/home/dan/Code/dust-server/vendor',
-    // });
-    this.workDirGraph = await this.graphWorld.findOrCreateGraph({
-      engineKey: 'host-filesystem/v1-beta1',
-      gitHash: this.GitHash,
-      fields: {
-        system: 'work dir',
-      },
-      hostRoot: this.Host.WorkDir,
-    });
-    this.workDirCtx = await this.graphWorld.getContextForGraph(this.workDirGraph)
-    this.workDir = await this.workDirCtx.getTopObject();
-    await this.workDir.Root;
-    await this.workDir.activate();
-
-    // GET DUST MANAGER
-    this.dustManagerGraph = await this.graphWorld.findOrCreateGraph({
-      engineKey: 'dust-manager/v1-beta1',
-      gitHash: this.GitHash,
-      fields: {
-        system: 'dust-manager',
-      },
-    });
-    this.dustManagerCtx = await this.graphWorld.getContextForGraph(this.dustManagerGraph)
-    this.dustManager = await this.dustManagerCtx.getTopObject();
-
     if (this.Config.Command === 'run') {
       // INSTALL DUST PACKAGE
       const appKey = this.Config.PackageKey;
@@ -75,37 +46,10 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
       this.dustPackage = await this.dustPackageCtx.getTopObject();
     }
 
-    // GET PRIMARY DUST DOMAIN
-    this.dustDomainGraph = await this.graphWorld.findOrCreateGraph({
-      engineKey: 'dust-domain/v1-beta1',
-      gitHash: this.GitHash,
-      fields: {
-        system: 'dust-domain',
-        domain: 'gke.devmode.cloud',
-      },
-    });
-    this.dustDomainCtx = await this.graphWorld.getContextForGraph(this.dustDomainGraph)
-    this.dustDomain = await this.dustDomainCtx.getTopObject();
-    this.dustDomain.graphDaemon = this;
-    await this.dustDomain.activate(kernel);
-
     // BRING UP WEBSERVER
     let webServer;
     if (this.Config.Command === 'serve' || this.Config.Command === 'test-http') {
-      this.webServerGraph = await this.graphWorld.findOrCreateGraph({
-        engineKey: 'http-server/v1-beta1',
-        gitHash: this.GitHash,
-        fields: {
-          system: 'http-server',
-        },
-      });
-      this.webServerCtx = await this.graphWorld.getContextForGraph(this.webServerGraph)
-      this.webServer = await this.webServerCtx.getTopObject();
-      await this.webServer.activate(this.graphWorld);
-      console.log('brought up web server', this.webServer);
-
-      await this.webServer.DefaultHandler;
-
+      /*
       const domainHandler = await this.webServer
         .DefaultHandler.InnerRules.push({
           Conditions: [{
@@ -179,7 +123,7 @@ GraphEngine.attachBehavior('graph-daemon/v1-beta1', 'Instance', {
             },
           },
         });
-
+*/
       // const localhostHandler = await this.webServer
       //   .DefaultHandler.InnerRules[1].ForwardTo; // 'localhost'
     }
