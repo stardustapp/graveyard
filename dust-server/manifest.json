@@ -10,11 +10,11 @@
   "app": {
     "background": {
       "scripts": [
-        "vendor/libraries/bugsnag.js", "vendor/libraries/bcrypt.js", "vendor/libraries/wsc-chrome.js",
+        "vendor/libraries/bugsnag.js", "vendor/libraries/bcrypt.js",
           "vendor/libraries/idb.js", "vendor/libraries/moment.js", "vendor/libraries/common-tags.js",
           "vendor/libraries/base64.js",
         "src/core/utils.js", "src/core/api-entries.js", "src/core/enumeration.js", "src/core/environment.js",
-          "src/core/http-server.js", "src/core/platform-api.js",
+          "src/core/platform-api.js",
         "src/skylink/client.js", "src/skylink/server.js", "src/skylink/core-ops.js",
           "src/skylink/ext-channel.js", "src/skylink/ext-reversal.js",
           "src/skylink/channel-client.js", "src/skylink/channel-server.js",

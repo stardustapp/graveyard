@@ -71,7 +71,7 @@ Kernel = class Kernel extends PlatformApi {
       }
     }
 
-    //throw new Error('Kernel reached boot phase.');
+    throw new Error('Kernel reached boot phase.');
     return this.findDaemonByEngine('graph-daemon').boot(this);
     //await this.workloadManager.boot();
   }
