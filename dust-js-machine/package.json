@@ -1,0 +1,26 @@
+{
+  "name": "@dustjs/machine",
+  "version": "0.1.0",
+  "description": "Library for building and running JavaScript DUST drivers",
+  "main": "src/index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node tests/host-filesystem.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stardustapp/dustjs-machine.git"
+  },
+  "keywords": [
+    "dustjs",
+    "stardustapp"
+  ],
+  "author": "Daniel Lamando",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/stardustapp/dustjs-machine/issues"
+  },
+  "homepage": "https://github.com/stardustapp/dustjs-machine#readme"
+}
