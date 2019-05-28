@@ -7,8 +7,8 @@ class StructFieldType extends FieldType {
     this.defaults = new Map;
     for (const key in config.fields) {
       this.fields.set(key, FieldType.from(config.fields[key]));
-      if ('default' in config.fields[key]) {
-        this.defaults.set(key, config.fields[key].default);
+      if ('defaultValue' in config.fields[key]) {
+        this.defaults.set(key, config.fields[key].defaultValue);
       }
     }
   }
@@ -58,8 +58,8 @@ class StructAccessor extends FieldAccessor {
     this.defaults = type.defaults;
   }
 
-  mapOut(structVal, graphCtx, node) {
-    const target = Object.create(null);
+  mapOut(structVal, graphCtx, node, forceTarget=null) {
+    const target = forceTarget || Object.create(null);
     if (!graphCtx) throw new Error(
       `graphCtx is required!`);
 
@@ -92,11 +92,11 @@ class StructAccessor extends FieldAccessor {
     return target;
   }
 
-  mapIn(newVal, graphCtx, node) {
+  mapIn(newVal, graphCtx, node, target=null) {
     if (newVal.constructor === Object || newVal.constructor === GraphNode) {
       const dataObj = Object.create(null);
       // create temporary instance to fill in the data
-      const accInst = this.mapOut(dataObj, graphCtx, node);
+      const accInst = this.mapOut(dataObj, graphCtx, node, target);
       const allKeys = new Set(this.fields.keys());
       const givenKeys = new Set(Object.keys(newVal));
       //Object.keys(newVal).forEach(x => allKeys.add(x));
@@ -110,6 +110,7 @@ class StructAccessor extends FieldAccessor {
 
     } else if (newVal.constructor === undefined) {
       // this is probably us, right?
+      throw new Error('TODO: struct mapIn');
       return newVal;
 
     } else throw new Error(

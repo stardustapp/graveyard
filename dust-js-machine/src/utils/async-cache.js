@@ -1,10 +1,14 @@
-module.exports = class LoaderCache {
-  constructor(loadFunc, keyFunc) {
-    if (!loadFunc || typeof loadFunc !== 'function')
-      throw new Error(`LoaderCache requires a backing load Function`);
-    this.loadFunc = loadFunc;
+exports.AsyncCache = class AsyncCache {
+  constructor({
+    loadFunc = false,
+    keyFunc = false,
+    cacheRejects = false,
+  }={}) {
+    this.loadFunc = loadFunc || (input => {
+      throw new Error(`LoaderCache wasn't provided a default loadFunc`);
+    });
     this.keyFunc = keyFunc || (input => input);
-    // TODO? cache for keyFunc
+    this.cacheRejects = false;
 
     this.entities = new Map;
     this.promises = new Map;
@@ -17,7 +21,7 @@ module.exports = class LoaderCache {
   }
 
   // returns existing value or promise, or loads the node afresh
-  get(input) {
+  get(input, loadFunc=this.loadFunc) {
     const key = this.keyFunc(input);
     //console.log('cache is using key', key)
     if (this.entities.has(key))
@@ -25,23 +29,28 @@ module.exports = class LoaderCache {
     if (this.promises.has(key))
       return this.promises.get(key);
 
-    const promise = this.load(key, input);
+    const promise = this.load(key, input, loadFunc);
     this.set(key, promise);
     return promise;
   }
 
   // bring a new value into the cache
-  async load(key, input) {
+  async load(key, input, loadFunc) {
     try {
-      const value = await this.loadFunc(input, key);
+      const value = await loadFunc(input, key);
       // TODO: check if we're still relevant before writing
       this.set(key, value);
       return value;
     } catch (err) {
-      // TODO: check if we're still relevant before deleting
-      this.promises.delete(key);
+      const rejection = Promise.reject(err);
+      if (this.cacheRejects) {
+        this.set(key, rejection);
+      } else {
+        // TODO: check if we're still relevant before deleting
+        this.promises.delete(key);
+      }
       //console.error(`LoaderCache failed to load value`, key, input, err);
-      return Promise.reject(err);
+      return rejection;
     }
   }
 

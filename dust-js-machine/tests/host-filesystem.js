@@ -5,12 +5,12 @@ const machine = new DustMachine;
 machine.runMain(async () => {
 
   const hostFs = await machine.launchEngine('host-filesystem', {
-    Anchor: { anyOfKeyed: {
+    Anchor: {
       HostPath: process.cwd(),
-    }},
+    },
     AllowWrites: false,
   });
 
-  console.log('have host fs', hostFs);
+  console.log('have host fs', await hostFs.Root.getEntry('src'));
 
 });

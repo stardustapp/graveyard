@@ -9,15 +9,17 @@ const FILE_TYPE_KEYS = 'Directory File Socket FIFO SymbolicLink BlockDevice Char
 
 CURRENT_LOADER.attachBehavior(class Mount {
 
-  async activate() {
+  async setup() {
+    console.log('setting up')
     if (this.Anchor.currentKey !== 'HostPath') throw new Error(
       `NodeJS filesystem can only load HostPath anchors`);
     this.rootPath = resolve(this.Anchor.HostPath);
     this.Root.Meta = await this.readMeta('.');
     this.Root.Mount = this;
 
-    this.metaCache = new LoaderCache(this.readMeta.bind(this));
-    this.entryCache = new LoaderCache(this.readEntry.bind(this));
+    this.metaCache = new AsyncCache({loadFunc: this.readMeta.bind(this)});
+    this.entryCache = new AsyncCache({loadFunc: this.readEntry.bind(this)});
+      console.log('done setup')
   }
 
   async getEntry(subPath, expectType=null) {

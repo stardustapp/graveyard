@@ -5,12 +5,12 @@ const path = require('path');
 const {promisify} = require('util');
 const readDir = promisify(fs.readdir);
 
-const LoaderCache = require('./utils/loader-cache.js');
-const {DriverBuilder} = require('./builders/driver.js');
+const {AsyncCache} = require('./utils/async-cache.js');
+const {LoadApi} = require('./load-api.js');
 
 const importantFiles = [
   'schema.js', 'lifecycle.js', // established concepts
-  'ddp-api.js', 'compile.js', 'json-codec.js', // legacy files
+  //'ddp-api.js', 'compile.js', 'json-codec.js', // legacy files
 ];
 
 // TODO: perform the file I/O async.
@@ -20,18 +20,20 @@ exports.SystemLoader = class SystemLoader {
   constructor({
     hostDir,
   }={}) {
-    this.cache = new LoaderCache(
-      this.requireDriver.bind(this, hostDir),
-      key => key.split('/')[0]);
+    this.loadCache = new AsyncCache({
+      loadFunc: this.loadDriver.bind(this, hostDir),
+      keyFunc(key) { return key.split('/')[0]; },
+      cacheRejects: true,
+    });
     this.availableDrivers = fs.readdirSync(hostDir);
   }
 
   // consumer APIs
   canLoad(key) {
-    return this.availableDrivers.includes(this.cache.keyFunc(key));
+    return this.availableDrivers.includes(this.loadCache.keyFunc(key));
   }
   async getDriver(key) {
-    const result = await this.cache.get(key);
+    const result = await this.loadCache.get(key);
     // throw new Error(
     //   `Driver ${key} isn't available to load from source`);
     if (result instanceof Error) throw new Error(
@@ -39,24 +41,25 @@ exports.SystemLoader = class SystemLoader {
     else return result;
   }
 
-  async requireDriver(hostDir, key) {
+  async loadDriver(hostDir, key) {
     if (!this.availableDrivers.includes(key))
       return false; // engine doesn't exist
 
-    global.CURRENT_LOADER = new DriverBuilder(key);
+    global.CURRENT_LOADER = new LoadApi(key);
 
     const engineDir = path.join(hostDir, key);
     //console.log('Dynamically loading engine from', engineDir);
     try {
-      console.group(`[${key}] Loading graph engine...`);
+      console.group(`[${key}] Loading driver...`);
       await this.requireFromPath(engineDir);
-      return CURRENT_LOADER.compile();
+      return global.CURRENT_LOADER;
     } catch (err) {
-      console.error('Error when dynamically loading engine from', engineDir);
+      console.error('Error loading driver from', engineDir);
       console.error(err.stack);
-      return err;
+      throw err;
     } finally {
       console.groupEnd();
+      delete global.CURRENT_LOADER;
     }
   }
 

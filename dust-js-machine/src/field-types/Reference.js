@@ -79,6 +79,12 @@ class ReferenceAccessor extends FieldAccessor {
     //console.log('ReferenceAccessor#mapOut', rawVal);
     if (rawVal === null || rawVal === undefined) throw new Error(
       `ReferenceAccessor mapping out null!`);
+    if (rawVal && rawVal.constructor) {
+      const {otherName} = this.refType.relation;
+      if (rawVal.constructor.name === otherName) {
+        return rawVal;
+      }
+    }
     if (rawVal && rawVal.constructor === String) {
       return graphCtx.getNodeByIdentity(rawVal);
     }
@@ -93,22 +99,28 @@ class ReferenceAccessor extends FieldAccessor {
       //console.debug('ReferenceAccessor#mapIn', newVal.constructor.name);
 
     if (newVal.constructor === Object) {
-      const type = this.refType.targetType || graphCtx.findNodeBuilder(this.refType.targetName);
-      const accessor = FieldAccessor.forType(type);
-      //console.log('ref mapping in', accessor, newVal);
-      const node = graphCtx.newNode(accessor, newVal);
-      return graphCtx.identifyNode(node);
+      const {otherType, otherName} = this.refType.relation;
+      const type = otherType || graphCtx.findNodeBuilder(otherName);
+      return graphCtx.createNode(type, newVal);
 
     } else if (newVal.constructor === GraphReference && newVal.target) {
       //if (this.targetPath === '')
       console.log('hello world', this.targetPath, newVal.target);
 
-    } else if (newVal.constructor === GraphNode) {
+    } else if (newVal.constructor === 'GraphNode') {
       const node = newVal;
       //console.debug('reffing to', graphCtx.identifyNode(node));
       //console.debug(new Error().stack.split('\n')[2]);
       return graphCtx.identifyNode(node);
     }
+
+    if (newVal && newVal.constructor) {
+      const {otherName} = this.refType.relation;
+      if (newVal.constructor.name === otherName) {
+        return newVal;
+      }
+    }
+
     throw new Error(`ReferenceAccessor doesn't support value ${newVal.constructor.name}`);
   }
 
