@@ -3,8 +3,6 @@ global.ExportAll = obj => {
     global[key] = obj[key];
   }
 };
-//ExportAll(require('./model'));
-ExportAll(require('./field-types'));
 ExportAll(require('./utils/async-cache.js'));
 
 module.exports = {

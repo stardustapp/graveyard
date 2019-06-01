@@ -1,12 +1,10 @@
-
-class StructFieldType extends FieldType {
-  constructor(config) {
-    super('composite', 'Struct');
-
+CURRENT_LOADER.attachBehavior(class Struct {
+  setup({config, typeResolver}) {
     this.fields = new Map;
     this.defaults = new Map;
+
     for (const key in config.fields) {
-      this.fields.set(key, FieldType.from(config.fields[key]));
+      this.fields.set(key, typeResolver(config.fields[key]));
       if ('defaultValue' in config.fields[key]) {
         this.defaults.set(key, config.fields[key].defaultValue);
       }
@@ -30,6 +28,7 @@ class StructFieldType extends FieldType {
       `Extra struct keys: ${JSON.stringify(Array.from(extraKeys))}`);
     return data;
   }
+
   setField(data, path, value) {
     try {
       if (!this.fields.has(path)) throw new FieldTypeError(this,
@@ -47,16 +46,7 @@ class StructFieldType extends FieldType {
       throw ex;
     }
   }
-}
 
-
-class StructAccessor extends FieldAccessor {
-  constructor(type) {
-    super(type);
-
-    this.fields = type.fields;
-    this.defaults = type.defaults;
-  }
 
   mapOut(structVal, graphCtx, node, forceTarget=null) {
     const target = forceTarget || Object.create(null);
@@ -64,22 +54,21 @@ class StructAccessor extends FieldAccessor {
       `graphCtx is required!`);
 
     for (const [name, fieldType] of this.fields) {
-      const fieldAccessor = FieldAccessor.forType(fieldType);
       const propOpts = {
         enumerable: true,
       }
 
-      if ('mapOut' in fieldAccessor) {
+      if ('mapOut' in fieldType) {
         propOpts.get = function() {
           //console.log('getting', name, 'as', fieldType.constructor.name);
-          return fieldAccessor.mapOut(structVal[name], graphCtx, node);
+          return fieldType.mapOut(structVal[name], graphCtx, node);
         };
       }
 
-      if ('mapIn' in fieldAccessor) {
+      if ('mapIn' in fieldType) {
         propOpts.set = function(newVal) {
           //console.debug('setting', name, 'as', fieldType.constructor.name, newVal);
-          structVal[name] = fieldAccessor.mapIn(newVal, graphCtx, node);
+          structVal[name] = fieldType.mapIn(newVal, graphCtx, node);
           node.markDirty();
           //graphCtx.flushNodes();
           return true;
@@ -114,34 +103,25 @@ class StructAccessor extends FieldAccessor {
       return newVal;
 
     } else throw new Error(
-      `StructAccessor can't map in values of ${newVal.constructor.name}`);
+      `Struct can't map in values of ${newVal.constructor.name}`);
   }
+
 
   gatherRefs(struct, refs) {
     for (const [name, fieldType] of this.fields) {
-      const fieldAccessor = FieldAccessor.forType(fieldType);
       //console.log('struct ZgatherRefs', name, struct, struct[name])
-      if ('gatherRefs' in fieldAccessor)
-        fieldAccessor.gatherRefs(struct[name], refs);
+      if ('gatherRefs' in fieldType)
+        fieldType.gatherRefs(struct[name], refs);
     }
   }
+
   exportData(struct, opts) {
     const obj = {};
     for (const [name, fieldType] of this.fields) {
-      const accessor = FieldAccessor.forType(fieldType);
-      const value =  accessor.exportData(struct[name], opts);
+      const value =  fieldType.exportData(struct[name], opts);
       if (value !== undefined)
         obj[name] = value;
     }
     return obj;
   }
-}
-
-accessorConstructors.set(StructFieldType, StructAccessor);
-
-if (typeof module !== 'undefined') {
-  module.exports = {
-    StructFieldType,
-    StructAccessor,
-  };
-}
+});

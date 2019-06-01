@@ -1,4 +1,5 @@
-CURRENT_LOADER.attachModel(build => {
+CURRENT_LOADER.attachModel(async build => {
+  await build.withFieldTypes('structural');
   build.needsEngine('http-messages');
   build.needsEngine('host-filesystem');
 

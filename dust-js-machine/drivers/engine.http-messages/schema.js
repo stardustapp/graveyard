@@ -1,4 +1,5 @@
-CURRENT_LOADER.attachModel(build => {
+CURRENT_LOADER.attachModel(async build => {
+  await build.withFieldTypes('structural');
 
   // Represents an actual TCP connection between a client and a server.
   // Includes information on the socket for addressing purposes.

@@ -1,13 +1,12 @@
-
-class AnyOfKeyedFieldType extends FieldType {
-  constructor(keys) {
-    super('composite', 'AnyOfKeyed');
-
+CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
+  setup({config, typeResolver}) {
     this.slots = new Map;
-    for (const key in keys) {
-      this.slots.set(key, FieldType.from(keys[key]));
+    for (const key in config.anyOfKeyed) {
+      this.slots.set(key, typeResolver(config.anyOfKeyed[key]));
     }
   }
+
+
   fromExt(input) {
     if (!input) throw new FieldTypeError(this,
       `Cannot store a null`);
@@ -23,15 +22,7 @@ class AnyOfKeyedFieldType extends FieldType {
     const slot = this.slots.get(key);
     return { [key]: slot.fromExt(input[key]) };
   }
-}
 
-
-class AnyOfKeyed {}
-class AnyOfKeyedAccessor extends FieldAccessor {
-  constructor(type) {
-    super(type);
-    this.slots = type.slots;
-  }
 
   mapOut(structVal, graphCtx, node) {
     if (!graphCtx) throw new Error(
@@ -39,7 +30,8 @@ class AnyOfKeyedAccessor extends FieldAccessor {
     if (structVal.constructor !== Array) throw new Error(
       `AnyOfKeyed#mapOut() got non-Array ${structVal.constructor.name}`);
 
-    const target = Object.create(AnyOfKeyed.prototype);
+    //const target = Object.create(AnyOfKeyed.prototype);
+    const target = Object.create(null);
     Object.defineProperty(target, 'currentKey', {
       get() {
         return structVal[0];
@@ -47,29 +39,28 @@ class AnyOfKeyedAccessor extends FieldAccessor {
     });
 
     for (const [slotKey, slotType] of this.slots) {
-      const slotAccessor = FieldAccessor.forType(slotType);
       const propOpts = {
         enumerable: true,
       }
 
-      if ('mapOut' in slotAccessor) {
+      if ('mapOut' in slotType) {
         propOpts.get = function() {
           //console.log('getting', slotKey, 'as', slotType.constructor.slotKey);
           if (slotKey === structVal[0]) {
-            return slotAccessor.mapOut(structVal[1], graphCtx, node);
+            return slotType.mapOut(structVal[1], graphCtx, node);
           } else {
             return null;
           }
         };
       }
 
-      if ('mapIn' in slotAccessor) {
+      if ('mapIn' in slotType) {
         propOpts.set = function(newVal) {
           if (structVal[0] !== slotKey) console.warn(
             `WARN: AnyOfKeyed changed from '${structVal[0]}' to '${slotKey}'`);
           //console.log('setting', slotKey, 'as', slotKey, newVal);
           structVal[0] = slotKey;
-          structVal[1] = slotAccessor.mapIn(newVal, graphCtx, node);
+          structVal[1] = slotType.mapIn(newVal, graphCtx, node);
           return true;
         };
       }
@@ -101,11 +92,10 @@ class AnyOfKeyedAccessor extends FieldAccessor {
       const slotType = this.slots.get(newVal.currentKey);
       if (!slotType) throw new Error(
         `Incompatible key ${newVal.currentKey} for AnyOfKeyed`);
-      const accessor = FieldAccessor.forType(slotType);
       const innerVal = newVal[newVal.currentKey];
-      return [newVal.currentKey, accessor.mapIn(innerVal, graphCtx, node)];
+      return [newVal.currentKey, slotType.mapIn(innerVal, graphCtx, node)];
     } else throw new Error(
-      `AnyOfKeyedAccessor can't map in values of ${newVal.constructor.name}`);
+      `AnyOfKeyed can't map in values of ${newVal.constructor.name}`);
   }
 
   gatherRefs(rawVal, refs) {
@@ -116,22 +106,12 @@ class AnyOfKeyedAccessor extends FieldAccessor {
     if (!this.slots.has(currentKey)) throw new Error(
       `AnyOfKeyed#gatherRefs() got unrecognized currentKey '${currentKey}'`);
 
-    const slotAccessor = FieldAccessor.forType(this.slots.get(currentKey));
-    if ('gatherRefs' in slotAccessor)
-      slotAccessor.gatherRefs(rawVal[currentKey], refs);
+    const slot = this.slots.get(currentKey);
+    if ('gatherRefs' in slot)
+      slot.gatherRefs(rawVal[currentKey], refs);
   }
-  exportData([liveKey, data], opts) {
-    const accessor = FieldAccessor.forType(this.slots.get(liveKey));
-    return [liveKey, accessor.exportData(data, opts)];
+  exportData([currentKey, data], opts) {
+    const slot = this.slots.get(currentKey);
+    return [currentKey, slot.exportData(data, opts)];
   }
-}
-
-accessorConstructors.set(AnyOfKeyedFieldType, AnyOfKeyedAccessor);
-
-if (typeof module !== 'undefined') {
-  module.exports = {
-    AnyOfKeyed,
-    AnyOfKeyedFieldType,
-    AnyOfKeyedAccessor,
-  };
-}
+});

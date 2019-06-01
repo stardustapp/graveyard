@@ -4,13 +4,20 @@ CURRENT_LOADER.attachBehavior(class Builder {
     this.BaseDriver = BaseDriver;
     this.EngineDriver = EngineDriver;
 
+    this.config = {
+      engineDeps: new Array,
+    };
     this.engineDeps = new Map;
     this.nodes = new Map;
     this.allRelations = new Set;
   }
 
+  async withFieldTypes(key) {
+    this.fieldDriver = await this
+      .Machine.loadDriver('types', key);
+  }
   needsEngine(key) {
-    this.engineDeps.set(key, null);
+    this.config.engineDeps.push(key);
   }
 
   node(name, config) {
@@ -22,6 +29,7 @@ CURRENT_LOADER.attachBehavior(class Builder {
         RelationBuilder: this.BaseDriver
           ._makeObjectFactory('Relation', r =>
             this.allRelations.add(r)),
+        FieldDriver: this.fieldDriver,
         EngineDriver: this.EngineDriver,
         RawConfig: config,
       }));
@@ -35,7 +43,7 @@ CURRENT_LOADER.attachBehavior(class Builder {
   }
 
   async build() {
-    for (const engineDep of this.engineDeps.keys()) {
+    for (const engineDep of this.config.engineDeps) {
       this.engineDeps.set(engineDep, await this
         .Machine.loadDriver('engine', engineDep));
     }

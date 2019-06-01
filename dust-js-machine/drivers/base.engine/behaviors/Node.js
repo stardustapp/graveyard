@@ -2,10 +2,11 @@ CURRENT_LOADER.attachBehavior(class Node {
   setup({
     RelationBuilder,
     EngineDriver,
+    FieldDriver,
     RawConfig,
   }) {
     console.log('setting up node config', Object.keys(RawConfig));
-    this.inner = FieldType.from(RawConfig);
+    this.inner = FieldDriver.constructFrom(RawConfig);
     this.relations = [];
 
     // TODO: relocate to 'structure' engine
