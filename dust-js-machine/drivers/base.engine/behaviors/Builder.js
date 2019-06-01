@@ -1,15 +1,16 @@
 CURRENT_LOADER.attachBehavior(class Builder {
-  setup({BaseDriver, EngineDriver}) {
+  setup({Machine, BaseDriver, EngineDriver}) {
+    this.Machine = Machine;
     this.BaseDriver = BaseDriver;
     this.EngineDriver = EngineDriver;
 
-    this.engineDeps = new Set;
+    this.engineDeps = new Map;
     this.nodes = new Map;
     this.allRelations = new Set;
   }
 
   needsEngine(key) {
-    this.engineDeps.add(key);
+    this.engineDeps.set(key, null);
   }
 
   node(name, config) {
@@ -34,8 +35,9 @@ CURRENT_LOADER.attachBehavior(class Builder {
   }
 
   async build() {
-    for (const engineDep of this.engineDeps) {
-      await machine.loadDriver('engine', engineDep);
+    for (const engineDep of this.engineDeps.keys()) {
+      this.engineDeps.set(engineDep, await this
+        .Machine.loadDriver('engine', engineDep));
     }
 
     //console.log('building driver', this.nodes)

@@ -4,7 +4,7 @@ CURRENT_LOADER.attachBehavior(class Node {
     EngineDriver,
     RawConfig,
   }) {
-    console.log('setting up node config', RawConfig);
+    console.log('setting up node config', Object.keys(RawConfig));
     this.inner = FieldType.from(RawConfig);
     this.relations = [];
 
@@ -88,7 +88,7 @@ CURRENT_LOADER.attachBehavior(class Node {
       worked = true;
     } finally {
       if (!worked)
-        console.error('Failed to link', this.name);
+        console.error('Failed to link', this);
     }
   }
 

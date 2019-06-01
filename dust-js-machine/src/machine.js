@@ -26,7 +26,7 @@ exports.DustMachine = class DustMachine {
       if (!loader.canLoad(driverKey)) continue;
       return await loader.getDriver(driverKey);
     }
-    throw new Error(`DustMachine didn't find driver '${driverKey}' to load`);
+    throw new Error(`DUST Driver '${driverKey}' was not found`);
   }
 
   async loadDriver(type, name) {
@@ -43,6 +43,7 @@ exports.DustMachine = class DustMachine {
 
   async launchEngine(engineName, config) {
     const engine = await this.loadDriver('engine', engineName);
+    console.log('Launching engine', engineName, '...');
     return await engine.launch(config);
   }
 

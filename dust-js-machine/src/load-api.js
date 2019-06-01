@@ -63,14 +63,15 @@ exports.LoadApi = class LoadApi {
       });
     }
 
-    if (hasSetupMethod) object.setup.call(object, data);
+    if (hasSetupMethod)
+      object.ready = object.setup.call(object, data);
     return object;
   }
 
   _getBehavior(name) {
     const behavior = this.behaviors.get(name);
     if (!behavior) {
-      if (!node) throw new Error(`LoadApi can't get behavior for empty name`);
+      if (!name) throw new Error(`LoadApi can't get behavior for empty name`);
       console.log('WARN:', `LoadApi ${this.key} lacking behavior for ${name}`);
       return;
     }

@@ -11,6 +11,9 @@ machine.runMain(async () => {
     AllowWrites: false,
   });
 
-  console.log('have host fs', await hostFs.Root.getEntry('src'));
+  const srcDir = await hostFs.Root.getEntry('src');
+  const indexFile = await srcDir.getFile('index.js');
+  const rawIndex = await indexFile.readAll({encoding: 'utf-8'});
+  console.log('have host fs', rawIndex);
 
 });

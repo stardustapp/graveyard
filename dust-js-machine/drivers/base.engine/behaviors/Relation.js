@@ -125,8 +125,10 @@ CURRENT_LOADER.attachBehavior(class Relation {
       case 'arbitrary':
         this.localType = nodeCtx;
         if (this.otherEngineKey) {
-          const targetEngine = GraphEngine.get(this.otherEngineKey);
-          this.otherType = targetEngine.names.get(this.otherName);
+          const targetEngine = resolver.engineDeps.get(this.otherEngineKey);
+          if (!targetEngine) throw new Error(
+            `Can't relate to undeclared engine ${this.otherEngineKey}`);
+          this.otherType = targetEngine.NodeMap.get(this.otherName);
         } else {
           this.otherType = resolver.resolveName(this.otherName);
         }
@@ -142,8 +144,10 @@ CURRENT_LOADER.attachBehavior(class Relation {
       case 'ref':
         this.localType = nodeCtx;
         if (this.otherEngineKey) {
-          const targetEngine = GraphEngine.get(this.otherEngineKey);
-          this.otherType = targetEngine.names.get(this.otherName);
+          const targetEngine = resolver.engineDeps.get(this.otherEngineKey);
+          if (!targetEngine) throw new Error(
+            `Can't relate to undeclared engine ${this.otherEngineKey}`);
+          this.otherType = targetEngine.NodeMap.get(this.otherName);
         } else {
           this.otherType = resolver.resolveName(this.otherName);
         }

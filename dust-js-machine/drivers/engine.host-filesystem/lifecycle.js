@@ -11,17 +11,11 @@ CURRENT_LOADER.attachLifecycle(class Lifecycle {
         HostPath: require('path').resolve(Config.RootPath),
       },
       AllowWrites: Config.ReadOnly !== 'yes',
-      Root: {
-        Path: '.',
-        Meta: {
-          Unknown: true,
-        },
-      },
     });
     //mount.Root = await mount.getDirectory('.');await graphCtx.newTypedFields('Directory');
     //const mount = await graphCtx.getNodeById(mount.nodeId);
     //await mount.HOSTS.attachDirectory(mount.Root);
-    await mount.activate();
+    await mount.ready;
     return mount;
   }
 

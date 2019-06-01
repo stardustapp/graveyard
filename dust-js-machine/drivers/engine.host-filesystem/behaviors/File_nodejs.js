@@ -7,6 +7,10 @@ CURRENT_LOADER.attachBehavior(class File {
     const path = this.Mount.resolvePath(this.Path);
     return fs.createReadStream(path, opts);
   }
+  readAll(opts) {
+    const path = this.Mount.resolvePath(this.Path);
+    return fs.promises.readFile(path, opts);
+  }
 
   guessMime() {
     const ext = path.extname(this.Path);

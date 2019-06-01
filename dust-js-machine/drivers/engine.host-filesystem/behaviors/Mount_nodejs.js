@@ -10,7 +10,7 @@ const FILE_TYPE_KEYS = 'Directory File Socket FIFO SymbolicLink BlockDevice Char
 CURRENT_LOADER.attachBehavior(class Mount {
 
   async setup() {
-    console.log('setting up')
+    console.log('setting up', this.Anchor);
     if (this.Anchor.currentKey !== 'HostPath') throw new Error(
       `NodeJS filesystem can only load HostPath anchors`);
     this.rootPath = resolve(this.Anchor.HostPath);
@@ -19,7 +19,7 @@ CURRENT_LOADER.attachBehavior(class Mount {
 
     this.metaCache = new AsyncCache({loadFunc: this.readMeta.bind(this)});
     this.entryCache = new AsyncCache({loadFunc: this.readEntry.bind(this)});
-      console.log('done setup')
+    console.log('done setup');
   }
 
   async getEntry(subPath, expectType=null) {
@@ -57,7 +57,7 @@ CURRENT_LOADER.attachBehavior(class Mount {
     if (!FileType) throw new Error(
       `didn't find FileType for ${subPath}`);
 
-    return await this.getGraphCtx().newTypedFields(FileType, {
+    return await this.myFrame.makeObject(FileType, {
       Path: normalize(subPath),
       Meta,
       Mount: this,
