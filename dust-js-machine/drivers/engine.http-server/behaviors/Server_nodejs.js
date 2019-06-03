@@ -139,7 +139,6 @@ CURRENT_LOADER.attachBehavior(class Server {
     const reqMsg = await this.ingestRequest(req);
 
     // Process into a response
-    console.log('root handler', this.RootHandler.exportData())
     const response = await this.RootHandler.handle(reqMsg, this.graphWorld, tags);
     if (!response) throw new Error(
       `http-server/Handler didn't return a response`);

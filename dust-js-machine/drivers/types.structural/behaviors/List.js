@@ -15,6 +15,7 @@ CURRENT_LOADER.attachBehavior(class List {
 
   mapOut(rawVal, graphCtx, node) {
     const array = rawVal || [];
+    const innerType = this.inner;
     const proxy = new Proxy(array, {
       get(target, prop, receiver) {
         switch (prop) {
@@ -24,7 +25,7 @@ CURRENT_LOADER.attachBehavior(class List {
 
           case 'push':
             return (rawVal) => {
-              const newVal = this.inner.mapIn(rawVal, graphCtx, node);
+              const newVal = innerType.mapIn(rawVal, graphCtx, node);
               array.push(newVal);
               node.markDirty();
               return newVal;
@@ -32,18 +33,18 @@ CURRENT_LOADER.attachBehavior(class List {
 
           case 'fetchAll':
             return () => Promise.all(array
-              .map(x => this.inner.mapOut(x, graphCtx, node)));
+              .map(x => innerType.mapOut(x, graphCtx, node)));
 
           case Symbol.iterator:
             return array.map(x =>
-              this.inner.mapOut(x, graphCtx, node))[Symbol.iterator];
+              innerType.mapOut(x, graphCtx, node))[Symbol.iterator];
 
           default:
             // intercept item gets
             if (prop.constructor === String) {
               const int = parseInt(prop);
               if (int.toString() === prop) {
-                return this.inner.mapOut(array[int], graphCtx, node);
+                return innerType.mapOut(array[int], graphCtx, node);
               }
             }
 

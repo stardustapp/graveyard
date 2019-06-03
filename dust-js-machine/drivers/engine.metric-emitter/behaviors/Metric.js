@@ -6,7 +6,7 @@
 
 CURRENT_LOADER.attachBehavior(class Metric {
   setup() {
-    console.log('setting up metric', this.exportData());
+    //console.log('setting up metric', this.exportData());
     this.tagList = this.exportData().TagList; // TODO: why?
     this.pendingPoints = new Array;
   }

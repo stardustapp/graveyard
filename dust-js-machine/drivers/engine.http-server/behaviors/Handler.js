@@ -9,7 +9,8 @@ function matchPattern(input, pattern) {
 CURRENT_LOADER.attachBehavior(class Handler {
 
   async handle(request, graphWorld, tags) {
-    console.log('handling request', request, 'with', this);
+    // console.log('handling request', request, 'with', this);
+    // console.log('root handler', this.exportData());
 
     for (const rule of this.InnerRules) {
       let ruleMatches = true;
@@ -55,7 +56,7 @@ CURRENT_LOADER.attachBehavior(class Handler {
   }
 
   async performAction(request, graphWorld) {
-    if (!graphWorld) throw new Error(`no graphWorld`);
+    //if (!graphWorld) throw new Error(`no graphWorld`);
     switch (this.DefaultAction.currentKey) {
 
       case 'FixedResponse':

@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/stardustapp/dustjs-machine#readme",
   "dependencies": {
+    "moment": "^2.24.0",
     "node-fetch": "^2.6.0"
   }
 }

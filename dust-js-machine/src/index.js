@@ -13,6 +13,7 @@ const userAgent = `Stardust ${pkgMeta.name}/${pkgMeta.version}`;
 global.navigator = {userAgent};
 global.crypto = require('crypto');
 global.fetch = require('node-fetch');
+global.moment = require('moment');
 
 module.exports = {
   ...require('./loader.js'),

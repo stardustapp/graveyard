@@ -1,3 +1,5 @@
+class StructVal {}
+
 CURRENT_LOADER.attachBehavior(class Struct {
   build({config, typeResolver}) {
     this.fields = new Map;
@@ -49,7 +51,7 @@ CURRENT_LOADER.attachBehavior(class Struct {
 
 
   mapOut(structVal, graphCtx, node, forceTarget=null) {
-    const target = forceTarget || Object.create(null);
+    const target = forceTarget || Object.create(StructVal.prototype);
     if (!graphCtx) throw new Error(
       `graphCtx is required!`);
 
@@ -82,8 +84,9 @@ CURRENT_LOADER.attachBehavior(class Struct {
   }
 
   mapIn(newVal, graphCtx, node, target=null) {
-    if (newVal.constructor === Object || newVal.constructor === GraphNode) {
-      const dataObj = Object.create(null);
+    //if (newVal.constructor === Object) {
+    if (newVal.constructor === Object || newVal.constructor === StructVal) {
+        const dataObj = Object.create(null);
       // create temporary instance to fill in the data
       const accInst = this.mapOut(dataObj, graphCtx, node, target);
       const allKeys = new Set(this.fields.keys());
@@ -99,6 +102,7 @@ CURRENT_LOADER.attachBehavior(class Struct {
 
     } else if (newVal.constructor === undefined) {
       // this is probably us, right?
+      console.log('mapIn from', newVal.constructor)
       throw new Error('TODO: struct mapIn');
       return newVal;
 

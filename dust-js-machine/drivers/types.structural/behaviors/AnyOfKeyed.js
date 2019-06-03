@@ -1,3 +1,5 @@
+class AnyOfKeyedVal {}
+
 CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
   build({config, typeResolver}) {
     this.slots = new Map;
@@ -32,8 +34,7 @@ CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
     if (structVal.constructor !== Array) throw new Error(
       `AnyOfKeyed#mapOut() got non-Array ${structVal.constructor.name}`);
 
-    //const target = Object.create(AnyOfKeyed.prototype);
-    const target = Object.create(null);
+    const target = Object.create(AnyOfKeyedVal.prototype);
     Object.defineProperty(target, 'currentKey', {
       get() {
         return structVal[0];
@@ -90,7 +91,7 @@ CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
       const accInst = this.mapOut(data, graphCtx, node);
       accInst[liveKey] = newVal[liveKey];
       return data;
-    } else if (newVal.constructor === AnyOfKeyed) {
+    } else if (newVal.constructor === AnyOfKeyedVal) {
       const slotType = this.slots.get(newVal.currentKey);
       if (!slotType) throw new Error(
         `Incompatible key ${newVal.currentKey} for AnyOfKeyed`);
