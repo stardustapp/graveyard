@@ -2,6 +2,7 @@ CURRENT_LOADER.attachBehavior(class Graph {
   build({Template}) {
     //this.AllEngines = new Set;
     this.AllNodes = new Set;
+    this.AllEdges = new Set;
     this.DirtyNodes = new Set;
     this.NodeBuilders = new Map;
     this.NodesByName = new Map;
@@ -87,5 +88,41 @@ CURRENT_LOADER.attachBehavior(class Graph {
     } finally {
       this.PendingTasks.delete(task);
     }
+  }
+
+  newEdge({subject, predicate, object, ...extras}) {
+    // validate/prepare subject
+    if (!subject) throw new Error(`newEdge() requires 'subject'`);
+    //if (subject.constructor === GraphNode) {
+    //if (subject.constructor !== String) throw new Error(
+      //`newEdge() wants a String for subject, got ${subject.constructor.name}`);
+
+    // validate/prepare object
+    if (!object) throw new Error(`newEdge() requires 'object'`);
+    //if (object.constructor === GraphNode) {
+    //   if (object.ctxId === this.ctxId) {
+    //     object = this.identifyNode(object);
+    //   } else {
+    //     const foreignCtx = GraphContext.forId(object.ctxId);
+    //     console.log('local', this.constructor.name, this.ctxId, 'other', foreignCtx.constructor.name, object.ctxId);
+    //     //throw new Error('cross ctx object')
+    //     //if (foreignCtx.phyStoreId)
+    //     object = foreignCtx.identifyNode(object);
+    //   }
+    // }
+    // if (object.constructor !== String) throw new Error(
+    //   `newEdge() wants a String for object, got ${object.constructor.name}`);
+
+    // create the edge
+    //this.AllEdges.set(StoreEdge.identify(edge), edge);
+    this.AllEdges.add({subject, predicate, object});
+
+    // TODO: support uniqueBy by adding name to index
+    // TODO: support count constraints
+    // TODO: look up the opposite relation for constraints
+  }
+
+  queryGraph(query) {
+    return new GraphEdgeQuery(this, query);
   }
 });

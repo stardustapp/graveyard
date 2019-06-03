@@ -9,7 +9,7 @@ function matchPattern(input, pattern) {
 CURRENT_LOADER.attachBehavior(class Handler {
 
   async handle(request, graphWorld, tags) {
-    //console.log('handling request', request);
+    console.log('handling request', request, 'with', this);
 
     for (const rule of this.InnerRules) {
       let ruleMatches = true;

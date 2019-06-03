@@ -19,6 +19,7 @@ CURRENT_LOADER.attachBehavior(class Server {
     this.connNodes = new AsyncCache({ loadFunc: async conn => {
       const localEndpoint = conn.address();
       const connNode = this.HOLDS.newConnection({
+        OpenedAt: new Date,
         WireProtocol: 'HTTP/1',
         SocketFamily: localEndpoint.family,
         Server: {
@@ -31,7 +32,8 @@ CURRENT_LOADER.attachBehavior(class Server {
         },
       });
       conn.on('close', hadError => {
-        // TODO: store ClosedAt and allow more automatic GC
+        conn.ClosedAt = new Date;
+        // TODO: more automatic GC
         try {
           this.deleteConnection(conn);
         } catch (err) {
@@ -115,7 +117,7 @@ CURRENT_LOADER.attachBehavior(class Server {
     };
     res.on('finish', () => {
       const finishDate = new Date;
-      ///this.Metrics.gauge('dust.http-server.finished_ms', finishDate-startDate, tags);
+      this.Metrics.gauge('finished_ms', finishDate-startDate, tags);
     });
 
     try {
@@ -129,15 +131,16 @@ CURRENT_LOADER.attachBehavior(class Server {
       tags.statusclass = (tags.statuscode || 0).toString()[0]; // if 0, then bug
 
       const endDate = new Date;
-      ///this.Metrics.gauge('dust.http-server.elapsed_ms', endDate-startDate, tags);
-      ///this.Metrics.count('dust.http-server.web_request', 1, tags);
+      this.Metrics.gauge('elapsed_ms', endDate-startDate, tags);
+      this.Metrics.count('web_request', 1, tags);
     }
   }
   async routeNormalRequest(req, res, tags) {
     const reqMsg = await this.ingestRequest(req);
 
     // Process into a response
-    const response = await (await this.Handler).handle(reqMsg, this.graphWorld, tags);
+    console.log('root handler', this.RootHandler.exportData())
+    const response = await this.RootHandler.handle(reqMsg, this.graphWorld, tags);
     if (!response) throw new Error(
       `http-server/Handler didn't return a response`);
 
@@ -183,7 +186,7 @@ CURRENT_LOADER.attachBehavior(class Server {
       tags.ok = false;
       socket.destroy();
     } finally {
-      ///this.Metrics.count('dust.http-server.upgrade_request', 1, tags);
+      this.Metrics.count('upgrade_request', 1, tags);
     }
   }
   async routeUpgradeRequest(request, socket, head, tags) {
@@ -197,7 +200,7 @@ CURRENT_LOADER.attachBehavior(class Server {
     reqMsg.Body = { HttpUpgrade: true };
 
     // Process into a fake response
-    const response = await (await this.Handler).handle(reqMsg, this.graphWorld, tags);
+    const response = await (await this.RootHandler).handle(reqMsg, this.graphWorld, tags);
     if (!response) throw new Error(
       `http-server/Handler didn't return a response`);
 

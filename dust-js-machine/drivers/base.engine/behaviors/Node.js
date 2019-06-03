@@ -136,8 +136,8 @@ CURRENT_LOADER.attachBehavior(class Node {
 
     Object.defineProperty(node, 'exportData', {
       value: (opts) => {
-        const storedNode = graphCtx.storedNodes.peek(node.nodeId);
-        return this.exportData(storedNode, opts);
+        //const storedNode = graphCtx.storedNodes.peek(node.nodeId);
+        return this.inner.exportData(structVal, opts);
       },
     });
   }
@@ -199,12 +199,12 @@ class PredicateAccessor {
     return '[PredicateAccessor]'; // TODO
   }
 
-  async attachNode(relation, otherNode) {
+  attachNode(relation, otherNode) {
     if (!relation.predicate) throw new Error(
       `Can't attach nodes to predicates`);
 
     //if (relation.direction === 'out') {
-      await this.graphCtx.newEdge({
+      this.graphCtx.newEdge({
         subject: this.localNode,
         predicate: relation.predicate,
         object: otherNode,
@@ -218,15 +218,15 @@ class PredicateAccessor {
     // }
   }
 
-  async attachNewNode(relation, fields, nodeId=null) {
+  attachNewNode(relation, fields, nodeId=null) {
     if (relation.kind !== 'arbitrary') throw new Error(
       `Can't attach new nodes to non-Arbitrary relations`);
 
     const other = nodeId
-      ? await this.graphCtx.putNode(relation.otherType, fields, nodeId)
-      : await this.graphCtx.createNode(relation.otherType, fields);
-    await other.ready;
-    await this.attachNode(relation, other);
+      ? this.graphCtx.putNode(relation.otherType, fields, nodeId)
+      : this.graphCtx.createNode(relation.otherType, fields);
+    //await other.ready;
+    this.attachNode(relation, other);
     return other;
   }
 
@@ -241,7 +241,7 @@ class PredicateAccessor {
       .findOneObject(query);
   }
 
-  async fetchNodeList(relation) {
+  fetchNodeList(relation) {
     return this.graphCtx
       .queryGraph({
         subject: this.localNode,

@@ -47,7 +47,7 @@ CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
 
       if ('mapOut' in slotType) {
         propOpts.get = function() {
-          console.log('getting', slotKey, 'from', structVal);
+          //console.log('getting', slotKey, 'from', structVal);
           if (slotKey === structVal[0]) {
             return slotType.mapOut(structVal[1], graphCtx, node);
           } else {

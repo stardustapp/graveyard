@@ -8,10 +8,12 @@ CURRENT_LOADER.attachModel(async build => {
     ],
     fields: {
       HostName: { type: String, defaultValue: identifyHost() },
-      GlobalTags: { type: String, isList: true },
       MetricPrefix: String,
+      GlobalTags: { type: String, isList: true },
+      FlushPeriodSecs: { type: Number, defaultValue: 10 },
       Sink: { anyOfKeyed: {
-        Datadog: { fields: {
+        DatadogApi: { fields: {
+          BaseUrl: { type: String, defaultValue: 'https://api.datadoghq.com/api' },
           ApiKey: String,
         }},
         PostProxy: { fields: {
@@ -53,3 +55,28 @@ function identifyHost() {
     return `adhoc-${makeRandomNid()}`;
   }
 }
+
+/*
+if (typeof chrome === 'object' && chrome.storage) {
+  // we're probs in a chrome app or extension
+  chrome.storage.local.get('boxId', ({boxId}) => {
+    if (!boxId) {
+      boxId = makeRandomNid();
+      chrome.storage.local.set({boxId}, () => {
+        console.log('Self-assigned box ID', boxId);
+      });
+    }
+    console.log('Configured datadog for boxId', boxId);
+    const host = 'starbox-'+boxId;
+    Datadog.Instance = new Datadog('REDACTED', host, {});
+  });
+} else if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+  // we're in a web worker
+  if (location.pathname.startsWith('/src/runtimes/')) {
+    const runtime = location.pathname.split('/')[3].split('.').slice(0, -1).join('.');
+    Datadog.Instance = new Datadog('REDACTED', 'runtime-'+runtime, {runtime});
+  } else {
+    Datadog.Instance = new Datadog('REDACTED', 'webworker', {});
+  }
+}
+*/

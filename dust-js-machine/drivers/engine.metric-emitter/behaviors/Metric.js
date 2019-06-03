@@ -6,62 +6,61 @@
 
 CURRENT_LOADER.attachBehavior(class Metric {
   setup() {
-    console.log('setting up metric', this);
+    console.log('setting up metric', this.exportData());
+    this.tagList = this.exportData().TagList; // TODO: why?
     this.pendingPoints = new Array;
   }
   pushPoint(value) {
     this.pendingPoints.push(value);
   }
 
-  flush(batchDate) {
+  flush(batchDate, unlessEmpty=false) {
+    if (this.pendingPoints.length === 0 && unlessEmpty) return;
+
     const series = [];
     const array = this.pendingPoints;
     switch (this.MetricKind) {
 
     case 'gauge':
-      if (array.length < 1) continue;
+      if (array.length < 1) return [];
       let mean = array.reduce((acc, cur) => acc + cur, 0) / array.length;
       let max = array.sort((a, b) => b - a)[0];
 
       series.push({
-        metric: array.metric,
+        metric: this.MetricName,
         type: 'gauge',
         points: [[batchDate, mean]],
-        tags: this.globalTags.concat(array.tagList),
+        tags: this.tagList,
       });
       series.push({
-        metric: array.metric+'.max',
+        metric: this.MetricName+'.max',
         type: 'gauge',
         points: [[batchDate, max]],
-        tags: this.globalTags.concat(array.tagList),
+        tags: this.tagList,
       });
       break;
 
     case 'rate':
-      let value = array[0] || 0;
+      let meanValue = array[0] || 0;
       if (array.length > 1) {
-        value = array.reduce((acc, cur) => acc + cur, 0) / array.length;
+        meanValue = array.reduce((acc, cur) => acc + cur, 0) / array.length;
       }
 
       series.push({
-        metric: array.metric,
+        metric: this.MetricName,
         type: 'rate',
-        interval: this.flushPeriod,
-        points: [[batchDate, value]],
-        host: this.hostName,
-        tags: this.globalTags.concat(array.tagList),
+        points: [[batchDate, meanValue]],
+        tags: this.tagList,
       });
       break;
 
     case 'count':
-      const value = array.reduce((acc, cur) => acc + cur, 0);
+      const sumValue = array.reduce((acc, cur) => acc + cur, 0);
       series.push({
-        metric: array.metric,
+        metric: this.MetricName,
         type: 'count',
-        interval: this.flushPeriod,
-        points: [[batchDate, value]],
-        host: this.hostName,
-        tags: this.globalTags.concat(array.tagList),
+        points: [[batchDate, sumValue]],
+        tags: this.tagList,
       });
       break;
 
@@ -73,28 +72,3 @@ CURRENT_LOADER.attachBehavior(class Metric {
     return series;
   }
 });
-
-/*
-if (typeof chrome === 'object' && chrome.storage) {
-  // we're probs in a chrome app or extension
-  chrome.storage.local.get('boxId', ({boxId}) => {
-    if (!boxId) {
-      boxId = makeRandomNid();
-      chrome.storage.local.set({boxId}, () => {
-        console.log('Self-assigned box ID', boxId);
-      });
-    }
-    console.log('Configured datadog for boxId', boxId);
-    const host = 'starbox-'+boxId;
-    Datadog.Instance = new Datadog('REDACTED', host, {});
-  });
-} else if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
-  // we're in a web worker
-  if (location.pathname.startsWith('/src/runtimes/')) {
-    const runtime = location.pathname.split('/')[3].split('.').slice(0, -1).join('.');
-    Datadog.Instance = new Datadog('REDACTED', 'runtime-'+runtime, {runtime});
-  } else {
-    Datadog.Instance = new Datadog('REDACTED', 'webworker', {});
-  }
-}
-*/
