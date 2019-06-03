@@ -51,10 +51,10 @@ exports.LoadApi = class LoadApi {
 
   _newNamedObject(name, data={}) {
     const behavior = this._getBehavior(name);
-    const hasSetupMethod = behavior.some(x => x[0] === 'setup');
+    const hasBuildMethod = behavior.some(x => x[0] === 'build');
 
-    // if no setup, attach data directly
-    const object = (hasSetupMethod ? false : data) || Object.create(null);
+    // if no build, attach data directly
+    const object = (hasBuildMethod ? false : data) || Object.create(null);
     for (const [key, method] of behavior) {
       Object.defineProperty(object, key, {
         value: method,
@@ -63,18 +63,17 @@ exports.LoadApi = class LoadApi {
       });
     }
 
-    if (hasSetupMethod)
-      object.ready = object.setup.call(object, data);
+    if (hasBuildMethod)
+      object.build.call(object, data);
     return object;
   }
 
   _getBehavior(name) {
     const behavior = this.behaviors.get(name);
-    if (!behavior) {
-      if (!name) throw new Error(`LoadApi can't get behavior for empty name`);
-      console.log('WARN:', `LoadApi ${this.key} lacking behavior for ${name}`);
-      return;
-    }
-    return behavior;
+    if (behavior) return behavior;
+    if (!name) throw new Error(
+      `BUG: LoadApi can't get behavior for empty name`);
+    throw new Error(
+      `LoadApi ${this.key} lacking behavior for ${name}`);
   }
 }

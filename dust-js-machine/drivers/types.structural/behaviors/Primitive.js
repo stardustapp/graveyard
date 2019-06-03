@@ -1,7 +1,7 @@
 // basically a four-step loop
 // for JSON-compat primitives,
 CURRENT_LOADER.attachBehavior(class Primitive {
-  setup({config}) {
+  build({config}) {
     this.jsConstr = config.type;
     this.defaultValue = config.defaultValue;
 
@@ -50,7 +50,11 @@ CURRENT_LOADER.attachBehavior(class Primitive {
   }
 
 
+  accept(element, visitor) {
+    visitor.visit(this, element);
+  }
+
   exportData(node, opts) {
-    return node;
+    return node; // TODO: null check? date transform?
   }
 });

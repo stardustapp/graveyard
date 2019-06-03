@@ -22,5 +22,8 @@
   "bugs": {
     "url": "https://github.com/stardustapp/dustjs-machine/issues"
   },
-  "homepage": "https://github.com/stardustapp/dustjs-machine#readme"
+  "homepage": "https://github.com/stardustapp/dustjs-machine#readme",
+  "dependencies": {
+    "node-fetch": "^2.6.0"
+  }
 }

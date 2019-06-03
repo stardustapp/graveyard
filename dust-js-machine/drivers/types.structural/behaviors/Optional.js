@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class Optional {
-  setup({config, type}) {
+  build({config, type}) {
     this.inner = type;
   }
 
@@ -26,12 +26,20 @@ CURRENT_LOADER.attachBehavior(class Optional {
   }
 
 
+  // intended as general-purpose replacement for ex. gatherRefs
+  accept(element, visitor) {
+    visitor.visit(this, element);
+    if (element !== undefined && element !== null)
+      this.inner.accept(element, visitor);
+  }
+  // TODO: remove
   gatherRefs(rawVal, refs) {
     if (rawVal === undefined || rawVal === null)
       return;
     if ('gatherRefs' in this.inner)
       this.inner.gatherRefs(rawVal, refs);
   }
+
   exportData(rawVal, opts) {
     if (rawVal === undefined || rawVal === null)
       return;

@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class Node {
-  setup({
+  build({
     RelationBuilder,
     EngineDriver,
     FieldDriver,
@@ -11,41 +11,13 @@ CURRENT_LOADER.attachBehavior(class Node {
 
     // TODO: relocate to 'structure' engine
     const references = new Map;
-    const visited = new Set;
-    function readType(type) {
-      if (visited.has(type)) return;
-      visited.add(type);
-
-      switch (type.constructor) {
-        case ReferenceFieldType:
-          references.set([type.engineKey, type.targetName].join('#'), type);
-          break;
-        case StructFieldType:
-          for (const fieldType of type.fields.values())
-            readType(fieldType);
-          break;
-        case AnyOfKeyedFieldType:
-          for (const fieldType of type.slots.values())
-            readType(fieldType);
-          break;
-        case PrimitiveFieldType:
-        case UnstructuredFieldType:
-          // no possible reference
-          break;
-        case OptionalFieldType:
-          readType(type.inner);
-          break;
-        case ListFieldType:
-          readType(type.inner);
-          break;
-        case PendingFieldType:
-          if (type.final) readType(type.final);
-          break;
-        default:
-          console.log('WARN: skipping unknown type', type);
-      }
-    }
-    readType(this.inner);
+    this.inner.accept(Symbol.for('meta'), {
+      visit: field => {
+        if (field.constructor.name !== 'Reference') return;
+        //console.log('visiting field', field);
+        references.set([field.engineKey, field.targetName].join('#'), field);
+      },
+    });
 
     for (const refType of references.values()) {
       if (refType.anyType)
@@ -72,6 +44,7 @@ CURRENT_LOADER.attachBehavior(class Node {
       if (!rel.predicate) continue;
       if (!this.predicates.has(rel.predicate))
         this.predicates.set(rel.predicate, new Array);
+      //console.log('recording predicate', rel.predicate)
       this.predicates.get(rel.predicate).push(rel);
     }
 
@@ -138,7 +111,7 @@ CURRENT_LOADER.attachBehavior(class Node {
   }
 
   mapOut(structVal, graphCtx, node) {
-    const struct = this.structAccessor.mapOut(structVal, graphCtx, node);
+    const struct = this.inner.mapOut(structVal, graphCtx, node);
     for (const key in struct) {
       if (key === 'isDirty') throw new Error(
         `Copying a NodeAccessor!`);
@@ -147,7 +120,7 @@ CURRENT_LOADER.attachBehavior(class Node {
     }
 
     for (const [predicate, edges] of this.predicates) {
-      //console.log('defining', predicate)
+      console.log('defining', predicate)
       Object.defineProperty(node, predicate, {
         value: new PredicateAccessor(graphCtx, node, edges, predicate),
         enumerable: true,
@@ -169,7 +142,7 @@ CURRENT_LOADER.attachBehavior(class Node {
     });
   }
   mapIn(newData, graphCtx, node, ...extra) {
-    return this.structAccessor.mapIn(newData, graphCtx, node, ...extra);
+    return this.inner.mapIn(newData, graphCtx, node, ...extra);
   }
 
 });
@@ -187,7 +160,7 @@ class PredicateAccessor {
 
     //console.log(localNode.nodeType)
     for (const relation of relations) {
-      //console.log(relation.type, relation.otherName)
+      //console.log(relation.kind, relation.otherName)
       if (relation.direction === 'out') {
 
         //console.log('adding', relation.predicate, 'to type', relation.otherName)
@@ -246,13 +219,12 @@ class PredicateAccessor {
   }
 
   async attachNewNode(relation, fields, nodeId=null) {
-    if (relation.type !== 'Arbitrary') throw new Error(
+    if (relation.kind !== 'arbitrary') throw new Error(
       `Can't attach new nodes to non-Arbitrary relations`);
 
-    const otherAccessor = FieldAccessor.forType(relation.otherType);
     const other = nodeId
-      ? await this.graphCtx.putNode(otherAccessor, fields, nodeId)
-      : await this.graphCtx.newNode(otherAccessor, fields);
+      ? await this.graphCtx.putNode(relation.otherType, fields, nodeId)
+      : await this.graphCtx.createNode(relation.otherType, fields);
     await other.ready;
     await this.attachNode(relation, other);
     return other;

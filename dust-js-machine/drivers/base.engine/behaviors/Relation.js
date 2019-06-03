@@ -3,7 +3,7 @@ CURRENT_LOADER.attachBehavior(class Relation {
   //   this.constraints = constraints;
   // }
 
-  setup(config) {
+  build(config) {
     const {
       kind, subject, predicate, object, engineKey,
       exactly, atMost, uniqueBy,

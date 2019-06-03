@@ -23,7 +23,7 @@ class ObjectReference {
 
 
 CURRENT_LOADER.attachBehavior(class Reference {
-  setup({config, typeResolver}) {
+  build({config, typeResolver}) {
     this.targetDef = config.reference;
 
     if (this.targetDef === true) {
@@ -118,6 +118,12 @@ CURRENT_LOADER.attachBehavior(class Reference {
     throw new Error(`Reference doesn't support value ${newVal.constructor.name}`);
   }
 
+  // intended as general-purpose replacement for ex. gatherRefs
+  accept(element, visitor) {
+    visitor.visit(this, element);
+    //this...accept(isMetaVisitor ? element : element[name], visitor);
+  }
+  // TODO: remove
   gatherRefs(rawVal, refs) {
     if (rawVal == null) throw new Error(
       `Reference gatherRefs() given a null`);
@@ -131,6 +137,7 @@ CURRENT_LOADER.attachBehavior(class Reference {
       throw new Error(`TODO: gatherRefs() got weird constr ${rawVal.constructor.name}`)
     }
   }
+
   exportData(rawVal, opts={}) {
     if (rawVal == null) throw new Error(
       `Reference#exportData() was given a null`);

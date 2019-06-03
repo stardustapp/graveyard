@@ -11,6 +11,14 @@ machine.runMain(async () => {
         Port: 9238,
       },
     },
+    TrustProxyLevels: 0,
+    Metrics: {
+      //GlobalTags: ['engine:http-server'],
+      MetricPrefix: 'dust.http-server.',
+      Sink: { PostProxy: {
+        Endpoint: 'https://ingest.devmode.cloud/metrics',
+      }},
+    },
     RootHandler: {
       InnerRules: [{
         Conditions: [{
@@ -68,6 +76,6 @@ machine.runMain(async () => {
     },
   });
 
-  console.log('have http-server', httpServer);
+  console.log('have http-server', httpServer.Status, httpServer.Interface);
 
 });

@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class List {
-  setup({config, type}) {
+  build({config, type}) {
     this.inner = type;
     this.defaultValue = config.defaultValue;
   }
@@ -58,8 +58,8 @@ CURRENT_LOADER.attachBehavior(class List {
 
   mapIn(newVal, graphCtx, node) {
     if (newVal == null) {
-      if (this.myType.defaultValue != null)
-        return this.mapIn(this.myType.defaultValue, graphCtx, node);
+      if (this.defaultValue != null)
+        return this.mapIn(this.defaultValue, graphCtx, node);
       return [];
     }
     if (newVal.constructor === Array) {
@@ -68,11 +68,23 @@ CURRENT_LOADER.attachBehavior(class List {
       `List#mapIn() only takes arrays`);
   }
 
+  // intended as general-purpose replacement for ex. gatherRefs
+  accept(element, visitor) {
+    visitor.visit(this, element);
+    if (element === Symbol.for('meta')) {
+      this.inner.accept(element, visitor);
+    } else {
+      for (const entry of element)
+        this.inner.accept(entry, visitor);
+    }
+  }
+  // TODO: remove
   gatherRefs(rawVal, refs) {
     if ('gatherRefs' in this.inner)
       for (const innerVal of rawVal)
         this.inner.gatherRefs(innerVal, refs);
   }
+
   exportData(array, opts) {
     return array.map(item => this
       .inner.exportData(item, opts));

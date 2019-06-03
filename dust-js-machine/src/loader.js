@@ -54,8 +54,7 @@ exports.SystemLoader = class SystemLoader {
       await this.requireFromPath(engineDir);
       return global.CURRENT_LOADER;
     } catch (err) {
-      console.error('Error loading driver from', engineDir);
-      console.error(err.stack);
+      console.error('Encountered', err.constructor.name, 'loading driver from', engineDir);
       throw err;
     } finally {
       console.groupEnd();

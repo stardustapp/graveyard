@@ -1,7 +1,6 @@
 const process = require('process');
 const path = require('path');
 
-const {DriverBase} = require('./driver-base.js');
 const {SystemLoader} = require('./loader.js');
 const {AsyncCache} = require('./utils/async-cache.js');
 

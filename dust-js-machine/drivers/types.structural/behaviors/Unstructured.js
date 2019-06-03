@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class Unstructured {
-  setup({config}) {
+  build({config}) {
     //this.rawConf = rawConf;
   }
 
@@ -22,6 +22,10 @@ CURRENT_LOADER.attachBehavior(class Unstructured {
   mapIn(value, graphCtx, node) {
     if (value == null) throw new Error('Unstructured#mapIn() got null');
     return this.toExt(value);
+  }
+
+  accept(element, visitor) {
+    visitor.visit(this, element);
   }
 
   exportData(node, opts) {

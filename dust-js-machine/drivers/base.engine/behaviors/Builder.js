@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class Builder {
-  setup({Machine, BaseDriver, EngineDriver}) {
+  build({Machine, BaseDriver, EngineDriver}) {
     this.Machine = Machine;
     this.BaseDriver = BaseDriver;
     this.EngineDriver = EngineDriver;
@@ -42,7 +42,7 @@ CURRENT_LOADER.attachBehavior(class Builder {
     return null;
   }
 
-  async build() {
+  async compile() {
     for (const engineDep of this.config.engineDeps) {
       this.engineDeps.set(engineDep, await this
         .Machine.loadDriver('engine', engineDep));
@@ -52,6 +52,7 @@ CURRENT_LOADER.attachBehavior(class Builder {
     const instance = this.BaseDriver
       ._newNamedObject('Driver', {
         EngineDriver: this.EngineDriver,
+        EngineDeps: this.engineDeps,
         GraphBuilder: this.BaseDriver
           ._makeObjectFactory('Graph'),
         NodeMap: this.nodes,

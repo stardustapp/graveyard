@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class Pending {
-  setup(source) {
+  build(source) {
     this.source = source;
     this.final = null;
   }

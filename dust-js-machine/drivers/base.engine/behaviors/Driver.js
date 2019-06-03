@@ -1,13 +1,10 @@
 CURRENT_LOADER.attachBehavior(class Driver {
-  setup({EngineDriver, GraphBuilder, NodeMap, AllRelations}) {
+  build({EngineDriver, GraphBuilder, EngineDeps, NodeMap, AllRelations}) {
     this.EngineDriver = EngineDriver;
     this.GraphBuilder = GraphBuilder;
+    this.EngineDeps = EngineDeps;
     this.NodeMap = NodeMap;
     this.AllRelations = AllRelations;
-
-    for (const node of NodeMap.values()) {
-      node.structAccessor = FieldAccessor.forType(node.inner);
-    }
 
     this.TopRelation = Array
       .from(AllRelations)

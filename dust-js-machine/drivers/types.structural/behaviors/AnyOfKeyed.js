@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
-  setup({config, typeResolver}) {
+  build({config, typeResolver}) {
     this.slots = new Map;
     for (const key in config.anyOfKeyed) {
       this.slots.set(key, typeResolver(config.anyOfKeyed[key]));
@@ -26,7 +26,9 @@ CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
 
   mapOut(structVal, graphCtx, node) {
     if (!graphCtx) throw new Error(
-      `graphCtx is required!`);
+      `AnyOfKeyed#mapOut( graphCtx is required!`);
+    if (!structVal) throw new Error(
+      `AnyOfKeyed#mapOut() structVal is required!`);
     if (structVal.constructor !== Array) throw new Error(
       `AnyOfKeyed#mapOut() got non-Array ${structVal.constructor.name}`);
 
@@ -45,7 +47,7 @@ CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
 
       if ('mapOut' in slotType) {
         propOpts.get = function() {
-          //console.log('getting', slotKey, 'as', slotType.constructor.slotKey);
+          console.log('getting', slotKey, 'from', structVal);
           if (slotKey === structVal[0]) {
             return slotType.mapOut(structVal[1], graphCtx, node);
           } else {
@@ -98,6 +100,20 @@ CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
       `AnyOfKeyed can't map in values of ${newVal.constructor.name}`);
   }
 
+  // intended as general-purpose replacement for ex. gatherRefs
+  accept(element, visitor) {
+    visitor.visit(this, element);
+    if (element === Symbol.for('meta')) {
+      for (const [name, slotType] of this.slots)
+        slotType.accept(element, visitor);
+    } else {
+      const {currentKey} = rawVal;
+      if (!this.slots.has(currentKey)) throw new Error(
+        `AnyOfKeyed#accept() got unrecognized currentKey '${currentKey}'`);
+      const slot = this.slots.get(currentKey);
+    }
+  }
+  // TODO: remove
   gatherRefs(rawVal, refs) {
     if (rawVal.constructor !== AnyOfKeyed) throw new Error(
       `AnyOfKeyed#gatherRefs() got external value ${rawVal.constructor.name}`);
@@ -110,6 +126,7 @@ CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
     if ('gatherRefs' in slot)
       slot.gatherRefs(rawVal[currentKey], refs);
   }
+
   exportData([currentKey, data], opts) {
     const slot = this.slots.get(currentKey);
     return [currentKey, slot.exportData(data, opts)];

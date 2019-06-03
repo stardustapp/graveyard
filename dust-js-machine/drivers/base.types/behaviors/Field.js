@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class Field {
-  setup({}) {
+  build({}) {
   }
 
   newGraph() {

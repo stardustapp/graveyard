@@ -2,6 +2,7 @@ CURRENT_LOADER.attachModel(async build => {
   await build.withFieldTypes('structural');
   build.needsEngine('http-messages');
   build.needsEngine('host-filesystem');
+  build.needsEngine('metric-emitter');
 
   build.node('Server', {
     relations: [
@@ -11,6 +12,7 @@ CURRENT_LOADER.attachModel(async build => {
     fields: {
       //DefaultDomain: String,
       RootHandler: { reference: 'Handler' },
+      Metrics: { reference: { engine: 'metric-emitter', name: 'Emitter'} },
       Interface: { anyOfKeyed: {
         Unix: { fields: {
           Path: String,

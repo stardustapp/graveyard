@@ -7,24 +7,18 @@ global.HTTP_SERVER_HEADER = `${pkgMeta.name}/${pkgMeta.version}`;
 CURRENT_LOADER.attachBehavior(class Server {
   // constructor: nodeType, data
 
-  async deleteConnection(rawConn) {
+  deleteConnection(rawConn) {
     const connNode = this.connNodes.peek(rawConn);
     if (!connNode) throw new Error(
-      `Tried freeing HTTP connectiont that wasn't registered`);
+      `Tried freeing HTTP connection that wasn't registered`);
     this.connNodes.delete(rawConn);
     connNode.getGraphCtx().freeBackingStore();
   }
 
-  async setup(graphWorld) {
-    this.graphWorld = graphWorld;
-
+  async setup(task) {
     this.connNodes = new AsyncCache({ loadFunc: async conn => {
-      const localStore = new RawVolatileStore({
-        engineKey: 'http-messages/v1-beta1',
-      });
-
       const localEndpoint = conn.address();
-      const connNode = await this.msgEngine.buildFromStore({
+      const connNode = this.HOLDS.newConnection({
         WireProtocol: 'HTTP/1',
         SocketFamily: localEndpoint.family,
         Server: {
@@ -35,16 +29,19 @@ CURRENT_LOADER.attachBehavior(class Server {
           Address: conn.remoteAddress,
           Port: conn.remotePort,
         },
-      }, localStore);
+      });
       conn.on('close', hadError => {
         // TODO: store ClosedAt and allow more automatic GC
-        this.deleteConnection(conn);
+        try {
+          this.deleteConnection(conn);
+        } catch (err) {
+          console.debug('WARN: Failed to clean up HTTP connection.', err.message);
+        }
       });
-      return connNode.getGraphCtx().getNodeById(connNode.nodeId);
+      return connNode;
     }});
 
-    console.log(this.HOLDS.newConnection({test: true}))
-    this.msgEngine = await GraphEngine.load('http-messages/v1-beta1');
+    //this.msgEngine = await GraphEngine.load('http-messages/v1-beta1');
     // this.msgStore = new RawVolatileStore({
     //   engineKey: 'http-messages/v1-beta1',
     // });
@@ -61,12 +58,18 @@ CURRENT_LOADER.attachBehavior(class Server {
         console.error('http-server/Listener encountered network error', JSON.stringify(err));
         throw err;
       });
+      console.log('currentKey', this.Interface.currentKey);
+      switch (this.Interface.currentKey) {
 
-      const {Tcp, Unix} = this.Interface;
-      if (Tcp) {
-        this.nodeServer.listen(Tcp.Port, Tcp.Host, resolve);
-      } else throw new Error(
-        `TODO: support for that Listener interface!`);
+        case 'Tcp':
+          const {Interface, Host, Port} = this.Interface.Tcp;
+          console.log('Setting up TCP server', Host, Port);
+          this.nodeServer.listen(Port, Host, resolve);
+          break;
+
+        default: throw new Error(
+          `TODO: support for that Listener interface!`);
+      }
     });
 
     const {address, port} = this.nodeServer.address();
@@ -112,21 +115,22 @@ CURRENT_LOADER.attachBehavior(class Server {
     };
     res.on('finish', () => {
       const finishDate = new Date;
-      Datadog.Instance.gauge('dust.http-server.finished_ms', finishDate-startDate, tags);
+      ///this.Metrics.gauge('dust.http-server.finished_ms', finishDate-startDate, tags);
     });
 
     try {
       const response = await this.routeNormalRequest(req, res, tags);
       tags.statuscode = response.Status.Code;
     } catch (err) {
+      console.log('!!! HTTP request crashed -', err.stack);
       tags.errortype = err.constructor.name;
       tags.statuscode = this.writeThrowable(res, err);
     } finally {
       tags.statusclass = (tags.statuscode || 0).toString()[0]; // if 0, then bug
 
       const endDate = new Date;
-      Datadog.Instance.gauge('dust.http-server.elapsed_ms', endDate-startDate, tags);
-      Datadog.Instance.count('dust.http-server.web_request', 1, tags);
+      ///this.Metrics.gauge('dust.http-server.elapsed_ms', endDate-startDate, tags);
+      ///this.Metrics.count('dust.http-server.web_request', 1, tags);
     }
   }
   async routeNormalRequest(req, res, tags) {
@@ -179,7 +183,7 @@ CURRENT_LOADER.attachBehavior(class Server {
       tags.ok = false;
       socket.destroy();
     } finally {
-      Datadog.Instance.count('dust.http-server.upgrade_request', 1, tags);
+      ///this.Metrics.count('dust.http-server.upgrade_request', 1, tags);
     }
   }
   async routeUpgradeRequest(request, socket, head, tags) {

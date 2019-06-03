@@ -1,5 +1,5 @@
 CURRENT_LOADER.attachBehavior(class Struct {
-  setup({config, typeResolver}) {
+  build({config, typeResolver}) {
     this.fields = new Map;
     this.defaults = new Map;
 
@@ -107,6 +107,16 @@ CURRENT_LOADER.attachBehavior(class Struct {
   }
 
 
+  // intended as general-purpose replacement for ex. gatherRefs
+  accept(element, visitor) {
+    visitor.visit(this, element);
+    const isMetaVisitor = element === Symbol.for('meta');
+    for (const [name, fieldType] of this.fields) {
+      //console.log('struct visiting', fieldType)
+      fieldType.accept(isMetaVisitor ? element : element[name], visitor);
+    }
+  }
+  // TODO: remove
   gatherRefs(struct, refs) {
     for (const [name, fieldType] of this.fields) {
       //console.log('struct ZgatherRefs', name, struct, struct[name])
@@ -118,10 +128,11 @@ CURRENT_LOADER.attachBehavior(class Struct {
   exportData(struct, opts) {
     const obj = {};
     for (const [name, fieldType] of this.fields) {
-      const value =  fieldType.exportData(struct[name], opts);
+      const value = fieldType.exportData(struct[name], opts);
       if (value !== undefined)
         obj[name] = value;
     }
     return obj;
   }
+
 });

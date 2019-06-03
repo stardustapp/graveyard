@@ -7,7 +7,7 @@ CURRENT_LOADER.attachLifecycle(class Lifecycle {
       EngineDriver: loadApi,
     });
     await loadApi.modelFunc.call(null, builder);
-    return await builder.build();
+    return await builder.compile();
   }
 
 });
