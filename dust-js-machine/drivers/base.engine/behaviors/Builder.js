@@ -14,7 +14,7 @@ CURRENT_LOADER.attachBehavior(class Builder {
 
   async withFieldTypes(key) {
     this.fieldDriver = await this
-      .Machine.loadDriver('types', key);
+      .Machine.loadDriver('typeset', key);
   }
   needsEngine(key) {
     this.config.engineDeps.push(key);
