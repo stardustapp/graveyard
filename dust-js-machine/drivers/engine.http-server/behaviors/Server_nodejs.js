@@ -3,6 +3,7 @@ const url = require('url');
 const querystring = require('querystring');
 const pkgMeta = require('../../../package.json');
 global.HTTP_SERVER_HEADER = `${pkgMeta.name}/${pkgMeta.version}`;
+global.HTTP_SERVER_SOURCE = `${pkgMeta.homepage}`;
 
 CURRENT_LOADER.attachBehavior(class Server {
   // constructor: nodeType, data
@@ -217,11 +218,11 @@ CURRENT_LOADER.attachBehavior(class Server {
 
   writeThrowable(res, err) {
     if (res.headersSent) throw err;
-    res.setHeader('Content-Security-Policy', "default-src 'none'");
+    res.setHeader('Content-Security-Policy', "default-src 'none' style-src 'unsafe-inline'");
     res.setHeader('X-Content-Type-Options', 'nosniff');
     if (err instanceof HttpBodyThrowable) {
       const statusCode = err.statusCode || 500;
-      for (key in err.headers)
+      for (const key in err.headers)
         res.setHeader(key, err.headers[key]);
       if (!err.headers || !('Content-Type' in err.headers))
         res.setHeader('Content-Type', 'text/plain; charset=UTF-8');

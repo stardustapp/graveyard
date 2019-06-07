@@ -11,19 +11,21 @@ CURRENT_LOADER.attachBehavior(class Mount {
 
   async setup() {
     console.log('setting up', this.Anchor);
+    this.Root.Mount = this;
     if (this.Anchor.currentKey !== 'HostPath') throw new Error(
       `NodeJS filesystem can only load HostPath anchors`);
-    this.rootPath = resolve(this.Anchor.HostPath);
-    this.Root.Meta = await this.readMeta('.');
-    this.Root.Mount = this;
 
+    this.rootPath = resolve(this.Anchor.HostPath);
     this.metaCache = new AsyncCache({loadFunc: this.readMeta.bind(this)});
     this.entryCache = new AsyncCache({loadFunc: this.readEntry.bind(this)});
-    console.log('done setup');
+
+    this.Root.Meta = await this.readMeta('.');
+    console.log('done fs setup');
   }
 
   async getEntry(subPath, expectType=null) {
     const entry = await this.entryCache.get(subPath);
+    if (!entry) return null;
     const {FileType} = entry.Meta[entry.Meta.currentKey];
     if (!FileType) throw new Error(
       `didn't find FileType on Entry for ${subPath}`);

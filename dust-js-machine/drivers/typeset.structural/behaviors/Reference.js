@@ -25,6 +25,7 @@ class ObjectReference {
 CURRENT_LOADER.attachBehavior(class Reference {
   build({config, typeResolver}) {
     this.targetDef = config.reference;
+    this.defaultValue = config.defaultValue;
 
     if (this.targetDef === true) {
       this.anyType = true;
@@ -88,9 +89,13 @@ CURRENT_LOADER.attachBehavior(class Reference {
   }
 
   mapIn(newVal, graphCtx, node) {
-    if (newVal === undefined || newVal === null) throw new Error(
-      `Reference will not allow null values. Try Optional if you want.`);
+    if (newVal === undefined || newVal === null) {
+      if (this.defaultValue != null)
+        return this.mapIn(this.defaultValue, graphCtx, node);
+      throw new Error(
+        `Reference will not allow null values. Try Optional if you want.`);
       //console.debug('Reference#mapIn', newVal.constructor.name);
+    }
 
     if (newVal.constructor === Object) {
       const {otherType, otherName} = this.relation;

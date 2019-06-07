@@ -1,5 +1,9 @@
 class StructVal {}
 
+const setFullStack = new Array;
+const setStack = new Array;
+let setTrace = null;
+
 CURRENT_LOADER.attachBehavior(class Struct {
   build({config, typeResolver}) {
     this.fields = new Map;
@@ -69,11 +73,26 @@ CURRENT_LOADER.attachBehavior(class Struct {
 
       if ('mapIn' in fieldType) {
         propOpts.set = function(newVal) {
-          //console.debug('setting', name, 'as', fieldType.constructor.name, newVal);
-          structVal[name] = fieldType.mapIn(newVal, graphCtx, node);
-          node.markDirty();
-          //graphCtx.flushNodes();
-          return true;
+          if (setStack.length < 1) {
+            setTrace = new Error().stack;
+            setFullStack.length = 0;
+          }
+          try {
+            setStack.push(name);
+            setFullStack.push(name);
+            //console.debug('setting', name, 'as', fieldType.constructor.name, newVal);
+            structVal[name] = fieldType.mapIn(newVal, graphCtx, node);
+            node.markDirty();
+            //graphCtx.flushNodes();
+            return true;
+          } catch (err) {
+            if (setStack.length > 1) throw err;
+            const myErr = new Error(`Failed to set "${setFullStack.join('.')}": ${err.message}`);
+            myErr.stack = [myErr.stack.split('\n')[0], ...setTrace.split('\n').slice(1)].join('\n');
+            throw myErr;
+          } finally {
+            setStack.pop();
+          }
         };
       }
 

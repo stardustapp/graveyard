@@ -6,6 +6,7 @@ global.ExportAll = obj => {
 ExportAll(require('./utils/async-cache.js'));
 ExportAll(require('./utils/errors.js'));
 ExportAll(require('./utils/random.js'));
+ExportAll(require('./utils/exec.js'));
 
 // TODO: create immutable objects
 const pkgMeta = require('../package.json');
@@ -14,6 +15,7 @@ global.navigator = {userAgent};
 global.crypto = require('crypto');
 global.fetch = require('node-fetch');
 global.moment = require('moment');
+global.commonTags = require('common-tags');
 
 module.exports = {
   ...require('./loader.js'),

@@ -12,9 +12,10 @@ CURRENT_LOADER.attachModel(async build => {
         HostPath: String,
       }},
       AllowWrites: Boolean,
-      Root: { reference: 'Directory',
-        defaultValue: { Path: '.' },
-      },
+      Root: { reference: 'Directory', defaultValue: {
+        Path: '.',
+        Meta: { Unknown: true },
+      }},
     },
   });
 
