@@ -10,12 +10,17 @@ exports.DustMachine = class DustMachine {
 
     this.driverCache = new AsyncCache;
     this.driverLoaders = new Array;
-    this.addHostLoader('drivers');
-  }
 
+    const machineRoot = path.dirname(__dirname);
+    this.addHostLoader(path.join(machineRoot, 'drivers'));
+
+    const appRoot = process.cwd();
+    if (appRoot !== machineRoot)
+      this.addHostLoader(path.join(appRoot, 'drivers'));
+  }
   addHostLoader(hostPath) {
     this.driverLoaders.push(new SystemLoader({
-      hostDir: path.join(process.cwd(), hostPath),
+      hostDir: hostPath,
     }));
   }
 
