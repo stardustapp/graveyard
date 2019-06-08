@@ -1,0 +1,1 @@
+window.ALL_OPS = 'get readValue enumerate subscribe store storeRandom invoke copy unlink putFile loadFile putString loadString'.split(' ');
