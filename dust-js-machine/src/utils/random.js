@@ -3,9 +3,11 @@
 exports.randomString = function randomString(bytes=10) { // 32 for a secret
   const array = new Uint8Array(bytes);
   (crypto.getRandomValues || crypto.randomFillSync).call(crypto, array);
-  // nodejs: Buffer.from(array).toString('base64')
-  let str = base64js
-    .fromByteArray(array)
+  let str = Buffer
+    .from(array)
+    .toString('base64')
+  // let str = base64js
+  //   .fromByteArray(array)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');

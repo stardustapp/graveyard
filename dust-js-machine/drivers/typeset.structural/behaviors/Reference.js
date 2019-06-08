@@ -74,9 +74,10 @@ CURRENT_LOADER.attachBehavior(class Reference {
     //console.log('Reference#mapOut', rawVal);
     if (rawVal === null || rawVal === undefined) throw new Error(
       `Reference mapping out null!`);
-    if (rawVal && rawVal.constructor) {
+    if (rawVal && rawVal.__origin) {
+      if (this.anyType) return rawVal;
       const {otherName} = this.relation;
-      if (rawVal.constructor.name === otherName) {
+      if (rawVal.__origin.name === otherName) {
         return rawVal;
       }
     }
@@ -102,17 +103,27 @@ CURRENT_LOADER.attachBehavior(class Reference {
       const type = otherType || graphCtx.findNodeBuilder(otherName);
       return graphCtx.createNode(type, newVal);
 
-    } else if (newVal.constructor === GraphReference && newVal.target) {
-      //if (this.targetPath === '')
-      console.log('hello world', this.targetPath, newVal.target);
+    // } else if (newVal.constructor === GraphReference && newVal.target) {
+    //   //if (this.targetPath === '')
+    //   console.log('hello world', this.targetPath, newVal.target);
 
-    } else if (newVal.constructor === 'GraphNode') {
+    } else if (newVal.constructor === DustNode) {
       const node = newVal;
       //console.debug('reffing to', graphCtx.identifyNode(node));
       //console.debug(new Error().stack.split('\n')[2]);
+
+      if (this.anyType) return newVal;
+
+      const {otherName} = this.relation;
+      // TODO: check engine too
+      if (newVal.__origin.name === otherName) {
+        return newVal;
+      }
+      //return node;
       return graphCtx.identifyNode(node);
     }
 
+    console.log('ref mapIn', newVal.constructor)
     if (newVal && newVal.constructor) {
       const {otherName} = this.relation;
       if (newVal.constructor.name === otherName) {

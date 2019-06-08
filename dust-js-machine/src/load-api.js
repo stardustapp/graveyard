@@ -1,3 +1,5 @@
+global.DustNode = class DustNode {}
+
 exports.LoadApi = class LoadApi {
   constructor(key) {
     this.key = key;
@@ -49,19 +51,30 @@ exports.LoadApi = class LoadApi {
     .map(x => x[1])[0];
   }
 
-  _newNamedObject(name, data={}) {
+  _newNamedObject(name, data) {
     const behavior = this._getBehavior(name);
     const hasBuildMethod = behavior.some(x => x[0] === 'build');
 
     // if no build, attach data directly
-    const object = (hasBuildMethod ? false : data) || Object.create(null);
+    //console.log('hi', name, hasBuildMethod, data)
+    const object = (hasBuildMethod ? false : data) || new DustNode;
     for (const [key, method] of behavior) {
+      if (key === 'constructor') continue;
       Object.defineProperty(object, key, {
         value: method,
         enumerable: false,
         configurable: false,
       });
     }
+
+    Object.defineProperty(object, '__origin', {
+      value: {
+        driver: this.key,
+        name: name,
+      },
+      enumerable: true,
+      configurable: false,
+    });
 
     if (hasBuildMethod)
       object.build.call(object, data);

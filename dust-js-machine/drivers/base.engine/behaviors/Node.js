@@ -13,7 +13,7 @@ CURRENT_LOADER.attachBehavior(class Node {
     const references = new Map;
     this.inner.accept(Symbol.for('meta'), {
       visit: field => {
-        if (field.constructor.name !== 'Reference') return;
+        if (field.__origin.name !== 'Reference') return;
         //console.log('visiting field', field);
         references.set([field.engineKey, field.targetName].join('#'), field);
       },

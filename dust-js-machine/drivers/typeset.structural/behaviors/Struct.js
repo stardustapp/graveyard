@@ -3,6 +3,7 @@ class StructVal {}
 const setFullStack = new Array;
 const setStack = new Array;
 let setTrace = null;
+let innerTrace = null;
 
 CURRENT_LOADER.attachBehavior(class Struct {
   build({config, typeResolver}) {
@@ -73,26 +74,37 @@ CURRENT_LOADER.attachBehavior(class Struct {
 
       if ('mapIn' in fieldType) {
         propOpts.set = function(newVal) {
-          if (setStack.length < 1) {
-            setTrace = new Error().stack;
-            setFullStack.length = 0;
-          }
-          try {
-            setStack.push(name);
-            setFullStack.push(name);
+          // if (setStack.length < 1) {
+          //   setTrace = new Error().stack;
+          //   innerTrace = null;
+          //   setFullStack.length = 0;
+          // }
+          // try {
+          //   setStack.push(name);
+          //   setFullStack.push(name);
+
             //console.debug('setting', name, 'as', fieldType.constructor.name, newVal);
             structVal[name] = fieldType.mapIn(newVal, graphCtx, node);
             node.markDirty();
             //graphCtx.flushNodes();
             return true;
-          } catch (err) {
-            if (setStack.length > 1) throw err;
-            const myErr = new Error(`Failed to set "${setFullStack.join('.')}": ${err.message}`);
-            myErr.stack = [myErr.stack.split('\n')[0], ...setTrace.split('\n').slice(1)].join('\n');
-            throw myErr;
-          } finally {
-            setStack.pop();
-          }
+
+          // } catch (err) {
+          //   if (!innerTrace) innerTrace = err.stack;
+          //   if (setStack.length > 1) throw err;
+          //   const myErr = new Error(`Failed to set "${setFullStack.join('.')}": ${err.message}`);
+          //   const innerLines = innerTrace.split('\n');
+          //   myErr.stack = [
+          //     myErr.stack.split('\n')[0],
+          //     ...setTrace.split('\n').slice(1),
+          //     '--- Caused by '+innerLines[0],
+          //     ...innerLines.slice(1, 1 + innerLines.findIndex(l => l
+          //       .includes('StructVal.propOpts.set'))),
+          //   ].join('\n');
+          //   throw myErr;
+          // } finally {
+          //   setStack.pop();
+          // }
         };
       }
 
