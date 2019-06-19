@@ -1,3 +1,3 @@
-GraphEngine.attachBehavior('dust-manager/v1-beta1', 'WebTarget', {
+CURRENT_LOADER.attachBehavior(class WebTarget {
   
 });

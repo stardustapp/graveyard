@@ -1,11 +1,11 @@
-GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Repository', {
+CURRENT_LOADER.attachBehavior(class Repository {
 
   async fetchManifest(appKey) {
     const resp = await this.downloadManifest(appKey)
     if (resp.status === 200)
       return resp;
     else return null;
-  },
+  }
 
   async listPackages() {
     const resp = await fetch(this.bucketOrigin + `/?prefix=${this.objectPrefix}&list-type=2`);
@@ -31,7 +31,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Repository', {
         eTag: el.querySelector('ETag').textContent,
         size: parseInt(el.querySelector('Size').textContent),
       }));
-  },
+  }
 
   async listPackageVersions(appId) {
     const resp = await fetch(this.bucketOrigin + `/?versions&prefix=${this.objectPrefix}${encodeURIComponent(appId)}.json`);
@@ -56,7 +56,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Repository', {
         eTag: el.nodeName === 'Version' ? el.querySelector('ETag').textContent : null,
         size: el.nodeName === 'Version' ? parseInt(el.querySelector('Size').textContent) : null,
       }));
-  },
+  }
 
   async downloadJsonFile(url) {
     const {S3Bucket} = this.Location;
@@ -95,14 +95,14 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Repository', {
       manifest,
       headers: resp.headers,
     }
-  },
+  }
 
   downloadMetadata(appId) {
     return this.downloadJsonFile(`${encodeURIComponent(appId)}.meta.json`);
-  },
+  }
 
   downloadManifest(appId) {
     return this.downloadJsonFile(`${encodeURIComponent(appId)}.json`);
-  },
+  }
 
 });

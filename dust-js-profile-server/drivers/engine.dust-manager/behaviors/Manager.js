@@ -1,4 +1,4 @@
-GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
+CURRENT_LOADER.attachBehavior(class Manager {
 
   async fetchManifest(appKey) {
     if (this.Sources.length === 0) throw new Error(
@@ -13,9 +13,10 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
         return manifest;
     }
     throw new Error(`Dust Manager didn't locate manifest for ${appKey}, checked ${this.Sources.length} sources`);
-  },
+  }
 
   findByPackageKey(graphWorld, appKey) {
+    console.log('hi', this)
     return graphWorld.findGraph({
       engineKey: 'dust-app/v1-beta1',
       gitHash: this.GitHash,
@@ -24,7 +25,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
         heritage: 'stardust-poc',
       },
     });
-  },
+  }
 
   async findOrInstallByPackageKey(graphWorld, appKey) {
     const existing = await this.findByPackageKey(graphWorld, appKey);
@@ -35,7 +36,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
 
     throw new Error(
       `App installation ${JSON.stringify(appKey)} not found`);
-  },
+  }
 
   // actually use the repository to 'install' apps
   async installWithDeps(graphWorld, appKey) {
@@ -77,7 +78,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
     });
 
     return graph;
-  },
+  }
 
   async serveAppPage(graphWorld, appKey, meta, responder) {
     const dustGraph = await this.findByPackageKey(graphWorld, appKey);
@@ -101,7 +102,7 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
     //console.log('compiled as', compiled);
 
     return responder.sendHtml(compiled, 200);
-  },
+  }
 
   async serveAppReq(graphWorld, request, {
     PathDepth = 0,
@@ -137,6 +138,6 @@ GraphEngine.attachBehavior('dust-manager/v1-beta1', 'Manager', {
       });
 
     return request.makeHtmlResponse(compiled);
-  },
+  }
 
 });

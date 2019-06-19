@@ -8,9 +8,27 @@ machine.runMain(async () => {
   // const setTimeoutAsync = promisify(setTimeout);
   // await setTimeoutAsync(10000);
 
+  const firestore = await machine.launchBackend('firestore', {
+    Authentication: { ServiceAccount: {
+      ProjectId: 'stardust-156404',
+      KeyFilename: 'firestore-credential.json',
+    }},
+    RootDocPath: 'dust/'+require('os').hostname(),
+  });
+
   const dustDomain = await machine.launchEngine('dust-domain', {
     DomainName: 'localhost',
     AccessPolicy: 'public',
+  });
+
+  const dustManager = await machine.launchEngine('dust-manager', {
+    Sources: [{
+      Label: 'Public Market',
+      Location: { S3Bucket: {
+        BucketOrigin: 'https://stardust-repo.s3.amazonaws.com',
+        ObjectPrefix: 'packages/',
+      }},
+    }],
   });
 
   const httpServer = await machine.launchEngine('http-server', {
@@ -79,9 +97,9 @@ machine.runMain(async () => {
     },
   });
 
-  const hostFs = await machine.launchEngine('host-filesystem', {
+  const webroots = await machine.launchEngine('host-filesystem', {
     Anchor: {
-      HostPath: process.cwd(),
+      HostPath: require('path').join(process.cwd(), 'webroots'),
     },
     AllowWrites: false,
   });
@@ -103,25 +121,12 @@ machine.runMain(async () => {
           }],
           ForwardTo: {
             DefaultAction: { ForeignNode: {
-              Ref: dustDomain,
+              Ref: dustManager,
               Behavior: 'serveAppReq',
               Input: {
                 PathDepth: 1,
               },
             }},
-          },
-        },{
-          Conditions: [{
-            PathPatterns: ['/~~src/*'],
-          }],
-          ForwardTo: {
-            DefaultAction: {
-              StreamFiles: {
-                PathDepth: 1,
-                RootDir: await hostFs.Root.getDirectory('src'),
-                DotFiles: 'deny',
-              },
-            },
           },
         },{
           Conditions: [{
@@ -140,7 +145,7 @@ machine.runMain(async () => {
         DefaultAction: {
           StreamFiles: {
             PathDepth: 0,
-            RootDir: await hostFs.Root.getDirectory('default-www'),
+            RootDir: await webroots.Root.getDirectory('default-site'),
           },
         },
       },
@@ -151,7 +156,7 @@ machine.runMain(async () => {
 
   console.log('sending test request...');
   const stdout = await ExecForLine({
-    command: `curl -sv http://127.0.0.1:9238${'/~~src/'}`,
+    command: `curl -sv http://127.0.0.1:9238/`,
   });
   console.log();
   console.log('>', stdout.split('\n').join('\n> '));

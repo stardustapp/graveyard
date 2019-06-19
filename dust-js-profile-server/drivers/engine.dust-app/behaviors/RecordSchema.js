@@ -1,4 +1,4 @@
-GraphEngine.attachBehavior('dust-app/v1-beta1', 'RecordSchema', {
+CURRENT_LOADER.attachBehavior(class RecordSchema {
 
   // walk schema back to BuiltIns, in reverse order
   getSchemaStack() {
@@ -9,7 +9,7 @@ GraphEngine.attachBehavior('dust-app/v1-beta1', 'RecordSchema', {
       stack.unshift(cursor);
     }
     return stack;
-  },
+  }
 
   // list off all direct child schemas
   getChildSchemas() {
@@ -17,7 +17,7 @@ GraphEngine.attachBehavior('dust-app/v1-beta1', 'RecordSchema', {
       .graphs.get(this.data.graphId)
       .selectAllWithType('RecordSchema')
       .filter(x => x.Base.SchemaRef == this.data.objectId);
-  },
+  }
 
   // list self and any children types, recursively
   getPossibleTypes() {
@@ -32,6 +32,6 @@ GraphEngine.attachBehavior('dust-app/v1-beta1', 'RecordSchema', {
     }
     process(this);
     return Array.from(seenTypes);
-  },
+  }
 
 });

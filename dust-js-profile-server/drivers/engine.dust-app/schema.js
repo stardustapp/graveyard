@@ -1,4 +1,5 @@
-new GraphEngineBuilder('dust-app/v1-beta1', build => {
+CURRENT_LOADER.attachModel(async build => {
+  await build.withFieldTypes('structural');
 
   build.node('Package', {
     relations: [
@@ -180,4 +181,4 @@ new GraphEngineBuilder('dust-app/v1-beta1', build => {
     },
   });
 
-}).install();
+});

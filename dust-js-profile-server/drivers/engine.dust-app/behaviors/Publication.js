@@ -1,4 +1,4 @@
-GraphEngine.attachBehavior('dust-app/v1-beta1', 'Publication', {
+CURRENT_LOADER.attachBehavior(class Publication {
 
   getRecordFilter(rootPublication=this) {
     // empty specs mean every type
@@ -51,6 +51,6 @@ GraphEngine.attachBehavior('dust-app/v1-beta1', 'Publication', {
     }
 
     return filter.build();
-  },
+  }
 
 });

@@ -1,4 +1,4 @@
-GraphEngine.attachBehavior('dust-app/v1-beta1', 'Package', {
+CURRENT_LOADER.attachBehavior(class Package {
 
   // compile all the references made in scripts
   async linkScripts() {

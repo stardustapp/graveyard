@@ -1,5 +1,8 @@
-new GraphEngineBuilder('dust-manager/v1-beta1', build => {
-  build.needsEngine('app-profile/v1-beta1');
+CURRENT_LOADER.attachModel(async build => {
+  await build.withFieldTypes('structural');
+  //build.needsEngine('app-profile');
+  build.needsEngine('dust-app');
+  build.needsEngine('graph-store');
 
   build.node('Manager', {
     relations: [
@@ -9,6 +12,10 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
     fields: {
       //GitHash: String,
       Sources: { reference: 'Repository', isList: true },
+      GraphWorld: { reference: {
+        engine: 'graph-store',
+        name: 'GraphWorld',
+      }},
     },
   });
 
@@ -36,12 +43,12 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
       UriOrigin: String,
       BasePath: { type: String, defaultValue: '/' }, // TODO: support defaults like this, at least better error
       Source: { anyOfKeyed: {
-        AppProfile: { reference: {
-          engine: 'app-profile/v1-beta1',
-          name: 'Instance',
-        }},
+        // AppProfile: { reference: {
+        //   engine: 'app-profile',
+        //   name: 'Instance',
+        // }},
         RawDustRouter: { reference: {
-          engine: 'dust-app/v1-beta1',
+          engine: 'dust-app',
           name: 'AppRouter',
         }},
       }},
@@ -62,4 +69,4 @@ new GraphEngineBuilder('dust-manager/v1-beta1', build => {
     },
   });
 
-}).install();
+});

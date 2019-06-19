@@ -1,5 +1,4 @@
-const extensions = GraphEngine.extend('dust-manager/v1-beta1');
-extensions.lifecycle = {
+CURRENT_LOADER.attachLifecycle(class Lifecycle {
 
   buildNew(graphCtx, opts) {
     console.log('....', opts)
@@ -11,9 +10,9 @@ extensions.lifecycle = {
         }} else return source;
       }),
     });
-  },
+  }
 
-};
+});
 
 function parseSourceString(source) {
   if (source.startsWith('s3://')) {

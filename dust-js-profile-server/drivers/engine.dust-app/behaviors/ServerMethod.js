@@ -1,8 +1,8 @@
-GraphEngine.attachBehavior('dust-app/v1-beta1', 'ServerMethod', {
+CURRENT_LOADER.attachBehavior(class ServerMethod {
 
   gatherScripts(allScripts) {
     allScripts.push(this);
-  },
+  }
 
   async invoke(argument) {
     await eval(this.JS).call({
@@ -10,6 +10,6 @@ GraphEngine.attachBehavior('dust-app/v1-beta1', 'ServerMethod', {
         return function(){};
       },
     }).call().call(null, argument);
-  },
+  }
 
 });
