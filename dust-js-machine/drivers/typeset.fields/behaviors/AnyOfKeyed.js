@@ -106,7 +106,8 @@ CURRENT_LOADER.attachBehavior(class AnyOfKeyed {
     visitor.visit(this, element);
     if (element === Symbol.for('meta')) {
       for (const [name, slotType] of this.slots)
-        slotType.accept(element, visitor);
+        if (visitor.offer(slotType))
+          slotType.accept(element, visitor);
     } else {
       const {currentKey} = rawVal;
       if (!this.slots.has(currentKey)) throw new Error(

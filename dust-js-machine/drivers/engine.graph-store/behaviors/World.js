@@ -1,4 +1,4 @@
-GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
+CURRENT_LOADER.attachBehavior(class World {
   // constructor: nodeType, data
 
   async setup() {
@@ -10,12 +10,12 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     for (const graph of allGraphs) {
       await this.graphBackendCache.get(graph);
     }
-  },
+  }
   async getContextForGraph(graph) {
     const virtBackend = await this
       .graphBackendCache.get(graph);
     return virtBackend.defaultCtx;
-  },
+  }
 
   // TODO: should leverage the EdgeQuery better
   async getBuiltInEngine({EngineKey, GitHash}) {
@@ -47,19 +47,19 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
         },
       },
     });
-  },
+  }
 
   async findGraph(opts) {
     if (!opts.EngineKey) throw new Error('oops1')
     const engine = await this.getBuiltInEngine(opts);
     return await engine.findGraph(opts);
-  },
+  }
 
   async findOrCreateGraph(opts) {
     if (!opts.EngineKey) throw new Error('oops2')
     const engine = await this.getBuiltInEngine(opts);
     return await engine.findOrCreateGraph(opts, this);
-  },
+  }
 
   async createGraphBackend(graph) {
     //if (!engine) throw new Error(
@@ -81,7 +81,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
     const backend = new VirtualGraphBackend(graph, engine, this);
     backend.defaultCtx = backend.newContext();
     return backend;
-  },
+  }
 
   /*
     getGraphsUsingEngine(EngineKey) {
@@ -97,7 +97,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'World', {
       new FolderLiteral('exposed', this.ExposedRoot),
       new FolderLiteral('inspect', this.InspectRoot),
     ]) };
-  },
+  }
 });
 
 

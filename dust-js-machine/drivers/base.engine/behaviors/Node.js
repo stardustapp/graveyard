@@ -11,7 +11,12 @@ CURRENT_LOADER.attachBehavior(class Node {
 
     // TODO: relocate to 'structure' engine
     const references = new Map;
+    const offered = new Set;
     this.inner.accept(Symbol.for('meta'), {
+      offer: field => {
+        if (offered.has(field)) return true;
+        offered.add(field);
+      },
       visit: field => {
         if (field.__origin.name !== 'Reference') return;
         //console.log('visiting field', field);
@@ -36,7 +41,7 @@ CURRENT_LOADER.attachBehavior(class Node {
       }
     }
     if (this.relations.length === 0) {
-      console.warn(`Node ${name} has no relations, will be inaccessible`);
+      console.warn(`Node ${this} has no relations, will be inaccessible`);
     }
 
     this.predicates = new Map;

@@ -1,4 +1,4 @@
-GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
+CURRENT_LOADER.attachBehavior(class Engine {
 
   async setup() {
     // TODO: other kinds of engines!
@@ -14,7 +14,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     this.nameBehaviors = this.realEngine.nameBehaviors;
     this.topType = this.realEngine.topType;
     //console.log('engine has names', this.names.keys())
-  },
+  }
 
   async findGraph({fields}) {
     const allGraphs = await this.OPERATES.fetchGraphList();
@@ -23,7 +23,7 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
         .every(key => x.Tags[key] == fields[key]));
     console.log('Engine has', allGraphs.length, 'graphs, matched', matches.length, 'for', fields);
     return matches[0];
-  },
+  }
 
   async findOrCreateGraph({selector, fields, ...extras}, world) {
 
@@ -55,11 +55,11 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Engine', {
     //if (!this.graphs.has(graphId)) console.warn(
     //  `WARN: Graph ${graphId} wasn't loaded after creation`);
     return graphNode;
-  },
+  }
 
   getGraphsUsingEngine(engineKey) {
     return Array
       .from(this.graphs.values())
       .filter(x => x.data.engine === engineKey);
-  },
+  }
 });

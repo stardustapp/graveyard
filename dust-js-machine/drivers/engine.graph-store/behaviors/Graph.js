@@ -1,4 +1,4 @@
-GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
+CURRENT_LOADER.attachBehavior(class Graph {
 
   // async setup() {
   //   const world = await this.getGraphCtx().getNodeById('top');
@@ -135,6 +135,6 @@ GraphEngine.attachBehavior('graph-store/v1-beta1', 'Graph', {
     await hostGraphCtx.flush();
     await tgtGraphCtx.flush();
     console.groupEnd();
-  },
+  }
 
 });

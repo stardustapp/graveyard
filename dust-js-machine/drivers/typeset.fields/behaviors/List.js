@@ -73,7 +73,8 @@ CURRENT_LOADER.attachBehavior(class List {
   accept(element, visitor) {
     visitor.visit(this, element);
     if (element === Symbol.for('meta')) {
-      this.inner.accept(element, visitor);
+      if (visitor.offer(this.inner))
+        this.inner.accept(element, visitor);
     } else {
       for (const entry of element)
         this.inner.accept(entry, visitor);

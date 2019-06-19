@@ -2,6 +2,7 @@ const process = require('process');
 const path = require('path');
 
 const {SystemLoader} = require('./loader.js');
+const {TopBase} = require('./top-base.js');
 const {AsyncCache} = require('./utils/async-cache.js');
 
 exports.DustMachine = class DustMachine {
@@ -35,13 +36,20 @@ exports.DustMachine = class DustMachine {
 
   async loadDriver(type, name) {
     return this.driverCache.get(`${type}.${name}`, async input => {
+      if (type === 'base' && name === 'base')
+        return new TopBase(this);
+
       const driver = await this.findDriver(type, name)
-      if (type === 'base') {
-        return driver;
-      } else {
-        const base = await this.loadDriver('base', type);
-        return await base._callLifecycle('buildDriver', driver, this);
-      }
+      const base = await this.loadDriver('base', type);
+      return await base.invokeEntity('CompileDriver', driver);
+
+      // const builder = base._newNamedObject('DriverBuilder', this);
+      // //await driver._compileSchema(builder);
+      // console.log('builder of', type, 'is', builder);
+      // return await builder.Make(driver);
+
+      //return await base.MakeObject('Driver', this);
+      //return await base._callLifecycle('buildDriverFactory', driver, this);
     });
   }
 
@@ -49,6 +57,12 @@ exports.DustMachine = class DustMachine {
     const engine = await this.loadDriver('engine', engineName);
     console.log('Launching engine', engineName, '...');
     return await engine.launch(config);
+  }
+
+  async launchBackend(backendName, config) {
+    const backend = await this.loadDriver('backend', backendName);
+    console.log('Launching backend', backendName, '...', backend);
+    return await backend.launch(config);
   }
 
   async runMain(mainFunc) {

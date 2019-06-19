@@ -76,8 +76,8 @@ CURRENT_LOADER.attachBehavior(class Reference {
       `Reference mapping out null!`);
     if (rawVal && rawVal.__origin) {
       if (this.anyType) return rawVal;
-      const {otherName} = this.relation;
-      if (rawVal.__origin.name === otherName) {
+      const {targetName} = this;
+      if (rawVal.__origin.name === targetName) {
         return rawVal;
       }
     }
@@ -99,9 +99,10 @@ CURRENT_LOADER.attachBehavior(class Reference {
     }
 
     if (newVal.constructor === Object) {
-      const {otherType, otherName} = this.relation;
-      const type = otherType || graphCtx.findNodeBuilder(otherName);
-      return graphCtx.createNode(type, newVal);
+      const {engineKey, targetName} = this;
+      return graphCtx.makeObject([engineKey, targetName].filter(x=>x).join('/'), newVal);
+      // const type = otherType || graphCtx.findNodeBuilder(targetName);
+      // return graphCtx.createNode(type, newVal);
 
     // } else if (newVal.constructor === GraphReference && newVal.target) {
     //   //if (this.targetPath === '')
@@ -114,9 +115,9 @@ CURRENT_LOADER.attachBehavior(class Reference {
 
       if (this.anyType) return newVal;
 
-      const {otherName} = this.relation;
+      const {targetName} = this;
       // TODO: check engine too
-      if (newVal.__origin.name === otherName) {
+      if (newVal.__origin.name === targetName) {
         return newVal;
       }
       //return node;
@@ -125,8 +126,8 @@ CURRENT_LOADER.attachBehavior(class Reference {
 
     console.log('ref mapIn', newVal.constructor)
     if (newVal && newVal.constructor) {
-      const {otherName} = this.relation;
-      if (newVal.constructor.name === otherName) {
+      const {targetName} = this;
+      if (newVal.constructor.name === targetName) {
         return newVal;
       }
     }

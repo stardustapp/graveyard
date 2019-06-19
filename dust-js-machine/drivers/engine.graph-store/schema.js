@@ -1,6 +1,7 @@
-new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
+CURRENT_LOADER.attachModel(async build => {
+  await build.withFieldTypes('structural');
 
-  build.node('World', {
+  build.structural('World', {
     relations: [
       { kind: 'top' },
       { predicate: 'OPERATES', object: 'Engine' },
@@ -13,7 +14,7 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
     },
   });
 
-  build.node('Entry', {
+  build.structural('Entry', {
     relations: [
       { subject: 'Entry', predicate: 'HAS_NAME' },
       { predicate: 'HAS_NAME', object: 'Entry', uniqueBy: 'Name' },
@@ -93,4 +94,4 @@ new GraphEngineBuilder('graph-store/v1-beta1', (build, ref) => {
     },
   });
 
-}).install();
+});

@@ -7,6 +7,7 @@ ExportAll(require('./utils/async-cache.js'));
 ExportAll(require('./utils/errors.js'));
 ExportAll(require('./utils/random.js'));
 ExportAll(require('./utils/exec.js'));
+ExportAll(require('./model.js'));
 
 // TODO: create immutable objects
 const pkgMeta = require('../package.json');

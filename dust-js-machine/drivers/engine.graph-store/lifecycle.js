@@ -1,5 +1,4 @@
-const extensions = GraphEngine.extend('graph-store/v1-beta1');
-extensions.lifecycle = {
+CURRENT_LOADER.attachLifecycle(class Lifecycle {
 
   async buildNew(graphCtx, opts) {
     const world = await graphCtx.migrateTopNode(async prevWorld => {
@@ -35,6 +34,6 @@ extensions.lifecycle = {
       }
     });
     return world;
-  },
+  }
 
-};
+});

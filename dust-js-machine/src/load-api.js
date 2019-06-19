@@ -7,7 +7,15 @@ exports.LoadApi = class LoadApi {
     // these get filled in by the public functions
     this.modelFunc = null;
     this.lifecycle = new Array;
+    this.names = new Map;
     this.behaviors = new Map;
+
+    // start basic schema builder
+    // this.buildFuncs = Object.create(null);
+    // this.buildFuncs.name = this.createName.bind(this);
+
+    // this.nameOptionFuncs = Object.create(null);
+    // this.nameOptionFuncs.methods = this.
   }
 
   // call these to bring code in
@@ -26,7 +34,25 @@ exports.LoadApi = class LoadApi {
     this.behaviors.set(protoClass.name, this._captureMethods(protoClass.prototype));
   }
 
+  createName(name, options) {
+    console.log('creating name', name, options)
+  }
+
   // private functions for machine to take code out
+
+  // async _compileSchema(builder) {
+  //   // this.buildFuncs = Object.create(null);
+  //   // this.buildFuncs.name = this.createName.bind(this);
+  //   // builder.rig
+  //   await this.modelFunc.call(null, builder);
+  //   // const builder = this._newNamedObject('Builder', {
+  //   //   Machine: machine,
+  //   //   BaseDriver: this,
+  //   //   EngineDriver: loadApi,
+  //   // });
+  //   // await loadApi.modelFunc.call(null, builder);
+  //   return await builder.compile();
+  // }
 
   _captureMethods(prototype) { return Object
     .getOwnPropertyNames(prototype)
@@ -38,17 +64,17 @@ exports.LoadApi = class LoadApi {
     return this._getLifecycle(name).call(this, ...args);
   }
 
+  _getLifecycle(name) { return this.lifecycle
+    .filter(x => x[0] === name)
+    .map(x => x[1])[0];
+  }
+
   _makeObjectFactory(name, callback=null) {
     return data => {
       const object = this._newNamedObject(name, data);
       callback && callback(object);
       return object;
     };
-  }
-
-  _getLifecycle(name) { return this.lifecycle
-    .filter(x => x[0] === name)
-    .map(x => x[1])[0];
   }
 
   _newNamedObject(name, data) {
