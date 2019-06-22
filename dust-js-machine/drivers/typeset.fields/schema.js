@@ -28,19 +28,20 @@ CURRENT_LOADER.attachModel(build => {
   build.nameDataType('Pending', { bases: ['FieldType'] });
   build.nameDataType('Primitive', { bases: ['FieldType'] });
   build.nameDataType('Reference', { bases: ['FieldType'] });
-  build.nameDataType('Struct', { bases: ['FieldType'] });
+  build.nameDataType('Struct', { bases: ['FieldType'], methods: {
+    makeDataType: { input: 'base.base/String' },
+  }});
   build.nameDataType('Unstructured', { bases: ['FieldType'] });
 
   build.nameFunction('ReadSignature', {
     input: 'base.base/NativeJsObject',
     self: 'base.base/EntityProvider',
-    output: 'base.base/DataType',
+    output: 'FieldType',
     impl(input) {
       console.log('fields reading', input, this);
 
 
-
-      //const builder = this._newNamedObject('Builder', {
+      //const builder = this.invokeEntity('Builder', {
       const typeResolver = rawConfig => this
         ._callLifecycle('constructFrom', rawConfig);
       //const typeResolver = this.constructFrom.bind(this);
@@ -63,20 +64,20 @@ CURRENT_LOADER.attachModel(build => {
         //   type = config.type;
         //   break;
         case config.type === JSON:
-          type = this._newNamedObject('Unstructured', {config});
+          type = this.invokeEntity('Unstructured', {config});
           break;
         case builtinTypes.has(config.type):
           // TODO: 'choices'
-          type = this._newNamedObject('Primitive', {config});
+          type = this.invokeEntity('Primitive', {config});
           break;
         case 'reference' in config:
-          type = this._newNamedObject('Reference', {config, typeResolver});
+          type = this.invokeEntity('Reference', {config, typeResolver});
           break;
         case 'anyOfKeyed' in config:
-          type = this._newNamedObject('AnyOfKeyed', {config, typeResolver});
+          type = this.invokeEntity('AnyOfKeyed', {config, typeResolver});
           break;
         case 'fields' in config:
-          type = this._newNamedObject('Struct', {config, typeResolver});
+          type = this.invokeEntity('Struct', {config, typeResolver});
           break;
         default:
           console.warn(config);
@@ -85,20 +86,16 @@ CURRENT_LOADER.attachModel(build => {
 
       // opt-in for wrapping with extra single-slot types
       if ('isList' in config && config.isList) {
-        type = this._newNamedObject('List', {config, type});
+        type = this.invokeEntity('List', {config, type});
       }
       if ('optional' in config && config.optional) {
-        type = this._newNamedObject('Optional', {config, type});
+        type = this.invokeEntity('Optional', {config, type});
       }
 
       pending.final = type;
       TypeCache.set(input, type);
 
       return type;
-
-
-
-      throw new Error('TODO: typeset.fields ReadSignature()');
     }});
 
 });

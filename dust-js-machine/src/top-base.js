@@ -175,6 +175,9 @@ exports.TopBase = class TopBase extends EntityProvider {
   //   throw new Error(`TODO 2! ${name}`);
   // }
 
+  [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
+    return '<TopBase/>';
+  }
 }
 
 
@@ -208,22 +211,46 @@ function constructDriverBuilder(provider, machine) {
   // }
 
   this.nameDataType = function (name, config) {
-    //console.log('making', name, config)
-    let typeImpl = {}; // ingest/export
-    let baseConfig = config;
+    const methods = {};
+    const givenMethods = config.methods || {}; // TODO TODO
+    const behavior = this.loadApi.behaviors.get(name);
+    if (behavior) {
+      for ([key, descriptor] of behavior) {
+        // if (['ingest', 'export'].includes(key))
+        //   realConfig[key] = func;
+        // else
+        console.log('key', key, descriptor)
+        if (typeof descriptor.value === 'function') {
+          methods[key] = {impl: descriptor.value};
+        } else if (typeof descriptor.get === 'function') {
+          methods[key] = {impl: descriptor.get, isProperty: true};
+        } else throw new Error(
+          `Weird behavior value type ${typeof descriptor.value}`);
+      }
+    }
+
     for (const [typeset, typeDriver] of this.typesets) {
       if (typeset in config) {
-        //console.log('reading sig with', sigReader, config[typeset])
+        // const args = {};
+        // args[typeset] = config[typeset]
+        //console.log('reading signature', config[typeset])
         typeImpl = typeDriver
           .readSignature('ReadSignature')
           .resolveWith(typeDriver)
-          .invoke(provider, config[typeset], typeDriver);
-        baseConfig = {...config, ...typeImpl};
-        delete baseConfig[typeset];
-        break;
+          .invoke(provider, config, typeDriver);
+        const dataTypeFields = typeImpl.makeDataType.invoke(provider, name);
+        console.log('DataType fields', dataTypeFields);
+        realConfig = {...config, ...dataTypeFields};
+        this.provider.exportNewEntity(name, 'DataType', realConfig);
+        return;
       }
     }
-    this.provider.exportNewEntity(name, 'DataType', baseConfig);
+
+    // no typeset in use - just pass through
+    this.provider.exportNewEntity(name, 'DataType', {
+      ...config,
+      methods,
+    });
   }
   this.nameFunction = function (name, config) {
     this.provider.exportNewEntity(name, 'Function', config);
@@ -245,6 +272,7 @@ function constructDriverBuilder(provider, machine) {
   // }
 
   this.Make = async function (loadApi) {
+    this.loadApi = loadApi;
 
     this.provider.exportNewEntity('base.base', 'Import', {
       driver: await machine.loadDriver('base', 'base'),

@@ -18,6 +18,14 @@ CURRENT_LOADER.attachBehavior(class Struct {
     }
   }
 
+  ingest(data) {
+    console.log('struct ingest', data);
+    throw new Error('TODO');
+  }
+  makeDataType() {
+    throw new Error('TODO');
+  }
+
   fromExt(fields) {
     //console.log("===> reading data", fields, 'with', this);
     if (!fields) throw new FieldTypeError(this,

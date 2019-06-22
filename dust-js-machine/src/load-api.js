@@ -54,10 +54,12 @@ exports.LoadApi = class LoadApi {
   //   return await builder.compile();
   // }
 
-  _captureMethods(prototype) { return Object
-    .getOwnPropertyNames(prototype)
-    .filter(x => x[0] !== 'constructor')
-    .map(x => [x, prototype[x]])
+  _captureMethods(prototype) {
+    const descriptors = Object.getOwnPropertyDescriptors(prototype);
+    return Object
+      .getOwnPropertyNames(descriptors)
+      //.filter(x => x !== 'constructor')
+      .map(x => [x, descriptors[x]])
   }
 
   _callLifecycle(name, ...args) {

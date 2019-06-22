@@ -57,7 +57,7 @@ class EntityProvider {
 
   readEntity(signature, rawValue) {
     const entity = signature.resolveWith(this);
-    console.log('Provider.readEntity:', {signature, entity, rawValue});
+    //console.log('Provider.readEntity:', {signature, entity, rawValue});
     if (typeof entity.readEntity !== 'function')
       throw new Error(`Entity '${signature}' is '${entity.constructor.name}', isn't readable`);
     return entity.readEntity(rawValue);
@@ -92,6 +92,9 @@ class EntitySignature {
   }
   toString() {
     return this.parts.join('/');
+  }
+  [Symbol.for('nodejs.util.inspect.custom')](depth, options) {
+    return `<EntitySignature "${this}" />`;
   }
 }
 
@@ -138,10 +141,16 @@ class MethodicalEntityBase extends EntityBase {
 
     this.methods = new Map;
     for (const methodName in opts.methods) {
+      // TODO: isProperty should use something other than FunctionEntity
+      // (product type of getter/setter probs)
+      const {isProperty, ...otherStuff} = opts.methods[methodName];
+
       const spec = {
         self: name,
-        ...opts.methods[methodName],
+        ...otherStuff,
       };
+      if (!spec.impl && type !== 'Interface') throw new Error(
+        `Entity ${name} method ${methodName} lacks impl`);
       const func = new FunctionEntity(providedBy, name+'.'+methodName, spec);
       this.methods.set(methodName, func);
     }
@@ -153,6 +162,18 @@ class MethodicalEntityBase extends EntityBase {
   }
 }
 
+class JsValueEntity extends EntityBase {
+  constructor(providedBy, name, opts) {
+    ensureKeys(opts, {typeName: 'string'});
+    super(providedBy, name, 'JsValue');
+    this.typeName = opts.typeName;
+  }
+  readEntity(rawValue) {
+    if (typeof rawValue !== this.typeName) throw new Error(
+      `JsObject was expecting ${this.typeName}, not ${typeof rawValue}`);
+    return rawValue;
+  }
+}
 
 class NativeObjectEntity extends EntityBase {
   constructor(providedBy, name, opts) {
@@ -182,6 +203,7 @@ class DataTypeEntity extends MethodicalEntityBase {
   constructor(providedBy, name, opts) {
     ensureKeys(opts, {
       ingest: 'function', export: 'function',
+      handler: 'object',
       methods: 'object', bases: 'object',
     });
     super(providedBy, name, 'DataType', opts);
@@ -192,20 +214,43 @@ class DataTypeEntity extends MethodicalEntityBase {
       this.exportFunc = opts.export;
   }
   invoke(provider, rawInput) {
+    console.log('DataType invoke', )
     const frame = new DataFrameEntity(provider, this.myName, {
       dataType: this,
     });
     frame.replaceData(rawInput);
     return frame;
   }
+  hasBase(base) {
+    for (const baseSig of this.bases || []) {
+      const thisBase = baseSig.resolveWith(this.providedBy);
+      if (base === thisBase) return true;
+    }
+    return false;
+  }
 }
 
-// I guess this is a box
+// I guess this is basically a box
 class DataFrameEntity extends EntityBase {
   constructor(providedBy, name, opts) {
     ensureKeys(opts, {dataType: 'object'});
     super(providedBy, name, 'DataFrame');
-    this.dataType
+    if (opts.dataType.myKind !== 'DataType') throw new Error(
+      `Can't use dataType of kind ${opts.dataType.myKind} for DataFrame`);
+    this.dataType = opts.dataType;
+    this.innerData = null;
+
+    console.log('methods', opts.dataType.methods.keys());
+    for (const [methodName, func] of opts.dataType.methods) {
+      //console.log('method', methodName)
+      // TODO: let one of the methods decorate the frame?
+      this[methodName] = func;
+    }
+  }
+  replaceData(newData) {
+    //console.log(this.dataType)
+    if (!newData && !this.innerData)
+      this.innerData = this.dataType.ingestFunc(newData);
   }
 }
 
@@ -217,14 +262,20 @@ class InterfaceEntity extends MethodicalEntityBase {
     super(providedBy, name, 'Interface', opts);
   }
   readEntity(rawValue) {
-    console.log('interface reading', rawValue);
-    throw new Error()
+    if (rawValue.myKind !== 'DataFrame') throw new Error(
+      `InterfaceEntity can't read entities kinded '${rawValue.myKind}'`);
+    if (!rawValue.dataType.hasBase(this)) throw new Error(
+      `DataType ${rawValue.dataType.myName} isn't based on Interface ${this.myName}`);
+    return rawValue;
   }
 }
 
 class FunctionEntity extends EntityBase {
   constructor(providedBy, name, opts) {
-    ensureKeys(opts, {self: 'string', input: 'string', output: 'string', impl: 'function'});
+    ensureKeys(opts, {
+      self: 'string', input: 'string', output: 'string',
+      impl: 'function',
+    });
     super(providedBy, name, 'Function');
     if ('self' in opts)
       this.selfSig = providedBy.readSignature(opts.self);
@@ -237,20 +288,20 @@ class FunctionEntity extends EntityBase {
   }
   invoke(provider, rawInput=undefined, rawSelf=undefined) {
     if (typeof this.implFunc !== 'function') throw new Error(
-      `Function has no implementation, can't be invoked`);
+      `Function ${this.myName} has no implementation, can't be invoked`);
 
     let input;
     if ('inputSig' in this) {
       input = this.providedBy.readEntity(this.inputSig, rawInput);
     } else if (rawInput !== undefined) throw new Error(
-      `Input was passed to Function when it wasn't expected`);
+      `Input was passed to Function ${this.myName} when it wasn't expected`);
 
     // TODO
     let self;
     if ('selfSig' in this) {
       self = this.providedBy.readEntity(this.selfSig, rawSelf);
     } else if (rawSelf !== undefined) throw new Error(
-      `Self was passed to Function when it wasn't expected`);
+      `Self was passed to Function ${this.myName} when it wasn't expected`);
 
     const rawOutput = this.implFunc.call(self, input);
 
@@ -259,13 +310,13 @@ class FunctionEntity extends EntityBase {
         if ('outputSig' in this) {
           return this.providedBy.readEntity(this.outputSig, out)
         } else if (out !== undefined) throw new Error(
-          `Function returned Output async when it wasn't expected`);
+          `Function ${this.myName} returned Output async when it wasn't expected`);
       });
     } else {
       if ('outputSig' in this) {
         return this.providedBy.readEntity(this.outputSig, rawOutput)
       } else if (rawOutput !== undefined) throw new Error(
-        `Function returned Output when it wasn't expected`);
+        `Function ${this.myName} returned Output when it wasn't expected`);
     }
   }
 }
@@ -295,6 +346,7 @@ class ImportEntity extends EntityBase {
 
 const EntityKinds = new Map;
 EntityKinds.set('NativeObject', NativeObjectEntity);
+EntityKinds.set('JsValue', JsValueEntity);
 EntityKinds.set('DataType', DataTypeEntity);
 EntityKinds.set('DataFrame', DataFrameEntity);
 EntityKinds.set('Interface', InterfaceEntity);
@@ -307,6 +359,7 @@ module.exports = {
   EntityBase,
 
   NativeObjectEntity,
+  JsValueEntity,
   DataTypeEntity,
   InterfaceEntity,
   FunctionEntity,
