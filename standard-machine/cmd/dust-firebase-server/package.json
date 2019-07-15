@@ -1,0 +1,22 @@
+{
+  "name": "@dustjs/firebase-server",
+  "version": "0.1.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Daniel Lamando",
+  "license": "MIT",
+  "dependencies": {
+    "common-tags": "^1.8.0",
+    "firebase": "^6.3.0",
+    "firebase-admin": "^8.2.0",
+    "koa": "^2.7.0",
+    "koa-body": "^4.1.0",
+    "koa-mount": "^4.0.0",
+    "koa-route": "^3.2.0",
+    "koa-static": "^5.0.0",
+    "koa-websocket": "^6.0.0"
+  }
+}
