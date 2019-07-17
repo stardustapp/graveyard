@@ -154,7 +154,7 @@ exports.DustDomain = class DustDomain {
         `Handle "${handle}" is already taken on ${fqdn}`);
 
       t.set(profileRef, {
-        type: 'account',
+        type: 'identity',
         handle,
         uid,
         contactEmail,
@@ -187,13 +187,13 @@ exports.DustDomain = class DustDomain {
     return profileRef.id;
   }
 
-  async listAccountProfilesForUser(uid) {
+  async listIdentityProfilesForUser(uid) {
     const db = this.adminApp.firestore();
     const userDoc = await db
       .collection('domains')
       .doc(this.domainId)
       .collection('profiles')
-      .where('type', '==', 'account')
+      .where('type', '==', 'identity')
       .where('uid', '==', uid)
       //.where('timestamp', '<=', 1509889854742) //Or something else
       .get();

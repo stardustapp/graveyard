@@ -35,7 +35,7 @@ exports.DoorwaySite = class DoorwaySite {
 
     // dynamic gated pages
     this.koa.use(route.get('/home', ctx => new GateSiteHome(this).get(ctx)));
-    this.koa.use(route.get('/profiles/:profile', ctx => new GateSiteProfile(this).invoke(ctx)));
+    this.koa.use(route.get('/profiles/:profile', (...args) => new GateSiteProfile(this).get(...args)));
     // this.koa.use(route.get('/ftue', ctx => new GateSiteFtue(this).get(ctx)));
     // this.koa.use(route.get('/add-domain', ctx => new GateSiteAddDomain(this).get(ctx)));
     // this.koa.use(route.get('/install-app', ctx => new GateSiteInstallApp(this).get(ctx)));
@@ -49,7 +49,7 @@ exports.DoorwaySite = class DoorwaySite {
     //   return new GateSiteManageDomain(this, parts[1]);
 
     // api for the vue sdk (and other in-browser sdks)
-    this.koa.use(route.post('/app-session', ctx => new GateSiteAppSessionApi(this).get(ctx)));
+    this.koa.use(route.post('/app-session', ctx => new GateSiteAppSessionApi(this).invoke(ctx)));
 
     // extra pages/assets
     this.koa.use(route.get('/about', ctx => new GateSiteAbout(this).get(ctx)));
@@ -226,34 +226,17 @@ class GateSiteHome {
     }
     const hasPassword = !!userRecord.passwordHash;
 
-    const profiles = await this.site.domain.listAccountProfilesForUser(uid);
+    const profiles = await this.site.domain.listIdentityProfilesForUser(uid);
     let profileListing = profiles.map(m => commonTags.safeHtml`
       <li>
-        <a href="profiles/${m.id}">${m.get('handle')}</a>
+        <a href="profiles/${m.id}">${m.get('handle')}</a> (${m.get('displayName')})
       </li>
     `).join('\n');
     if (!profiles.length) {
       profileListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
-    const apps = [];//await this.site.packageManager.getInstalledApps(account);
-    let appListing = apps.map(app => commonTags.safeHtml`
-      <li style="display: flex;">
-        <a href="/~${account.record.username}/${app.appRec.appKey}/" style="flex: 1;">
-          ${app.package.record.displayName}
-        </a>
-        <a href="remove-app?appKey=${app.appRec.appKey}">
-          <i class="material-icons">delete</i>
-        </a>
-      </li>
-    `).join('\n');
-    if (!apps.length) {
-      appListing = commonTags.safeHtml`<li>None yet</li>`;
-    }
-
-    console.log('user record', userRecord);
     return sendGatePage(ctx, `home | ${this.site.domain.fqdn}`, commonTags.html`
-    <div style="display: flex;">
       <section class="compact modal-form">
         ${userRecord.providerData.length === 0 ? commonTags.safeHtml`
           <p>
@@ -265,29 +248,19 @@ class GateSiteHome {
           <a href="email-link" class="action">Send magic e-mail link</a>
         ` : commonTags.safeHtml`
           <p>${commonTags.safeHtml`You are ${userRecord.email}!`}</p>
-          <!--a href="create-password" class="action">Change account password</a-->
-          <a href="logout" class="action">log out</a>
+          <a href="reset-password" class="action">Reset password</a>
+          <a href="logout" class="action">Log out</a>
         `}
       </section>
 
       <section class="compact modal-form">
-        <h2>Your apps</h2>
-        <ul style="text-align: left; margin: 0; padding: 0 0.5em;">
-          ${appListing}
-        </ul>
-        <a href="install-app" class="action">
-          Install application
-        </a>
-      </section>
-
-      <section class="compact modal-form">
-        <h2>Your domains</h2>
+        <h2>Your identities</h2>
         <ul style="text-align: left;">
           ${profileListing}
         </ul>
-        <a href="add-domain" class="action">Add new domain</a>
+        <a href="register" class="action">Register new handle</a>
       </section>
-    </div>`);
+    `);
   }
 }
 
@@ -296,7 +269,7 @@ class GateSiteProfile {
     this.site = site;
   }
 
-  async invoke(ctx) {
+  async get(ctx, profileId) {
     if (!ctx.state.claims) {
       return ctx.redirect(ctx.request.origin+'/~/login');
     }
@@ -328,17 +301,12 @@ class GateSiteProfile {
       appListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
+    const profile = await this.site.domain.getUserProfile(uid, profileId);
+
     return sendGatePage(ctx, `home | ${this.site.domain.fqdn}`, commonTags.html`
-    <div style="display: flex;">
       <section class="compact modal-form">
         <p>${commonTags.safeHtml`You are ${uid}!`}</p>
-        ${true ? commonTags.html`
-          <a href="create-password" class="action">Change account password</a>
-        ` : commonTags.html`
-          <p>You don't have a password!</p>
-          <a href="create-password" class="action">Create password</a>
-        `}
-        <a href="logout" class="action">log out</a>
+        <a href="home" class="action">manage profile</a>
       </section>
 
       <section class="compact modal-form">
@@ -358,7 +326,7 @@ class GateSiteProfile {
         </ul>
         <a href="add-domain" class="action">Add new domain</a>
       </section>
-    </div>`);
+    `);
   }
 }
 
@@ -688,38 +656,34 @@ class GateSiteCreatePassword {
 //     return ctx.redirect(ctx.request.origin+'/~/home');
 //   }
 // }
-//
-// function parseAppReferer(referer) {
-//   const parts = referer.split('/').slice(3);
-//   if (parts[0] === '~') {
-//     const appParts = parts.slice(2); // TODO: assumes we are at /~/apps
-//     const hasUsername = appParts[0].startsWith('~');
-//     const username = hasUsername ? appParts.shift().slice(1) : null;
-//     const appKey = appParts[0];
-//     return {username, appKey};
-//   } else {
-//     const parts = referer.split('/~')[1].split('/');
-//     const username = parts[0];
-//     const appKey = parts[1];
-//     return {username, appKey};
-//   }
-// }
+
+function parseAppReferer(referer) {
+  const parts = referer.split('/').slice(3);
+  if (parts[0] === '~~' || parts[0] === '~') {
+    const appParts = parts.slice(1);
+    const hasUsername = appParts[0].startsWith('~');
+    const username = hasUsername ? appParts.shift().slice(1) : null;
+    const appKey = appParts[0];
+    return {username, appKey};
+  } else {
+    const parts = referer.split('/~')[1].split('/');
+    const username = parts[0];
+    const appKey = parts[1];
+    return {username, appKey};
+  }
+}
 
 class GateSiteAppSessionApi {
   constructor(site) {
     this.site = site;
   }
 
-  async invoke(input) {
-    const state = await new GateSiteRequest(this.site, input).loadState();
-    if (!state.session) {
+  async invoke(ctx) {
+    if (!ctx.state.claims) {
       throw new Error(`user is not logged in`);
     }
-    if (state.req.method !== 'POST') {
-      throw new Error(`must be a POST`);
-    }
 
-    const {referer} = state.req.headers;
+    const {referer} = ctx.request.header;
     const {username, appKey} = parseAppReferer(referer);
     if (!appKey) {
       throw new Error('app-session needs an appKey (did you block Referer?)');
@@ -989,6 +953,7 @@ footer {
   display: flex;
   flex-direction: column;
   max-width: 40em;
+  min-width: 20em;
   background-color: #eee;
   text-align: center;
   color: #000;

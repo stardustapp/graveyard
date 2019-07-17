@@ -38,6 +38,8 @@ const domain = new DustDomain(mainCredName);
 
   //app.use(mount('/~/doorway/', serve(join(__dirname, 'web', 'doorway'))));
   app.use(mount('/~~vendor/', serve(join(__dirname, 'web', 'vendor'))));
+  app.use(mount('/~~/panel/', serve(join(__dirname, 'web', 'panel'))));
+  app.use(mount('/~~/editor/', serve(join(__dirname, 'web', 'editor'))));
   //app.use(route.get('/~:username/editor/'), serve(join(__dirname, 'web', 'editor')));
 
   app.use(route.get('/healthz', async ctx => {

@@ -1,7 +1,7 @@
 body {
   font-family: 'Roboto';
   background-color: #111;
-  background: url('texture.png');
+  background: url('/~~vendor/textures/geometric-dark.png');
   background-attachment: fixed;
   color: #fff;
   margin: 1em;
