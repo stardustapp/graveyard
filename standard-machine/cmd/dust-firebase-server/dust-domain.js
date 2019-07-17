@@ -90,6 +90,23 @@ exports.DustDomain = class DustDomain {
       `The form's security token is for a different domain. Maybe you clicked a bad link?`);
   }
 
+  async linkToEmailPassword({uid, email, desired}) {
+    const customToken = await this.adminApp.auth()
+      .createCustomToken(uid);
+
+    const clientApp = this.spawnClientApp();
+    try {
+      const {user} = await clientApp.auth()
+        .signInWithCustomToken(customToken);
+      const newUserCred = await user.linkWithCredential(
+        firebase.auth.EmailAuthProvider
+          .credential(email, desired));
+      return await newUserCred.user.getIdToken();
+    } finally {
+      await clientApp.delete();
+    }
+  }
+
   async registerHandle({fqdn, handle, uid, contactEmail, displayName}) {
     if (fqdn !== this.fqdn) throw new Error(
       `received fqdn ${fqdn} but this domain is ${this.fqdn}`);
@@ -164,8 +181,10 @@ exports.DustDomain = class DustDomain {
     });
     console.log('completed registration txn');
 
-    await this.adminApp.auth()
-      .setCustomUserClaims(uid, {addr: [fqdn, handle]});
+    // await this.adminApp.auth()
+    //   .setCustomUserClaims(uid, {addr: [fqdn, handle]});
+
+    return profileRef.id;
   }
 
   async listAccountProfilesForUser(uid) {
@@ -191,32 +210,41 @@ exports.DustDomain = class DustDomain {
 
   async logInUserPassword(email, password) {
     const clientApp = this.spawnClientApp();
-    const {user} = await clientApp.auth()
-      .signInWithEmailAndPassword(email, password);
-    // const {user} = await clientApp.auth().signInWithEmailLink(email, password);
-    const idToken = await user.getIdToken();
-    console.log('logged in email as', idToken);
-    await clientApp.delete();
-    return idToken;
+    try {
+      const {user} = await clientApp.auth()
+        .signInWithEmailAndPassword(email, password);
+      // const {user} = await clientApp.auth().signInWithEmailLink(email, password);
+      const idToken = await user.getIdToken();
+      console.log('logged in email as', idToken);
+      return idToken;
+    } finally {
+      await clientApp.delete();
+    }
   }
 
   async logInUserLink(email, link) {
     const clientApp = this.spawnClientApp();
-    const {user} = await clientApp.auth()
-      .signInWithEmailLink(email, link);
-    const idToken = await user.getIdToken();
-    console.log('logged in link as', idToken);
-    await clientApp.delete();
-    return idToken;
+    try {
+      const {user} = await clientApp.auth()
+        .signInWithEmailLink(email, link);
+      const idToken = await user.getIdToken();
+      console.log('logged in link as', idToken);
+      return idToken;
+    } finally {
+      await clientApp.delete();
+    }
   }
 
   async createAnonUser() {
     const clientApp = this.spawnClientApp();
-    const {user} = await clientApp.auth().signInAnonymously();
-    const idToken = await user.getIdToken();
-    console.log('logged in anon as', idToken);
-    await clientApp.delete();
-    return idToken;
+    try {
+      const {user} = await clientApp.auth().signInAnonymously();
+      const idToken = await user.getIdToken();
+      console.log('logged in anon as', idToken);
+      return idToken;
+    } finally {
+      await clientApp.delete();
+    }
   }
 
   async createCookie(idToken) {

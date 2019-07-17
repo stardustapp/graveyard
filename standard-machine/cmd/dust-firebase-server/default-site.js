@@ -93,7 +93,7 @@ exports.DefaultSite = class DefaultSite {
   </header>
 
   <nav>
-    <a href="/~/home" class="action">Login</a>
+    <a href="/~/login" class="action">Login</a>
     <a href="/~/register" class="action">Register</a>
     <a href="/~/about" class="action alt-action">About</a>
   </nav>

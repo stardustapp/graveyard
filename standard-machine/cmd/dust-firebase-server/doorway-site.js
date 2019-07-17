@@ -21,7 +21,7 @@ exports.DoorwaySite = class DoorwaySite {
     // accept form POSTs
     this.koa.use(bodyParser({
        multipart: false,
-       urlencoded: true
+       urlencoded: true,
     }));
 
     // check the cookie
@@ -34,13 +34,14 @@ exports.DoorwaySite = class DoorwaySite {
     this.koa.use(route.post('/register', ctx => new GateSiteRegister(this).invoke(ctx)));
 
     // dynamic gated pages
-    this.koa.use(route.get('/home', ctx => new GateSiteHome(this).invoke(ctx)));
+    this.koa.use(route.get('/home', ctx => new GateSiteHome(this).get(ctx)));
     this.koa.use(route.get('/profiles/:profile', ctx => new GateSiteProfile(this).invoke(ctx)));
     // this.koa.use(route.get('/ftue', ctx => new GateSiteFtue(this).get(ctx)));
     // this.koa.use(route.get('/add-domain', ctx => new GateSiteAddDomain(this).get(ctx)));
     // this.koa.use(route.get('/install-app', ctx => new GateSiteInstallApp(this).get(ctx)));
     // this.koa.use(route.get('/remove-app', ctx => new GateSiteRemoveApp(this).get(ctx)));
-    // this.koa.use(route.get('/set-password', ctx => new GateSiteSetPassword(this).get(ctx)));
+    this.koa.use(route.get('/create-password', ctx => new GateSiteCreatePassword(this).get(ctx)));
+    this.koa.use(route.post('/create-password', ctx => new GateSiteCreatePassword(this).invoke(ctx)));
     this.koa.use(route.get('/logout', ctx => new GateSiteLogout(this).get(ctx)));
     this.koa.use(route.post('/logout', ctx => new GateSiteLogout(this).invoke(ctx)));
 
@@ -58,18 +59,20 @@ exports.DoorwaySite = class DoorwaySite {
   async checkCookie(ctx, next) {
     const sessionCookie = ctx.cookies.get('DustSessionJwt');
     ctx.state.claims = null;
-    if (!sessionCookie) return next();
-    try {
-      ctx.state.claims = await this.domain.adminApp.auth()
-        .verifySessionCookie(sessionCookie, false /* checkRevoked */)
-      //console.debug('have claims', ctx.state.claims)
-    } catch (err) {
-      console.warn('JWT check failed!', err.message);
-      ctx.cookies.set('DustSessionJwt', '', {
-        path: '/~/',
-        maxAge: -10000,
-        httpOnly: true,
-      });
+    if (sessionCookie) {
+      try {
+        ctx.state.claims = await this.domain.adminApp.auth()
+          .verifySessionCookie(sessionCookie, false /* checkRevoked */)
+        //console.debug('have claims', ctx.state.claims)
+      } catch (err) {
+        ctx.state.claims = null;
+        console.warn('JWT check failed!', err.message);
+        ctx.cookies.set('DustSessionJwt', '', {
+          path: '/~/',
+          maxAge: -10000,
+          httpOnly: true,
+        });
+      }
     }
 
     await next();
@@ -85,12 +88,16 @@ class GateSiteLogin {
     this.site = site;
   }
 
-  async get(ctx) {
+  async get(ctx, partialData={}) {
+    if (ctx.state.claims) {
+      return ctx.redirect(ctx.request.origin+'/~/home');
+    }
+
     return sendGatePage(ctx, `login | ${this.site.domain.fqdn}`, commonTags.safeHtml`
-      <form method="post" class="modal-form">
+      <form method="post" action="login" class="modal-form">
         <h1>login to <em>${this.site.domain.fqdn}</em></h1>
         <input type="hidden" name="domain" value="${this.site.domain.fqdn}">
-        <input type="email" name="email" placeholder="external email" autocomplete="email" required autofocus>
+        <input type="email" name="email" placeholder="external email" autocomplete="email" value="${partialData.email||''}" required autofocus>
         <input type="password" name="password" placeholder="password" autocomplete="current-password">
         <button type="submit">log in</button>
       </form>
@@ -100,28 +107,28 @@ class GateSiteLogin {
   }
 
   async invoke(ctx) {
-    ctx.response.body = 'hi'
     const {domain, email, password} = ctx.request.body;
+    await (async () => {
 
-    // look up the account
-    const idToken = await this.site.domain.logInUser(email, password);
+      const idToken = await this.site.domain.logInUserPassword(email, password);
+      const {cookieVal, maxAge} = await this.site.domain.createCookie(idToken);
+      ctx.cookies.set('DustSessionJwt', cookieVal, {
+        path: '/~/',
+        maxAge,
+        httpOnly: true,
+        secure: false, // TODO
+      });
 
-    // vend a new session
-    const expiresIn = 60 * 60 * 24 *  5  * 1000;
-    // const sessionCookie = await this.site.domain.adminApp.auth()
-    //   .createCustomToken('kXJQ97sZBPaJg71ReIWLgvg7ZR33', {asdf:true});
-    const sessionCookie = await this.site.domain.adminApp.auth()
-      .createSessionCookie(idToken, {expiresIn});
-    console.log('cookie', sessionCookie);
-    ctx.cookies.set('DustSessionJwt', sessionCookie, {
-      path: '/~/',
-      maxAge: expiresIn,
-      httpOnly: true,
-      secure: false, // TODO
+    })().then(() => {
+      console.log(`User ${email} successfully logged in`);
+      ctx.redirect(ctx.request.origin+'/~/home');
+    }, err => {
+      ctx.state.error = err;
+      console.error('login error', ctx.request.body);
+      console.error(err.stack);
+      return this.get(ctx, {email});
     });
-    console.log(`User ${email} successfully logged in`);
 
-    ctx.redirect('/~/home');
   }
 }
 
@@ -134,8 +141,8 @@ class GateSiteRegister {
     if (!ctx.state.claims) {
       const idToken = await this.site.domain.createAnonUser();
       const {cookieVal, maxAge} = await this.site.domain.createCookie(idToken);
-      ctx.state.claims = await this.domain.adminApp.auth()
-        .verifySessionCookie(cookieVal)
+      ctx.state.claims = await this.site.domain.adminApp.auth()
+        .verifySessionCookie(cookieVal);
 
       ctx.cookies.set('DustSessionJwt', cookieVal, {
         path: '/~/',
@@ -148,16 +155,16 @@ class GateSiteRegister {
       .makeCSRF(ctx.state.claims.uid);
 
     return sendGatePage(ctx, `register | ${this.site.domain.fqdn}`, commonTags.safeHtml`
-      <form method="post" class="modal-form">
+      <form method="post" action="register" class="modal-form">
         <h1>register new account</h1>
         <input type="hidden" name="csrf" value="${csrf}">
         <input type="hidden" name="fqdn" value="${this.site.domain.fqdn}">
         <div class="row">
           <label style="text-align: right; margin: 0 0 0 2em;" for="handle">${this.site.domain.fqdn}/~</label>
-          <input style="text-align: left;" type="text" name="handle" value="${partialData.handle}" placeholder="username" autocomplete="username required" autofocus style="width: 12em; text-align: right;">
+          <input style="text-align: left;" type="text" name="handle" value="${partialData.handle||''}" placeholder="username" autocomplete="username required" autofocus style="width: 12em; text-align: right;">
         </div>
-        <input type="email" name="contactEmail" value="${partialData.contactEmail}" placeholder="your contact email (private)" autocomplete="email" required>
-        <input type="text" name="displayName" value="${partialData.displayName}" placeholder="your 'real' name (shared)" autocomplete="name" required>
+        <input type="email" name="contactEmail" value="${partialData.contactEmail||''}" placeholder="your contact email (private)" autocomplete="email" required>
+        <input type="text" name="displayName" value="${partialData.displayName||''}" placeholder="your 'real' name (shared)" autocomplete="name" required>
         <button type="submit">submit registration</button>
       </form>`);
   }
@@ -180,326 +187,523 @@ class GateSiteRegister {
   }
 }
 
-class GateSiteAddDomain {
+class GateSiteHome {
   constructor(site) {
     this.site = site;
   }
 
-  renderForm(request) {
-    if (!request.session) {
-      return ctx.redirect('/~/login');
+  async get(ctx) {
+    if (!ctx.state.claims) {
+      return ctx.redirect(ctx.request.origin+'/~/login');
+    }
+    const {aud, uid, email, firebase} = ctx.state.claims;
+
+    let userRecord;
+    try {
+      userRecord = await this.site.domain.adminApp.auth().getUser(uid);
+    } catch (err) {
+      if (err.code === 'auth/user-not-found') {
+        ctx.cookies.set('DustSessionJwt', '', {
+          path: '/~/',
+          maxAge: -10000,
+          httpOnly: true,
+        });
+        ctx.response.status = 400;
+        return sendGatePage(ctx, `server error`, commonTags.safeHtml`
+          <h2>auth error: user not found</h2>
+          <p>
+            Something happened to your user record.
+            Either the server reclaimed the account due to inactivity,
+            or the server's records have been deleted more broadly.
+            Please try registering again.
+          </p>
+          <p>
+            <a href="register">register now</a>
+          </p>
+        `);
+      }
+      throw err;
+    }
+    const hasPassword = !!userRecord.passwordHash;
+
+    const profiles = await this.site.domain.listAccountProfilesForUser(uid);
+    let profileListing = profiles.map(m => commonTags.safeHtml`
+      <li>
+        <a href="profiles/${m.id}">${m.get('handle')}</a>
+      </li>
+    `).join('\n');
+    if (!profiles.length) {
+      profileListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
-    return sendGatePage(ctx, `add domain | ${this.site.domain.fqdn}`, commonTags.safeHtml`
-      <form method="post" class="modal-form">
-        <h1>add new domain</h1>
-        <div class="row">
-          <label for="owner" style="margin: 0 0 0 2em;">owner</label>
-          <input type="text" name="owner" disabled value="${request.session.account.address()}"
-              style="width: 12em;">
-        </div>
-        <input type="text" name="fqdn" placeholder="domain name (as in DNS)" required autofocus>
-        <button type="submit">add domain to profile</button>
-      </form>`);
-  }
-
-  get(ctx) {
-    return this.renderForm(ctx);
-  }
-  async invoke(ctx) {
-    console.log('add domain', ctx.request.body);
-    const {fqdn} = ctx.request.body;
-    if (!fqdn) {
-      return this.renderForm(request);
+    const apps = [];//await this.site.packageManager.getInstalledApps(account);
+    let appListing = apps.map(app => commonTags.safeHtml`
+      <li style="display: flex;">
+        <a href="/~${account.record.username}/${app.appRec.appKey}/" style="flex: 1;">
+          ${app.package.record.displayName}
+        </a>
+        <a href="remove-app?appKey=${app.appRec.appKey}">
+          <i class="material-icons">delete</i>
+        </a>
+      </li>
+    `).join('\n');
+    if (!apps.length) {
+      appListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
-    const domain = await this.site.domainManager
-        .registerDomain(fqdn, request.session.account);
+    console.log('user record', userRecord);
+    return sendGatePage(ctx, `home | ${this.site.domain.fqdn}`, commonTags.html`
+    <div style="display: flex;">
+      <section class="compact modal-form">
+        ${userRecord.providerData.length === 0 ? commonTags.safeHtml`
+          <p>
+            <span style="font-weight: 200; font-size: 1.4em;">Welcome!</span>
+            Your account is not yet linked to an authentication method.
+            To keep access to your account, please add a login identity below.
+          </p>
+          <a href="create-password" class="action">Create account password</a>
+          <a href="email-link" class="action">Send magic e-mail link</a>
+        ` : commonTags.safeHtml`
+          <p>${commonTags.safeHtml`You are ${userRecord.email}!`}</p>
+          <!--a href="create-password" class="action">Change account password</a-->
+          <a href="logout" class="action">log out</a>
+        `}
+      </section>
 
-    return ctx.redirect('/~/my-domains/'+domain.record.did);
+      <section class="compact modal-form">
+        <h2>Your apps</h2>
+        <ul style="text-align: left; margin: 0; padding: 0 0.5em;">
+          ${appListing}
+        </ul>
+        <a href="install-app" class="action">
+          Install application
+        </a>
+      </section>
+
+      <section class="compact modal-form">
+        <h2>Your domains</h2>
+        <ul style="text-align: left;">
+          ${profileListing}
+        </ul>
+        <a href="add-domain" class="action">Add new domain</a>
+      </section>
+    </div>`);
   }
 }
 
-class GateSiteSetPassword {
+class GateSiteProfile {
   constructor(site) {
     this.site = site;
   }
 
-  renderForm(ctx) {
+  async invoke(ctx) {
     if (!ctx.state.claims) {
-      return ctx.redirect('/~/login');
+      return ctx.redirect(ctx.request.origin+'/~/login');
     }
+    const {aud, uid, email, firebase} = ctx.state.claims;
+
+    const memberships = [];//await this.site.domainManager.getMembershipsFor(account);
+    let domainListing = memberships.map(m => commonTags.safeHtml`
+      <li>
+        <a href="my-domains/${m.domain.record.did}">${m.domain.record.primaryFqdn}</a>
+        (${m.role})
+      </li>
+    `).join('\n');
+    if (!memberships.length) {
+      domainListing = commonTags.safeHtml`<li>None yet</li>`;
+    }
+
+    const apps = [];//await this.site.packageManager.getInstalledApps(account);
+    let appListing = apps.map(app => commonTags.safeHtml`
+      <li style="display: flex;">
+        <a href="/~${account.record.username}/${app.appRec.appKey}/" style="flex: 1;">
+          ${app.package.record.displayName}
+        </a>
+        <a href="remove-app?appKey=${app.appRec.appKey}">
+          <i class="material-icons">delete</i>
+        </a>
+      </li>
+    `).join('\n');
+    if (!apps.length) {
+      appListing = commonTags.safeHtml`<li>None yet</li>`;
+    }
+
+    return sendGatePage(ctx, `home | ${this.site.domain.fqdn}`, commonTags.html`
+    <div style="display: flex;">
+      <section class="compact modal-form">
+        <p>${commonTags.safeHtml`You are ${uid}!`}</p>
+        ${true ? commonTags.html`
+          <a href="create-password" class="action">Change account password</a>
+        ` : commonTags.html`
+          <p>You don't have a password!</p>
+          <a href="create-password" class="action">Create password</a>
+        `}
+        <a href="logout" class="action">log out</a>
+      </section>
+
+      <section class="compact modal-form">
+        <h2>Your apps</h2>
+        <ul style="text-align: left; margin: 0; padding: 0 0.5em;">
+          ${appListing}
+        </ul>
+        <a href="install-app" class="action">
+          Install application
+        </a>
+      </section>
+
+      <section class="compact modal-form">
+        <h2>Your domains</h2>
+        <ul style="text-align: left;">
+          ${domainListing}
+        </ul>
+        <a href="add-domain" class="action">Add new domain</a>
+      </section>
+    </div>`);
+  }
+}
+
+class GateSiteCreatePassword {
+  constructor(site) {
+    this.site = site;
+  }
+
+  async get(ctx, partialData={}) {
+    if (!ctx.state.claims) {
+      return ctx.redirect(ctx.request.origin+'/~/login');
+    }
+    const {uid} = ctx.state.claims;
+    const csrf = await this.site.domain
+      .makeCSRF(uid);
+
+    const profiles = await this.site.domain.listAccountProfilesForUser(uid);
+    if (profiles.length < 1) {
+      return ctx.redirect(ctx.request.origin+'/~/register');
+    }
+    if (!partialData.email)
+      partialData.email = profiles[0].get('contactEmail');
 
     const rows = [commonTags.safeHtml`
       <div class="row">
-        <label for="owner" style="margin: 0 0 0 2em; width: 5em;">account</label>
-        <input type="text" name="owner" disabled value="${ctx.state.claims.email}"
-            style="flex: 1;">
+        <label for="email" style="margin: 0 0 0 2em; width: 5em;">email</label>
+        <input type="email" name="email" autocomplete="email" value="${partialData.email}" required style="flex: 1;">
       </div>`
     ];
-    //if (request.session.account.hasPassword()) {
+    if (false) {
       rows.push(commonTags.safeHtml`
         <div class="row">
           <label for="current" style="margin: 0 0 0 2em; width: 5em;">current</label>
-          <input type="password" name="current" required autofocus style="flex: 1;">
+          <input type="password" name="current" autocomplete="current-password" value="${partialData.current}" required style="flex: 1;">
         </div>`);
-    //}
+    }
     rows.push(commonTags.safeHtml`
         <div class="row">
           <label for="desired" style="margin: 0 0 0 2em; width: 5em;">new</label>
-          <input type="password" name="desired" required style="flex: 1;">
+          <input type="password" name="desired" autocomplete="new-password" value="${partialData.desired}" required autofocus style="flex: 1;">
         </div>`);
 
-    return sendGatePage(ctx, `set password | ${ctx.state.claims.email}`, commonTags.html`
-      <form method="post" class="modal-form">
-        <h1>set account password</h1>
+    return sendGatePage(ctx, `create password | ${ctx.state.claims.email}`, commonTags.html`
+      <form method="post" action="create-password" class="modal-form">
+        <h1>create account password</h1>
         ${rows.join('\n')}
         <button type="submit">submit</button>
-      </form>`);
-  }
-
-  get(ctx) {
-    return this.renderForm(ctx);
-  }
-  async invoke(ctx) {
-    if (!ctx.state.claims) {
-      return ctx.redirect('/~/login');
-    }
-
-    const {current, desired} = ctx.request.body;
-    if (!desired) {
-      return this.renderForm(request);
-    }
-
-    if (request.session.account.hasPassword()) {
-      await request.session.account.assertPassword(current);
-    }
-
-    await this.site.accountManager
-        .setPassword(request.session.account, desired);
-    return ctx.redirect('/~/home');
-  }
-}
-
-class GateSiteManageDomain {
-  constructor(site, domainId) {
-    this.site = site;
-    this.domainId = domainId;
-  }
-
-  async invoke(input) {
-    const request = await new GateSiteRequest(this.site, input).loadState();
-    if (!request.session) {
-      return ctx.redirect('/~/login');
-    }
-    const domain = await this.site.domainManager.getDomain(this.domainId);
-    if (!domain) {
-      throw new Error(`Domain not found`);
-    }
-    const role = domain.highestRoleFor(request.session.account);
-    if (role !== 'owner') {
-      throw new Error(`Only domain owners can manage the domain`);
-    }
-
-    if (request.req.method === 'GET') {
-      return sendGatePage(ctx, `manage domain`, commonTags.safeHtml`
-        <section class="modal-form">
-          <h1>domain: <em>${domain.record.primaryFqdn}</em></h1>
-          <div style="text-align: left;">
-            <p>Identity: ${domain.record.did}</p>
-            <p>Status: ${domain.record.status}</p>
-            <p>FQDNs: ${domain.record.fqdns}</p>
-            <p>Grants: ${domain.record.grants.map(g => commonTags.safeHtml`${g.aid}=${g.role}`)}</p>
-            <p>Web root: ${domain.record.webroot ? domain.record.webroot.type : 'none'}</p>
-          </div>
-          <form method="post">
-            <input type="hidden" name="action" value="attach webroot">
-            <button type="submit" class="action">attach static website</button>
-          </form>
-        </section>
-        <div style="align-self: center;">
-          <a href="../home">return home</a>
-        </div>`);
-    }
-
-    if (request.req.method === 'POST' && request.req.bodyparams.action === 'attach webroot') {
-      await this.site.domainManager.attachStaticWebRoot(domain);
-      return ctx.redirect(domain.record.did);
-    }
-  }
-}
-
-class GateSiteInstallApp {
-  constructor(site) {
-    this.site = site;
-  }
-
-  async renderForm(request) {
-    if (!request.session) {
-      return ctx.redirect('/~/login');
-    }
-
-    const packages = await this.site.packageManager.getAll();
-
-    let installUI = '';
-    if (request.req.queryParams.pid) {
-      const pkg = await this.site.packageManager.getOne(request.req.queryParams.pid);
-
-      const mountRows = [];
-      Object.keys(pkg.record.mounts).forEach(mountPoint => {
-        const mountDef = pkg.record.mounts[mountPoint];
-        const fieldKey = `mount-${encodeURIComponent(mountPoint)}`;
-        switch (mountDef.type) {
-          case 'bind':
-            mountRows.push(commonTags.safeHtml`
-              <div class="row">
-                <label for="${fieldKey}" style="margin: 0 0 0 2em; width: 5em;">${mountPoint}</label>
-                <input type="text" name="${fieldKey}" value="${mountDef.suggestion}"
-                    style="width: 12em;">
-              </div>
-              <p class="hint">${mountDef.hint}</p>
-            `);
-            break;
-        }
-      });
-      if (mountRows.length) {
-        mountRows.unshift(commonTags.html`
-          <hr>
-          <h2>mount points</h2>
-        `);
-      }
-
-      const workloadRows = [];
-      Object.keys(pkg.record.workloads).forEach(wlId => {
-        const workload = pkg.record.workloads[wlId];
-        const fieldKey = `workload-${encodeURIComponent(wlId)}`;
-
-        workloadRows.push(commonTags.safeHtml`
-          <div class="row">
-            <label for="${fieldKey}" style="margin: 0 0 0 2em; width: 5em;">${wlId}</label>
-            <input type="text" name="${fieldKey}" value="${workload.sourceUri}" readonly
-                style="width: 12em;">
-          </div>
-          <p class="hint">type: ${workload.type} / runtime: ${workload.runtime}</p>
-        `);
-      });
-      if (workloadRows.length) {
-        workloadRows.unshift(commonTags.html`
-          <hr>
-          <h2>workloads</h2>
-        `);
-      }
-
-      installUI = commonTags.html`
-        <form method="post" class="modal-form" style="border-left: 4px solid #ccc;">
-          <h1>install as app</h1>
-          <div class="row">
-            <label for="account" style="margin: 0 0 0 2em; width: 5em;">account</label>
-            <input type="text" name="account" disabled value="${request.session.account.address()}"
-                style="width: 12em;">
-          </div>
-          <div class="row">
-            <label for="sourceUri" style="margin: 0 0 0 2em; width: 5em;">source uri</label>
-            <input type="text" name="sourceUri" disabled value="${pkg.record.sourceUri}"
-                style="width: 12em;">
-          </div>
-          <div class="row">
-            <label for="appKey" style="margin: 0 0 0 2em; width: 5em;">app key</label>
-            <input type="text" name="appKey" value="${pkg.record.defaultKey}"
-                style="width: 12em;">
-          </div>
-          ${mountRows}
-          ${workloadRows}
-          <button type="submit">
-            install application
-          </button>
-        </form>`;
-    }
-
-    return sendGatePage(ctx, `install app | ${this.site.domain.fqdn}`, commonTags.html`
-      <div style="display: flex; align-self: center;">
-        <div class="modal-form" style="justify-content: flex-start;">
-          <h1>select a package</h1>
-          ${packages.map(pkg => commonTags.safeHtml`
-            <form method="get" style="display: flex;">
-              <input type="hidden" name="pid" value="${pkg.record.pid}">
-              <button type="submit" style="flex: 1;"${
-                request.req.queryParams.pid === pkg.record.pid ? ' class=action' : ''
-                }>${pkg.record.displayName}</button>
-            </form>
-          `)}
-        </div>
-        ${installUI}
+        <input type="hidden" name="csrf" value="${csrf}"/>
+      </form>
+      <div style="align-self: center;">
+        <a href="home">return home</a>
       </div>`);
   }
 
-  async invoke(input) {
-    const request = await new GateSiteRequest(this.site, input).loadState();
-    if (request.req.method === 'GET') {
-      return await this.renderForm(request);
+  async invoke(ctx) {
+    if (!ctx.state.claims) {
+      return ctx.redirect(ctx.request.origin+'/~/login');
     }
 
-    if (request.req.method === 'POST') {
-      const {pid} = request.req.queryParams;
-      const {appKey} = request.req.bodyparams;
-      if (!pid || !appKey) {
-        return await this.renderForm(request);
-      }
+    const {uid} = ctx.state.claims;
+    const {csrf} = ctx.request.body;
+    await (async () => {
+      await this.site.domain.checkCSRF(csrf, uid);
 
-      const pkg = await this.site.packageManager.getOne(pid);
-      const installation = pkg.createAppInstall(request.session.account, appKey, request.req.bodyparams);
-      // TODO: should be one database transaction!!
-      await this.site.accountManager.installApp(request.session.account, installation);
-      await this.site.workloadManager.installAppWorkloads('aid', request.session.account.record.aid, installation.appKey, pkg);
+      const idToken = await this.site.domain
+        .linkToEmailPassword({uid, ...ctx.request.body});
 
-      return ctx.redirect('/~/home');
-    }
+      const {cookieVal, maxAge} = await this.site.domain.createCookie(idToken);
+      ctx.cookies.set('DustSessionJwt', cookieVal, {
+        path: '/~/',
+        maxAge,
+        httpOnly: true,
+        secure: false, // TODO
+      });
+
+    })().then(() => {
+      ctx.redirect(`/~/home`);
+    }, err => {
+      ctx.state.error = err;
+      console.error('set password error', ctx.request.body);
+      console.error(err.stack);
+      return this.get(ctx, ctx.request.body);
+    });
   }
 }
 
-class GateSiteRemoveApp {
-  constructor(site) {
-    this.site = site;
-  }
+// class GateSiteAddDomain {
+//   constructor(site) {
+//     this.site = site;
+//   }
+//
+//   renderForm(request) {
+//     if (!request.session) {
+//       return ctx.redirect(ctx.request.origin+'/~/login');
+//     }
+//
+//     return sendGatePage(ctx, `add domain | ${this.site.domain.fqdn}`, commonTags.safeHtml`
+//       <form method="post" class="modal-form">
+//         <h1>add new domain</h1>
+//         <div class="row">
+//           <label for="owner" style="margin: 0 0 0 2em;">owner</label>
+//           <input type="text" name="owner" disabled value="${request.session.account.address()}"
+//               style="width: 12em;">
+//         </div>
+//         <input type="text" name="fqdn" placeholder="domain name (as in DNS)" required autofocus>
+//         <button type="submit">add domain to profile</button>
+//       </form>`);
+//   }
+//
+//   get(ctx) {
+//     return this.renderForm(ctx);
+//   }
+//   async invoke(ctx) {
+//     console.log('add domain', ctx.request.body);
+//     const {fqdn} = ctx.request.body;
+//     if (!fqdn) {
+//       return this.renderForm(request);
+//     }
+//
+//     const domain = await this.site.domainManager
+//         .registerDomain(fqdn, request.session.account);
+//
+//     return ctx.redirect(ctx.request.origin+'/~/my-domains/'+domain.record.did);
+//   }
+// }
 
-  async invoke(input) {
-    const request = await new GateSiteRequest(this.site, input).loadState();
-    const {appKey} = request.req.queryParams;
-    if (!request.session) {
-      return ctx.redirect('/~/login');
-    }
+// class GateSiteManageDomain {
+//   constructor(site, domainId) {
+//     this.site = site;
+//     this.domainId = domainId;
+//   }
+//
+//   async invoke(input) {
+//     const request = await new GateSiteRequest(this.site, input).loadState();
+//     if (!request.session) {
+//       return ctx.redirect(ctx.request.origin+'/~/login');
+//     }
+//     const domain = await this.site.domainManager.getDomain(this.domainId);
+//     if (!domain) {
+//       throw new Error(`Domain not found`);
+//     }
+//     const role = domain.highestRoleFor(request.session.account);
+//     if (role !== 'owner') {
+//       throw new Error(`Only domain owners can manage the domain`);
+//     }
+//
+//     if (request.req.method === 'GET') {
+//       return sendGatePage(ctx, `manage domain`, commonTags.safeHtml`
+//         <section class="modal-form">
+//           <h1>domain: <em>${domain.record.primaryFqdn}</em></h1>
+//           <div style="text-align: left;">
+//             <p>Identity: ${domain.record.did}</p>
+//             <p>Status: ${domain.record.status}</p>
+//             <p>FQDNs: ${domain.record.fqdns}</p>
+//             <p>Grants: ${domain.record.grants.map(g => commonTags.safeHtml`${g.aid}=${g.role}`)}</p>
+//             <p>Web root: ${domain.record.webroot ? domain.record.webroot.type : 'none'}</p>
+//           </div>
+//           <form method="post">
+//             <input type="hidden" name="action" value="attach webroot">
+//             <button type="submit" class="action">attach static website</button>
+//           </form>
+//         </section>
+//         <div style="align-self: center;">
+//           <a href="home">return home</a>
+//         </div>`);
+//     }
+//
+//     if (request.req.method === 'POST' && request.req.bodyparams.action === 'attach webroot') {
+//       await this.site.domainManager.attachStaticWebRoot(domain);
+//       return ctx.redirect(domain.record.did);
+//     }
+//   }
+// }
 
-    if (request.req.method !== 'POST' || !appKey) {
-      return sendGatePage(ctx, `remove app | ${this.site.domain.fqdn}`, commonTags.html`
-        <form class="modal-form" method="post">
-          <h2>Remove app ${request.req.queryParams.appKey}</h2>
-          <p>The application will be stopped and removed from your account, but no stored data will be cleaned up.</p>
-          <button type="submit">uninstall</button>
-          <p><a href="home">wait nvm</a></p>
-        </form>`);
-    }
-
-    await this.site.workloadManager.purgeAppWorkloads('aid', request.session.account.record.aid, appKey);
-    await this.site.accountManager.removeApp(request.session.account, appKey);
-    return ctx.redirect('/~/home');
-  }
-}
-
-function parseAppReferer(referer) {
-  const parts = referer.split('/').slice(3);
-  if (parts[0] === '~') {
-    const appParts = parts.slice(2); // TODO: assumes we are at /~/apps
-    const hasUsername = appParts[0].startsWith('~');
-    const username = hasUsername ? appParts.shift().slice(1) : null;
-    const appKey = appParts[0];
-    return {username, appKey};
-  } else {
-    const parts = referer.split('/~')[1].split('/');
-    const username = parts[0];
-    const appKey = parts[1];
-    return {username, appKey};
-  }
-}
+// class GateSiteInstallApp {
+//   constructor(site) {
+//     this.site = site;
+//   }
+//
+//   async renderForm(request) {
+//     if (!request.session) {
+//       return ctx.redirect(ctx.request.origin+'/~/login');
+//     }
+//
+//     const packages = await this.site.packageManager.getAll();
+//
+//     let installUI = '';
+//     if (request.req.queryParams.pid) {
+//       const pkg = await this.site.packageManager.getOne(request.req.queryParams.pid);
+//
+//       const mountRows = [];
+//       Object.keys(pkg.record.mounts).forEach(mountPoint => {
+//         const mountDef = pkg.record.mounts[mountPoint];
+//         const fieldKey = `mount-${encodeURIComponent(mountPoint)}`;
+//         switch (mountDef.type) {
+//           case 'bind':
+//             mountRows.push(commonTags.safeHtml`
+//               <div class="row">
+//                 <label for="${fieldKey}" style="margin: 0 0 0 2em; width: 5em;">${mountPoint}</label>
+//                 <input type="text" name="${fieldKey}" value="${mountDef.suggestion}"
+//                     style="width: 12em;">
+//               </div>
+//               <p class="hint">${mountDef.hint}</p>
+//             `);
+//             break;
+//         }
+//       });
+//       if (mountRows.length) {
+//         mountRows.unshift(commonTags.html`
+//           <hr>
+//           <h2>mount points</h2>
+//         `);
+//       }
+//
+//       const workloadRows = [];
+//       Object.keys(pkg.record.workloads).forEach(wlId => {
+//         const workload = pkg.record.workloads[wlId];
+//         const fieldKey = `workload-${encodeURIComponent(wlId)}`;
+//
+//         workloadRows.push(commonTags.safeHtml`
+//           <div class="row">
+//             <label for="${fieldKey}" style="margin: 0 0 0 2em; width: 5em;">${wlId}</label>
+//             <input type="text" name="${fieldKey}" value="${workload.sourceUri}" readonly
+//                 style="width: 12em;">
+//           </div>
+//           <p class="hint">type: ${workload.type} / runtime: ${workload.runtime}</p>
+//         `);
+//       });
+//       if (workloadRows.length) {
+//         workloadRows.unshift(commonTags.html`
+//           <hr>
+//           <h2>workloads</h2>
+//         `);
+//       }
+//
+//       installUI = commonTags.html`
+//         <form method="post" class="modal-form" style="border-left: 4px solid #ccc;">
+//           <h1>install as app</h1>
+//           <div class="row">
+//             <label for="account" style="margin: 0 0 0 2em; width: 5em;">account</label>
+//             <input type="text" name="account" disabled value="${request.session.account.address()}"
+//                 style="width: 12em;">
+//           </div>
+//           <div class="row">
+//             <label for="sourceUri" style="margin: 0 0 0 2em; width: 5em;">source uri</label>
+//             <input type="text" name="sourceUri" disabled value="${pkg.record.sourceUri}"
+//                 style="width: 12em;">
+//           </div>
+//           <div class="row">
+//             <label for="appKey" style="margin: 0 0 0 2em; width: 5em;">app key</label>
+//             <input type="text" name="appKey" value="${pkg.record.defaultKey}"
+//                 style="width: 12em;">
+//           </div>
+//           ${mountRows}
+//           ${workloadRows}
+//           <button type="submit">
+//             install application
+//           </button>
+//         </form>`;
+//     }
+//
+//     return sendGatePage(ctx, `install app | ${this.site.domain.fqdn}`, commonTags.html`
+//       <div style="display: flex; align-self: center;">
+//         <div class="modal-form" style="justify-content: flex-start;">
+//           <h1>select a package</h1>
+//           ${packages.map(pkg => commonTags.safeHtml`
+//             <form method="get" style="display: flex;">
+//               <input type="hidden" name="pid" value="${pkg.record.pid}">
+//               <button type="submit" style="flex: 1;"${
+//                 request.req.queryParams.pid === pkg.record.pid ? ' class=action' : ''
+//                 }>${pkg.record.displayName}</button>
+//             </form>
+//           `)}
+//         </div>
+//         ${installUI}
+//       </div>`);
+//   }
+//
+//   async invoke(input) {
+//     const request = await new GateSiteRequest(this.site, input).loadState();
+//     if (request.req.method === 'GET') {
+//       return await this.renderForm(request);
+//     }
+//
+//     if (request.req.method === 'POST') {
+//       const {pid} = request.req.queryParams;
+//       const {appKey} = request.req.bodyparams;
+//       if (!pid || !appKey) {
+//         return await this.renderForm(request);
+//       }
+//
+//       const pkg = await this.site.packageManager.getOne(pid);
+//       const installation = pkg.createAppInstall(request.session.account, appKey, request.req.bodyparams);
+//       // TODO: should be one database transaction!!
+//       await this.site.accountManager.installApp(request.session.account, installation);
+//       await this.site.workloadManager.installAppWorkloads('aid', request.session.account.record.aid, installation.appKey, pkg);
+//
+//       return ctx.redirect(ctx.request.origin+'/~/home');
+//     }
+//   }
+// }
+//
+// class GateSiteRemoveApp {
+//   constructor(site) {
+//     this.site = site;
+//   }
+//
+//   async invoke(input) {
+//     const request = await new GateSiteRequest(this.site, input).loadState();
+//     const {appKey} = request.req.queryParams;
+//     if (!request.session) {
+//       return ctx.redirect(ctx.request.origin+'/~/login');
+//     }
+//
+//     if (request.req.method !== 'POST' || !appKey) {
+//       return sendGatePage(ctx, `remove app | ${this.site.domain.fqdn}`, commonTags.html`
+//         <form class="modal-form" method="post">
+//           <h2>Remove app ${request.req.queryParams.appKey}</h2>
+//           <p>The application will be stopped and removed from your account, but no stored data will be cleaned up.</p>
+//           <button type="submit">uninstall</button>
+//           <p><a href="home">wait nvm</a></p>
+//         </form>`);
+//     }
+//
+//     await this.site.workloadManager.purgeAppWorkloads('aid', request.session.account.record.aid, appKey);
+//     await this.site.accountManager.removeApp(request.session.account, appKey);
+//     return ctx.redirect(ctx.request.origin+'/~/home');
+//   }
+// }
+//
+// function parseAppReferer(referer) {
+//   const parts = referer.split('/').slice(3);
+//   if (parts[0] === '~') {
+//     const appParts = parts.slice(2); // TODO: assumes we are at /~/apps
+//     const hasUsername = appParts[0].startsWith('~');
+//     const username = hasUsername ? appParts.shift().slice(1) : null;
+//     const appKey = appParts[0];
+//     return {username, appKey};
+//   } else {
+//     const parts = referer.split('/~')[1].split('/');
+//     const username = parts[0];
+//     const appKey = parts[1];
+//     return {username, appKey};
+//   }
+// }
 
 class GateSiteAppSessionApi {
   constructor(site) {
@@ -544,154 +748,6 @@ class GateSiteAppSessionApi {
   }
 }
 
-class GateSiteHome {
-  constructor(site) {
-    this.site = site;
-  }
-
-  async invoke(ctx) {
-    if (!ctx.state.claims) {
-      return ctx.redirect('/~/login');
-    }
-    const {aud, uid, email, firebase} = ctx.state.claims;
-
-
-    const currentUser = await this.site.domain.adminApp.auth()
-      .getUser(uid);
-      console.log('user', await this.site.domain.adminApp.auth().getUser(uid))
-    console.log('user', await this.site.domain.adminApp.auth().getUser('kXJQ97sZBPaJg71ReIWLgvg7ZR33'))
-  console.log('user', await this.site.domain.adminApp.auth().getUser('bgBRV2GfEcNsrpsRhaYK13gSyWl1'))
-
-    const profiles = await this.site.domain.listAccountProfilesForUser(uid);
-    let profileListing = profiles.map(m => commonTags.safeHtml`
-      <li>
-        <a href="profiles/${m.id}">${m.get('handle')}</a>
-      </li>
-    `).join('\n');
-    if (!profiles.length) {
-      profileListing = commonTags.safeHtml`<li>None yet</li>`;
-    }
-
-    const apps = [];//await this.site.packageManager.getInstalledApps(account);
-    let appListing = apps.map(app => commonTags.safeHtml`
-      <li style="display: flex;">
-        <a href="/~${account.record.username}/${app.appRec.appKey}/" style="flex: 1;">
-          ${app.package.record.displayName}
-        </a>
-        <a href="remove-app?appKey=${app.appRec.appKey}">
-          <i class="material-icons">delete</i>
-        </a>
-      </li>
-    `).join('\n');
-    if (!apps.length) {
-      appListing = commonTags.safeHtml`<li>None yet</li>`;
-    }
-
-    return sendGatePage(ctx, `home | ${this.site.domain.fqdn}`, commonTags.html`
-    <div style="display: flex;">
-      <section class="compact modal-form">
-        <p>${commonTags.safeHtml`You are ${uid}!`}</p>
-        ${true ? commonTags.html`
-          <a href="set-password" class="action">Change account password</a>
-        ` : commonTags.html`
-          <p>You don't have a password!</p>
-          <a href="set-password" class="action">Create password</a>
-        `}
-        <a href="logout" class="action">log out</a>
-      </section>
-
-      <section class="compact modal-form">
-        <h2>Your apps</h2>
-        <ul style="text-align: left; margin: 0; padding: 0 0.5em;">
-          ${appListing}
-        </ul>
-        <a href="install-app" class="action">
-          Install application
-        </a>
-      </section>
-
-      <section class="compact modal-form">
-        <h2>Your domains</h2>
-        <ul style="text-align: left;">
-          ${profileListing}
-        </ul>
-        <a href="add-domain" class="action">Add new domain</a>
-      </section>
-    </div>`);
-  }
-}
-
-class GateSiteProfile {
-  constructor(site) {
-    this.site = site;
-  }
-
-  async invoke(ctx) {
-    if (!ctx.state.claims) {
-      return ctx.redirect('/~/login');
-    }
-    const {aud, uid, email, firebase} = ctx.state.claims;
-
-    const memberships = [];//await this.site.domainManager.getMembershipsFor(account);
-    let domainListing = memberships.map(m => commonTags.safeHtml`
-      <li>
-        <a href="my-domains/${m.domain.record.did}">${m.domain.record.primaryFqdn}</a>
-        (${m.role})
-      </li>
-    `).join('\n');
-    if (!memberships.length) {
-      domainListing = commonTags.safeHtml`<li>None yet</li>`;
-    }
-
-    const apps = [];//await this.site.packageManager.getInstalledApps(account);
-    let appListing = apps.map(app => commonTags.safeHtml`
-      <li style="display: flex;">
-        <a href="/~${account.record.username}/${app.appRec.appKey}/" style="flex: 1;">
-          ${app.package.record.displayName}
-        </a>
-        <a href="remove-app?appKey=${app.appRec.appKey}">
-          <i class="material-icons">delete</i>
-        </a>
-      </li>
-    `).join('\n');
-    if (!apps.length) {
-      appListing = commonTags.safeHtml`<li>None yet</li>`;
-    }
-
-    return sendGatePage(ctx, `home | ${this.site.domain.fqdn}`, commonTags.html`
-    <div style="display: flex;">
-      <section class="compact modal-form">
-        <p>${commonTags.safeHtml`You are ${uid}!`}</p>
-        ${true ? commonTags.html`
-          <a href="set-password" class="action">Change account password</a>
-        ` : commonTags.html`
-          <p>You don't have a password!</p>
-          <a href="set-password" class="action">Create password</a>
-        `}
-        <a href="logout" class="action">log out</a>
-      </section>
-
-      <section class="compact modal-form">
-        <h2>Your apps</h2>
-        <ul style="text-align: left; margin: 0; padding: 0 0.5em;">
-          ${appListing}
-        </ul>
-        <a href="install-app" class="action">
-          Install application
-        </a>
-      </section>
-
-      <section class="compact modal-form">
-        <h2>Your domains</h2>
-        <ul style="text-align: left;">
-          ${domainListing}
-        </ul>
-        <a href="add-domain" class="action">Add new domain</a>
-      </section>
-    </div>`);
-  }
-}
-
 class GateSiteFtue {
   constructor(site) {
     this.site = site;
@@ -715,24 +771,39 @@ class GateSiteLogout {
     this.site = site;
   }
 
-  get(ctx) {
+  async get(ctx) {
+    if (!ctx.state.claims) {
+      return ctx.redirect(ctx.request.origin+'/');
+    }
+
+    const {uid} = ctx.state.claims;
+    const csrf = await this.site.domain.makeCSRF(uid);
+
     return sendGatePage(ctx, `logout | ${this.site.domain.fqdn}`, commonTags.html`
-      <form class="modal-form" method="post">
+      <form method="post" action="logout" class="modal-form">
         <h2>Push the button.</h2>
-        <input type="hidden" name="csrf" value="TODO" />
+        <input type="hidden" name="csrf" value="${csrf}" />
         <button type="submit">log out</button>
         <p><a href="home">wait nvm</a></p>
       </form>`);
   }
 
   async invoke(ctx) {
+    if (!ctx.state.claims) {
+      return ctx.redirect(ctx.request.origin+'/');
+    }
+
+    const {uid} = ctx.state.claims;
+    const {csrf} = ctx.request.body;
+    await this.site.domain.checkCSRF(csrf, uid);
+
     //await this.site.sessionManager.purge(request.session);
     ctx.cookies.set('DustSessionJwt', '', {
       path: '/~/',
       maxAge: -10000,
       httpOnly: true,
     });
-    ctx.redirect('/');
+    ctx.redirect(ctx.request.origin+'/');
   }
 }
 
@@ -802,8 +873,9 @@ function sendGatePage(ctx, title, inner) {
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
         <title>${title}</title>
+        <base href="${ctx.request.origin}/~/" />
         <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500|Material+Icons" rel="stylesheet">
-        <link href="/~/style.css" type="text/css" rel="stylesheet" media="screen,projection" />
+        <link href="style.css" type="text/css" rel="stylesheet" media="screen,projection" />
       </head>
       <body>
     `,

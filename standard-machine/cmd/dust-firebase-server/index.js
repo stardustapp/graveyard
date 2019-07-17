@@ -11,32 +11,15 @@ const domain = new DustDomain(mainCredName);
   // var projectManagement = adminApp.projectManagement();
   // console.log(await projectManagement.listAppMetadata());
 
-  // const clientApp = spawnClientApp(credentialName);
-  // // const cred = await clientApp.auth()
-  // //   .createUserWithEmailAndPassword('dan@danopia.net', 'hunter2');
-  // const user = await clientApp.auth()
-  //   .signInWithEmailAndPassword('dan@danopia.net', 'hunter2');
-  // //console.log('user', user);
-  // //console.log('cred', user.additionalUserInfo);
-  // const idToken = await user.user.getIdToken();
-  // console.log('cred', idToken);
-  // await clientApp.delete();
-  // const expiresIn = 60 * 60 * 24 * 5 * 1000;
-  // const sessionCookie = await adminApp.auth()
-  //   .createSessionCookie(idToken, {expiresIn});
-  // console.log('cookie', sessionCookie);
-
   //const confDb = adminApp.database();
 
   const Koa = require('koa');
   const mount = require('koa-mount');
-  //const cookie = require('koa-cookie');
   const route = require('koa-route');
   const serve = require('koa-static');
   const websockify = require('koa-websocket');
 
   const app = websockify(new Koa());
-  //app.use(cookie());
 
   app.use(async (ctx, next) => {
     await next();
@@ -57,12 +40,9 @@ const domain = new DustDomain(mainCredName);
   app.use(mount('/~~vendor/', serve(join(__dirname, 'web', 'vendor'))));
   //app.use(route.get('/~:username/editor/'), serve(join(__dirname, 'web', 'editor')));
 
-  // app.use(route.post('/~/app-session', async ctx => {
-  //   ctx.body = 'Hello World';
-  //   // admin.auth().verifySessionCookie(
-  //   // sessionCookie, true /** checkRevoked */)
-  //   // .then((decodedClaims) => {
-  // }));
+  app.use(route.get('/healthz', async ctx => {
+    ctx.body = 'ok';
+  }));
 
   app.use(mount('/~', new DoorwaySite(domain).koa));
   app.use(mount('/', new DefaultSite(domain).koa));
