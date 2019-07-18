@@ -343,7 +343,7 @@ class GateSiteCreatePassword {
     const csrf = await this.site.domain
       .makeCSRF(uid);
 
-    const profiles = await this.site.domain.listAccountProfilesForUser(uid);
+    const profiles = await this.site.domain.listIdentityProfilesForUser(uid);
     if (profiles.length < 1) {
       return ctx.redirect(ctx.request.origin+'/~/register');
     }
@@ -689,9 +689,7 @@ class GateSiteAppSessionApi {
       throw new Error('app-session needs an appKey (did you block Referer?)');
     }
 
-    const domain = await this.site.domainManager.getDomain(this.site.domainId);
-    const {account} = state.session;
-    const session = await this.site.sessionManager.create(account, {
+    const session = await this.site.domain.createSession(uid, {
       lifetime: 'short',
       volatile: true,
       client: 'gate app-session - for '+referer,
@@ -700,8 +698,8 @@ class GateSiteAppSessionApi {
 
     const result = {
       metadata: {
-        chartName: account.record.username,
-        homeDomain: domain.record.primaryFqdn,
+        chartName: 'todo', // account.record.username,
+        homeDomain: this.site.domain.fqdn,
         ownerName: account.record.contact.name,
         ownerEmail: account.record.contact.email,
       },

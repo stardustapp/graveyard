@@ -119,6 +119,8 @@ exports.DustDomain = class DustDomain {
     if (typeof displayName !== 'string') throw new Error(
       `displayName is required to register a handle`);
 
+    const userRecord = await this.adminApp.auth().getUser(uid);
+
     const db = this.adminApp.firestore();
 
     // const existingProfile = await db
@@ -128,30 +130,29 @@ exports.DustDomain = class DustDomain {
     //   .where('uid', '==', uid)
     //   //.where('timestamp', '<=', 1509889854742) //Or something else
     //   .get();
-    // console.log('existing profile for', uid, 'is', existingProfile);
 
-    const domainRef = db
-      .collection('domains')
-      .doc(this.domainId);
-    const userRef = db
-      .collection('users')
-      .doc(uid);
-
-    const profileRef = domainRef
-      .collection('profiles')
-      .doc();
-    const handleRef = domainRef
-      .collection('handles')
-      .doc(handle.toLowerCase());
-
+    const userRef    =        db.collection('users'   ).doc(uid);
+    const domainRef  =        db.collection('domains' ).doc(this.domainId);
+    const profileRef = domainRef.collection('profiles').doc();
+    const handleRef  = domainRef.collection('handles' ).doc(handle.toLowerCase());
     await db.runTransaction(async t => {
 
-      // TODO: get/check if user is allowed a new handle on this domain
+      const [existingUser, existingHandle] = await Promise
+        .all([
+          t.get(userRef),
+          t.get(handleRef),
+        ]);
 
-      const existingHandle = await t.get(handleRef);
+      // TODO: check if user is allowed a new handle on this domain
+      const handlesInDomain = (existingUser.get('profiles')||[])
+        .filter(x => x.startsWith(`${this.domainId}:`));
+      console.log('existing profiles for', uid, 'are', handlesInDomain);
+      if (handlesInDomain.length >= 3) return Promise.reject(new Error(
+        `You already have too many profiles on this domain and cannot create more.`));
+
       console.log('existing handle for', handle, 'is', existingHandle.data());
-      if (existingHandle.exists) throw new Error(
-        `Handle "${handle}" is already taken on ${fqdn}`);
+      if (existingHandle.exists) return Promise.reject(new Error(
+        `Handle "${handle}" is already taken on ${fqdn}`));
 
       t.set(profileRef, {
         type: 'identity',
@@ -179,10 +180,19 @@ exports.DustDomain = class DustDomain {
       //   [`handles.${this.domainId}`]: uid,
       // }, {merge: true}));
     });
-    console.log('completed registration txn');
 
-    // await this.adminApp.auth()
-    //   .setCustomUserClaims(uid, {addr: [fqdn, handle]});
+    // fill in any blanks on the UserRecord
+    const userPromises = [];
+    if (!userRecord.displayName) {
+      userPromises.push(this.adminApp.auth()
+        .updateUser(uid, {displayName}));
+    }
+    if (!userRecord.email) {
+      userPromises.push(this.adminApp.auth()
+        .updateUser(uid, {email: contactEmail}));
+    }
+    await Promise.all(userPromises).catch(err => console.warn(
+      'Failed to update userRecord', userRecord, 'at registration time:', err));
 
     return profileRef.id;
   }
