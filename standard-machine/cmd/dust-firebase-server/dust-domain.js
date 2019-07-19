@@ -107,6 +107,53 @@ exports.DustDomain = class DustDomain {
     }
   }
 
+  async createRootSession(uid, metadata={}) {
+    const userRecord = await this.adminApp.auth().getUser(uid);
+    const profiles = await this.listIdentityProfilesForUser(uid);
+
+    const now = new Date;
+    const session = await this.createSession({
+      type: 'RootSession',
+      uid, metadata,
+      createdAt: now,
+      expiresAt: new Date(+now + (7 * 24 * 60 * 60 * 1000)),
+      devices: [
+        //{path: '/identity', type: 'EmptyReadOnlyDir'},
+        ...profiles.map(profile => ({
+          path: '/data/~'+encodeURIComponent(profile.get('handle')),
+          type: 'Mount',
+          target: `/profiles/${encodeURIComponent(profile.id)}`,
+        })),
+        {path: '/system/chart-name', type: 'String', value: 'todo'},
+        {path: '/system/user-id', type: 'String', value: uid},
+      ],
+    });
+
+    return {
+      ...session,
+      metadata: {
+        chartName: 'todo', // account.record.username,
+        homeDomain: this.fqdn,
+        ownerName: userRecord.displayName,
+        ownerEmail: userRecord.email,
+      },
+    }
+  }
+
+  async createSession(data) {
+    const sessionRef = await this
+      .adminApp.firestore()
+      .collection('domains')
+      .doc(this.domainId)
+      .collection('sessions')
+      .add(data);
+
+    return {
+      //sessionId: sessionRef.id,
+      sessionPath: '/pub/sessions/' + sessionRef.id,
+    };
+  }
+
   async registerHandle({fqdn, handle, uid, contactEmail, displayName}) {
     if (fqdn !== this.fqdn) throw new Error(
       `received fqdn ${fqdn} but this domain is ${this.fqdn}`);

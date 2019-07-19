@@ -682,6 +682,7 @@ class GateSiteAppSessionApi {
     if (!ctx.state.claims) {
       throw new Error(`user is not logged in`);
     }
+    const {uid} = ctx.state.claims;
 
     const {referer} = ctx.request.header;
     const {username, appKey} = parseAppReferer(referer);
@@ -689,24 +690,12 @@ class GateSiteAppSessionApi {
       throw new Error('app-session needs an appKey (did you block Referer?)');
     }
 
-    const session = await this.site.domain.createSession(uid, {
+    const session = await this.site.domain.createRootSession(uid, {
       lifetime: 'short',
-      volatile: true,
-      client: 'gate app-session - for '+referer,
-      appKey: appKey,
+      client: 'doorway app-session - for '+referer,
+      username, appKey,
     });
-
-    const result = {
-      metadata: {
-        chartName: 'todo', // account.record.username,
-        homeDomain: this.site.domain.fqdn,
-        ownerName: account.record.contact.name,
-        ownerEmail: account.record.contact.email,
-      },
-      sessionPath: '/pub/sessions/' + session.record.sid + '/mnt',
-    };
-    const json = JSON.stringify(result, null, 2);
-    return BlobLiteral.fromString(json, 'application/json');
+    ctx.response.body = session;
   }
 }
 

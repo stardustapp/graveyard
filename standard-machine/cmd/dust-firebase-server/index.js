@@ -3,6 +3,7 @@ const {join} = require('path');
 const {DustDomain, mainCredName} = require('./dust-domain.js');
 const {DefaultSite} = require('./default-site.js');
 const {DoorwaySite} = require('./doorway-site.js');
+const {ExportSite} = require('./export-site.js');
 
 const domain = new DustDomain(mainCredName);
 
@@ -49,15 +50,13 @@ const domain = new DustDomain(mainCredName);
   app.use(mount('/~', new DoorwaySite(domain).koa));
   app.use(mount('/', new DefaultSite(domain).koa));
 
-  app.ws.use(route.all('/test/:id', function (ctx) {
-    // `ctx` is the regular koa context created from the `ws` onConnection `socket.upgradeReq` object.
-    // the websocket is added to the context on `ctx.websocket`.
-    ctx.websocket.send('Hello World');
-    ctx.websocket.on('message', function(message) {
-      // do something with the message from client
-          console.log(message);
-    });
-  }));
+  app.use(mount('/~~export', new ExportSite(domain).koa));
+  app.ws.use(mount('/~~export', new ExportSite(domain).koa.ws));
+
+  app.ws.use(function (ctx) {
+    ctx.websocket.send('404');
+    ctx.websocket.close();
+  });
 
   app.listen(9239);
   console.log('App listening on', 9239);
