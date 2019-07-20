@@ -684,7 +684,10 @@ class GateSiteAppSessionApi {
     }
     const {uid} = ctx.state.claims;
 
-    const {referer} = ctx.request.header;
+    const {origin, referer} = ctx.request.header;
+    if (!origin || !referer || !referer.startsWith(origin+'/')) throw new Error(
+      `400: Referer isn't from this Origin`);
+
     const {username, appKey} = parseAppReferer(referer);
     if (!appKey) {
       throw new Error('app-session needs an appKey (did you block Referer?)');

@@ -107,6 +107,15 @@ exports.DustDomain = class DustDomain {
     }
   }
 
+  getSessionRef(sessionId) {
+    const db = this.adminApp.firestore();
+    return db
+      .collection('domains')
+      .doc(this.domainId)
+      .collection('sessions')
+      .doc(sessionId);
+  }
+
   async createRootSession(uid, metadata={}) {
     const userRecord = await this.adminApp.auth().getUser(uid);
     const profiles = await this.listIdentityProfilesForUser(uid);
@@ -116,7 +125,7 @@ exports.DustDomain = class DustDomain {
       type: 'RootSession',
       uid, metadata,
       createdAt: now,
-      expiresAt: new Date(+now + (7 * 24 * 60 * 60 * 1000)),
+      expiresAt: new Date(+now + (1/*days*/ * 24 * 60 * 60 * 1000)),
       devices: [
         //{path: '/identity', type: 'EmptyReadOnlyDir'},
         ...profiles.map(profile => ({

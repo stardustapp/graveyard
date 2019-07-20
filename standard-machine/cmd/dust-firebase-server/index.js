@@ -54,8 +54,8 @@ const domain = new DustDomain(mainCredName);
   app.ws.use(mount('/~~export', new ExportSite(domain).koa.ws));
 
   app.ws.use(function (ctx) {
-    ctx.websocket.send('404');
-    ctx.websocket.close();
+    //ctx.websocket.send('404');
+    ctx.websocket.close(4004, `ERROR: route '${ctx.url}' is not implemented`);
   });
 
   app.listen(9239);
