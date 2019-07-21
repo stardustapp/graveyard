@@ -17,6 +17,19 @@ const {SkylinkServer} = require('../../rt/nodejs/src/skylink/server.js');
 const {InlineChannelCarrier} = require('../../rt/nodejs/src/skylink/channel-server.js');
 
 const {AsyncCache} = require('../../rt/nodejs/src/utils/async-cache.js');
+const {Channel} = require('../../rt/nodejs/src/old/channel.js');
+
+class SessionInstance {
+  constructor(domain, sessionId, firstSnap, snapChannel, stopFunc) {
+    this.domain = domain;
+    this.sessionId = sessionId;
+    this.firstSnap = firstSnap;
+    this.snapChannel = snapChannel;
+    this.stopFunc = stopFunc;
+
+    this.env = new Environment;
+  }
+}
 
 class SessionsEnv {
   constructor(domain) {
@@ -27,13 +40,28 @@ class SessionsEnv {
   }
 
   async loadSession(sessionId) {
-    const sessionRef = this.domain.getSessionRef(sessionId+'x');
-    sessionRef.onSnapshot(snapshot => {
-      console.log('session next', snapshot);
-    }, err => {
-      console.log('session err', err);
+    const sessionRef = this.domain.getSessionRef(sessionId);
+    const snapChannel = new Channel(`session/${sessionId}`);
+    let stopFunc, firstSnap;
+    firstSnap = await new Promise((resolve, reject) => {
+      stopFunc = sessionRef.onSnapshot(snapshot => {
+        const data = snapshot.exists ? snapshot.data() : null;
+        snapChannel.handle({Status: 'Next', Output: data});
+        if (!firstSnap) resolve(data);
+      }, err => {
+        console.log('session err', err);
+        snapChannel.handle({Status: 'Error', Output: err});
+        reject(err);
+      });
     });
-    console.log('loading session', sessionId);
+
+    if (!firstSnap) {
+      stopFunc();
+      throw new Error(`Session ${sessionId} not found, cannot load`);
+    }
+    console.log('loading session', sessionId, firstSnap);
+
+    return new SessionInstance(this.domain, sessionId, firstSnap, snapChannel, stopFunc);
   }
 
   async getEntry(path) {
@@ -45,16 +73,16 @@ class SessionsEnv {
     console.log('hi', sessionId, subPath);
 
     const session = await this.sessionCache.get(sessionId);
-
-    return {
-      get() {
-        return new FolderLiteral('test', [new StringLiteral('asdf', 'yes')]);
-      },
-      subscribe(depth, newChan) {
-        console.log({depth, newChan});
-        return null;
-      },
-    }
+    return await session.env.getEntry(subPath);
+    // return {
+    //   get() {
+    //     return new FolderLiteral('test', [new StringLiteral('asdf', 'yes')]);
+    //   },
+    //   subscribe(depth, newChan) {
+    //     console.log({depth, newChan});
+    //     return null;
+    //   },
+    // }
   }
 }
 
