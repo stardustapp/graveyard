@@ -1,5 +1,6 @@
 const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
   = require('../old/core/api-entries.js');
+const {EnumerationWriter} = require('../old/core/enumeration.js');
 
 SKYLINK_CORE_OPS = new Map;
 

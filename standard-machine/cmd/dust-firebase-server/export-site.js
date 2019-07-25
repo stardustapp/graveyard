@@ -19,6 +19,36 @@ const {InlineChannelCarrier} = require('../../rt/nodejs/src/skylink/channel-serv
 const {AsyncCache} = require('../../rt/nodejs/src/utils/async-cache.js');
 const {Channel} = require('../../rt/nodejs/src/old/channel.js');
 
+async function loadMount(domain, path, uid) {
+  console.log('mounting from', {path}, 'as', {uid});
+  if (!path.startsWith('/')) throw new Error(
+    `Path must be absolute`);
+  const parts = path.slice(1).split('/');
+  switch (parts[0]) {
+
+    case 'profiles':
+      const profile = await domain.getProfileById(parts[1]);
+      if (profile.uid && profile.uid !== uid) throw new Error(
+        `This profile belongs to a different user`);
+
+      const env = new Environment;
+      env.mount('/profile id', 'literal', {string: parts[1]});
+      env.mount('/created at', 'literal', {string: profile.createdAt.toDate().toISOString()});
+      env.mount('/display name', 'literal', {string: profile.displayName});
+      env.mount('/contact email', 'literal', {string: profile.contactEmail});
+      env.mount('/handle', 'literal', {string: profile.handle});
+      env.mount('/type', 'literal', {string: profile.type});
+      env.bind('/data', {getEntry: async (path) => {
+        console.log('GET', path);
+        throw new Error('TODO')
+      }});
+      return env;
+
+    default:
+      throw new Error(`Mount type ${parts[0]} not registered`);
+  }
+}
+
 class SessionInstance {
   constructor(domain, sessionId, firstSnap, snapChannel, stopFunc) {
     this.domain = domain;
@@ -28,6 +58,35 @@ class SessionInstance {
     this.stopFunc = stopFunc;
 
     this.env = new Environment;
+  }
+
+  async applyData({metadata, type, expiresAt, uid, devices}) {
+    const newEnv = new Environment;
+
+    for (const deviceConf of devices) {
+      const name = deviceConf.path.split('/').slice(-1)[0];
+      let deviceInst;
+      switch (deviceConf.type) {
+        case 'Mount':
+          deviceInst = await loadMount(this.domain, deviceConf.target, uid)
+          break;
+        case 'String':
+          const inner = new StringLiteral(name, deviceConf.value);
+          deviceInst = {
+            getEntry(path) {
+              if (path.length > 1) return null;
+              return inner;
+            },
+          };
+          break;
+        default:
+          console.log('unknown device', deviceConf);
+          throw new Error(`Can't bind unknown device ${deviceConf.type}`);
+      }
+      newEnv.bind(deviceConf.path, deviceInst)
+    }
+
+    this.env = newEnv;
   }
 }
 
@@ -46,22 +105,35 @@ class SessionsEnv {
     firstSnap = await new Promise((resolve, reject) => {
       stopFunc = sessionRef.onSnapshot(snapshot => {
         const data = snapshot.exists ? snapshot.data() : null;
-        snapChannel.handle({Status: 'Next', Output: data});
-        if (!firstSnap) resolve(data);
+        if (firstSnap) {
+          snapChannel.handle({Status: 'Next', Output: data});
+        } else resolve(data);
       }, err => {
         console.log('session err', err);
         snapChannel.handle({Status: 'Error', Output: err});
         reject(err);
       });
     });
+    try {
 
-    if (!firstSnap) {
+      if (!firstSnap) throw new Error(
+        `Session ${sessionId} not found, cannot load`);
+      if (firstSnap.expiresAt < new Date) throw new Error(
+        `Session ${sessionId} has expired, cannot load`);
+
+      console.log('loading session', sessionId, firstSnap.metadata);
+      const session = new SessionInstance(this.domain, sessionId);
+      await session.applyData(firstSnap);
+
+      snapChannel.forEach(snapshot => {
+        return session.applyData(snapshot);
+      });
+
+      return session;
+    } catch (err) {
       stopFunc();
-      throw new Error(`Session ${sessionId} not found, cannot load`);
+      throw err;
     }
-    console.log('loading session', sessionId, firstSnap);
-
-    return new SessionInstance(this.domain, sessionId, firstSnap, snapChannel, stopFunc);
   }
 
   async getEntry(path) {

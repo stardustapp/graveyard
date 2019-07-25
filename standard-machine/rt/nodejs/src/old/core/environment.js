@@ -1,3 +1,7 @@
+const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
+  = require('./api-entries.js');
+const {PathFragment} = require('../lib/path-fragment.js');
+
 // An environment maintains one mount table, similar to a plan9 namespace
 // Generally one Environment is equivilent to one HTTP Origin
 // (that is, it doesn't handle differing hostnames or protocols)

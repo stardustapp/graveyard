@@ -267,6 +267,19 @@ exports.DustDomain = class DustDomain {
     return userDoc.docs;
   }
 
+  async getProfileById(profileId) {
+    const db = this.adminApp.firestore();
+    const profileDoc = await db
+      .collection('domains')
+      .doc(this.domainId)
+      .collection('profiles')
+      .doc(profileId)
+      .get();
+    if (!profileDoc.exists) throw new Error(
+      `Profile ${profileId} not found`);
+    return profileDoc.data();
+  }
+
   spawnClientApp() {
     const firebaseConfig = require(join(configDir, `${this.credentialName}.json`));
     const app = firebase.initializeApp(firebaseConfig);

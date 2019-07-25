@@ -1,3 +1,6 @@
+const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
+  = require('./api-entries.js');
+
 class EnumerationWriter {
   constructor(depth) {
     this.depth = depth;

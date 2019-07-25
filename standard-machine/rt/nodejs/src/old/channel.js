@@ -29,10 +29,10 @@ class Channel {
     this.callbacks = callbacks;
     var item;
     //console.log('Starting channel #', this.id);
-    this.burnBacklog();
-    while (item = this.queue.shift()) {
-      this.route(item);
-    }
+    return this.burnBacklog();
+    // while (item = this.queue.shift()) {
+    //   this.route(item);
+    // }
   }
 
   burnBacklog() {
