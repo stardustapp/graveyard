@@ -680,7 +680,7 @@ class GateSiteAppSessionApi {
 
   async invoke(ctx) {
     if (!ctx.state.claims) {
-      throw new Error(`user is not logged in`);
+      ctx.throw(401, `user is not logged in`);
     }
     const {uid} = ctx.state.claims;
 

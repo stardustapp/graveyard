@@ -19,6 +19,76 @@ const {InlineChannelCarrier} = require('../../rt/nodejs/src/skylink/channel-serv
 const {AsyncCache} = require('../../rt/nodejs/src/utils/async-cache.js');
 const {Channel} = require('../../rt/nodejs/src/old/channel.js');
 
+class ProfileEntry {
+  constructor(domain, profileId, path) {
+    this.domain = domain;
+    this.pid = profileId;
+    this.path = path || '/';
+  }
+
+  getChildEntry(name) {
+    const basePath = this.path + (this.path.endsWith('/') ? '' : '/');
+    return new ProfileEntry(this.domain, this.pid, `${basePath}${name}/`);
+  }
+  // const myPath = PathFragment.parse(this.path);
+
+  async get() {
+    return await this.domain.getProfilePathEntry(this.pid, this.path);
+  }
+
+  async enumerate(enumer, knownSelf=null) {
+    const self = knownSelf ? knownSelf : await this.get();
+    enumer.visit(self);
+
+    if (enumer.canDescend()) {
+      for (const child of await this.domain.getProfilePathChildren(this.pid, this.path)) {
+        enumer.descend(child.Name);
+        try {
+          const childEntry = this.getChildEntry(child.Name);
+          await childEntry.enumerate(enumer, child);
+        } catch (err) {
+          console.warn('Enumeration had a failed node @', JSON.stringify(child.Name), err);
+          enumer.visit({Type: 'Error', StringValue: err.message});
+        }
+        enumer.ascend();
+      }
+    }
+  }
+
+  async put(entry) {
+    if (!entry || !entry.Type) throw new Error(
+      `Cannot put empty entries`);
+
+    const existing = await this.get();
+    if (existing) {
+      if (existing.Type !== entry.Type) throw new Error(
+        `TODO: Tried to put a ${entry.Type} over a top a ${existing.Type}`);
+      if (entry.Type === 'Folder') throw new Error(
+        `TODO: Replacing folders is not yet supported`);
+    }
+
+    const {Name, ...entFields} = entry;
+    console.log('put', this.path, entFields);
+    switch (entFields.Type) {
+
+      case 'Blob':
+        if (typeof entFields.Mime !== 'string' || !entFields.Mime) throw new Error(
+          `Mime is a required field for Blobs`);
+        if (typeof entFields.Data !== 'string') throw new Error(
+          `Blob Data is required, even if it's empty`);
+        await this.domain.putProfilePathEntry(this.pid, this.path, {
+          created: new Date,
+          mime: entFields.Mime,
+          data: new Buffer(entFields.Data, 'base64'),
+        });
+        return;
+
+      default:
+        throw new Error(`TODO: Unsupported type ${entFields.Type}`);
+    }
+  }
+}
+
 async function loadMount(domain, path, uid) {
   console.log('mounting from', {path}, 'as', {uid});
   if (!path.startsWith('/')) throw new Error(
@@ -31,6 +101,11 @@ async function loadMount(domain, path, uid) {
       if (profile.uid && profile.uid !== uid) throw new Error(
         `This profile belongs to a different user`);
 
+      function getEntryHandle(path) {
+        console.log('    GET', path);
+        return new ProfileEntry(domain, parts[1], path);
+      }
+
       const env = new Environment;
       env.mount('/profile id', 'literal', {string: parts[1]});
       env.mount('/created at', 'literal', {string: profile.createdAt.toDate().toISOString()});
@@ -38,10 +113,7 @@ async function loadMount(domain, path, uid) {
       env.mount('/contact email', 'literal', {string: profile.contactEmail});
       env.mount('/handle', 'literal', {string: profile.handle});
       env.mount('/type', 'literal', {string: profile.type});
-      env.bind('/data', {getEntry: async (path) => {
-        console.log('GET', path);
-        throw new Error('TODO')
-      }});
+      env.bind('/data', {getEntry: getEntryHandle});
       return env;
 
     default:

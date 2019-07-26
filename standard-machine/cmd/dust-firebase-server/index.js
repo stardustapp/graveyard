@@ -37,6 +37,23 @@ const domain = new DustDomain(mainCredName);
     ctx.set('X-Response-Time', `${ms}ms`);
   });
 
+  app.use((ctx, next) => {
+    return next().catch(err => {
+      const { status, expose, message, ...extra } = err;
+      if (!expose) return Promise.reject(err);
+
+      ctx.type = 'json';
+      ctx.status = status || 500;
+      ctx.body = {
+        error: err.constructor.name,
+        message,
+        ...extra,
+      };
+
+      ctx.app.emit('error', err, ctx);
+    });
+  });
+
   //app.use(mount('/~/doorway/', serve(join(__dirname, 'web', 'doorway'))));
   app.use(mount('/~~vendor/', serve(join(__dirname, 'web', 'vendor'))));
   app.use(mount('/~~/panel/', serve(join(__dirname, 'web', 'panel'))));

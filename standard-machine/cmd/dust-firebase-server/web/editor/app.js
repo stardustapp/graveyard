@@ -432,10 +432,14 @@ Vue.component('edit-blob', {
 
   created() {
     this.onChange = debounce(this.onChange, 250);
-
+  },
+  mounted() {
+    console.log('blob is new:', this.tab.isNew);
     if (this.tab.isNew) {
-      this.editor.setOption("readOnly", false);
-      this.editor.focus();
+      setTimeout(() => {
+        this.editor.setOption("readOnly", false);
+        this.editor.focus();
+      }, 1);
     } else {
       skylink
         .readValue(this.tab.path)

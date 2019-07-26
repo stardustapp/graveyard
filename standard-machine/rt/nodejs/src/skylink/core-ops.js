@@ -24,7 +24,7 @@ SKYLINK_CORE_OPS.set('get', async function get(request) {
 
 SKYLINK_CORE_OPS.set('store', async function store(request) {
   const {Dest} = request;
-  const Input = InflateSkylinkLiteral(request.Input);
+  const Input = request.Input; // InflateSkylinkLiteral(request.Input);
 
   var entry = await this.env.getEntry(Dest);
   if (!entry) {
@@ -107,7 +107,7 @@ SKYLINK_CORE_OPS.set('subscribe', async function subscribe(request) {
 
 SKYLINK_CORE_OPS.set('invoke', async function invoke(request) {
   const {Path, Dest} = request;
-  const Input = InflateSkylinkLiteral(request.Input);
+  const Input = request.Input; // InflateSkylinkLiteral(request.Input);
 
   var entry = await this.env.getEntry(Path);
   var output;
