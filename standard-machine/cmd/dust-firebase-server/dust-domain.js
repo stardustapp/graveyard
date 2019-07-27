@@ -18,6 +18,8 @@ const admin = require("firebase-admin");
 const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
   = require('../../rt/nodejs/src/old/core/api-entries.js');
 
+const {DustProfile} = require('./dust-profile.js');
+
 exports.DustDomain = class DustDomain {
   constructor(credentialName) {
     this.credentialName = credentialName;
@@ -283,66 +285,20 @@ exports.DustDomain = class DustDomain {
     return profileDoc.data();
   }
 
-  refProfilePath(profileId, path) {
-    if (!path.startsWith('/')) throw new Error(
-      `Profile path must be absolute`);
+  async openProfile(profileId, uid=null) {
+    const metadata = await this.getProfileById(profileId);
+    if (metadata.uid && metadata.uid !== uid) throw new Error(
+      `This profile belongs to a different user`);
 
-    const db = this.adminApp.firestore();
-    let entryRef = db
+    return new DustProfile(this, {
+      profileId: profileId,
+      ...metadata,
+    }, this
+      .adminApp.firestore()
       .collection('domains')
       .doc(this.domainId)
       .collection('profiles')
-      .doc(profileId);
-
-    const parts = path.slice(1).split('/');
-    if (path.endsWith('/')) parts.pop();
-    for (const part of parts) {
-      if (!part) throw new Error(`path has empty part`);
-      entryRef = entryRef
-        .collection('entries')
-        .doc(part);
-    }
-
-    return entryRef;
-  }
-
-  inflateFirestoreEntry(snapshot) {
-    if (!snapshot.exists) return null;
-    console.log('aaaa', snapshot.data());
-    throw new Error('TODO');
-    return new FolderLiteral(decodeUriComponent(snapshot.id), []);
-    // return snapshot.data();
-  }
-
-  async getProfilePathChildren(profileId, parentPath) {
-    const childQuery = await this
-      .refProfilePath(profileId, parentPath)
-      .collection('entries')
-      .orderBy('__name__')
-      //.where('public', '==', true)
-      .get();
-    console.log('found', childQuery.docs, 'children in', parentPath, childQuery.docs.map(x => x.id));
-    return childQuery.docs.map(this.inflateFirestoreEntry);
-  }
-
-  async getProfilePathEntry(profileId, path) {
-    if (path === '/') return new FolderLiteral('root');
-
-    const entryDoc = await this
-      .refProfilePath(profileId, path)
-      .get();
-    if (!entryDoc.exists) return null;
-    console.log('found', entryDoc.data(), 'at', path);
-    return this.inflateFirestoreEntry(entryDoc);
-  }
-
-  async putProfilePathEntry(profileId, path, data) {
-    if (path === '/') throw new Error(`can't put to root`);
-
-    await this
-      .refProfilePath(profileId, path)
-      .set(data);
-    console.log('wrote', data, 'to', path);
+      .doc(profileId));
   }
 
   spawnClientApp() {
