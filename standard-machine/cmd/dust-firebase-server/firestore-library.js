@@ -1,35 +1,25 @@
-exports.DustProfile = class DustProfile {
-  constructor(domain, metadata, profileRef) {
-    this.domain = domain;
-    this.metadata = metadata;
-    this.profileRef = profileRef;
-  }
+// TODO: opt-in support for large Blobs via gcloud buckets
 
+exports.FirestoreLibrary = class FirestoreLibrary {
+  constructor(rootRef) {
+    this.rootRef = rootRef;
+  }
 
   getEntryHandle(path) {
     console.log('    GET', path);
-    return new DustProfileEntry(this, path);
-  }
-  createEnvironment() {
-    const env = new Environment;
-    env.mount('/profile id', 'literal', {string: this.metadata.profileId});
-    env.mount('/created at', 'literal', {string: this.metadata.createdAt.toDate().toISOString()});
-    env.mount('/display name', 'literal', {string: this.metadata.displayName});
-    env.mount('/contact email', 'literal', {string: this.metadata.contactEmail});
-    env.mount('/handle', 'literal', {string: this.metadata.handle});
-    env.mount('/type', 'literal', {string: this.metadata.type});
-    env.bind('/data', {getEntry: this.getEntryHandle.bind(this)});
-    return env;
+    return new FirestoreLibraryEntry(this, path);
   }
 
-  refProfilePath(path) {
+  referencePath(path) {
     if (!path.startsWith('/')) throw new Error(
       `Profile path must be absolute`);
 
     const parts = path.slice(1).split('/');
     if (path.endsWith('/')) parts.pop();
+    if (parts.length > 32) throw new Error( // totally arbitrary
+      `Libraries only support 32 levels of nesting at this time`);
 
-    let entryRef = this.profileRef;
+    let entryRef = this.rootRef;
     for (const part of parts) {
       if (!part) throw new Error(
         `path has empty part`);
@@ -40,7 +30,7 @@ exports.DustProfile = class DustProfile {
     return entryRef;
   }
 
-  inflateFirestoreEntry(snapshot) {
+  inflateEntry(snapshot) {
     if (!snapshot.exists) return null;
     switch (snapshot.get('type')) {
 
@@ -73,24 +63,24 @@ exports.DustProfile = class DustProfile {
 
   async getPathChildren(parentPath) {
     const childQuery = await this
-      .refProfilePath(parentPath)
+      .referencePath(parentPath)
       .collection('entries')
       .orderBy('__name__')
       //.where('public', '==', true)
       .get();
     console.log('found', childQuery.docs.length, 'children in', parentPath, childQuery.docs.map(x => x.id));
-    return childQuery.docs.map(this.inflateFirestoreEntry);
+    return childQuery.docs.map(this.inflateEntry);
   }
 
   async getAtPath(path) {
     if (path === '/') return {Type: 'Folder', Name:'root'};
 
     const entryDoc = await this
-      .refProfilePath(path)
+      .referencePath(path)
       .get();
     if (!entryDoc.exists) return null;
     //console.log('found', entryDoc.data(), 'at', path);
-    return this.inflateFirestoreEntry(entryDoc);
+    return this.inflateEntry(entryDoc);
   }
 
   async writeToPath(path, entry) {
@@ -106,11 +96,16 @@ exports.DustProfile = class DustProfile {
           `Mime is a required field for Blobs`);
         if (typeof entry.Data !== 'string') throw new Error(
           `Blob Data is required, even if it's empty`);
+
+        const buffer = Buffer.from(entry.Data, 'base64');
+        if (buffer.length > 10*1024) throw new Error(
+          `TODO: The maximum Blog size is currently 10KiB`);
+
         docData = {
           type: 'Blob',
           createdAt: new Date,
           mime: entry.Mime,
-          data: Buffer.from(entry.Data, 'base64'),
+          data: buffer,
         };
         break;
 
@@ -140,26 +135,26 @@ exports.DustProfile = class DustProfile {
       `BUG: docData was falsey`);
 
     await this
-      .refProfilePath(path)
+      .referencePath(path)
       .set(docData);
     console.log('    wrote', docData.type, 'to', path);
   }
 };
 
-class DustProfileEntry {
-  constructor(profile, path) {
-    this.profile = profile;
+class FirestoreLibraryEntry {
+  constructor(library, path) {
+    this.library = library;
     this.path = path || '/';
   }
 
   getChildEntry(name) {
     const basePath = this.path + (this.path.endsWith('/') ? '' : '/');
-    return new DustProfileEntry(this.profile, `${basePath}${name}/`);
+    return new FirestoreLibraryEntry(this.library, `${basePath}${name}/`);
   }
   // const myPath = PathFragment.parse(this.path);
 
   async get() {
-    return await this.profile.getAtPath(this.path);
+    return await this.library.getAtPath(this.path);
   }
 
   async enumerate(enumer, knownSelf=null) {
@@ -169,7 +164,7 @@ class DustProfileEntry {
     enumer.visit(self);
 
     if (enumer.canDescend()) {
-      for (const child of await this.profile.getPathChildren(this.path)) {
+      for (const child of await this.library.getPathChildren(this.path)) {
         enumer.descend(child.Name);
         try {
           const childEntry = this.getChildEntry(child.Name);
@@ -195,6 +190,6 @@ class DustProfileEntry {
         `TODO: Replacing folders is not yet supported`);
     }
 
-    await this.profile.writeToPath(this.path, entry);
+    await this.library.writeToPath(this.path, entry);
   }
 }

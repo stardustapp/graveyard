@@ -47,9 +47,15 @@ class SessionInstance {
     this.env = new Environment;
   }
 
-  async applyData({metadata, type, expiresAt, uid, devices}) {
-    const newEnv = new Environment;
+  async applyData(newData=null) {
+    if (!newData) {
+      console.error('WARN: running session', this.sessionId, 'was deleted');
+      this.env = new Environment;
+      return;
+    }
 
+    const newEnv = new Environment;
+    const {metadata, type, expiresAt, uid, devices} = newData;
     for (const deviceConf of devices) {
       const name = deviceConf.path.split('/').slice(-1)[0];
       let deviceInst;

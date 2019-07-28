@@ -18,7 +18,37 @@ const admin = require("firebase-admin");
 const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
   = require('../../rt/nodejs/src/old/core/api-entries.js');
 
-const {DustProfile} = require('./dust-profile.js');
+const {FirestoreLibrary} = require('./firestore-library.js');
+
+class DustProfile extends FirestoreLibrary {
+  constructor(domain, profileId, metadata) {
+    super(domain
+      .adminApp.firestore()
+      .collection('domains')
+      .doc(domain.domainId)
+      .collection('profiles')
+      .doc(profileId));
+
+    this.domain = domain;
+    this.profileId = profileId;
+    this.metadata = metadata;
+  }
+  createEnvironment() {
+    const env = new Environment;
+    env.mount('/profile%20id', 'literal', {string: this.profileId});
+
+    for (const key in this.metadata) {
+      if (this.metadata[key] === null) continue;
+      const name = key.replace(/[a-z][A-Z]+/g, (x => x[0]+' '+(x.length>2 ? x.slice(1) : x[1].toLowerCase())));
+      env.mount('/metadata/'+encodeURIComponent(name), 'literal', {
+        string: this.metadata[key].toString(),
+      });
+    }
+
+    env.bind('/data', {getEntry: this.getEntryHandle.bind(this)});
+    return env;
+  }
+}
 
 exports.DustDomain = class DustDomain {
   constructor(credentialName) {
@@ -290,15 +320,7 @@ exports.DustDomain = class DustDomain {
     if (metadata.uid && metadata.uid !== uid) throw new Error(
       `This profile belongs to a different user`);
 
-    return new DustProfile(this, {
-      profileId: profileId,
-      ...metadata,
-    }, this
-      .adminApp.firestore()
-      .collection('domains')
-      .doc(this.domainId)
-      .collection('profiles')
-      .doc(profileId));
+    return new DustProfile(this, profileId, metadata);
   }
 
   spawnClientApp() {

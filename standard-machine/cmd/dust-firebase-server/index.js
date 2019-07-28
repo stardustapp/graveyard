@@ -9,11 +9,6 @@ const domain = new DustDomain(mainCredName);
 
 (async () => {
 
-  // var projectManagement = adminApp.projectManagement();
-  // console.log(await projectManagement.listAppMetadata());
-
-  //const confDb = adminApp.database();
-
   const Koa = require('koa');
   const mount = require('koa-mount');
   const route = require('koa-route');

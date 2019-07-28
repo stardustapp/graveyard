@@ -66,15 +66,15 @@ Environment = class Environment {
     // initialize the device to be mounted
     var mount;
     switch (type) {
-      case 'idb-treestore':
-        mount = new IdbTreestoreMount(opts);
-        break;
-      case 'fs-string-dict':
-        mount = new FsStringDictMount(opts);
-        break;
-      case 'tmp':
-        mount = new TemporaryMount(opts);
-        break;
+      // case 'idb-treestore':
+      //   mount = new IdbTreestoreMount(opts);
+      //   break;
+      // case 'fs-string-dict':
+      //   mount = new FsStringDictMount(opts);
+      //   break;
+      // case 'tmp':
+      //   mount = new TemporaryMount(opts);
+      //   break;
       case 'bind':
         // just use the specified (already existing) mount
         mount = opts.source;
