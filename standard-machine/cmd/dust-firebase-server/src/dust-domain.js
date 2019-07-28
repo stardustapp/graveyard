@@ -16,7 +16,7 @@ const firebase = require('firebase');
 const admin = require("firebase-admin");
 
 const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
-  = require('../../rt/nodejs/src/old/core/api-entries.js');
+  = require('../../../rt/nodejs/src/old/core/api-entries.js');
 
 const {FirestoreLibrary} = require('./firestore-library.js');
 

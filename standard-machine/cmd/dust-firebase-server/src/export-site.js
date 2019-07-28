@@ -4,21 +4,21 @@ const commonTags = require('common-tags');
 const websockify = require('koa-websocket');
 
 const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
-  = require('../../rt/nodejs/src/old/core/api-entries.js');
-require('../../rt/nodejs/src/old/core/enumeration.js');
-require('../../rt/nodejs/src/old/core/environment.js');
-require('../../rt/nodejs/src/old/core/utils.js');
+  = require('../../../rt/nodejs/src/old/core/api-entries.js');
+require('../../../rt/nodejs/src/old/core/enumeration.js');
+require('../../../rt/nodejs/src/old/core/environment.js');
+require('../../../rt/nodejs/src/old/core/utils.js');
 
-require('../../rt/nodejs/src/old/lib/path-fragment.js');
-const {TempDevice} = require('../../rt/nodejs/src/old/lib/temp-device.js');
+require('../../../rt/nodejs/src/old/lib/path-fragment.js');
+const {TempDevice} = require('../../../rt/nodejs/src/old/lib/temp-device.js');
 
-const {SKYLINK_CORE_OPS} = require('../../rt/nodejs/src/skylink/core-ops.js');
-const {ChannelExtension} = require('../../rt/nodejs/src/skylink/ext-channel.js');
-const {SkylinkServer} = require('../../rt/nodejs/src/skylink/server.js');
-const {InlineChannelCarrier} = require('../../rt/nodejs/src/skylink/channel-server.js');
+const {SKYLINK_CORE_OPS} = require('../../../rt/nodejs/src/skylink/core-ops.js');
+const {ChannelExtension} = require('../../../rt/nodejs/src/skylink/ext-channel.js');
+const {SkylinkServer} = require('../../../rt/nodejs/src/skylink/server.js');
+const {InlineChannelCarrier} = require('../../../rt/nodejs/src/skylink/channel-server.js');
 
-const {AsyncCache} = require('../../rt/nodejs/src/utils/async-cache.js');
-const {Channel} = require('../../rt/nodejs/src/old/channel.js');
+const {AsyncCache} = require('../../../rt/nodejs/src/utils/async-cache.js');
+const {Channel} = require('../../../rt/nodejs/src/old/channel.js');
 
 async function loadMount(domain, path, uid) {
   console.log('mounting from', {path}, 'as', {uid});
