@@ -1,3 +1,4 @@
+// Stores an arbitrary tree of persistent
 // TODO: opt-in support for large Blobs via gcloud buckets
 
 exports.FirestoreLibrary = class FirestoreLibrary {
@@ -5,8 +6,8 @@ exports.FirestoreLibrary = class FirestoreLibrary {
     this.rootRef = rootRef;
   }
 
-  getEntryHandle(path) {
-    console.log('    GET', path);
+  getEntry(path) {
+    // console.log('    REF', path);
     return new FirestoreLibraryEntry(this, path);
   }
 

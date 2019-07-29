@@ -17,117 +17,116 @@ const {ChannelExtension} = require('../../../rt/nodejs/src/skylink/ext-channel.j
 const {SkylinkServer} = require('../../../rt/nodejs/src/skylink/server.js');
 const {InlineChannelCarrier} = require('../../../rt/nodejs/src/skylink/channel-server.js');
 
-const {AsyncCache} = require('../../../rt/nodejs/src/utils/async-cache.js');
-const {Channel} = require('../../../rt/nodejs/src/old/channel.js');
+// const {AsyncCache} = require('../../../rt/nodejs/src/utils/async-cache.js');
+// const {Channel} = require('../../../rt/nodejs/src/old/channel.js');
+const {CreateMapCache, FirestoreMap} = require('./firestore-map.js');
 
-async function loadMount(domain, path, uid) {
-  console.log('mounting from', {path}, 'as', {uid});
-  if (!path.startsWith('/')) throw new Error(
-    `Path must be absolute`);
-  const parts = path.slice(1).split('/');
-  switch (parts[0]) {
+// async function loadMount(domain, path, uid) {
+//   console.log('mounting from', {path}, 'as', {uid});
+//   if (!path.startsWith('/')) throw new Error(
+//     `Path must be absolute`);
+//   const parts = path.slice(1).split('/');
+//   switch (parts[0]) {
+//
+//     case 'profiles':
+//       const profile = await domain.openProfile(parts[1], uid);
+//       return profile.createWrappingEnvironment();
+//
+//     default:
+//       throw new Error(`Mount type ${parts[0]} not registered`);
+//   }
+// }
 
-    case 'profiles':
-      const profile = await domain.openProfile(parts[1], uid);
-      return profile.createEnvironment();
-
-    default:
-      throw new Error(`Mount type ${parts[0]} not registered`);
-  }
-}
-
-class SessionInstance {
-  constructor(domain, sessionId, firstSnap, snapChannel, stopFunc) {
-    this.domain = domain;
+class SessionInstance extends FirestoreMap {
+  constructor(domain, sessionId) {
+    super(domain);
     this.sessionId = sessionId;
-    this.firstSnap = firstSnap;
-    this.snapChannel = snapChannel;
-    this.stopFunc = stopFunc;
-
-    this.env = new Environment;
   }
-
-  async applyData(newData=null) {
-    if (!newData) {
-      console.error('WARN: running session', this.sessionId, 'was deleted');
-      this.env = new Environment;
-      return;
-    }
-
-    const newEnv = new Environment;
-    const {metadata, type, expiresAt, uid, devices} = newData;
-    for (const deviceConf of devices) {
-      const name = deviceConf.path.split('/').slice(-1)[0];
-      let deviceInst;
-      switch (deviceConf.type) {
-        case 'Mount':
-          deviceInst = await loadMount(this.domain, deviceConf.target, uid)
-          break;
-        case 'String':
-          const inner = new StringLiteral(name, deviceConf.value);
-          deviceInst = {
-            getEntry(path) {
-              if (path.length > 1) return null;
-              return inner;
-            },
-          };
-          break;
-        default:
-          console.log('unknown device', deviceConf);
-          throw new Error(`Can't bind unknown device ${deviceConf.type}`);
-      }
-      newEnv.bind(deviceConf.path, deviceInst)
-    }
-
-    this.env = newEnv;
-  }
+  //
+  // async applyData(newData=null) {
+  //   if (!newData) {
+  //     console.error('WARN: running session', this.sessionId, 'was deleted');
+  //     this.env = new Environment;
+  //     return;
+  //   }
+  //
+  //   const newEnv = new Environment;
+  //   const {metadata, type, expiresAt, uid, devices} = newData;
+  //   for (const deviceConf of devices) {
+  //     const name = deviceConf.path.split('/').slice(-1)[0];
+  //     let deviceInst;
+  //     switch (deviceConf.type) {
+  //       case 'Mount':
+  //         deviceInst = await loadMount(this.domain, deviceConf.target, uid)
+  //         break;
+  //       case 'String':
+  //         const inner = new StringLiteral(name, deviceConf.value);
+  //         deviceInst = {
+  //           getEntry(path) {
+  //             if (path.length > 1) return null;
+  //             return inner;
+  //           },
+  //         };
+  //         break;
+  //       default:
+  //         console.log('unknown device', deviceConf);
+  //         throw new Error(`Can't bind unknown device ${deviceConf.type}`);
+  //     }
+  //     newEnv.bind(deviceConf.path, deviceInst)
+  //   }
+  //
+  //   this.env = newEnv;
+  // }
 }
 
 class SessionsEnv {
   constructor(domain) {
     this.domain = domain;
-    this.sessionCache = new AsyncCache({
-      loadFunc: this.loadSession.bind(this),
-    });
+    this.sessionCache = CreateMapCache(
+      sessionId => domain.refSession(sessionId),
+      sessionId => new SessionInstance(domain, sessionId));
+    // this.sessionCache = new AsyncCache({
+    //   loadFunc: this.loadSession.bind(this),
+    // });
   }
 
-  async loadSession(sessionId) {
-    const sessionRef = this.domain.getSessionRef(sessionId);
-    const snapChannel = new Channel(`session/${sessionId}`);
-    let stopFunc, firstSnap;
-    firstSnap = await new Promise((resolve, reject) => {
-      stopFunc = sessionRef.onSnapshot(snapshot => {
-        const data = snapshot.exists ? snapshot.data() : null;
-        if (firstSnap) {
-          snapChannel.handle({Status: 'Next', Output: data});
-        } else resolve(data);
-      }, err => {
-        console.log('session err', err);
-        snapChannel.handle({Status: 'Error', Output: err});
-        reject(err);
-      });
-    });
-    try {
-
-      if (!firstSnap) throw new Error(
-        `Session ${sessionId} not found, cannot load`);
-      if (firstSnap.expiresAt < new Date) throw new Error(
-        `Session ${sessionId} has expired, cannot load`);
-
-      console.log('loading session', sessionId, firstSnap.metadata);
-      const session = new SessionInstance(this.domain, sessionId);
-      await session.applyData(firstSnap);
-
-      snapChannel.forEach(snapshot => {
-        return session.applyData(snapshot);
-      });
-
-      return session;
-    } catch (err) {
-      stopFunc();
-      throw err;
-    }
-  }
+  // async loadSession(sessionId) {
+  //   const sessionRef = this.domain.getSessionRef(sessionId);
+  //   const snapChannel = new Channel(`session/${sessionId}`);
+  //   let stopFunc, firstSnap;
+  //   firstSnap = await new Promise((resolve, reject) => {
+  //     stopFunc = sessionRef.onSnapshot(snapshot => {
+  //       const data = snapshot.exists ? snapshot.data() : null;
+  //       if (firstSnap) {
+  //         snapChannel.handle({Status: 'Next', Output: data});
+  //       } else resolve(data);
+  //     }, err => {
+  //       console.log('session err', err);
+  //       snapChannel.handle({Status: 'Error', Output: err});
+  //       reject(err);
+  //     });
+  //   });
+  //   try {
+  //
+  //     if (!firstSnap) throw new Error(
+  //       `Session ${sessionId} not found, cannot load`);
+  //     if (firstSnap.expiresAt < new Date) throw new Error(
+  //       `Session ${sessionId} has expired, cannot load`);
+  //
+  //     console.log('loading session', sessionId, firstSnap.metadata);
+  //     const session = new SessionInstance(this.domain, sessionId);
+  //     await session.applyData(firstSnap);
+  //
+  //     snapChannel.forEach(snapshot => {
+  //       return session.applyData(snapshot);
+  //     });
+  //
+  //     return session;
+  //   } catch (err) {
+  //     stopFunc();
+  //     throw err;
+  //   }
+  // }
 
   async getEntry(path) {
     if (path.length < 2) return null;

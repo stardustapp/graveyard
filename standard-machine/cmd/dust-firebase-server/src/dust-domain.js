@@ -15,40 +15,48 @@ exports.mainCredName = basename(availCreds[0], '.json');
 const firebase = require('firebase');
 const admin = require("firebase-admin");
 
-const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
-  = require('../../../rt/nodejs/src/old/core/api-entries.js');
+// const {AsyncCache} = require('../../../rt/nodejs/src/utils/async-cache.js');
+// const {Channel} = require('../../../rt/nodejs/src/old/channel.js');
 
 const {FirestoreLibrary} = require('./firestore-library.js');
+const {CreateMapCache, FirestoreMap} = require('./firestore-map.js');
 
-class DustProfile extends FirestoreLibrary {
-  constructor(domain, profileId, metadata) {
-    super(domain
-      .adminApp.firestore()
-      .collection('domains')
-      .doc(domain.domainId)
-      .collection('profiles')
-      .doc(profileId));
-
-    this.domain = domain;
-    this.profileId = profileId;
-    this.metadata = metadata;
-  }
-  createEnvironment() {
-    const env = new Environment;
-    env.mount('/profile%20id', 'literal', {string: this.profileId});
-
-    for (const key in this.metadata) {
-      if (this.metadata[key] === null) continue;
-      const name = key.replace(/[a-z][A-Z]+/g, (x => x[0]+' '+(x.length>2 ? x.slice(1) : x[1].toLowerCase())));
-      env.mount('/metadata/'+encodeURIComponent(name), 'literal', {
-        string: this.metadata[key].toString(),
-      });
-    }
-
-    env.bind('/data', {getEntry: this.getEntryHandle.bind(this)});
-    return env;
+class DomainHandle extends FirestoreMap {
+  constructor(domain, handleId) {
+    super(domain);
+    this.handleId = handleId;
   }
 }
+
+// class DustProfile extends FirestoreLibrary {
+//   constructor(domain, profileId, metadata) {
+//     super(domain
+//       .adminApp.firestore()
+//       .collection('domains')
+//       .doc(domain.domainId)
+//       .collection('profiles')
+//       .doc(profileId));
+//
+//     this.domain = domain;
+//     this.profileId = profileId;
+//     this.metadata = metadata;
+//   }
+//   createWrappingEnvironment() {
+//     const env = new Environment;
+//     env.mount('/profile%20id', 'literal', {string: this.profileId});
+//
+//     for (const key in this.metadata) {
+//       if (this.metadata[key] === null) continue;
+//       const name = key.replace(/[a-z][A-Z]+/g, (x => x[0]+' '+(x.length>2 ? x.slice(1) : x[1].toLowerCase())));
+//       env.mount('/metadata/'+encodeURIComponent(name), 'literal', {
+//         string: this.metadata[key].toString(),
+//       });
+//     }
+//
+//     env.bind('/data', this);
+//     return env;
+//   }
+// }
 
 exports.DustDomain = class DustDomain {
   constructor(credentialName) {
@@ -77,6 +85,60 @@ exports.DustDomain = class DustDomain {
 
     this.fqdn = credentialName+'.local';
     this.domainId = credentialName;
+
+    // this.handleCache = new AsyncCache({
+    //   loadFunc: this.loadHandle.bind(this),
+    // });
+    this.handleCache = CreateMapCache(
+      handleId => this
+        .adminApp.firestore()
+        .collection('domains')
+        .doc(this.domainId)
+        .collection('handles')
+        .doc(handleId),
+      handleId => new DomainHandle(this, handleId));
+  }
+
+  async loadHandle(handleId) {
+    const handleRef = this.adminApp.firestore()
+      .collection('domains')
+      .doc(this.domainId)
+      .collection('handles')
+      .doc(handleId);
+    const snapChannel = new Channel(`handle/${handleId}`);
+    let stopFunc, firstSnap;
+    firstSnap = await new Promise((resolve, reject) => {
+      stopFunc = handleRef.onSnapshot(snapshot => {
+        const data = snapshot.exists ? snapshot.data() : null;
+        if (firstSnap) {
+          snapChannel.handle({Status: 'Next', Output: data});
+        } else resolve(data);
+      }, err => {
+        console.log('session err', err);
+        snapChannel.handle({Status: 'Error', Output: err});
+        reject(err);
+      });
+    });
+    try {
+
+      if (!firstSnap) throw new Error(
+        `Handle '${handleId}' not found, cannot load`);
+      // if (firstSnap.expiresAt < new Date) throw new Error(
+      //   `Session ${sessionId} has expired, cannot load`);
+
+      console.log('loading handle', handleId, firstSnap.metadata);
+      const handle = new DomainHandle(this.domain, handleId);
+      await handle.applyData(firstSnap);
+
+      snapChannel.forEach(snapshot => {
+        return handle.applyData(snapshot);
+      });
+
+      return handle;
+    } catch (err) {
+      stopFunc();
+      throw err;
+    }
   }
 
   async markUserSeen(uid) {
@@ -142,18 +204,19 @@ exports.DustDomain = class DustDomain {
     }
   }
 
-  getSessionRef(sessionId) {
+  refSession(sessionId) {
     const db = this.adminApp.firestore();
     return db
       .collection('domains')
       .doc(this.domainId)
       .collection('sessions')
       .doc(sessionId);
+      // .get().then(x => x.data());
   }
 
   async createRootSession(uid, metadata={}) {
     const userRecord = await this.adminApp.auth().getUser(uid);
-    const profiles = await this.listIdentityProfilesForUser(uid);
+    const handles = await this.listHandlesForUser(uid);
 
     const now = new Date;
     const session = await this.createSession({
@@ -162,11 +225,11 @@ exports.DustDomain = class DustDomain {
       createdAt: now,
       expiresAt: new Date(+now + (1/*days*/ * 24 * 60 * 60 * 1000)),
       devices: [
-        //{path: '/identity', type: 'EmptyReadOnlyDir'},
-        ...profiles.map(profile => ({
-          path: '/data/~'+encodeURIComponent(profile.get('handle')),
-          type: 'Mount',
-          target: `/profiles/${encodeURIComponent(profile.id)}`,
+        ...handles.map(handle => ({
+          path: '/data/~'+encodeURIComponent(handle.get('handle')),
+          type: 'Handle',
+          domainId: this.domainId,
+          handleId: handle.id,
         })),
         {path: '/system/chart-name', type: 'String', value: 'todo'},
         {path: '/system/user-id', type: 'String', value: uid},
@@ -222,10 +285,13 @@ exports.DustDomain = class DustDomain {
     //   //.where('timestamp', '<=', 1509889854742) //Or something else
     //   .get();
 
-    const userRef    =        db.collection('users'   ).doc(uid);
-    const domainRef  =        db.collection('domains' ).doc(this.domainId);
-    const profileRef = domainRef.collection('profiles').doc();
-    const handleRef  = domainRef.collection('handles' ).doc(handle.toLowerCase());
+    const userRef    =        db.collection('users'    ).doc(uid);
+    const configRef  =        db.collection('libraries').doc();
+    const dataRef    =        db.collection('libraries').doc();
+    const publicRef  =        db.collection('libraries').doc();
+    const domainRef  =        db.collection('domains'  ).doc(this.domainId);
+    // const profileRef = domainRef.collection('profiles' ).doc();
+    const handleRef  = domainRef.collection('handles'  ).doc(handle.toLowerCase());
     await db.runTransaction(async t => {
 
       const [existingUser, existingHandle] = await Promise
@@ -236,40 +302,80 @@ exports.DustDomain = class DustDomain {
 
       // TODO: check if user is allowed a new handle on this domain
       const handlesInDomain = (existingUser.get('profiles')||[])
-        .filter(x => x.startsWith(`${this.domainId}:`));
+        .filter(x => x.domain === this.domainId);
       console.log('existing profiles for', uid, 'are', handlesInDomain);
-      if (handlesInDomain.length >= 3) return Promise.reject(new Error(
+      if (handlesInDomain.length >= 1) return Promise.reject(new Error(
         `You already have too many profiles on this domain and cannot create more.`));
 
       console.log('existing handle for', handle, 'is', existingHandle.data());
       if (existingHandle.exists) return Promise.reject(new Error(
         `Handle "${handle}" is already taken on ${fqdn}`));
 
-      t.set(profileRef, {
-        type: 'identity',
-        handle,
-        uid,
-        contactEmail,
-        displayName,
-        createdAt: new Date,
-      });
+      // t.set(profileRef, {
+      //   type: 'identity',
+      //   handle,
+      //   uid,
+      //   contactEmail,
+      //   displayName,
+      //   createdAt: new Date,
+      // });
 
       t.update(userRef, {
-        profiles: admin.firestore.FieldValue
-          .arrayUnion(`${this.domainId}:${profileRef.id}`),
+        handles: admin.firestore.FieldValue
+          .arrayUnion({domain: this.domainId, handle}),
+      });
+
+      t.set(configRef, {
+        type: 'Library',
+        name: `Application settings`,
+        createdAt: new Date,
+        policy: 'private-only',
+        owner: {
+          uid,
+          domain: this.domainId,
+          handle,
+        },
+      });
+      t.set(dataRef, {
+        type: 'Library',
+        name: `Application data`,
+        createdAt: new Date,
+        policy: 'private-only',
+        owner: {
+          uid,
+          domain: this.domainId,
+          handle,
+        },
+      });
+      t.set(publicRef, {
+        type: 'Library',
+        name: `Published by ~${handle}`,
+        createdAt: new Date,
+        policy: 'public-read',
+        owner: {
+          uid,
+          domain: this.domainId,
+          handle,
+        },
       });
 
       t.set(handleRef, {
         handle,
         uid,
-        contactEmail,
-        displayName,
-        createdAt: new Date,
+        metadata: {
+          contactEmail,
+          displayName,
+          createdAt: new Date,
+        },
+        devices: [
+          //{path: '/identity', type: 'EmptyReadOnlyDir'},
+          { path: '/config', type: 'Library', libraryId: configRef.id },
+          { path: '/data', type: 'Library', libraryId: dataRef.id },
+          { path: '/public', type: 'Library', libraryId: publicRef.id },
+          // {path: '/system/chart-name', type: 'String', value: 'todo'},
+          // {path: '/system/user-id', type: 'String', value: uid},
+        ],
       });
-
-      // console.log('x', t.set(userRef, {
-      //   [`handles.${this.domainId}`]: uid,
-      // }, {merge: true}));
     });
 
     // fill in any blanks on the UserRecord
@@ -285,43 +391,54 @@ exports.DustDomain = class DustDomain {
     await Promise.all(userPromises).catch(err => console.warn(
       'Failed to update userRecord', userRecord, 'at registration time:', err));
 
-    return profileRef.id;
+    // return profileRef.id;
   }
 
-  async listIdentityProfilesForUser(uid) {
-    const db = this.adminApp.firestore();
-    const userDoc = await db
-      .collection('domains')
-      .doc(this.domainId)
-      .collection('profiles')
-      .where('type', '==', 'identity')
-      .where('uid', '==', uid)
-      //.where('timestamp', '<=', 1509889854742) //Or something else
-      .get();
-    console.log('found profiles for', userDoc.docs.map(x => x.get('handle')));
-    return userDoc.docs;
-  }
-
-  async getProfileById(profileId) {
+  async getLibraryById(libraryId) {
     const db = this.adminApp.firestore();
     const profileDoc = await db
-      .collection('domains')
-      .doc(this.domainId)
-      .collection('profiles')
-      .doc(profileId)
+      .collection('libraries')
+      .doc(libraryId)
       .get();
     if (!profileDoc.exists) throw new Error(
       `Profile ${profileId} not found`);
     return profileDoc.data();
   }
 
-  async openProfile(profileId, uid=null) {
-    const metadata = await this.getProfileById(profileId);
-    if (metadata.uid && metadata.uid !== uid) throw new Error(
-      `This profile belongs to a different user`);
-
-    return new DustProfile(this, profileId, metadata);
+  async listHandlesForUser(uid) {
+    const db = this.adminApp.firestore();
+    const handleQuery = await db
+      .collection('domains')
+      .doc(this.domainId)
+      .collection('handles')
+      // .where('type', '==', 'identity')
+      .where('uid', '==', uid)
+      //.where('timestamp', '<=', 1509889854742) //Or something else
+      .get();
+    console.log('found handles', handleQuery.docs.map(x => x.get('handle')));
+    return handleQuery.docs;
   }
+
+  // async getProfileById(profileId) {
+  //   const db = this.adminApp.firestore();
+  //   const profileDoc = await db
+  //     .collection('domains')
+  //     .doc(this.domainId)
+  //     .collection('profiles')
+  //     .doc(profileId)
+  //     .get();
+  //   if (!profileDoc.exists) throw new Error(
+  //     `Profile ${profileId} not found`);
+  //   return profileDoc.data();
+  // }
+
+  // async openProfile(profileId, uid=null) {
+  //   const metadata = await this.getProfileById(profileId);
+  //   if (metadata.uid && metadata.uid !== uid) throw new Error(
+  //     `This profile belongs to a different user`);
+  //
+  //   return new DustProfile(this, profileId, metadata);
+  // }
 
   spawnClientApp() {
     const firebaseConfig = require(join(configDir, `${this.credentialName}.json`));

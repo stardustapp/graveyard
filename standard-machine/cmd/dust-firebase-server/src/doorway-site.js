@@ -174,10 +174,10 @@ class GateSiteRegister {
     const {csrf, fqdn, handle, contactEmail, displayName} = ctx.request.body;
     await (async () => {
       await this.site.domain.checkCSRF(csrf, uid);
-      return await this.site.domain
+      await this.site.domain
         .registerHandle({fqdn, handle, uid, contactEmail, displayName})
     })().then(profileId => {
-      ctx.redirect(`/~/profiles/${profileId}`);
+      ctx.redirect(`/~/home`);
     }, err => {
       ctx.state.error = err;
       console.error('registration error', ctx.request.body);
@@ -226,7 +226,7 @@ class GateSiteHome {
     }
     const hasPassword = !!userRecord.passwordHash;
 
-    const profiles = await this.site.domain.listIdentityProfilesForUser(uid);
+    const profiles = await this.site.domain.listHandlesForUser(uid);
     let profileListing = profiles.map(m => commonTags.safeHtml`
       <li>
         <a href="profiles/${m.id}">${m.get('handle')}</a> (${m.get('displayName')})
