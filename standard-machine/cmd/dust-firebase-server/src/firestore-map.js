@@ -3,24 +3,23 @@ const {Channel} = require('../../../rt/nodejs/src/old/channel.js');
 
 const {FirestoreLibrary} = require('./firestore-library.js');
 
-exports.CreateMapCache = function(refBuilder, mapBuilder) {
+exports.CreateMapCache = function({refDoc, constr}) {
   return new AsyncCache({
     loadFunc: async input => {
-      const map = mapBuilder(input);
-      await map.loadFromRef(refBuilder(input));
+      const map = constr(input);
+      await map.loadFromRef(refDoc(input));
       return map;
     },
   });
 }
 
 exports.FirestoreMap = class FirestoreMap {
-  constructor(domain/*, handle, firstSnap, snapChannel, stopFunc*/) {
+  constructor(domain) {
     this.domain = domain;
-    // this.handle = handle;
-    // this.firstSnap = firstSnap;
-    // this.snapChannel = snapChannel;
-    // this.stopFunc = stopFunc;
     this.env = new Environment;
+  }
+  getEntry(path) {
+    return this.env.getEntry(path);
   }
 
   async loadFromRef(reference) {
@@ -42,11 +41,8 @@ exports.FirestoreMap = class FirestoreMap {
 
       if (!firstSnap) throw new Error(
         `Handle '${handleId}' not found, cannot load`);
-      // if (firstSnap.expiresAt < new Date) throw new Error(
-      //   `Session ${sessionId} has expired, cannot load`);
 
-      console.log('loading map', firstSnap);
-      // const handle = new DomainHandle(this.domain, handleId);
+      console.log('loading', firstSnap.type, 'map');
       await this.applyData(firstSnap);
 
       snapChannel.forEach(snapshot => {
@@ -68,7 +64,10 @@ exports.FirestoreMap = class FirestoreMap {
     }
 
     const newEnv = new Environment;
-    const {metadata, type, uid, devices} = newData;
+    const {metadata, expiresAt, type, uid, devices} = newData;
+
+    if (expiresAt && (expiresAt < new Date)) throw new Error(
+      `This map has expired, cannot load`);
 
     for (const key in metadata) {
       if (metadata[key] === null) continue;
@@ -84,10 +83,10 @@ exports.FirestoreMap = class FirestoreMap {
       switch (deviceConf.type) {
 
         case 'Library':
-          deviceInst = new FirestoreLibrary(this.domain
+          deviceInst = new FirestoreLibrary(this.domain.context
             .adminApp.firestore()
             .collection('libraries')
-            .doc(deviceConf.libraryId));
+            .doc(deviceConf.libraryId), uid);
           // deviceInst = await loadMount(this.domain, deviceConf.target, uid)
           break;
 
@@ -97,7 +96,7 @@ exports.FirestoreMap = class FirestoreMap {
           if (this.domain.domainId !== deviceConf.domainId) throw new Error(
             `Can't mount Handle from different Domain`);
           const handle = await this.domain.handleCache.get(deviceConf.handleId);
-          deviceInst = handle.env; // TODO: this changes
+          deviceInst = handle;
           break;
 
         case 'String':

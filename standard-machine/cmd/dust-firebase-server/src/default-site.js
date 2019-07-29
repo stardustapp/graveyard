@@ -3,11 +3,16 @@ const route = require('koa-route');
 const commonTags = require('common-tags');
 
 exports.DefaultSite = class DefaultSite {
-  constructor(domain) {
-    if (!domain)
-      throw new Error(`DefaultSite requires a domain`);
-    this.domain = domain;
+  constructor(context) {
+    if (!context)
+      throw new Error(`DefaultSite requires a context`);
+    // this.context = context;
+
     this.koa = new Koa();
+    // this.koa.use(async (ctx, next) => {
+    //   ctx.state.domain = await context.selectDomain(ctx.request.hostname);
+    //   return next();
+    // });
 
     this.koa.use(route.get('/', ctx => {
       ctx.type = 'html';
@@ -15,7 +20,7 @@ exports.DefaultSite = class DefaultSite {
 <html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
-  <title>${this.domain.fqdn}</title>
+  <title>${ctx.state.domain.domainId}</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" rel="stylesheet">
   <style type="text/css">
     html, body {
@@ -88,7 +93,7 @@ exports.DefaultSite = class DefaultSite {
 </head>
 <body>
   <header>
-    <h1>${this.domain.fqdn}</h1>
+    <h1>${ctx.state.domain.domainId}</h1>
     <h2>a <em>Stardust</em> system</h2>
   </header>
 

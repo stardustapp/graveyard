@@ -5,12 +5,16 @@ const commonTags = require('common-tags');
 
 // Serves up enough HTML to nicely direct users to the account page
 exports.DoorwaySite = class DoorwaySite {
-  constructor(domain) {
-    if (!domain.fqdn) throw new Error(
-      `GateSite requires a domain name`);
-    this.domain = domain;
+  constructor(context) {
+    if (!context) throw new Error(
+      `GateSite requires a context`);
+    this.context = context;
 
     this.koa = new Koa();
+    // this.koa.use(async (ctx, next) => {
+    //   ctx.state.domain = await context.selectDomain(ctx.request.hostname);
+    //   return next();
+    // });
 
     // install serviceworkers that give real content
     // case parts[0] === 'apps':
@@ -35,7 +39,7 @@ exports.DoorwaySite = class DoorwaySite {
 
     // dynamic gated pages
     this.koa.use(route.get('/home', ctx => new GateSiteHome(this).get(ctx)));
-    this.koa.use(route.get('/profiles/:profile', (...args) => new GateSiteProfile(this).get(...args)));
+    this.koa.use(route.get('/handle/:handle', (...args) => new GateSiteHandle(this).get(...args)));
     // this.koa.use(route.get('/ftue', ctx => new GateSiteFtue(this).get(ctx)));
     // this.koa.use(route.get('/add-domain', ctx => new GateSiteAddDomain(this).get(ctx)));
     // this.koa.use(route.get('/install-app', ctx => new GateSiteInstallApp(this).get(ctx)));
@@ -61,8 +65,7 @@ exports.DoorwaySite = class DoorwaySite {
     ctx.state.claims = null;
     if (sessionCookie) {
       try {
-        ctx.state.claims = await this.domain.adminApp.auth()
-          .verifySessionCookie(sessionCookie, false /* checkRevoked */)
+        ctx.state.claims = await this.context.readCookie(sessionCookie);
         //console.debug('have claims', ctx.state.claims)
       } catch (err) {
         ctx.state.claims = null;
@@ -78,7 +81,7 @@ exports.DoorwaySite = class DoorwaySite {
     await next();
     if (ctx.state.claims) {
       const {uid} = ctx.state.claims;
-      this.domain.markUserSeen(uid);
+      this.context.markUserSeen(uid);
     }
   }
 }
@@ -93,10 +96,10 @@ class GateSiteLogin {
       return ctx.redirect(ctx.request.origin+'/~/home');
     }
 
-    return sendGatePage(ctx, `login | ${this.site.domain.fqdn}`, commonTags.safeHtml`
+    return sendGatePage(ctx, `login | ${ctx.state.domain.domainId}`, commonTags.safeHtml`
       <form method="post" action="login" class="modal-form">
-        <h1>login to <em>${this.site.domain.fqdn}</em></h1>
-        <input type="hidden" name="domain" value="${this.site.domain.fqdn}">
+        <h1>login to <em>${ctx.state.domain.domainId}</em></h1>
+        <input type="hidden" name="domain" value="${ctx.state.domain.domainId}">
         <input type="email" name="email" placeholder="external email" autocomplete="email" value="${partialData.email||''}" required autofocus>
         <input type="password" name="password" placeholder="password" autocomplete="current-password">
         <button type="submit">log in</button>
@@ -110,8 +113,8 @@ class GateSiteLogin {
     const {domain, email, password} = ctx.request.body;
     await (async () => {
 
-      const idToken = await this.site.domain.logInUserPassword(email, password);
-      const {cookieVal, maxAge} = await this.site.domain.createCookie(idToken);
+      const idToken = await this.site.context.logInUserPassword(email, password);
+      const {cookieVal, maxAge} = await this.site.context.createCookie(idToken);
       ctx.cookies.set('DustSessionJwt', cookieVal, {
         path: '/~/',
         maxAge,
@@ -139,10 +142,9 @@ class GateSiteRegister {
 
   async get(ctx, partialData={}) {
     if (!ctx.state.claims) {
-      const idToken = await this.site.domain.createAnonUser();
-      const {cookieVal, maxAge} = await this.site.domain.createCookie(idToken);
-      ctx.state.claims = await this.site.domain.adminApp.auth()
-        .verifySessionCookie(cookieVal);
+      const idToken = await this.site.context.createAnonUser();
+      const {cookieVal, maxAge} = await this.site.context.createCookie(idToken);
+      ctx.state.claims = await this.site.context.readCookie(cookieVal);
 
       ctx.cookies.set('DustSessionJwt', cookieVal, {
         path: '/~/',
@@ -151,16 +153,16 @@ class GateSiteRegister {
         secure: false, // TODO
       });
     }
-    const csrf = await this.site.domain
-      .makeCSRF(ctx.state.claims.uid);
+    const {uid} = ctx.state.claims;
+    const csrf = await this.site.context.makeCSRF(uid, ctx.request.origin);
 
-    return sendGatePage(ctx, `register | ${this.site.domain.fqdn}`, commonTags.safeHtml`
+    return sendGatePage(ctx, `register | ${ctx.state.domain.domainId}`, commonTags.safeHtml`
       <form method="post" action="register" class="modal-form">
         <h1>register new account</h1>
         <input type="hidden" name="csrf" value="${csrf}">
-        <input type="hidden" name="fqdn" value="${this.site.domain.fqdn}">
+        <input type="hidden" name="fqdn" value="${ctx.state.domain.domainId}">
         <div class="row">
-          <label style="text-align: right; margin: 0 0 0 2em;" for="handle">${this.site.domain.fqdn}/~</label>
+          <label style="text-align: right; margin: 0 0 0 2em;" for="handle">${ctx.state.domain.domainId}/~</label>
           <input style="text-align: left;" type="text" name="handle" value="${partialData.handle||''}" placeholder="username" autocomplete="username required" autofocus style="width: 12em; text-align: right;">
         </div>
         <input type="email" name="contactEmail" value="${partialData.contactEmail||''}" placeholder="your contact email (private)" autocomplete="email" required>
@@ -173,10 +175,10 @@ class GateSiteRegister {
     const {uid} = ctx.state.claims;
     const {csrf, fqdn, handle, contactEmail, displayName} = ctx.request.body;
     await (async () => {
-      await this.site.domain.checkCSRF(csrf, uid);
-      await this.site.domain
+      await this.site.context.checkCSRF(csrf, uid, ctx.request.origin);
+      await ctx.state.domain
         .registerHandle({fqdn, handle, uid, contactEmail, displayName})
-    })().then(profileId => {
+    })().then(handleId => {
       ctx.redirect(`/~/home`);
     }, err => {
       ctx.state.error = err;
@@ -200,7 +202,7 @@ class GateSiteHome {
 
     let userRecord;
     try {
-      userRecord = await this.site.domain.adminApp.auth().getUser(uid);
+      userRecord = await this.site.context.getUserProfile(uid);
     } catch (err) {
       if (err.code === 'auth/user-not-found') {
         ctx.cookies.set('DustSessionJwt', '', {
@@ -226,17 +228,17 @@ class GateSiteHome {
     }
     const hasPassword = !!userRecord.passwordHash;
 
-    const profiles = await this.site.domain.listHandlesForUser(uid);
-    let profileListing = profiles.map(m => commonTags.safeHtml`
+    const handles = await ctx.state.domain.listHandlesForUser(uid);
+    let handleListing = handles.map(m => commonTags.safeHtml`
       <li>
-        <a href="profiles/${m.id}">${m.get('handle')}</a> (${m.get('displayName')})
+        <a href="handle/${m.id}">${m.get('handle')}</a> (${m.get('displayName')})
       </li>
     `).join('\n');
-    if (!profiles.length) {
-      profileListing = commonTags.safeHtml`<li>None yet</li>`;
+    if (!handles.length) {
+      handleListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
-    return sendGatePage(ctx, `home | ${this.site.domain.fqdn}`, commonTags.html`
+    return sendGatePage(ctx, `home | ${ctx.state.domain.domainId}`, commonTags.html`
       <section class="compact modal-form">
         ${userRecord.providerData.length === 0 ? commonTags.safeHtml`
           <p>
@@ -254,9 +256,9 @@ class GateSiteHome {
       </section>
 
       <section class="compact modal-form">
-        <h2>Your identities</h2>
+        <h2>Your handles</h2>
         <ul style="text-align: left;">
-          ${profileListing}
+          ${handleListing}
         </ul>
         <a href="register" class="action">Register new handle</a>
       </section>
@@ -264,18 +266,18 @@ class GateSiteHome {
   }
 }
 
-class GateSiteProfile {
+class GateSiteHandle {
   constructor(site) {
     this.site = site;
   }
 
-  async get(ctx, profileId) {
+  async get(ctx, handleId) {
     if (!ctx.state.claims) {
       return ctx.redirect(ctx.request.origin+'/~/login');
     }
     const {aud, uid, email, firebase} = ctx.state.claims;
 
-    const memberships = [];//await this.site.domainManager.getMembershipsFor(account);
+    const memberships = [];//await this.site.contextManager.getMembershipsFor(account);
     let domainListing = memberships.map(m => commonTags.safeHtml`
       <li>
         <a href="my-domains/${m.domain.record.did}">${m.domain.record.primaryFqdn}</a>
@@ -301,12 +303,12 @@ class GateSiteProfile {
       appListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
-    const profile = await this.site.domain.getUserProfile(uid, profileId);
+    // const handle = await ctx.state.domain.getHandle(handleId);
 
-    return sendGatePage(ctx, `home | ${this.site.domain.fqdn}`, commonTags.html`
+    return sendGatePage(ctx, `home | ${ctx.state.domain.domainId}`, commonTags.html`
       <section class="compact modal-form">
         <p>${commonTags.safeHtml`You are ${uid}!`}</p>
-        <a href="home" class="action">manage profile</a>
+        <a href="home" class="action">manage handle</a>
       </section>
 
       <section class="compact modal-form">
@@ -340,33 +342,32 @@ class GateSiteCreatePassword {
       return ctx.redirect(ctx.request.origin+'/~/login');
     }
     const {uid} = ctx.state.claims;
-    const csrf = await this.site.domain
-      .makeCSRF(uid);
 
-    const profiles = await this.site.domain.listIdentityProfilesForUser(uid);
-    if (profiles.length < 1) {
+    const csrf = await this.site.context.makeCSRF(uid, ctx.request.origin);
+    const handles = await ctx.state.domain.listHandlesForUser(uid);
+    if (handles.length < 1) {
       return ctx.redirect(ctx.request.origin+'/~/register');
     }
     if (!partialData.email)
-      partialData.email = profiles[0].get('contactEmail');
+      partialData.email = handles[0].get('metadata.contactEmail');
 
     const rows = [commonTags.safeHtml`
       <div class="row">
         <label for="email" style="margin: 0 0 0 2em; width: 5em;">email</label>
-        <input type="email" name="email" autocomplete="email" value="${partialData.email}" required style="flex: 1;">
+        <input type="email" name="email" autocomplete="email" value="${partialData.email||''}" required style="flex: 1;">
       </div>`
     ];
     if (false) {
       rows.push(commonTags.safeHtml`
         <div class="row">
           <label for="current" style="margin: 0 0 0 2em; width: 5em;">current</label>
-          <input type="password" name="current" autocomplete="current-password" value="${partialData.current}" required style="flex: 1;">
+          <input type="password" name="current" autocomplete="current-password" value="${partialData.current||''}" required style="flex: 1;">
         </div>`);
     }
     rows.push(commonTags.safeHtml`
         <div class="row">
           <label for="desired" style="margin: 0 0 0 2em; width: 5em;">new</label>
-          <input type="password" name="desired" autocomplete="new-password" value="${partialData.desired}" required autofocus style="flex: 1;">
+          <input type="password" name="desired" autocomplete="new-password" value="${partialData.desired||''}" required autofocus style="flex: 1;">
         </div>`);
 
     return sendGatePage(ctx, `create password | ${ctx.state.claims.email}`, commonTags.html`
@@ -389,12 +390,12 @@ class GateSiteCreatePassword {
     const {uid} = ctx.state.claims;
     const {csrf} = ctx.request.body;
     await (async () => {
-      await this.site.domain.checkCSRF(csrf, uid);
+      await this.site.context.checkCSRF(csrf, uid, ctx.request.origin);
 
-      const idToken = await this.site.domain
+      const idToken = await this.site.context
         .linkToEmailPassword({uid, ...ctx.request.body});
 
-      const {cookieVal, maxAge} = await this.site.domain.createCookie(idToken);
+      const {cookieVal, maxAge} = await this.site.context.createCookie(idToken);
       ctx.cookies.set('DustSessionJwt', cookieVal, {
         path: '/~/',
         maxAge,
@@ -423,7 +424,7 @@ class GateSiteCreatePassword {
 //       return ctx.redirect(ctx.request.origin+'/~/login');
 //     }
 //
-//     return sendGatePage(ctx, `add domain | ${this.site.domain.fqdn}`, commonTags.safeHtml`
+//     return sendGatePage(ctx, `add domain | ${ctx.state.domain.domainId}`, commonTags.safeHtml`
 //       <form method="post" class="modal-form">
 //         <h1>add new domain</h1>
 //         <div class="row">
@@ -432,7 +433,7 @@ class GateSiteCreatePassword {
 //               style="width: 12em;">
 //         </div>
 //         <input type="text" name="fqdn" placeholder="domain name (as in DNS)" required autofocus>
-//         <button type="submit">add domain to profile</button>
+//         <button type="submit">add domain to handle</button>
 //       </form>`);
 //   }
 //
@@ -446,7 +447,7 @@ class GateSiteCreatePassword {
 //       return this.renderForm(request);
 //     }
 //
-//     const domain = await this.site.domainManager
+//     const domain = await this.site.contextManager
 //         .registerDomain(fqdn, request.session.account);
 //
 //     return ctx.redirect(ctx.request.origin+'/~/my-domains/'+domain.record.did);
@@ -464,7 +465,7 @@ class GateSiteCreatePassword {
 //     if (!request.session) {
 //       return ctx.redirect(ctx.request.origin+'/~/login');
 //     }
-//     const domain = await this.site.domainManager.getDomain(this.domainId);
+//     const domain = await this.site.contextManager.getDomain(this.domainId);
 //     if (!domain) {
 //       throw new Error(`Domain not found`);
 //     }
@@ -495,7 +496,7 @@ class GateSiteCreatePassword {
 //     }
 //
 //     if (request.req.method === 'POST' && request.req.bodyparams.action === 'attach webroot') {
-//       await this.site.domainManager.attachStaticWebRoot(domain);
+//       await this.site.contextManager.attachStaticWebRoot(domain);
 //       return ctx.redirect(domain.record.did);
 //     }
 //   }
@@ -588,7 +589,7 @@ class GateSiteCreatePassword {
 //         </form>`;
 //     }
 //
-//     return sendGatePage(ctx, `install app | ${this.site.domain.fqdn}`, commonTags.html`
+//     return sendGatePage(ctx, `install app | ${ctx.state.domain.domainId}`, commonTags.html`
 //       <div style="display: flex; align-self: center;">
 //         <div class="modal-form" style="justify-content: flex-start;">
 //           <h1>select a package</h1>
@@ -642,7 +643,7 @@ class GateSiteCreatePassword {
 //     }
 //
 //     if (request.req.method !== 'POST' || !appKey) {
-//       return sendGatePage(ctx, `remove app | ${this.site.domain.fqdn}`, commonTags.html`
+//       return sendGatePage(ctx, `remove app | ${ctx.state.domain.domainId}`, commonTags.html`
 //         <form class="modal-form" method="post">
 //           <h2>Remove app ${request.req.queryParams.appKey}</h2>
 //           <p>The application will be stopped and removed from your account, but no stored data will be cleaned up.</p>
@@ -693,7 +694,7 @@ class GateSiteAppSessionApi {
       throw new Error('app-session needs an appKey (did you block Referer?)');
     }
 
-    const session = await this.site.domain.createRootSession(uid, {
+    const session = await ctx.state.domain.createRootSession(uid, {
       lifetime: 'short',
       client: 'doorway app-session - for '+referer,
       username, appKey,
@@ -708,7 +709,7 @@ class GateSiteFtue {
   }
 
   async get(ctx) {
-    return sendGatePage(ctx, `get started | ${this.site.domain.fqdn}`, commonTags.safeHtml`
+    return sendGatePage(ctx, `get started | ${ctx.state.domain.domainId}`, commonTags.safeHtml`
       <section class="ftue">
         <a href="/~/home" class="action">welcome to your new account :)</a>
         <p>here's what you can do:</p>
@@ -731,9 +732,9 @@ class GateSiteLogout {
     }
 
     const {uid} = ctx.state.claims;
-    const csrf = await this.site.domain.makeCSRF(uid);
+    const csrf = await this.site.context.makeCSRF(uid, ctx.request.origin);
 
-    return sendGatePage(ctx, `logout | ${this.site.domain.fqdn}`, commonTags.html`
+    return sendGatePage(ctx, `logout | ${ctx.state.domain.domainId}`, commonTags.html`
       <form method="post" action="logout" class="modal-form">
         <h2>Push the button.</h2>
         <input type="hidden" name="csrf" value="${csrf}" />
@@ -749,7 +750,7 @@ class GateSiteLogout {
 
     const {uid} = ctx.state.claims;
     const {csrf} = ctx.request.body;
-    await this.site.domain.checkCSRF(csrf, uid);
+    await this.site.context.checkCSRF(csrf, uid, ctx.request.origin);
 
     //await this.site.sessionManager.purge(request.session);
     ctx.cookies.set('DustSessionJwt', '', {
@@ -767,7 +768,7 @@ class GateSiteAbout {
   }
 
   async get(ctx) {
-    return sendGatePage(ctx, `about | ${this.site.domain.fqdn}`, commonTags.safeHtml`
+    return sendGatePage(ctx, `about | ${ctx.state.domain.domainId}`, commonTags.safeHtml`
       <nav>
         <a href="/~/login" class="action">Login</a>
         <a href="/~/register" class="action">Register</a>
