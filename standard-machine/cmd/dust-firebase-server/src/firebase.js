@@ -81,7 +81,7 @@ exports.FireContext = class FireContext {
       throw new Error(`BUG: FQDN '${fqdn}' matches multiple domain records`);
     } else if (domainSnap.docs[0].id !== fqdn) {
       // alt name - get by main name
-      return this.domainCache.get(domainSnap[0].id);
+      return this.domainCache.get(domainSnap.docs[0].id);
     }
 
     // direct name, load it up
@@ -96,6 +96,7 @@ exports.FireContext = class FireContext {
   }
 
   async createDomain(fqdn, owner) {
+    // const libOwner = // TODO
     await this
       .adminApp.firestore()
       .collection('domains')
