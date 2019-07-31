@@ -9,6 +9,7 @@
   "author": "Daniel Lamando",
   "license": "MIT",
   "dependencies": {
+    "@dustjs/standard-machine-rt": "^0.1.0",
     "common-tags": "^1.8.0",
     "firebase": "^6.3.0",
     "firebase-admin": "^8.2.0",

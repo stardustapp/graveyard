@@ -1,5 +1,4 @@
-const {AsyncCache} = require('../../../rt/nodejs/src/utils/async-cache.js');
-const {Channel} = require('../../../rt/nodejs/src/old/channel.js');
+const {AsyncCache, Channel} = require('@dustjs/standard-machine-rt');
 
 const {FirestoreLibrary} = require('./firestore-library.js');
 

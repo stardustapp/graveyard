@@ -3,22 +3,13 @@ const route = require('koa-route');
 const commonTags = require('common-tags');
 const websockify = require('koa-websocket');
 
-const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
-  = require('../../../rt/nodejs/src/old/core/api-entries.js');
-require('../../../rt/nodejs/src/old/core/enumeration.js');
-require('../../../rt/nodejs/src/old/core/environment.js');
-require('../../../rt/nodejs/src/old/core/utils.js');
-
-require('../../../rt/nodejs/src/old/lib/path-fragment.js');
-const {TempDevice} = require('../../../rt/nodejs/src/old/lib/temp-device.js');
-
-const {SKYLINK_CORE_OPS} = require('../../../rt/nodejs/src/skylink/core-ops.js');
-const {ChannelExtension} = require('../../../rt/nodejs/src/skylink/ext-channel.js');
-const {SkylinkServer} = require('../../../rt/nodejs/src/skylink/server.js');
-const {InlineChannelCarrier} = require('../../../rt/nodejs/src/skylink/channel-server.js');
+const {
+  FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral,
+  TempDevice, AsyncCache,
+  SKYLINK_CORE_OPS, ChannelExtension, SkylinkServer, InlineChannelCarrier,
+} = require('@dustjs/standard-machine-rt');
 
 const {CreateMapCache, FirestoreMap} = require('./firestore-map.js');
-const {AsyncCache} = require('../../../rt/nodejs/src/utils/async-cache.js');
 
 class SessionsEnv {
   constructor(domain) {

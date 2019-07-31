@@ -23,7 +23,7 @@ const {FirestoreDomain} = require('./firestore-domain.js');
 const {FirestoreLibrary} = require('./firestore-library.js');
 const {CreateMapCache, FirestoreMap} = require('./firestore-map.js');
 
-const {AsyncCache} = require('../../../rt/nodejs/src/utils/async-cache.js');
+const {AsyncCache} = require('@dustjs/standard-machine-rt');
 
 exports.FireContext = class FireContext {
   constructor(credentialName) {
