@@ -1,24 +1,29 @@
-global.ExportAll = obj => {
-  for (const key in obj) {
-    global[key] = obj[key];
-  }
-};
-ExportAll(require('./utils/async-cache.js'));
-ExportAll(require('./utils/errors.js'));
-ExportAll(require('./utils/random.js'));
-ExportAll(require('./utils/exec.js'));
-ExportAll(require('./model.js'));
-
-// TODO: create immutable objects
-const pkgMeta = require('../package.json');
-const userAgent = `Stardust ${pkgMeta.name}/${pkgMeta.version}`;
-global.navigator = {userAgent};
-global.crypto = require('crypto');
-global.fetch = require('node-fetch');
-global.moment = require('moment');
-global.commonTags = require('common-tags');
-
 module.exports = {
-  ...require('./loader.js'),
-  ...require('./machine.js'),
+  ...require('./old/core/api-entries.js'),
+  ...require('./old/core/enumeration.js'),
+  ...require('./old/core/environment.js'),
+  // ...require('./old/core/platform-api.js'),
+  ...require('./old/core/utils.js'),
+
+  ...require('./old/lib/locking.js'),
+  // ...require('./old/lib/lua-api.js'),
+  // ...require('./old/lib/lua-machine.js'),
+  ...require('./old/lib/mkdirp.js'),
+  ...require('./old/lib/path-fragment.js'),
+  ...require('./old/lib/temp-device.js'),
+  ...require('./old/lib/tracing.js'),
+
+  ...require('./old/channel.js'),
+
+  ...require('./skylink/channel-client.js'),
+  ...require('./skylink/channel-server.js'),
+  ...require('./skylink/client.js'),
+  ...require('./skylink/core-ops.js'),
+  ...require('./skylink/ext-channel.js'),
+  ...require('./skylink/ext-reversal.js'),
+  ...require('./skylink/server.js'),
+
+  ...require('./utils/async-cache.js'),
+  ...require('./utils/exec.js'),
+  ...require('./utils/random.js'),
 };
