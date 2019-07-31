@@ -9,19 +9,12 @@ const {ExportSite} = require('./export-site.js');
 (async () => {
 
   const firebase = new FireContext(mainCredName);
-  const web = new WebServer;
+  const web = new WebServer(fqdn => firebase.selectDomain(fqdn));
+  await firebase.bootstrap();
 
-  // TODO: relocate
-  const attachDomain = async (ctx, next) => {
-    ctx.state.domain = await firebase.selectDomain(ctx.request.hostname);
-    return next();
-  };
-  web.koa.use(attachDomain);
-  web.koa.ws.use(attachDomain);
-
-  //web.mountStatic('/~/doorway/', join(__dirname, '..', 'web', 'doorway'));
-  web.mountStatic('/~~/panel/', join(__dirname, '..', 'web', 'panel'));
-  web.mountStatic('/~~/editor/', join(__dirname, '..', 'web', 'editor'));
+  //web.mountStatic('/~/doorway', join(__dirname, '..', 'web', 'doorway'));
+  web.mountStatic('/~~/panel', join(__dirname, '..', 'web', 'panel'));
+  web.mountStatic('/~~/editor', join(__dirname, '..', 'web', 'editor'));
   // web.mountStatic('/~/handle/:handle/editor', join(__dirname, '..', 'web', 'editor'));
   // web.mountStatic('/~/handle/:handle/panel', join(__dirname, '..', 'web', 'panel'));
 

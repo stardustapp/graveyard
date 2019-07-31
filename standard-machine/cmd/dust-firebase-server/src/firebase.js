@@ -56,6 +56,15 @@ exports.FireContext = class FireContext {
     });
   }
 
+  // Domains
+
+  async bootstrap() {
+    let localhost = await this.selectDomain('localhost');
+    if (!localhost) {
+      await this.createDomain('localhost', {system: true});
+    }
+  }
+
   selectDomain(fqdn) {
     return this.domainCache.get(fqdn);
   }
@@ -67,10 +76,10 @@ exports.FireContext = class FireContext {
       .get();
 
     if (domainSnap.empty) {
-      // unknown / unregged domain
+      return null;
     } else if (domainSnap.size > 1) {
       throw new Error(`BUG: FQDN '${fqdn}' matches multiple domain records`);
-    } else if (domainSnap[0].id !== fqdn) {
+    } else if (domainSnap.docs[0].id !== fqdn) {
       // alt name - get by main name
       return this.domainCache.get(domainSnap[0].id);
     }
@@ -85,6 +94,51 @@ exports.FireContext = class FireContext {
     await domain.bootstrap();
     return domain;
   }
+
+  async createDomain(fqdn, owner) {
+    await this
+      .adminApp.firestore()
+      .collection('domains')
+      .doc(fqdn)
+      .create({
+        type: 'WebDomain',
+        fqdns: [fqdn],
+        createdAt: new Date,
+        access: ['owned'],
+        owner,
+        devices: [{
+          libraryId: await this.createTreeLibrary(`Published by ${fqdn}`, libOwner, ['owned']),
+          path: '/public',
+          type: 'Library',
+        }],
+      });
+  }
+
+  // Libraries
+
+  async getLibraryById(libraryId) {
+    const db = this.adminApp.firestore();
+    const profileDoc = await db
+      .collection('libraries')
+      .doc(libraryId)
+      .get();
+    if (!profileDoc.exists) throw new Error(
+      `Profile ${profileId} not found`);
+    return profileDoc.data();
+  }
+
+  async createTreeLibrary(name, owner, access) {
+    return await this
+      .adminApp.firestore()
+      .collection('libraries')
+      .add({
+        type: 'TreeLibrary',
+        createdAt: new Date,
+        name, owner, access,
+      });
+  }
+
+  // Users
 
   async markUserSeen(uid) {
     await this
@@ -147,17 +201,6 @@ exports.FireContext = class FireContext {
     } finally {
       await clientApp.delete();
     }
-  }
-
-  async getLibraryById(libraryId) {
-    const db = this.adminApp.firestore();
-    const profileDoc = await db
-      .collection('libraries')
-      .doc(libraryId)
-      .get();
-    if (!profileDoc.exists) throw new Error(
-      `Profile ${profileId} not found`);
-    return profileDoc.data();
   }
 
   spawnClientApp() {

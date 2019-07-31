@@ -8,7 +8,7 @@ const serve = require('koa-static');
 const websockify = require('koa-websocket');
 
 exports.WebServer = class WebServer {
-  constructor() {
+  constructor(domainSrc) {
     this.koa = websockify(new Koa());
 
     this.koa.use(this.logRequest.bind(this));
@@ -18,6 +18,10 @@ exports.WebServer = class WebServer {
     this.koa.use(route.get('/healthz', async ctx => {
       ctx.body = 'ok';
     }));
+
+    this.domainSrc = domainSrc;
+    this.koa.use(this.attachDomain.bind(this));
+    this.koa.ws.use(this.attachDomain.bind(this));
   }
 
   mountApp(prefix, app) {
@@ -26,7 +30,7 @@ exports.WebServer = class WebServer {
       this.koa.ws.use(mount(prefix, app.koa.ws));
     }
   }
-  
+
   mountStatic(prefix, fsPath) {
     this.koa.use(mount(prefix, serve(fsPath)));
   }
@@ -78,5 +82,13 @@ exports.WebServer = class WebServer {
 
       ctx.app.emit('error', err, ctx);
     });
+  }
+
+  async attachDomain(ctx, next) {
+    const {hostname} = ctx.request;
+    ctx.state.domain = await this.domainSrc(hostname);
+    if (!ctx.state.domain) ctx.throw(421,
+      `${hostname} does not exist on this server`);
+    return next();
   }
 };
