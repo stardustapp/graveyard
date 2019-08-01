@@ -1,5 +1,6 @@
 const http = require('http');
 const { once } = require('events');
+const process = require('process');
 
 const Koa = require('koa');
 const mount = require('koa-mount');
@@ -22,6 +23,8 @@ exports.WebServer = class WebServer {
     this.domainSrc = domainSrc;
     this.koa.use(this.attachDomain.bind(this));
     this.koa.ws.use(this.attachDomain.bind(this));
+
+    this.koa.proxy = process.env.DUST_TRUST_PROXY === 'yes';
   }
 
   mountApp(prefix, app) {
