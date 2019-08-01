@@ -29,6 +29,7 @@ exports.DefaultSite = class DefaultSite {
     }
     body {
       background-image: linear-gradient(145deg, #3e4b66 0%, #1f2533 100%);
+      background-attachment: fixed;
       color: #fff;
       font-family: Roboto, sans;
       display: flex;
@@ -58,8 +59,24 @@ exports.DefaultSite = class DefaultSite {
       color: #ddd;
     }
     a {
-      color: #ccc;
+      color: #fff;
     }
+    footer {
+      max-width: 40em;
+      margin: 5em auto 3em;
+      padding: 0 1em;
+      text-align: center;
+      color: #999;
+    }
+    @media (max-width: 599px) {
+      header {
+        margin: 2em 1em;
+      }
+      footer {
+        margin: 2em auto 1em;
+      }
+    }
+
     nav {
       display: flex;
       justify-content: center;
@@ -77,17 +94,22 @@ exports.DefaultSite = class DefaultSite {
     .alt-action {
       border-color: #999;
     }
+    a.alt-action {
+      color: #bbb;
+    }
     .action:hover {
       border-color: #fff;
       color: #fff;
       background-color: rgba(255, 255, 255, 0.15);
       text-decoration: underline;
     }
-    footer {
-      max-width: 40em;
-      margin: 5em auto 3em;
-      text-align: center;
-      color: #999;
+    @media (max-width: 599px) {
+      nav { flex-direction: column; }
+      .action {
+      	text-align: center;
+      	font-size: 1.2em;
+        margin: 0.5em 1em;
+      }
     }
   </style>
 </head>

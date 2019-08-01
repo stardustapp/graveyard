@@ -33,27 +33,29 @@ exports.DoorwaySite = class DoorwaySite {
 
     // dynamic entry points
     this.koa.use(route.get('/login', ctx => new GateSiteLogin(this).get(ctx)));
-    this.koa.use(route.post('/login', ctx => new GateSiteLogin(this).invoke(ctx)));
+    this.koa.use(route.post('/login', ctx => new GateSiteLogin(this).post(ctx)));
     this.koa.use(route.get('/register', ctx => new GateSiteRegister(this).get(ctx)));
-    this.koa.use(route.post('/register', ctx => new GateSiteRegister(this).invoke(ctx)));
+    this.koa.use(route.post('/register', ctx => new GateSiteRegister(this).post(ctx)));
 
     // dynamic gated pages
     this.koa.use(route.get('/home', ctx => new GateSiteHome(this).get(ctx)));
-    this.koa.use(route.get('/handle/:handle', (...args) => new GateSiteHandle(this).get(...args)));
     // this.koa.use(route.get('/ftue', ctx => new GateSiteFtue(this).get(ctx)));
     // this.koa.use(route.get('/add-domain', ctx => new GateSiteAddDomain(this).get(ctx)));
-    // this.koa.use(route.get('/install-app', ctx => new GateSiteInstallApp(this).get(ctx)));
-    // this.koa.use(route.get('/remove-app', ctx => new GateSiteRemoveApp(this).get(ctx)));
     this.koa.use(route.get('/create-password', ctx => new GateSiteCreatePassword(this).get(ctx)));
-    this.koa.use(route.post('/create-password', ctx => new GateSiteCreatePassword(this).invoke(ctx)));
+    this.koa.use(route.post('/create-password', ctx => new GateSiteCreatePassword(this).post(ctx)));
     this.koa.use(route.get('/logout', ctx => new GateSiteLogout(this).get(ctx)));
-    this.koa.use(route.post('/logout', ctx => new GateSiteLogout(this).invoke(ctx)));
+    this.koa.use(route.post('/logout', ctx => new GateSiteLogout(this).post(ctx)));
+
+    this.koa.use(route.get('/handle/:handle', (...args) => new GateSiteHandle(this).get(...args)));
+    this.koa.use(route.get('/handle/:handle/install-app', ctx => new GateSiteInstallApp(this).get(ctx)));
+    this.koa.use(route.post('/handle/:handle/install-app', ctx => new GateSiteInstallApp(this).post(ctx)));
+    // this.koa.use(route.get('/remove-app', ctx => new GateSiteRemoveApp(this).get(ctx)));
 
     // case parts.length === 2 && parts[0] === 'my-domains' && parts[1].length > 0:
     //   return new GateSiteManageDomain(this, parts[1]);
 
     // api for the vue sdk (and other in-browser sdks)
-    this.koa.use(route.post('/app-session', ctx => new GateSiteAppSessionApi(this).invoke(ctx)));
+    this.koa.use(route.post('/app-session', ctx => new GateSiteAppSessionApi(this).post(ctx)));
 
     // extra pages/assets
     this.koa.use(route.get('/about', ctx => new GateSiteAbout(this).get(ctx)));
@@ -109,7 +111,7 @@ class GateSiteLogin {
       </div>`);
   }
 
-  async invoke(ctx) {
+  async post(ctx) {
     const {domain, email, password} = ctx.request.body;
     await (async () => {
 
@@ -163,15 +165,18 @@ class GateSiteRegister {
         <input type="hidden" name="fqdn" value="${ctx.state.domain.domainId}">
         <div class="row">
           <label style="text-align: right; margin: 0 0 0 2em;" for="handle">${ctx.state.domain.domainId}/~</label>
-          <input style="text-align: left;" type="text" name="handle" value="${partialData.handle||''}" placeholder="username" autocomplete="username required" autofocus style="width: 12em; text-align: right;">
+          <input style="text-align: left; width: 0; flex: 1;" type="text" name="handle" value="${partialData.handle||''}" placeholder="username" autocomplete="username required" autofocus>
         </div>
         <input type="email" name="contactEmail" value="${partialData.contactEmail||''}" placeholder="your contact email (private)" autocomplete="email" required>
         <input type="text" name="displayName" value="${partialData.displayName||''}" placeholder="your 'real' name (shared)" autocomplete="name" required>
         <button type="submit">submit registration</button>
-      </form>`);
+      </form>
+      <div style="align-self: center;">
+        <a href="home">nevermind!</a>
+      </div>`);
   }
 
-  async invoke(ctx) {
+  async post(ctx) {
     const {uid} = ctx.state.claims;
     const {csrf, fqdn, handle, contactEmail, displayName} = ctx.request.body;
     await (async () => {
@@ -251,8 +256,8 @@ class GateSiteHome {
         ` : commonTags.safeHtml`
           <p>${commonTags.safeHtml`You are ${userRecord.email}!`}</p>
           <a href="reset-password" class="action">Reset password</a>
-          <a href="logout" class="action">Log out</a>
         `}
+        <a href="logout" class="action">Log out</a>
       </section>
 
       <section class="compact modal-form">
@@ -382,7 +387,7 @@ class GateSiteCreatePassword {
       </div>`);
   }
 
-  async invoke(ctx) {
+  async post(ctx) {
     if (!ctx.state.claims) {
       return ctx.redirect(ctx.request.origin+'/~/login');
     }
@@ -440,7 +445,7 @@ class GateSiteCreatePassword {
 //   get(ctx) {
 //     return this.renderForm(ctx);
 //   }
-//   async invoke(ctx) {
+//   async post(ctx) {
 //     console.log('add domain', ctx.request.body);
 //     const {fqdn} = ctx.request.body;
 //     if (!fqdn) {
@@ -460,7 +465,7 @@ class GateSiteCreatePassword {
 //     this.domainId = domainId;
 //   }
 //
-//   async invoke(input) {
+//   async post(input) {
 //     const request = await new GateSiteRequest(this.site, input).loadState();
 //     if (!request.session) {
 //       return ctx.redirect(ctx.request.origin+'/~/login');
@@ -606,7 +611,7 @@ class GateSiteCreatePassword {
 //       </div>`);
 //   }
 //
-//   async invoke(input) {
+//   async post(input) {
 //     const request = await new GateSiteRequest(this.site, input).loadState();
 //     if (request.req.method === 'GET') {
 //       return await this.renderForm(request);
@@ -635,7 +640,7 @@ class GateSiteCreatePassword {
 //     this.site = site;
 //   }
 //
-//   async invoke(input) {
+//   async post(input) {
 //     const request = await new GateSiteRequest(this.site, input).loadState();
 //     const {appKey} = request.req.queryParams;
 //     if (!request.session) {
@@ -679,7 +684,7 @@ class GateSiteAppSessionApi {
     this.site = site;
   }
 
-  async invoke(ctx) {
+  async post(ctx) {
     if (!ctx.state.claims) {
       ctx.throw(401, `user is not logged in`);
     }
@@ -733,17 +738,34 @@ class GateSiteLogout {
 
     const {uid} = ctx.state.claims;
     const csrf = await this.site.context.makeCSRF(uid, ctx.request.origin);
+    const userRecord = await this.site.context.getUserProfile(uid);
+    const isAnonymous = userRecord.providerData.length === 0;
 
     return sendGatePage(ctx, `logout | ${ctx.state.domain.domainId}`, commonTags.html`
       <form method="post" action="logout" class="modal-form">
         <h2>Push the button.</h2>
+        ${isAnonymous ? commonTags.safeHtml`
+          <div class="error inline-banner">
+            <div class="message">
+              <strong>Your account will become inaccessible!</strong>
+              <div>
+                If you want to ever be able to log in back into this account,
+                please go back now and register your account to an email address.
+              </div>
+              <div>
+                Otherwise, logging out now will will mark this account for deletion.
+              </div>
+            </div>
+          </div>
+          <input type="hidden" name="andDelete" value="yes" />
+        ` : ''}
         <input type="hidden" name="csrf" value="${csrf}" />
-        <button type="submit">log out</button>
+        <button type="submit">${isAnonymous ? 'log out & mark for deletion' : 'log out'}</button>
         <p><a href="home">wait nvm</a></p>
       </form>`);
   }
 
-  async invoke(ctx) {
+  async post(ctx) {
     if (!ctx.state.claims) {
       return ctx.redirect(ctx.request.origin+'/');
     }
@@ -879,15 +901,30 @@ header em {
   font-weight: 400;
   font-style: normal;
 }
+footer {
+  max-width: 40em;
+  margin: 5em auto 3em;
+  text-align: center;
+  color: #999;
+}
+.fill {
+  flex: 1;
+}
+@media (max-width: 599px) {
+  header {
+    margin: 2em 1em;
+  }
+  footer {
+    margin: 2em auto 1em;
+  }
+}
+
 a {
   color: #ccc;
 }
 nav {
   display: flex;
   justify-content: center;
-}
-.fill {
-  flex: 1;
 }
 .action {
   display: block;
@@ -905,12 +942,6 @@ nav {
   background-color: rgba(255, 255, 255, 0.15);
   text-decoration: underline;
 }
-footer {
-  max-width: 40em;
-  margin: 5em auto 3em;
-  text-align: center;
-  color: #999;
-}
 
 .banner {
   margin: 3em 0 -3em;
@@ -918,11 +949,16 @@ footer {
   width: 40em;
   align-self: center;
 }
-.error.banner {
+.inline-banner {
+  margin: 1em 1.3em;
+  padding: 1em 0;
+  text-align: left;
+}
+.error {
   background-color: #b71c1c;
   color: #ffebee;
 }
-.banner .message {
+.banner .message, .inline-banner .message {
   font-size: 1.2em;
   margin: 0 1em;
   word-break: break-word;
@@ -943,13 +979,19 @@ footer {
 .modal-form {
   display: flex;
   flex-direction: column;
-  max-width: 40em;
-  min-width: 20em;
+  width: 100vw;
+  box-sizing: border-box;
   background-color: #eee;
   text-align: center;
   color: #000;
   margin: 5em auto 3em;
   padding: 2em 1em;
+}
+@media (min-width: 600px) {
+  .modal-form {
+    min-width: 20em;
+    max-width: 30em;
+  }
 }
 .modal-form.compact {
   margin: 1em auto;
@@ -979,7 +1021,7 @@ footer {
 }
 .modal-form button {
   background-color: rgba(0, 0, 0, 0.15);
-  cursor: 666;
+  cursor: pointer;
   color: #333;
 }
 .modal-form h1, .modal-form h2 {
