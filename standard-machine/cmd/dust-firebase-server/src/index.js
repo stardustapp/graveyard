@@ -4,6 +4,7 @@ const {WebServer} = require('./web-server.js');
 const {FireContext, mainCredName} = require('./firebase.js');
 const {DefaultSite} = require('./default-site.js');
 const {DoorwaySite} = require('./doorway-site.js');
+const {UnclaimedSite} = require('./unclaimed-site.js');
 const {ExportSite} = require('./export-site.js');
 
 (async () => {
@@ -11,6 +12,17 @@ const {ExportSite} = require('./export-site.js');
   const firebase = new FireContext(mainCredName);
   const web = new WebServer(fqdn => firebase.selectDomain(fqdn));
   await firebase.bootstrap();
+
+  const compose = require('koa-compose');
+  const unclaimedSite = new UnclaimedSite(firebase);
+  const unclaimedMiddleware = compose(unclaimedSite.koa.middleware);
+  web.koa.use((ctx, next) => {
+    if (ctx.state.domain.hasAccessTerm('unclaimed')) {
+      return unclaimedMiddleware(ctx, () => {});
+    }
+    return next();
+    // console.log('domain:', .snapshot);
+  });
 
   //web.mountStatic('/~/doorway', join(__dirname, '..', 'web', 'doorway'));
   web.mountStatic('/~~/panel', join(__dirname, '..', 'web', 'panel'));

@@ -3,21 +3,23 @@ const admin = require("firebase-admin");
 const {CreateMapCache, FirestoreMap} = require('./firestore-map.js');
 
 class DomainHandle extends FirestoreMap {
-  constructor(domain, handleId) {
-    super(domain);
+  constructor(context, domainId, handleId) {
+    super(context);
+    this.domainId = domainId;
     this.handleId = handleId;
   }
 }
 class SessionHandle extends FirestoreMap {
-  constructor(domain, sessionId) {
-    super(domain);
+  constructor(context, domainId, sessionId) {
+    super(context);
+    this.domainId = domainId;
     this.sessionId = sessionId;
   }
 }
 
-exports.FirestoreDomain = class FirestoreDomain {
+exports.FirestoreDomain = class FirestoreDomain extends FirestoreMap {
   constructor(context, domainId, domainRef) {
-    this.context = context;
+    super(context);
     this.domainId = domainId;
     this.rootRef = domainRef;
 
@@ -26,12 +28,16 @@ exports.FirestoreDomain = class FirestoreDomain {
 
     this.handleCache = CreateMapCache({
       refDoc: handleId => this.refHandle(handleId),
-      constr: handleId => new DomainHandle(this, handleId),
+      constr: handleId => new DomainHandle(this.context, this.domainId, handleId),
     });
     this.sessionCache = CreateMapCache({
       refDoc: sessionId => this.refSession(sessionId),
-      constr: sessionId => new SessionHandle(this, sessionId),
+      constr: sessionId => new SessionHandle(this.context, this.domainId, sessionId),
     });
+  }
+
+  hasAccessTerm(term) {
+    return this.snapshot.access.includes(term);
   }
 
   async bootstrap() {
@@ -158,38 +164,27 @@ exports.FirestoreDomain = class FirestoreDomain {
           .arrayUnion({domainId: this.domainId, handleId}),
       });
 
+      const owner = {
+        uid, handleId,
+        domainId: this.domainId,
+      };
       t.set(configRef, {
         type: 'TreeLibrary',
         name: `Application settings`,
         createdAt: new Date,
-        access: ['owned'],
-        owner: {
-          uid,
-          domainId: this.domainId,
-          handleId,
-        },
+        owner, access: ['owned'],
       });
       t.set(dataRef, {
         type: 'TreeLibrary',
         name: `Application data`,
         createdAt: new Date,
-        access: ['owned'],
-        owner: {
-          uid,
-          domainId: this.domainId,
-          handleId,
-        },
+        owner, access: ['owned'],
       });
       t.set(publicRef, {
         type: 'TreeLibrary',
         name: `Published by ~${handle}`,
         createdAt: new Date,
-        access: ['public-read', 'owned'],
-        owner: {
-          uid,
-          domainId: this.domainId,
-          handleId,
-        },
+        owner, access: ['public-read', 'owned'],
       });
 
       t.set(handleRef, {

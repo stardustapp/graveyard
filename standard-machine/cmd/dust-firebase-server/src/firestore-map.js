@@ -13,8 +13,8 @@ exports.CreateMapCache = function({refDoc, constr}) {
 }
 
 exports.FirestoreMap = class FirestoreMap {
-  constructor(domain) {
-    this.domain = domain;
+  constructor(context) {
+    this.context = context;
     this.env = new Environment;
   }
   getEntry(path) {
@@ -22,6 +22,8 @@ exports.FirestoreMap = class FirestoreMap {
   }
 
   async loadFromRef(reference) {
+    this.rootRef = reference;
+
     const snapChannel = new Channel('firemap');
     let stopFunc, firstSnap;
     firstSnap = await new Promise((resolve, reject) => {
@@ -48,6 +50,9 @@ exports.FirestoreMap = class FirestoreMap {
         return this.applyData(snapshot);
       });
 
+      if (typeof this.bootstrap === 'function')
+        await this.bootstrap();
+
     } catch (err) {
       stopFunc();
       console.log('loading map FAILED');
@@ -59,6 +64,7 @@ exports.FirestoreMap = class FirestoreMap {
     if (!newData) {
       console.error('WARN: running session', this.handle, 'was deleted');
       this.env = new Environment;
+      this.snapshot = newData;
       return;
     }
 
@@ -82,7 +88,7 @@ exports.FirestoreMap = class FirestoreMap {
       switch (deviceConf.type) {
 
         case 'Library':
-          deviceInst = new FirestoreLibrary(this.domain.context
+          deviceInst = new FirestoreLibrary(this.context
             .adminApp.firestore()
             .collection('libraries')
             .doc(deviceConf.libraryId), uid);
@@ -90,11 +96,12 @@ exports.FirestoreMap = class FirestoreMap {
           break;
 
         case 'Handle':
-          if (!this.domain) throw new Error(
-            `Can't mount Handle without a Domain`);
-          if (this.domain.domainId !== deviceConf.domainId) throw new Error(
+          if (!this.context) throw new Error(
+            `Can't mount Handle without a Context`);
+          if (this.domainId && (this.domainId !== deviceConf.domainId)) throw new Error(
             `Can't mount Handle from different Domain`);
-          const handle = await this.domain.handleCache.get(deviceConf.handleId);
+          const domain = await this.context.domainCache.get(deviceConf.domainId);
+          const handle = await domain.handleCache.get(deviceConf.handleId);
           deviceInst = handle;
           break;
 
@@ -115,5 +122,6 @@ exports.FirestoreMap = class FirestoreMap {
     }
 
     this.env = newEnv;
+    this.snapshot = newData;
   }
 }

@@ -51,8 +51,13 @@ exports.FireContext = class FireContext {
     //   .fetchSignInMethodsForEmail('dan@danopia.net')
     //   .then(console.log);
 
-    this.domainCache = new AsyncCache({
-      loadFunc: this.loadDomain.bind(this),
+    this.fqdnCache = new AsyncCache({
+      loadFunc: this._findFqdn.bind(this),
+      cacheFalsey: false,
+    });
+    this.domainCache = CreateMapCache({
+      refDoc: domainId => this.refDomain(domainId),
+      constr: domainId => new FirestoreDomain(this, domainId),
     });
   }
 
@@ -61,14 +66,16 @@ exports.FireContext = class FireContext {
   async bootstrap() {
     let localhost = await this.selectDomain('localhost');
     if (!localhost) {
-      await this.createDomain('localhost', {system: true});
+      localhost = await this.createDomain('localhost', null);
     }
+    console.log('have localhost:', localhost.snapshot);
   }
 
   selectDomain(fqdn) {
-    return this.domainCache.get(fqdn);
+    // TODO: probably just enumerate in-mem domains with query fallback?
+    return this.fqdnCache.get(fqdn);
   }
-  async loadDomain(fqdn) {
+  async _findFqdn(fqdn) {
     const domainSnap = await this
       .adminApp.firestore()
       .collection('domains')
@@ -79,24 +86,26 @@ exports.FireContext = class FireContext {
       return null;
     } else if (domainSnap.size > 1) {
       throw new Error(`BUG: FQDN '${fqdn}' matches multiple domain records`);
-    } else if (domainSnap.docs[0].id !== fqdn) {
-      // alt name - get by main name
+    } else {
       return this.domainCache.get(domainSnap.docs[0].id);
     }
-
-    // direct name, load it up
-    const domainRef = this
-      .adminApp.firestore()
-      .collection('domains')
-      .doc(fqdn);
-
-    const domain = new FirestoreDomain(this, fqdn, domainRef);
-    await domain.bootstrap();
-    return domain;
   }
 
-  async createDomain(fqdn, owner) {
-    // const libOwner = // TODO
+  refDomain(domainId) {
+    return this
+      .adminApp.firestore()
+      .collection('domains')
+      .doc(domainId);
+  }
+
+  async createDomain(fqdn, uid=null) {
+    const owner = {
+      uid,
+      domainId: fqdn,
+      handleId: 'root',
+    };
+
+    console.log('Registering new domain with FQDN', fqdn, 'belonging to', uid);
     await this
       .adminApp.firestore()
       .collection('domains')
@@ -105,14 +114,37 @@ exports.FireContext = class FireContext {
         type: 'WebDomain',
         fqdns: [fqdn],
         createdAt: new Date,
-        access: ['owned'],
+        access: ['unclaimed'],
+        verifications: {},
         owner,
         devices: [{
-          libraryId: await this.createTreeLibrary(`Published by ${fqdn}`, libOwner, ['owned']),
+          libraryId: await this.createTreeLibrary({
+            name: `${fqdn} internal data`,
+            owner, access: ['owned'],
+          }),
+          path: '/system',
+          type: 'Library',
+        }, {
+          libraryId: await this.createTreeLibrary({
+            name: `${fqdn} applications`,
+            owner, access: ['domain-read', 'owned'],
+          }),
+          path: '/shared',
+          type: 'Library',
+        }, {
+          libraryId: await this.createTreeLibrary({
+            name: `Published by ${fqdn}`,
+            owner, access: ['public-read', 'owned'],
+          }),
           path: '/public',
           type: 'Library',
         }],
       });
+
+    const newDomain = await this.selectDomain(fqdn);
+    if (!newDomain) throw new Error(
+      `BUG: Newly-created domain ${fqdn} couldn't immediately load`);
+    return newDomain;
   }
 
   // Libraries
@@ -128,15 +160,16 @@ exports.FireContext = class FireContext {
     return profileDoc.data();
   }
 
-  async createTreeLibrary(name, owner, access) {
-    return await this
+  async createTreeLibrary(fields) {
+    const doc = await this
       .adminApp.firestore()
       .collection('libraries')
       .add({
         type: 'TreeLibrary',
         createdAt: new Date,
-        name, owner, access,
+        ...fields,
       });
+    return doc.id;
   }
 
   // Users
