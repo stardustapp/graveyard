@@ -3,12 +3,14 @@ exports.AsyncCache = class AsyncCache {
     loadFunc = false,
     keyFunc = false,
     cacheRejects = false,
+    cacheFalsey = true,
   }={}) {
     this.loadFunc = loadFunc || (input => {
       throw new Error(`LoaderCache wasn't provided a default loadFunc`);
     });
     this.keyFunc = keyFunc || (input => input);
-    this.cacheRejects = false;
+    this.cacheRejects = cacheRejects;
+    this.cacheFalsey = cacheFalsey;
 
     this.entities = new Map;
     this.promises = new Map;
@@ -66,6 +68,8 @@ exports.AsyncCache = class AsyncCache {
 
   // replace a key with specific value or promise
   set(key, value) {
+    if (key == null) throw new Error(
+      `BUG: AsyncCache can't set nullish key`);
     if (typeof key !== 'string')
       key = this.keyFunc(key);
 
@@ -74,7 +78,7 @@ exports.AsyncCache = class AsyncCache {
 
     if (value != null && typeof value.then === 'function')
       this.promises.set(key, value);
-    else
+    else if (value != null || this.cacheFalsey)
       this.entities.set(key, value);
   }
 
