@@ -40,7 +40,7 @@ exports.DoorwaySite = class DoorwaySite {
     // dynamic gated pages
     this.koa.use(route.get('/home', ctx => new GateSiteHome(this).get(ctx)));
     // this.koa.use(route.get('/ftue', ctx => new GateSiteFtue(this).get(ctx)));
-    // this.koa.use(route.get('/add-domain', ctx => new GateSiteAddDomain(this).get(ctx)));
+    this.koa.use(route.get('/add-domain', ctx => new GateSiteAddDomain(this).get(ctx)));
     this.koa.use(route.get('/create-password', ctx => new GateSiteCreatePassword(this).get(ctx)));
     this.koa.use(route.post('/create-password', ctx => new GateSiteCreatePassword(this).post(ctx)));
     this.koa.use(route.get('/logout', ctx => new GateSiteLogout(this).get(ctx)));
@@ -243,6 +243,17 @@ class GateSiteHome {
       handleListing = commonTags.safeHtml`<li>None yet</li>`;
     }
 
+    const domains = [];//await this.site.contextManager.getMembershipsFor(account);
+    let domainListing = domains.map(m => commonTags.safeHtml`
+      <li>
+        <a href="my-domains/${m.domain.record.did}">${m.domain.record.primaryFqdn}</a>
+        (${m.role})
+      </li>
+    `).join('\n');
+    if (!domains.length) {
+      domainListing = commonTags.safeHtml`<li>None yet</li>`;
+    }
+
     return sendGatePage(ctx, `home | ${ctx.state.domain.domainId}`, commonTags.html`
       <section class="compact modal-form">
         ${userRecord.providerData.length === 0 ? commonTags.safeHtml`
@@ -267,6 +278,14 @@ class GateSiteHome {
         </ul>
         <a href="register" class="action">Register new handle</a>
       </section>
+
+      <section class="compact modal-form">
+        <h2>Your domains</h2>
+        <ul style="text-align: left;">
+          ${domainListing}
+        </ul>
+        <a href="add-domain" class="action">Add new domain</a>
+      </section>
     `);
   }
 }
@@ -281,17 +300,6 @@ class GateSiteHandle {
       return ctx.redirect(ctx.request.origin+'/~/login');
     }
     const {aud, uid, email, firebase} = ctx.state.claims;
-
-    const memberships = [];//await this.site.contextManager.getMembershipsFor(account);
-    let domainListing = memberships.map(m => commonTags.safeHtml`
-      <li>
-        <a href="my-domains/${m.domain.record.did}">${m.domain.record.primaryFqdn}</a>
-        (${m.role})
-      </li>
-    `).join('\n');
-    if (!memberships.length) {
-      domainListing = commonTags.safeHtml`<li>None yet</li>`;
-    }
 
     const apps = [];//await this.site.packageManager.getInstalledApps(account);
     let appListing = apps.map(app => commonTags.safeHtml`
@@ -324,14 +332,6 @@ class GateSiteHandle {
         <a href="install-app" class="action">
           Install application
         </a>
-      </section>
-
-      <section class="compact modal-form">
-        <h2>Your domains</h2>
-        <ul style="text-align: left;">
-          ${domainListing}
-        </ul>
-        <a href="add-domain" class="action">Add new domain</a>
       </section>
     `);
   }
@@ -419,45 +419,41 @@ class GateSiteCreatePassword {
   }
 }
 
-// class GateSiteAddDomain {
-//   constructor(site) {
-//     this.site = site;
-//   }
-//
-//   renderForm(request) {
-//     if (!request.session) {
-//       return ctx.redirect(ctx.request.origin+'/~/login');
-//     }
-//
-//     return sendGatePage(ctx, `add domain | ${ctx.state.domain.domainId}`, commonTags.safeHtml`
-//       <form method="post" class="modal-form">
-//         <h1>add new domain</h1>
-//         <div class="row">
-//           <label for="owner" style="margin: 0 0 0 2em;">owner</label>
-//           <input type="text" name="owner" disabled value="${request.session.account.address()}"
-//               style="width: 12em;">
-//         </div>
-//         <input type="text" name="fqdn" placeholder="domain name (as in DNS)" required autofocus>
-//         <button type="submit">add domain to handle</button>
-//       </form>`);
-//   }
-//
-//   get(ctx) {
-//     return this.renderForm(ctx);
-//   }
-//   async post(ctx) {
-//     console.log('add domain', ctx.request.body);
-//     const {fqdn} = ctx.request.body;
-//     if (!fqdn) {
-//       return this.renderForm(request);
-//     }
-//
-//     const domain = await this.site.contextManager
-//         .registerDomain(fqdn, request.session.account);
-//
-//     return ctx.redirect(ctx.request.origin+'/~/my-domains/'+domain.record.did);
-//   }
-// }
+class GateSiteAddDomain {
+  constructor(site) {
+    this.site = site;
+  }
+
+  get(ctx) {
+    if (!ctx.state.claims) {
+      return ctx.redirect(ctx.request.origin+'/~/login');
+    }
+
+    return sendGatePage(ctx, `add domain | ${ctx.state.domain.domainId}`, commonTags.safeHtml`
+      <form method="post" class="modal-form">
+        <h1>add new domain</h1>
+        <div>
+          <p>After adding a domain to this server, you will have to add a DNS record to prove ownership.</p>
+          <p>The first user to successfully add the relevant DNS record will be given access to the new domain root.</p>
+        </div>
+        <input type="text" name="fqdn" placeholder="domain name (as in DNS)" required autofocus>
+        <button type="submit">add domain to handle</button>
+      </form>`);
+  }
+
+  async post(ctx) {
+    console.log('add domain', ctx.request.body);
+    const {fqdn} = ctx.request.body;
+    if (!fqdn) {
+      return this.renderForm(request);
+    }
+
+    const domain = await this.site.contextManager
+        .registerDomain(fqdn, request.session.account);
+
+    return ctx.redirect(ctx.request.origin+'/~/my-domains/'+domain.record.did);
+  }
+}
 
 // class GateSiteManageDomain {
 //   constructor(site, domainId) {

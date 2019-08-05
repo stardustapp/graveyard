@@ -64,9 +64,19 @@ exports.FireContext = class FireContext {
   // Domains
 
   async bootstrap() {
-    let localhost = await this.selectDomain('localhost');
+    const rootUid = process.env.DUST_ROOT_UID;
+    const selfFqdn = process.env.DUST_SELF_FQDN || 'localhost';
+
+    let localhost = await this.selectDomain(selfFqdn);
     if (!localhost) {
-      localhost = await this.createDomain('localhost', null);
+      if (rootUid) {
+        await this.markUserSeen(rootUid);
+        localhost = await this.createDomain(selfFqdn, null);
+        await localhost.claimRootAsUser(rootUid);
+      } else {
+        console.error(`Local domain ${selfFqdn} not found, please set DUST_ROOT_UID and rerun`);
+        process.exit(4);
+      }
     }
     console.log('have localhost:', localhost.snapshot);
   }
@@ -98,14 +108,13 @@ exports.FireContext = class FireContext {
       .doc(domainId);
   }
 
-  async createDomain(fqdn, uid=null) {
+  async createDomain(fqdn) {
     const owner = {
-      uid,
       domainId: fqdn,
       handleId: 'root',
     };
 
-    console.log('Registering new domain with FQDN', fqdn, 'belonging to', uid);
+    console.log('Registering new domain with FQDN', fqdn);
     await this
       .adminApp.firestore()
       .collection('domains')
@@ -144,6 +153,7 @@ exports.FireContext = class FireContext {
     const newDomain = await this.selectDomain(fqdn);
     if (!newDomain) throw new Error(
       `BUG: Newly-created domain ${fqdn} couldn't immediately load`);
+
     return newDomain;
   }
 

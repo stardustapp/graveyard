@@ -100,7 +100,7 @@ exports.FirestoreDomain = class FirestoreDomain extends FirestoreMap {
     };
   }
 
-  async registerHandle({handle, uid, contactEmail, displayName}) {
+  async registerHandle({handle, uid, contactEmail, displayName, extraDevices=[]}) {
     // if (fqdn !== this.fqdn) throw new Error(
     //   `received fqdn ${fqdn} but this domain is ${this.fqdn}`);
     if (typeof handle !== 'string') throw new Error(
@@ -203,6 +203,7 @@ exports.FirestoreDomain = class FirestoreDomain extends FirestoreMap {
           { path: '/public', type: 'Library', libraryId: publicRef.id },
           // {path: '/system/chart-name', type: 'String', value: 'todo'},
           // {path: '/system/user-id', type: 'String', value: uid},
+          ...extraDevices,
         ],
       });
     });
@@ -251,4 +252,46 @@ exports.FirestoreDomain = class FirestoreDomain extends FirestoreMap {
   //
   //   return new DustProfile(this, profileId, metadata);
   // }
+
+  async claimRootAsUser(uid, {contactEmail, displayName}={}) {
+    console.log('Domain', this.domainId, 'getting claimed by', uid, '!');
+    const domainSnap = await this.rootRef.get();
+    if (!domainSnap.get('access').includes('unclaimed')) throw new Error(
+      `Domain ${this.domainId} is not unclaimed, cannot claim it`);
+    const domainDevices = domainSnap.get('devices');
+
+    console.log('assigning libraries', domainDevices, 'to', uid, '...');
+    for (const device of domainDevices) {
+      if (device.type !== 'Library') continue;
+      await this.context
+        .adminApp.firestore()
+        .collection('libraries')
+        .doc(device.libraryId)
+        .update({
+          'owner.uid': uid,
+        });
+    }
+
+    console.log('Claiming domain', this.domainId);
+    await this.rootRef.update({
+      claimedAt: new Date,
+      access: ['owned', 'invite-only'],
+      verifications: null,
+      'owner.uid': uid,
+    });
+
+    console.log('Creating root handle for', this.domainId);
+    await this.registerHandle({
+      handle: 'root',
+      uid,
+      contactEmail: contactEmail || 'root@'+this.domainId,
+      displayName: displayName || 'Domain Administrator',
+      extraDevices: domainDevices.map(x => {
+        const {path, ...others} = x;
+        return {path: '/domain'+path, ...others};
+      }),
+    });
+
+    console.log('Domain', this.domainId, 'is now claimed.');
+  }
 };
