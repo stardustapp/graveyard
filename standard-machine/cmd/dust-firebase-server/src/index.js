@@ -21,7 +21,6 @@ const {ExportSite} = require('./export-site.js');
       return unclaimedMiddleware(ctx, () => {});
     }
     return next();
-    // console.log('domain:', .snapshot);
   });
 
   //web.mountStatic('/~/doorway', join(__dirname, '..', 'web', 'doorway'));
@@ -31,9 +30,29 @@ const {ExportSite} = require('./export-site.js');
   // web.mountStatic('/~/handle/:handle/panel', join(__dirname, '..', 'web', 'panel'));
 
   web.mountApp('/~', new DoorwaySite(firebase));
-  web.mountApp('/', new DefaultSite(firebase));
   web.mountApp('/~~export', new ExportSite(firebase));
   web.mountStatic('/~~vendor', join(__dirname, '..', 'web', 'vendor'));
+
+  web.koa.use(async (ctx, next) => {
+    const entry = await ctx.state.domain.findWebEntry(ctx);
+    if (entry) {
+      // console.log({entry});
+      switch (entry.Type) {
+        case 'Blob':
+          ctx.set('content-type', entry.Mime);
+          ctx.body = Buffer.from(entry.Data, 'base64');
+          return;
+        case 'String':
+          ctx.redirect(entry.StringValue);
+          return;
+        default:
+          ctx.throw(500, `Tried serving weird entry Type ${entry.Type}`);
+      }
+    }
+
+    web.mountApp('/', new DefaultSite(firebase));
+    return next();
+  });
 
   console.log('App listening on', await web.listen(9239));
 
