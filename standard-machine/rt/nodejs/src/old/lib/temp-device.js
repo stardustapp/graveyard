@@ -1,36 +1,42 @@
-exports.TempDevice = class TempDevice {
+const {Environment} = require('./../core/environment.js');
+
+exports.TempDevice = class TempDevice extends Environment {
   constructor(opts) {
-    this.entries = new Map();
+    super('tmp:');
   }
 
-  getEntry(path) {
-    return new TempEntry(this, path);
+  async getEntry(path) {
+    return new TempEntry(this, path, await super.getEntry(path));
   }
 }
 
 class TempEntry {
-  constructor(mount, path) {
+  constructor(mount, path, upperEnv) {
     this.mount = mount;
     this.path = path;
+    this.upperEnv = upperEnv;
   }
 
   async get() {
-    const entry = this.mount.entries.get(this.path);
-    if (!entry) return null;
-    if (entry.Type) return entry;
-    if (entry.get) return entry.get();
-    throw new Error(`get() called but wasn't a gettable thing`);
+    if (this.upperEnv)
+      return this.upperEnv.get();
   }
 
   async invoke(input) {
-    const entry = this.mount.entries.get(this.path);
-    if (!entry) return null;
-    if (entry.invoke) return entry.invoke(input);
-    throw new Error(`get() called but wasn't a gettable thing`);
+    if (this.upperEnv)
+      return this.upperEnv.invoke(input);
+  }
+
+  async enumerate(enumer) {
+    if (this.upperEnv)
+      return this.upperEnv.enumerate(enumer);
   }
 
   async put(value) {
+    if (this.path.length>1 && this.upperEnv)
+      return this.upperEnv.put(value);
+
     console.log('putting', this.path, value);
-    return this.mount.entries.set(this.path, value);
+    return this.mount.bind(this.path, value);
   }
 }

@@ -1,3 +1,4 @@
+const util = require('util');
 const {FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral}
   = require('./api-entries.js');
 const {PathFragment} = require('../lib/path-fragment.js');
@@ -151,7 +152,7 @@ Environment = class Environment {
     return entry;
   }
 
-  inspect() {
+  [util.inspect.custom]() {
     const mountNames = new Array();
     this.devices.forEach((_, key) => mountNames.push(key));
     return `<Environment [${mountNames.join(' ')}]>`;

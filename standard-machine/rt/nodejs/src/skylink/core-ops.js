@@ -106,8 +106,7 @@ SKYLINK_CORE_OPS.set('subscribe', async function subscribe(request) {
 });
 
 SKYLINK_CORE_OPS.set('invoke', async function invoke(request) {
-  const {Path, Dest} = request;
-  const Input = request.Input; // InflateSkylinkLiteral(request.Input);
+  const {Path, Dest, Input} = request;
 
   var entry = await this.env.getEntry(Path);
   var output;
@@ -120,16 +119,17 @@ SKYLINK_CORE_OPS.set('invoke', async function invoke(request) {
   }
 
   // if Dest, store the rich output in the tree
+  if (!output) return null;
   if (Dest) {
     var outEntry = await this.env.getEntry(Dest);
     if (!outEntry) {
       throw new Error(`Dest path not found: ${Dest}`);
     } else if (outEntry.put) {
       await outEntry.put(output);
-    } else if (outEntry) {
+      return;
+    } else {
       throw new Error(`Dest entry at ${Dest} isn't puttable`);
     }
-    return;
   } else if (output.get) {
     // otherwise just return a flattened output
     return await output.get();
