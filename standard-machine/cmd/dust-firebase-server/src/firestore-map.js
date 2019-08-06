@@ -45,7 +45,7 @@ exports.FirestoreMap = class FirestoreMap {
     try {
 
       if (!firstSnap) throw new Error(
-        `Handle '${handleId}' not found, cannot load`);
+        `Map '${reference.path}' not found, cannot load`);
 
       console.log('loading', firstSnap.type, 'map');
       await this.applyData(firstSnap);

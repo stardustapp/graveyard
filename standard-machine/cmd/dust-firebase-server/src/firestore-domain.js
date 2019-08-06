@@ -102,7 +102,7 @@ exports.FirestoreDomain = class FirestoreDomain extends FirestoreMap {
       expiresAt: new Date(+now + (1/*days*/ * 24 * 60 * 60 * 1000)),
       devices: [
         {
-          path: '/data',
+          path: '/mnt',
           type: 'Handle',
           domainId: this.domainId,
           handleId: handle.id,

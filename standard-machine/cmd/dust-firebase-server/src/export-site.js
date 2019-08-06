@@ -2,6 +2,7 @@ const Koa = require('koa');
 const route = require('koa-route');
 const commonTags = require('common-tags');
 const websockify = require('koa-websocket');
+const bodyParser = require('koa-bodyparser');
 
 const {
   FolderLiteral, StringLiteral, BlobLiteral, InflateSkylinkLiteral,
@@ -43,24 +44,21 @@ exports.ExportSite = class ExportSite {
     const websockify = require('koa-websocket');
     this.koa = websockify(new Koa());
 
-    this.koa.use(route.post('/', async ctx => {
-      console.log('export POST:', ctx.request.body);
+    this.koa.use(route.get('/ping', async ctx => {
+      ctx.response.body = 'ok';
+    }));
 
+    this.koa.use(bodyParser({
+       enableTypes: ['json']
+    }));
+
+    this.koa.use(route.post('/', async ctx => {
+      // console.log('export POST:', ctx.request.body);
       const publicEnv = await this.domainEnvCache.get(ctx.state.domain);
       const skylinkServer = new SkylinkServer(publicEnv);
 
-      let body = null;
-      try {
-        // Parse up the submitted JSON
-        body = JSON.parse(ctx.request.body);
-      } catch (err) {
-        ctx.throw(400, `Couldn't parse JSON from your POST body`);
-      }
+      const {body} = ctx.request;
       ctx.response.body = await skylinkServer.processFrame(body);
-    }));
-
-    this.koa.use(route.get('/ping', async ctx => {
-      ctx.response.body = 'ok';
     }));
 
     this.koa.ws.use(route.all('/ws', async (ctx) => {
