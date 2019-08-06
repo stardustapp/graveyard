@@ -80,15 +80,34 @@ exports.ExportSite = class ExportSite {
     publicEnv.bind('/sessions', sessionEnv);
 
     // legacy 'skychart' api
-    publicEnv.mount('/open', 'function', {invoke(input) {
-      const email = input.StringValue;
+    publicEnv.mount('/open', 'function', {async invoke(username) {
       const chart = new Environment;
-      chart.mount('/owner-name', 'literal', {string: 'todo'});
-      chart.mount('/owner-email', 'literal', {string: 'todo'});
-      chart.mount('/home-domain', 'literal', {string: 'todo'});
-      // chart.mount('/open', 'function', {invoke(input) {
-      //   console.log({input});
-      // }});
+      const handle = await domain.fetchHandleSnap(username.StringValue);
+
+      if (!handle.uid) throw new Error(
+        `Handle is not available for authentication!`);
+
+      chart.mount('/owner-name', 'literal', {string: handle.metadata.displayName}); // also createdAt
+      chart.mount('/owner-email', 'literal', {string: 'todo (private?)'});
+      chart.mount('/home-domain', 'literal', {string: domain.fqdn});
+      chart.mount('/launch', 'function', {async invoke(secret) {
+        // console.log({secret});
+        const profile = await domain.context.getUserProfile(handle.uid);
+        const {email, disabled} = profile;
+        // console.log({email, secret})
+        if (!email || disabled) throw new Error(
+          `Handle is not available for authentication!!`);
+
+        const newUid = await domain.context.resolveUserFromEmailPassword(email, secret.StringValue);
+        if (newUid !== handle.uid) throw new Error(
+          `BUG: UIDs got mismatched, refusing to sign in. ${newUid} != ${handle.uid}`);
+
+        const session = await domain.createHandleSession(handle.handle.toLowerCase(), {
+          lifetime: 'short',
+          client: 'export-site chart launch of ~'+username.StringValue,
+        });
+        return {Type: 'String', Name: 'session-id', StringValue: session.sessionId};
+      }});
       return chart;
     }});
 

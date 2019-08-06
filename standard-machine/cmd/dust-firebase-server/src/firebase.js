@@ -78,7 +78,7 @@ exports.FireContext = class FireContext {
         process.exit(4);
       }
     }
-    console.log('have localhost:', localhost.snapshot);
+    // console.log('have localhost:', localhost.snapshot);
   }
 
   selectDomain(fqdn) {
@@ -252,6 +252,17 @@ exports.FireContext = class FireContext {
     const app = firebase.initializeApp(firebaseConfig);
     app.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
     return app;
+  }
+
+  async resolveUserFromEmailPassword(email, password) {
+    const clientApp = this.spawnClientApp();
+    try {
+      const {user} = await clientApp.auth()
+        .signInWithEmailAndPassword(email, password);
+      return user.uid;
+    } finally {
+      await clientApp.delete();
+    }
   }
 
   async logInUserPassword(email, password) {

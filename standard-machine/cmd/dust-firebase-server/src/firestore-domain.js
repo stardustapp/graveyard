@@ -90,14 +90,53 @@ exports.FirestoreDomain = class FirestoreDomain extends FirestoreMap {
     }
   }
 
+  async createHandleSession(handleIn, metadata={}) {
+    const handle = await this.refHandle(handleIn.toLowerCase()).get();
+
+    const now = new Date;
+    const session = await this.createSession({
+      type: 'HandleSession',
+      handle: handle.id,
+      metadata,
+      createdAt: now,
+      expiresAt: new Date(+now + (1/*days*/ * 24 * 60 * 60 * 1000)),
+      devices: [
+        {
+          path: '/data',
+          type: 'Handle',
+          domainId: this.domainId,
+          handleId: handle.id,
+        },
+        {path: '/system/chart-name', type: 'String', value: handle.get('handle')},
+        {path: '/system/user-id', type: 'String', value: handle.get('uid')},
+      ],
+    });
+
+    return {
+      ...session,
+      metadata: {
+        homeDomain: this.domainId,
+        chartName: handle.get('handle'),
+        ownerName: handle.get('metadata.displayName'),
+        ownerEmail: handle.get('metadata.contactEmail'),
+      },
+    }
+  }
+
   async createSession(data) {
     const sessionRef = await this.rootRef
       .collection('sessions')
       .add(data);
     return {
-      //sessionId: sessionRef.id,
+      sessionId: sessionRef.id,
       sessionPath: '/pub/sessions/' + sessionRef.id,
     };
+  }
+
+  async fetchHandleSnap(handle) {
+    const handleSnap = await this.refHandle(handle.toLowerCase()).get();
+    if (!handleSnap.exists) throw new Error(`Handle ${handle} not found on this domain`);
+    return handleSnap.data();
   }
 
   async registerHandle({handle, uid, contactEmail, displayName, extraDevices=[]}) {

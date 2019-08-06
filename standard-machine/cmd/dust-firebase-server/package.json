@@ -10,7 +10,7 @@
   "homepage": "https://github.com/stardustapp/standard-machine/tree/master/cmd/dust-firebase-server",
   "license": "MIT",
   "dependencies": {
-    "@dustjs/standard-machine-rt": "^0.1.1",
+    "@dustjs/standard-machine-rt": "^0.1.2",
     "common-tags": "^1.8.0",
     "firebase": "^6.3.0",
     "firebase-admin": "^8.2.0",
