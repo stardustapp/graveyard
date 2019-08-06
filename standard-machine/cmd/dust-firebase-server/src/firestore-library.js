@@ -99,8 +99,8 @@ exports.FirestoreLibrary = class FirestoreLibrary {
           `Blob Data is required, even if it's empty`);
 
         const buffer = Buffer.from(entry.Data, 'base64');
-        if (buffer.length > 10*1024) throw new Error(
-          `TODO: The maximum Blog size is currently 10KiB`);
+        if (buffer.length > 25*1024) throw new Error(
+          `TODO: The maximum Blob size is currently 25KiB`);
 
         docData = {
           type: 'Blob',
