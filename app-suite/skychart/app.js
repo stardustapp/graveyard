@@ -426,6 +426,7 @@ const ManageChart = Vue.component('manage-chart', {
         // TODO: only if dirty
         alert(`Finish your current edit before starting a new one`);
       } else {
+        console.log('Editing', entry);
         this.editing = entry;
       }
     },
