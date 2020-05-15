@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: push-dust-server
+  labels:
+    purpose: build
+spec:
+  ttlSecondsAfterFinished: 30
+  template:
+    spec:
+      containers:
+      - name: docker
+        image: gcr.io/stardust-156404/build-shell:latest
+        securityContext:
+          privileged: true
+        args:
+        - bash
+        - -exc
+        - |
+          dockerd --host=unix:///var/run/docker.sock &
+          git clone https://github.com/stardustapp/dust-server
+          cd dust-server
+          git checkout component-loading
+          GitHash="$(git describe --always --long --dirty)"
+          Image="gcr.io/stardust-156404/dust-server"
+          GitImage="$Image:$GitHash"
+          docker build --build-arg GitHash="$GitHash" -t "$GitImage" .
+          docker push "$GitImage"
+          docker tag "$GitImage" "$Image:latest"
+          docker push "$Image:latest"
+          kubectl set image deployment.v1.apps/dust-server dust-server="$GitImage"
+          kubectl delete job push-dust-server
+      restartPolicy: Never
+      nodeSelector:
+        purpose: build
+      tolerations:
+      - key: cloud.google.com/gke-preemptible
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+  backoffLimit: 1

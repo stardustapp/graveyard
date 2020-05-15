@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: push-build-image
+  labels:
+    purpose: build
+spec:
+  ttlSecondsAfterFinished: 30
+  template:
+    spec:
+      containers:
+      - name: docker
+        image: gcr.io/stardust-156404/build-shell:latest
+        securityContext:
+          privileged: true
+        args:
+        - bash
+        - -exc
+        - |
+          dockerd --host=unix:///var/run/docker.sock &
+          git clone https://github.com/stardustapp/dust-server
+          cd dust-server/gke/build-shell
+          docker build -t gcr.io/stardust-156404/build-shell:latest .
+          docker push gcr.io/stardust-156404/build-shell
+          kubectl delete job push-build-shell
+      restartPolicy: Never
+      nodeSelector:
+        purpose: build
+      tolerations:
+      - key: cloud.google.com/gke-preemptible
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+  backoffLimit: 1

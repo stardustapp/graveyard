@@ -1,0 +1,132 @@
+body {
+  background-color: #333;
+  color: #fff;
+  margin: 0;
+  padding: 0 2em;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  -webkit-app-region: drag;
+}
+body, input, select, button {
+  font-family: monospace;
+}
+#action-col h1 {
+  margin: 0.3em 1em;
+  color: #999;
+}
+section {
+  font-size: 1.3em;
+  margin: 1em;
+  padding: 1em;
+  background-color: rgba(200, 200, 200, 0.3);
+  -webkit-app-region: no-drag;
+}
+input, textarea {
+  box-sizing: border-box;
+  background-color: #222;
+  color: #fff;
+  font-size: 1em;
+  padding: 0.3em 0.5em;
+  border: 1px solid #999;
+  overflow-y: hidden;
+}
+input[readonly], textarea[readonly] {
+  border-width: 0;
+  background-color: #555;
+  font-family: inherit;
+  color: #fff;
+}
+button {
+  background-color: #444;
+  color: #fff;
+  font-size: 0.9em;
+  border: 1px solid #666;
+  padding: 0.2em 0.7em;
+  margin-top: 0.3em;
+  text-align: left;
+  flex: 1;
+}
+.multi-button {
+  display: flex;
+}
+.multi-button .alt-button {
+  flex: 0 1;
+}
+
+@media (min-width: 800px) {
+  #app {
+    display: flex;
+    flex: 1;
+    -webkit-app-region: drag;
+  }
+  #action-col {
+    flex-basis: 30em;
+    overflow-y: auto;
+    padding: 2em 0;
+  }
+  #history-col {
+    flex-basis: 50em;
+    flex: 1;
+    overflow-y: scroll;
+    padding-top: 5em;
+  }
+}
+
+h3 {
+  margin: 0.2em 0 0.4em;
+}
+h3:not(:first-child) {
+  padding-top: 1.2em;
+}
+h4 {
+  margin: 0em 0 0.2em;
+}
+.get-attribute {
+  display: flex;
+  flex-direction: column;
+}
+.entry textarea {
+  width: 100%;
+  resize: vertical;
+}
+.error-msg {
+  color: #f33 !important;
+}
+a {
+  color: #ccc;
+}
+
+ul.actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+
+button:hover {
+  border-color: #fff;
+}
+[data-query="restart"]:hover {
+  background-color: #f33;
+}
+
+.intro #brand-icon {
+  float: right;
+}
+.intro h1 {
+  font-size: 2.3em;
+  margin: 0;
+}
+.intro h2 {
+  font-size: 1.4em;
+  margin: 0;
+}
+.intro p {
+  font-size: 1em;
+  margin: 0.5 0;
+}
+.intro hgroup {
+  margin: 1em 0;
+}

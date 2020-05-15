@@ -1,0 +1,8 @@
+profiles/
+*.zip
+*.crx
+test-db/
+*.touch
+RAMBLINGS.md
+*.diff
+node_modules

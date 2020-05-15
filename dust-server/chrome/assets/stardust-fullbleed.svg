@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   viewBox="0 0 500 500"
+   class="star-icon"
+   id="svg3870"
+   version="1.1"
+   inkscape:version="0.48.4 r9939"
+   width="100%"
+   height="100%"
+   sodipodi:docname="stardust.svg"
+   inkscape:export-filename="/home/daniel/Downloads/stardust-16.png"
+   inkscape:export-xdpi="2.8800001"
+   inkscape:export-ydpi="2.8800001">
+  <metadata
+     id="metadata3882">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs3880" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1506"
+     inkscape:window-height="999"
+     id="namedview3878"
+     showgrid="false"
+     inkscape:zoom="1.3350176"
+     inkscape:cx="198.49985"
+     inkscape:cy="267.72339"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg3870" />
+  <rect
+     style="color:#000000;fill:#e5f1ea;fill-opacity:1;stroke:none;stroke-width:1;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+     id="rect3889"
+     width="500"
+     height="500"
+     x="0"
+     y="1.4210855e-14"
+     rx="0"
+     ry="0" />
+  <g
+     id="g3884"
+     transform="matrix(0.88675005,0,0,0.88675005,28.386687,27.807609)"
+     style="fill:#689384;fill-opacity:1">
+    <path
+       id="path3872"
+       transform="matrix(0.894426,-0.447216,0.447216,0.894426,-131.26448,91.127755)"
+       d="m 194.62,148.583 42.485,122.224 129.37,2.636 -103.113,78.175 37.47,123.853 -106.212,-73.909 -106.212,73.909 37.47,-123.853 -103.113,-78.175 129.37,-2.636 z"
+       inkscape:connector-curvature="0"
+       style="fill:#689384;fill-opacity:1" />
+    <path
+       id="path3874"
+       transform="matrix(0.125241,-0.992126,0.992127,0.125242,-47.915505,226.02472)"
+       d="m 194.62,268.243 14.351,41.286 43.701,0.891 -34.831,26.407 12.657,41.837 -35.878,-24.966 -35.878,24.966 12.657,-41.837 -34.831,-26.407 43.701,-0.891 z"
+       inkscape:connector-curvature="0"
+       style="fill:#689384;fill-opacity:1" />
+    <path
+       id="path3876"
+       transform="matrix(0.741254,-0.671224,0.671224,0.741255,43.802714,125.86345)"
+       d="m 194.62,246.688 19.419,55.866 59.133,1.205 -47.131,35.732 17.127,56.611 -48.548,-33.782 -48.548,33.782 17.127,-56.611 -47.131,-35.732 59.133,-1.205 z"
+       inkscape:connector-curvature="0"
+       style="fill:#689384;fill-opacity:1" />
+  </g>
+</svg>

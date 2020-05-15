@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dust-server
+  labels:
+    app: dust-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dust-server
+  template:
+    metadata:
+      labels:
+        app: dust-server
+        revision: "3"
+    spec:
+      containers:
+      - name: dust-server
+        image: gcr.io/stardust-156404/dust-server:latest
+        args:
+        - node
+        - nodejs
+        - serve
+        ports:
+        - containerPort: 9238
+        resources:
+          requests:
+            cpu: 25m
+            memory: 25Mi
+          limits:
+            cpu: 1500m
+            memory: 75Mi
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9238
+            httpHeaders:
+            - name: Host
+              value: healthcheck
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9238
+            httpHeaders:
+            - name: Host
+              value: healthcheck
+          initialDelaySeconds: 5
+          periodSeconds: 60
+        volumeMounts:
+        - name: connections
+          readOnly: true
+          mountPath: /app/config/connections
+        - name: daemons
+          readOnly: true
+          mountPath: /app/config/daemons
+        - name: services
+          readOnly: true
+          mountPath: /app/config/services
+      volumes:
+      - name: connections
+        secret:
+          secretName: dust-connections
+      - name: daemons
+        configMap:
+          name: dust-daemons
+      - name: services
+        configMap:
+          name: dust-services
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dust-server
+spec:
+  type: NodePort
+  selector:
+    app: dust-server
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 9238

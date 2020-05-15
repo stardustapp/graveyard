@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: apachebench-dust
+  labels:
+    purpose: loadtest
+spec:
+  ttlSecondsAfterFinished: 30
+  template:
+    spec:
+      containers:
+      - name: ab
+        image: devth/alpine-bench
+        args:
+        - -n
+        - '100'
+        - -c
+        - '5'
+        - -k
+        - http://dust-server.default.svc.cluster.local/healthz
+        resources:
+          requests:
+            cpu: 500m
+            memory: 50Mi
+          limits:
+            cpu: 1000m
+            memory: 100Mi
+      restartPolicy: Never
+      tolerations:
+      - key: cloud.google.com/gke-preemptible
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+  backoffLimit: 0
