@@ -1,0 +1,68 @@
+<!doctype html>
+<title>Deluge Remote</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,400,700|Material+Icons" rel="stylesheet">
+<link href="/~system/lib/vue-app.css" type="text/css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="x-stardust-appid" content="deluge">
+
+<script type="text/x-template" id="torrent-list">
+  <ul>
+    <torrent-entry v-for="torrent in torrents"
+                   :key="torrent.hash"
+                   :data="torrent"
+                 />
+  </ul>
+</script>
+
+<script type="text/x-template" id="torrent-entry">
+  <li>
+      <i class="material-icons start-btn"
+         v-if="data.state === 'Paused'"
+         @click.stop="startTorrent"
+         title="start torrent">play_arrow</i>
+      <i class="material-icons start-btn"
+         v-if="data.isFinished === 'true'"
+         @click.stop="downloadTorrent"
+         title="download torrent files">file_download</i>
+      {{data.torrentName}}
+  </li>
+</script>
+
+<!--
+  "file_priorities": [
+    1
+  ],
+  "add_paused": true,
+  "compact_allocation": false,
+  "download_location": "/incomplete-downloads/~dan",
+  "move_completed": false,
+  "move_completed_path": "/root/Downloads",
+  "max_connections": -1,
+  "max_download_speed": -1,
+  "max_upload_slots": -1,
+  "max_upload_speed": -1,
+  "prioritize_first_last_pieces": false
+-->
+
+<div id="app">
+  <!-- render top bar w/ connection state and current user -->
+  <sky-session></sky-session>
+
+  <h1>👨‍💻 devmode.cloud seedbox panel</h1>
+
+  <torrent-list></torrent-list>
+</div>
+
+<!-- external vendor libraries -->
+<script src="https://unpkg.com/vue"></script>
+
+<!-- kernel library + components -->
+<script src="/~system/js-core/combined.js"></script>
+
+<!-- app scripts and components -->
+<script src="app.js"></script>
+
+<!-- boot the app -->
+<script src="/~system/lib/vue-app.js"></script>

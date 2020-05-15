@@ -1,0 +1,252 @@
+<!doctype html>
+<title>Stardust App Designer</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="/~system/lib/vue-app.css" type="text/css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="x-stardust-appid" content="designer">
+
+<script type="text/x-template" id="driver-summary">
+<div class="driver-summary">
+  <h2><code>{{platform}}</code> driver: <code>{{id}}</code></h2>
+  <p>Functions</p>
+  <ul>
+    <function v-for="func in functions"
+        :key="id+'/'+func"
+        :driver="id"
+        :func="func"
+      ></function>
+    <li>
+      <button @click="newFunc">add func</button>
+    </li>
+  </ul>
+
+  <p>Shapes</p>
+  <ul>
+    <shape v-for="shape in shapes"
+        :key="id+'/'+shape"
+        :driver="id"
+        :shape="shape"
+      ></shape>
+    <li>
+      <button @click="newShape">add shape</button>
+    </li>
+  </ul>
+
+  <button v-if="hasEditor" @click="openDeps">edit dependencies</button>
+</div>
+</script>
+
+<script type="text/x-template" id="app-header">
+  <header class="app-header">
+    <sky-menu-toggle />
+
+    <h1>Starsystem Designer</h1>
+
+    <button @click="newDriver">new driver</button>
+    <button @click="exportDrivers">export all</button>
+    <!--button @click="importDrivers">import all drivers</button-->
+  </header>
+</script>
+
+<script type="text/x-template" id="function">
+  <li>
+    {{func}}
+
+    <button v-if="hasEditor" @click="openSource">edit source</button>
+
+    <select v-model="contextShape" @change="setShape('context')">
+      <option value="">no context</option>
+      <option
+          v-for="shape in shapes"
+          :key="shape"
+        >{{shape}}</option>
+    </select>
+    <select v-model="inputShape" @change="setShape('input')">
+      <option value="">no input</option>
+      <option
+          v-for="shape in shapes"
+          :key="shape"
+        >{{shape}}</option>
+      <option>String</option>
+      <option>Function</option>
+      <option>File</option>
+      <option>Channel</option>
+      <option>Folder</option>
+    </select>
+    <select v-model="outputShape" @change="setShape('output')">
+      <option value="">no output</option>
+      <option
+          v-for="shape in shapes"
+          :key="shape"
+        >{{shape}}</option>
+      <option>String</option>
+      <option>Function</option>
+      <option>File</option>
+      <option>Channel</option>
+      <option>Folder</option>
+    </select>
+
+    <i class="material-icons"
+        style="font-size: 1em;"
+        @click="remove"
+      >remove_circle</i>
+  </li>
+</script>
+
+<script type="text/x-template" id="shape">
+  <li>
+    {{shape}}
+
+    <i class="material-icons"
+        style="font-size: 1em;"
+        @click="remove"
+      >remove_circle</i>
+
+    <ul>
+      <shape-prop
+          v-for="prop in props"
+          :key="prop.name"
+          :driver="driver"
+          :shape="shape"
+          :prop="prop.name"
+        ></shape-prop>
+      <shape-prop
+          v-for="prop in nativeProps"
+          :key="prop.name"
+          :driver="driver"
+          :shape="shape"
+          :prop="prop.name"
+          :native="true"
+        ></shape-prop>
+      <li>
+        <button @click="newProp">add prop</button>
+        <button @click="newNativeProp">add native prop</button>
+      </li>
+    </ul>
+  </li>
+</script>
+
+<script type="text/x-template" id="shape-prop">
+  <li>
+    {{prop}}
+
+    <select
+        v-model="type"
+        v-if="!native"
+        @change="setType">
+      <option
+          v-for="shape in shapes"
+          :key="shape"
+        >{{shape}}</option>
+      <option>Folder</option>
+      <option>String</option>
+      <option>Function</option>
+      <option>File</option>
+      <option>Channel</option>
+    </select>
+
+    <input
+        type="text"
+        v-model="type"
+        v-if="native"
+        @change="setType"
+      />
+
+    <select
+        v-if="type === 'Function'"
+        v-model="target"
+        @change="setTarget">
+      <option value="">no target</option>
+      <option
+          v-for="func in functions"
+          :key="func"
+        >{{func}}</option>
+    </select>
+
+    <select
+        v-if="type === 'Folder'"
+        v-model="target"
+        @change="setTarget">
+      <option value="">no subtype</option>
+      <option
+          v-for="s in shapes"
+          :key="s"
+        >{{s}}</option>
+    </select>
+
+    <span
+        v-if="type !== 'Function'"
+      >
+      <input
+          type="checkbox"
+          v-model="optional"
+          @change="setOptional"
+        >Optional
+    </span>
+
+    <span
+        v-if="type === 'String'"
+      >
+      <input
+          type="checkbox"
+          v-model="reactive"
+          @change="setReactive"
+        >Reactive
+    </span>
+
+    <i class="material-icons"
+        style="font-size: 1em;"
+        @click="remove"
+      >remove_circle</i>
+  </li>
+</script>
+
+<div id="app">
+  <!-- render top bar w/ connection state and current user -->
+  <sky-session></sky-session>
+
+  <sky-side-menu :fixed-width="250">
+
+    <sky-foreach
+      el="ul"
+      class="driver-list"
+      path="state/native-drivers"
+      fields="platform"
+      :depth="1"
+      :filter="{platform: 'golang'}">
+    <h2 slot="header">
+      golang drivers
+    </h2>
+    <li slot="item" slot-scope="driver">
+      <router-link
+        :to="{name: 'driver-summary', params:{ id: driver._id }}"
+        @click.native="closeNav"
+        class="driver-link">
+        {{driver._id}}
+      </router-link>
+    </li>
+    </sky-foreach>
+
+  </sky-side-menu>
+
+  <section class="main-view">
+    <app-header></app-header>
+    <router-view></router-view>
+  </section>
+</div>
+
+<!-- external vendor libraries -->
+<script src="https://unpkg.com/vue"></script>
+<script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+
+<!-- kernel library + components -->
+<script src="/~system/js-core/combined.js"></script>
+
+<!-- app scripts and components -->
+<script src="app.js"></script>
+
+<!-- boot the app -->
+<script src="/~system/lib/vue-toolbox.js"></script>
+<script src="/~system/lib/vue-app.js"></script>

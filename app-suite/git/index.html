@@ -1,0 +1,89 @@
+<!doctype html>
+<title>Stargit</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="/~legacy/osfs/fonts/fira_code.css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<div id="app">
+  <h1>Git 'r dun</h1>
+  <p>
+    Git API path:
+    <input type="text" v-model="apiPath">
+  </p>
+
+  <p>
+    <i
+       class="material-icons"
+       @click="runStatus"
+       :class="{spin: running === 'status'}"
+     >refresh</i>
+    <i
+       class="material-icons"
+       @click="mode = 'commit'"
+       :class="{spin: running === 'commit'}"
+     >chat</i>
+    <i
+       class="material-icons"
+       @click="runPush"
+       :class="{spin: running === 'push'}"
+     >cloud_upload</i>
+    <i
+       class="material-icons"
+       @click="runPull"
+       :class="{spin: running === 'pull'}"
+     >cloud_download</i>
+  </p>
+
+  <commit v-if="mode === 'commit'"></commit>
+
+  <table v-if="mode === 'status'">
+    <tr v-for="file in status">
+      <td class="indicator">{{file.stage}}</td>
+      <td class="indicator">{{file.tree}}</td>
+      <td class="path">{{file.path}}</td>
+      <td class="actions">
+        <i
+           class="material-icons"
+           @click="addPath(file.path)"
+           :class="{spin: running === 'add '+file.path}"
+         >add</i>
+      </td>
+    </tr>
+  </table>
+
+  <pre>{{output}}</pre>
+</div>
+
+<script type="text/x-template" id="commit">
+  <form
+      class="pane"
+      @submit.prevent="submit"
+    >
+    <label>
+      Message:
+      <input type="text" v-model="message" required>
+    </label>
+    <label>
+      Author:
+      <input type="text" v-model="aName" required>
+    </label>
+    <label>
+      Email:
+      <input type="email" v-model="aEmail" required>
+    </label>
+    <label>
+      All changes:
+      <input type="checkbox" v-model="all">
+    </label>
+    <button type="submit">
+      Commit
+      <i class="material-icons"
+           :class="{spin: running}">send</i>
+    </button>
+  </form>
+</script>
+
+<script src="https://unpkg.com/vue"></script>
+<script src="/~system/js-core/combined.js"></script>
+<script src="app.js"></script>

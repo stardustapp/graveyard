@@ -1,0 +1,106 @@
+<!doctype html>
+<title>Stardust Launcher</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Slabo+27px|Material+Icons" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<div id="app">
+  <header class="top-bar">
+    <h1>devmode.cloud/</h1>
+    <h2>~{{chartName}}</h2>
+
+    <ul class="tab-bar">
+      <li v-for="tab in tabList" class="todo-tab"
+          :title="tab.key"
+          @click="activateTab(tab)"
+          :key="tab.key"
+          :class="{active: currentTab === tab, dirty: tab.dirty, untouched: tab.untouched}">
+        <i class="material-icons tree-icon">{{tab.icon}}</i>
+        <span class="label">{{tab.label}}</span>
+        <template v-if="currentTab === tab">
+          <i class="material-icons tree-icon nav-btn"
+             @click.stop="reloadApp(tab)"
+             title="refresh tab">refresh</i>
+          <i class="material-icons tree-icon nav-btn"
+             @click.stop="navigateBack(tab)"
+             title="navigate back">arrow_back</i>
+          <i class="material-icons tree-icon nav-btn"
+             @click.stop="navigateFwd(tab)"
+             title="navigate forward">arrow_forward</i>
+        </template>
+        <i class="material-icons tree-icon close-btn"
+           @click.stop="closeTab(tab)"
+           title="close tab">close</i>
+      </li>
+    </ul>
+  </header>
+
+  <component
+             v-for="tab in tabList"
+             v-show="tab === currentTab"
+             :key="tab.key"
+             :is="tab.type"
+             :tab="tab"
+             ref="tabElems">
+  </component>
+</div>
+
+<script type="text/x-template" id="iframe-tab">
+  <div id="iframe-pane">
+    <!--ul id="tool-bar">
+      <li @click="reloadApp">
+        <i class="material-icons">refresh</i>
+        <span class="label">refresh</span>
+      </li>
+      <li @click="navigateBack">
+        <i class="material-icons">arrow_back</i>
+        <span class="label">back</span>
+      </li>
+      <li @click="navigateFwd">
+        <i class="material-icons">arrow_forward</i>
+        <span class="label">fwd</span>
+      </li>
+      <li @click="closeApp">
+        <i class="material-icons">close</i>
+        <span class="label">close</span>
+      </li>
+    </ul-->
+
+    <iframe class="appframe" :src="runningApp" ref="appframe"></iframe>
+  </div>
+</script>
+
+<script type="text/x-template" id="launcher-tab">
+  <div class="launch-bg">
+    <div class="launch-box">
+      <h2>stardust launcher</h2>
+
+      <div class="app-container">
+        <h3 class="subh">recent applications</h3>
+        <div class="app-list">
+          <a class="app-launcher"
+              v-for="app in recentApps"
+              @click="activate(app)">
+            <img :src="app.iconUrl">
+            <h3>{{app.label}}</h3>
+          </a>
+        </div>
+
+        <h3 class="subh">available to run</h3>
+        <div class="app-list">
+          <a class="app-launcher"
+              v-for="app in otherApps"
+              @click="activate(app)">
+            <img :src="app.iconUrl">
+            <h3>{{app.label}}</h3>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</script>
+
+
+<script src="https://unpkg.com/vue"></script>
+<script src="/~system/js-core/combined.js"></script>
+<script src="app.js"></script>

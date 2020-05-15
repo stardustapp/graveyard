@@ -1,0 +1,44 @@
+body {
+  font-family: 'Roboto';
+  background-color: #320b86;
+  color: #fff;
+  text-align: center;
+}
+
+h1 {
+  font-weight: 400;
+}
+.big-icon {
+  font-size: 36px;
+}
+
+table {
+  display: inline-block;
+  background-color: #673ab7;
+}
+
+th {
+  font-weight: 400;
+  text-align: left;
+}
+
+td, th {
+  padding: 0.4em 1em;
+}
+
+pre {
+  text-align: left;
+}
+
+i {
+  cursor: pointer;
+}
+
+
+.building-icon {
+  animation: spin 4s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}

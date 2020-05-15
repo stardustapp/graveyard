@@ -1,0 +1,53 @@
+<!doctype html>
+<title>DMV - Stardust</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="/~legacy/osfs/fonts/fira_code.css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<div id="app">
+  <h1>
+    Driver Management V
+    <i
+       class="big-icon material-icons"
+       @click="buildAll"
+       :class="{'building-icon': buildingAll}"
+     >autorenew</i>
+  </h1>
+
+  <driver-list ref="list"></driver-list>
+  <pre>{{output}}</pre>
+</div>
+
+<script type="text/x-template" id="driver-list">
+  <table class="drivers">
+    <driver
+        v-for="name in names"
+        ref="drivers"
+        :key="name"
+        :name="name"
+      ></driver>
+  </table>
+</script>
+
+<script type="text/x-template" id="driver">
+  <tr>
+    <th>{{name}}</th>
+    <td>
+      <i
+          class="material-icons"
+          @click="compile()"
+          :class="{'building-icon': status === 'Generating'}"
+        >settings</i>
+      <i
+          class="material-icons"
+          @click="deploy()"
+        >play_arrow</i>
+    </td>
+    <td>{{status}}</td>
+  </tr>
+</script>
+
+<script src="https://unpkg.com/vue"></script>
+<script src="/~system/js-core/combined.js"></script>
+<script src="app.js"></script>

@@ -1,0 +1,45 @@
+body {
+  background-color: #000;
+  font-family: 'Roboto', sans-serif;
+}
+
+.dialog {
+  background-color: #344;
+  color: #fff;
+
+  max-width: 30em;
+  margin: 1em auto;
+  padding: 1em;
+
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  /*grid-template-columns: repeat(3, 1fr);*/
+  grid-gap: 1em;
+  /*grid-auto-rows: minmax(100px, auto);*/
+  grid-template-areas:
+    "source   dates"
+    "gap1     dates"
+    "buttons  dates";
+}
+
+label, select {
+  align-self: center;
+  font-size: 1em;
+}
+
+
+.source-box {
+  grid-area: source;
+  display: grid;
+  grid-gap: 0.5em;
+}
+#dates-select {
+  grid-area: dates;
+  height: 100%;
+  min-height: 20em;
+}
+.button-bar {
+  grid-area: buttons;
+  display: flex;
+  justify-content: center;
+}

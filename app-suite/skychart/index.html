@@ -1,0 +1,258 @@
+<!doctype html>
+<title>Skychart Browser</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.99.0/css/materialize.min.css" rel="stylesheet">
+<link href="/~legacy/osfs/fonts/fira_code.css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0"/>
+
+
+<div id="app">
+
+  <nav class="light-blue lighten-1" role="navigation">
+    <div class="nav-wrapper" style="text-align: center; font-size: 2.1rem;">
+      <a id="logo-container" href="#">Skychart Explorer</a>
+    </div>
+  </nav>
+
+  <router-view></router-view>
+</div>
+
+<script type="text/x-template" id="build-entry">
+</script>
+
+<script type="text/x-template" id="edit-entry">
+  <tr>
+    <td><input type="text" v-model="mountPath" placeholder="/n/..." required /></td>
+    <td>
+      <select v-model="deviceType" required class="browser-default">
+        <option value="EmptyDir">Empty Directory</option>
+        <option value="BindLink">Bind Link</option>
+        <option value="SymbolicLink">Symbolic Link</option>
+        <option value="ActiveMount">Active Mount</option>
+        <option value="PassiveMount">Passive Mount</option>
+      </select>
+    </td>
+    <td v-if="deviceType !== 'EmptyDir'">
+
+      <div class="entry-builder">
+        <input type="radio" id="intDev" value="Internal" v-model="deviceSource" @click="loadSource">
+        <label for="intDev">Internal</label>
+        <input type="radio" id="extDev" value="External" v-model="deviceSource" @click="loadSource">
+        <label for="extDev">External</label>
+
+        <input type="text" v-model="externalOrigin"
+            v-if="deviceSource === 'External'"
+            @change="loadSource"
+            placeholder="skylink://..." required />
+
+        <div class="select-entry">
+          <div
+              v-for="p in parts"
+              :key="p.parent"
+            >
+            <input
+                type="text"
+                v-if="p.freetext"
+                v-model="p.selected"
+                @change="partChanged(p)"
+              />
+            <select class="browser-default"
+                v-if="!p.freetext"
+                v-model="p.selected"
+                @change="partChanged(p)">
+              <option value="">--none--</option>
+              <option
+                  v-for="c in p.choices"
+                  :key="c.name"
+                >{{c.name}}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <label v-for="opt in mountOpts" style="display: block;">
+        {{opt.name}}
+        <input type="text" :requiredtodo="!opt.optional"
+            v-model="mountOptVals[opt.path]"
+            style="width: auto;"
+            >
+      </label>
+    </td>
+    <td v-if="deviceType === 'EmptyDir'">
+      An fresh folder will be available here.<br>
+      Any data stored to it will be persisted<br>
+      for the lifetime of the chart.
+    </td>
+    <td>
+    </td>
+    <td>
+      <button type="button" @click="save">Save</button>
+      <button type="button" @click="cancel">Cancel</button>
+    </td>
+  </tr>
+</script>
+
+<script type="text/x-template" id="manage-chart">
+  <div class="container">
+    <h4 class="header">
+      <router-link to="/locate">
+        <i class="material-icons">arrow_back</i>
+      </router-link>
+      Manage <code>~{{chart.name}}</code>
+    </h4>
+
+    <div class="row">
+      <div class="col s12 l8">
+        <div class="grey lighten-4 card">
+          <div class="card-content">
+            <span class="card-title">
+              Chart metadata
+            </span>
+            <p>
+              Public REST endpoint:
+              <code>https://devmode.cloud/~{{chart.name}}/</code> (routes to <code>/web</code>)
+            </p>
+            <p>
+              Public browse endpoint:
+              <code>skylink+wss://devmode.cloud/chart/{{chart.name}}/</code>
+            </p>
+            <p>
+              Internal browse endpoint:
+              <code>skylink://{{chart.name}}.chart.local/</code>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grey lighten-4 card">
+      <table class="card-content">
+        <thead>
+          <tr>
+            <th>Mount path</th>
+            <th>Type</th>
+            <th>Source path</th>
+            <th>Settings</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr v-for="entry in entries"
+              :key="entry.name">
+            <td>{{entry.mountPath}}</td>
+            <td>{{entry.deviceType}}</td>
+            <td>{{entry.deviceUri}}</td>
+            <td></td>
+            <td>
+              <a href="#" @click.prevent="startEdit(entry)"><i class="material-icons">edit</i></a>
+              <a href="#" @click.prevent="delEntry(entry)"><i class="material-icons">delete</i></a>
+            </td>
+          </tr>
+
+          <edit-entry
+              v-if="editing"
+              :chart="chart"
+              :entry="editing"
+              @saved="finishEdit"
+            />
+          </tr>
+        </tbody>
+      </table>
+      <div class="card-action">
+        <a href="#" @click.prevent="startEdit({deviceUri: ''})">New Entry</a>
+      </div>
+    </div>
+
+    <div class="grey lighten-4 card">
+          <div class="card-content">
+            <span class="card-title">
+              Compilation
+            </span>
+            <p>
+              <button @click="compile" class="btn">Compile Chart</button>
+            </p>
+            <iframe
+                v-if="vis"
+                :src="'data:text/html;base64,'+vis"
+                height="400px" width="100%"
+                border="0"
+              ></iframe>
+          </div>
+    </div>
+  </div>
+</script>
+
+<script type="text/x-template" id="locate-chart">
+  <div class="container">
+    <div class="row" style="margin-top: 1em;">
+      <div class="col s12 m10 l8 offset-m1 offset-l2">
+        <div class="card horizontal grey lighten-4">
+          <!--div class="card-image">
+            <img src="https://lorempixel.com/100/170/nature/6">
+          </div-->
+          <div class="card-stacked">
+            <form class="card-content" @submit.prevent="openChart">
+              <div class="input-field col s12 m8">
+                <i class="material-icons prefix">search</i>
+                <input id="search" type="text" class="validate"
+                    v-model="chartName"
+                    placeholder="Globally or locally unique name">
+                <label for="search" class="active"
+                  >Open chart</label>
+              </div>
+              <div class="col s12 m4" style="text-align: center;">
+                <button class="waves-effect waves-light btn" type="submit">Locate</button>
+                <a class="waves-effect waves-teal btn-flat" @click="createChart">Create</a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col s12 m6"
+           v-for="chart in charts"
+           :key="chart.name">
+        <chart-card
+               :chart="chart"
+               :name="chart.name"
+               :ownerName="chart.ownerName"
+               :ownerEmail="chart.ownerEmail"
+               :homeDomain="chart.homeDomain"
+               :createdDate="chart.createdDate"
+             />
+      </div>
+    </div>
+  </div>
+</script>
+
+<script type="text/x-template" id="chart-card">
+  <div class="blue darken-2 card">
+    <div class="card-image" style="padding-top: 1em;">
+      <span class="card-title" style="position: relative;">
+        <span style="font-size: 70%; color: #ccc;"
+          >{{homeDomain}}/~</span>{{name}}
+      </span>
+    </div>
+    <div class="card-action">
+      <router-link :to="manageTarget">Manage</router-link>
+      <a :href="browseUrl" target="_blank">Browse</a>
+      <a :href="launchUrl" target="_blank">Launch</a>
+    </div>
+    <div class="card-content grey lighten-4">
+      <p>
+        Owned by {{ownerName}}
+      </p>
+      <p v-if="createdDate">
+        Created on {{createdDateStr}}
+      </p>
+    </div>
+  </div>
+</script>
+
+<script src="https://unpkg.com/vue/dist/vue.js"></script>
+<script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+<script src="/~system/js-core/combined.js"></script>
+<script src="lib.js"></script>
+<script src="app.js"></script>
