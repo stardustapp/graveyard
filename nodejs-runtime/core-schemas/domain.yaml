@@ -1,0 +1,39 @@
+# This is a baked-in schema used to store a directory of user profiles.
+# It's very basic for the moment.
+
+types:
+
+
+# the domain root
+- name: instance
+  struct:
+
+  # the actual DNS name for the domain
+  - name: domain-name
+    type-path: //core/string
+
+  # out-of-band contact method for the domain
+  - name: contact-email
+    type-path: //core/string
+
+  # a set of users, groups, and service accts in the domain
+  - name: profiles
+    extend:
+      type-path: //core/dictionary
+      params:
+      - name: entry-type
+        type-path: /types/profile
+      - name: key-field
+        string-literal: name
+
+
+# one arbitrary address on the domain
+# usually a user or group
+- name: profile
+  struct:
+
+  - name: name
+    type-path: //core/string
+
+  - name: display-name
+    type-path: //core/string

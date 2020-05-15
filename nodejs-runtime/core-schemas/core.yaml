@@ -1,0 +1,14 @@
+# implements a very central set of basic types over top the raw slot types
+# uses lua to implement functionality as getters/setters
+
+types:
+
+- name: string
+  struct:
+  - name: slot
+    type-path: //slots/utf8
+  api:
+  - name: get
+    bind: slot/read
+  - name: set
+    bind: slot/write
