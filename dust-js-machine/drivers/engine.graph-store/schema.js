@@ -1,0 +1,97 @@
+CURRENT_LOADER.attachModel(async build => {
+  await build.withFieldTypes('structural');
+
+  build.structural('World', {
+    relations: [
+      { kind: 'top' },
+      { predicate: 'OPERATES', object: 'Engine' },
+      { predicate: 'STORES', object: 'Graph' },
+    ],
+    fields: {
+      CoreEngine: { reference: 'Engine', optional: true },
+      ExposedRoot: { reference: 'Entry' },
+      InspectRoot: { reference: 'Entry' },
+    },
+  });
+
+  build.structural('Entry', {
+    relations: [
+      { subject: 'Entry', predicate: 'HAS_NAME' },
+      { predicate: 'HAS_NAME', object: 'Entry', uniqueBy: 'Name' },
+    ],
+    fields: {
+      Name: String,
+      Graph: { reference: 'Graph', immutable: true, optional: true },
+      Self: { anyOfKeyed: {
+        Directory: Boolean,
+        //LinkTo: String,
+        //LiteralStr: String,
+        Data: { fields: {
+          Bytes: String,
+          Type: { anyOfKeyed: {
+            Primitive: String,
+            Mime: String,
+            //Virtual: { reference: 'Object', optional: true },
+          }},
+        }},
+        /*
+        ExposedObj: { reference: 'Object' },
+        RelatedList: { fields: {
+          Predicate: String,
+        }},
+        */
+      }},
+    },
+  });
+
+  build.node('Engine', {
+    relations: [
+      { predicate: 'OPERATES', object: 'Graph' },
+      { exactly: 1, subject: 'World', predicate: 'OPERATES' },
+    ],
+    fields: {
+      //Tags: JSON,
+      Source: { anyOfKeyed: {
+        // meta-engine stored in this world
+        Virtual: { reference: 'Object' },
+        // compiled into the runtime
+        BuiltIn: { fields: {
+          GitHash: String,
+          EngineKey: String,
+        }},
+        // immediately downloadable
+        Published: { fields: {
+          Uri: String,
+          Accessed: Date,
+        }},
+      }},
+    },
+  });
+
+  build.node('Graph', {
+    relations: [
+      { predicate: 'OWNS', object: 'Object' },
+      { exactly: 1, subject: 'World', predicate: 'STORES' },
+      { exactly: 1, subject: 'Engine', predicate: 'OPERATES' },
+    ],
+    fields: {
+      Tags: JSON,
+      TopObject: { reference: 'Object', optional: true },
+    },
+  });
+
+  build.node('Object', {
+    relations: [
+      { subject: 'Entry', predicate: 'POINTS_TO' },
+      { exactly: 1, subject: 'Graph', predicate: 'OWNS' },
+
+      { subject: 'Object', kind: 'any' },
+      { kind: 'any', object: 'Object' },
+    ],
+    fields: {
+      Type: String,
+      Data: JSON,
+    },
+  });
+
+});
