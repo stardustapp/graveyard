@@ -1,0 +1,105 @@
+# This is the baked-in schema that is used to validate schema specs at runtime.
+# At boot, this schema spec is installed and applied to the "specs" bucket.
+# It's then placed into the same specs bucket. bit bootstrappy there.
+
+types:
+
+# the schema root
+- name: instance
+  struct:
+
+  # data structures that the app defines
+  - name: types
+    extend:
+      type-path: //core/dictionary
+      params:
+      - name: entry-type
+        type-path: /types/type-spec
+      - name: key-field
+        string-literal: name
+
+  # invokable logic that the app exposes
+  - name: functions
+    extend:
+      type-path: //core/dictionary
+      params:
+      - name: entry-type
+        type-path: /types/function-spec
+      - name: key-field
+        string-literal: name
+
+# a type specification
+# can be either root or embedded
+- name: type-spec
+  struct:
+
+  - name: name
+    type-path: //core/string
+
+  # set to indicate that a lack of any value is valid
+  # normally, fields default to the zero value
+  # nullable fields default to null instead
+  - name: optional
+    type-path: //core/bit
+
+  # One of these fields must be provided
+  # Maybe that could even be encoded somehow!
+
+  # string-literal: sets a constant immutable String
+  - name: string-literal
+    optional: yes
+    type-path: //core/string
+
+  # type-path: directly use existing type
+  - name: type-path
+    optional: yes
+    type-path: //core/string
+
+  # extend: further quantify an existing type
+  - name: extend
+    optional: yes
+    struct:
+    - name: type-path
+      type-path: //core/string
+    - name: params
+      extend:
+        type-path: //core/dictionary
+        params:
+        - name: entry-type
+          type-path: //core/entry
+        - name: key-field
+          string-literal: name
+
+  # struct: create a new structural type
+  - name: struct
+    optional: yes
+    extend:
+      type-path: //core/dictionary
+      params:
+      - name: entry-type
+        type-path: /types/field-spec
+      - name: key-field
+        string-literal: name
+
+
+# a function specification
+# seperate from types, but uses them for input/output
+- name: function-spec
+  struct:
+
+  - name: name
+    type-path: //core/string
+  - name: runtime
+    type-path: //core/string
+
+  # Meeseeks don’t usually have to exist [too] long
+  # if one's running >5min or so, that's probably a bug
+  - name: meeseek
+    type-path: //core/bit
+
+  - name: input-type
+    optional: yes
+    type-path: /types/field-spec
+  - name: output-type
+    optional: yes
+    type-path: /types/field-spec

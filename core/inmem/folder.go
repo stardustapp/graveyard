@@ -1,0 +1,110 @@
+package inmem
+
+import (
+	"sync"
+
+	"github.com/stardustapp/core/base"
+)
+
+// Manages an in-memory Directory structure
+// Directories are mutable by default
+// Freeze() burns the writable fuse, then the contents are fixed forever
+type Folder struct {
+	name       string
+	writable   bool
+	obscured   bool // neuters Children(), for child protection
+	children   map[string]base.Entry
+	childMutex sync.RWMutex
+}
+
+var _ base.Folder = (*Folder)(nil)
+
+func NewFolder(name string) *Folder {
+	return &Folder{
+		name:     name,
+		writable: true,
+		children: make(map[string]base.Entry),
+	}
+}
+
+// Create a folder that doesn't advertise children
+// Useful for hiding temporary, session or private folders
+func NewObscuredFolder(name string) *Folder {
+	return &Folder{
+		name:     name,
+		writable: true,
+		obscured: true,
+		children: make(map[string]base.Entry),
+	}
+}
+
+func NewFolderOf(name string, children ...base.Entry) *Folder {
+	ent := NewFolder(name)
+	for _, child := range children {
+		ent.Put(child.Name(), child)
+	}
+	return ent
+}
+
+// Clones contents of a Folder, with a new name
+func NewFolderFrom(name string, parent base.Folder) *Folder {
+	ent := NewFolder(name)
+	for _, childName := range parent.Children() {
+		if child, ok := parent.Fetch(childName); ok {
+			ent.Put(childName, child)
+		}
+	}
+	return ent
+}
+
+// Prevents the directory of names in this folder from ever changing again
+// Chainable for NewFolderOf(...).Freeze()
+func (e *Folder) Freeze() *Folder {
+	e.writable = false
+	return e
+}
+
+func (e *Folder) Name() string {
+	return e.name
+}
+
+func (e *Folder) Children() []string {
+	if e.obscured {
+		return nil
+	}
+
+	e.childMutex.RLock()
+	defer e.childMutex.RUnlock()
+
+	names := make([]string, len(e.children))
+	i := 0
+	for k := range e.children {
+		names[i] = k
+		i++
+	}
+	return names
+}
+
+func (e *Folder) Fetch(name string) (entry base.Entry, ok bool) {
+	e.childMutex.RLock()
+	defer e.childMutex.RUnlock()
+
+	entry, ok = e.children[name]
+	return
+}
+
+func (e *Folder) Put(name string, entry base.Entry) (ok bool) {
+	if e.writable {
+		e.childMutex.Lock()
+		defer e.childMutex.Unlock()
+
+		if entry == nil {
+			delete(e.children, name)
+		} else {
+			e.children[name] = entry
+		}
+
+		ok = true
+	}
+	return
+}
