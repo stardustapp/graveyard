@@ -1,0 +1,311 @@
+
+<!doctype html>
+<title>Starpanel</title>
+<link href="https://fonts.googleapis.com/css?family=Roboto|Material+Icons" rel="stylesheet">
+<link href="/~~vendor/webapp/vue-app.css" type="text/css" rel="stylesheet">
+<link href="app.css" type="text/css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="x-stardust-appid" content="panel">
+
+<script type="text/x-template" id="auth-card">
+  <div class="auth card">
+    <header class="titlebar">
+      <h4>authentication</h4>
+    </header>
+
+    <label>
+      <span>Launch secret:</span>
+      <input v-if="launchSecret || addingSecret" type="password" :value="launchSecret"
+          ref="secretBox"
+          @blur="addingSecret = false"
+          @change="setSecret($event.target.value)">
+      <div v-if="!launchSecret && !addingSecret" class="input">
+        🔓 No secret configured
+      </div>
+    </label>
+
+    <button v-if="!launchSecret && !addingSecret" type="button" @click="addSecret"
+      >establish initial secret 🔒</button>
+
+    <button v-if="launchSecret" type="button" @click="deleteSecret"
+      >remove security 🔓</button>
+
+    <label v-if="savedSecret">
+      <span>Browser cookie:</span>
+      <div v-if="savedSecret == launchSecret" class="input">
+        ✔️ Valid
+        <button type="button" @click="deleteCookie">delete cookie</button>
+      </div>
+      <div v-if="savedSecret != launchSecret" class="input">
+        🚫 <strong>Incorrect cookie</strong>
+        <button type="button" @click="setCookie">update cookie</button>
+      </div>
+    </label>
+
+    <button v-if="launchSecret && !savedSecret" @click="setCookie" type="button">install browser cookie</button>
+
+  </div>
+</script>
+
+<script type="text/x-template" id="notifier-card">
+  <div class="notifier card" v-if="qrUrl">
+    <header class="titlebar">
+      <h4 class="weak">notifier: <strong>pushjet</strong></h4>
+    </header>
+
+    <img :src="qrUrl">
+  </div>
+</script>
+
+<script type="text/x-template" id="irc-prefs-card">
+  <div class="irc-prefs prefs-card card">
+    <header class="titlebar">
+      <h4>UI preferences</h4>
+    </header>
+
+    <label>
+      <span>Message layout:</span>
+      <select v-model="layout"
+          @change="skyStoreString('config/irc/prefs/layout', $event.target.value).then(fetchPrefs)">
+        <option value="modern">Modern, like Slack</option>
+        <option value="inline">Inline, like IRSSI</option>
+        <option value="aligned">Aligned, like XChat</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Enable nicklist:</span>
+      <div class="input">
+        <input type="checkbox" v-model="enableNicklist"
+              @change="skyStoreString('config/irc/prefs/disable-nicklist', $event.target.checked ? 'no' : 'yes')">
+        <span v-if="enableNicklist">Show by default</span>
+      </div>
+    </label>
+
+    <label>
+      <span>Enable notifications:</span>
+      <div class="input">
+        <input type="checkbox" v-model="enableNotifs"
+              @change="skyStoreString('config/irc/prefs/enable-notifs', $event.target.checked ? 'yes' : 'no')">
+        <span v-if="enableNotifs">Show (beta)</span>
+      </div>
+    </label>
+
+  </div>
+</script>
+
+<script type="text/x-template" id="irc-add-net">
+  <div class="irc-add-net" style="margin: 0 auto; display: grid; width: 10em;">
+    <button @click="add">Configure new network</button>
+  </div>
+</script>
+
+<script type="text/x-template" id="irc-net-card">
+  <div class="irc-net card" :key="config._id">
+    <header class="titlebar">
+      <h4 class="weak">network config: <strong>{{config._id}}</strong></h4>
+    </header>
+
+    <label>
+      <span>Server hostname:</span>
+      <input type="text" :value="config['hostname']"
+          @change="skyStoreString(config._path+'/hostname', $event.target.value)">
+    </label>
+
+    <label>
+      <span>Server port:</span>
+      <div class="input" style="display: flex; align-items: center;">
+        <input type="number" v-model="config['port']" style="flex: 1;"
+            @change="skyStoreString(config._path+'/port', ''+$event.target.value)">
+        <label style="padding-left: 0.5em; margin-left: 0.5em;">
+          <input type="checkbox" :checked="useTls"
+              @change="skyStoreString(config._path+'/use-tls', $event.target.checked ? 'yes' : 'no')">
+          <span>Use TLS</span>
+         </label>
+      </div>
+    </label>
+
+    <label>
+      <span>Active:</span>
+      <div class="input">
+        <input type="checkbox" :checked="autoConnect"
+              @change="skyStoreString(config._path+'/auto-connect', $event.target.checked ? 'yes' : 'no')">
+        <span v-if="autoConnect">Automatically [re-]connect</span>
+      </div>
+    </label>
+
+    <label>
+      <span>Desired nickname:</span>
+      <input type="text" :value="config['nickname']"
+          @change="skyStoreString(config._path+'/nickname', $event.target.value)">
+    </label>
+
+    <label>
+      <span>Real name:</span>
+      <input type="text" :value="config['full-name']"
+          @change="skyStoreString(config._path+'/full-name', $event.target.value)">
+    </label>
+
+    <label>
+      <span>NickServ password:</span>
+      <input type="password" :value="config['nickserv-pass']"
+          @change="skyStoreString(config._path+'/nickserv-pass', $event.target.value)">
+    </label>
+
+    <div class="label">
+      <span>
+        Autojoin channels:<br/>
+        <button @click="addChannel()">Add channel</button>
+      </span>
+      <sky-foreach
+          el="ul" class="channel-list input"
+          :path="'config/irc/networks/'+config._id+'/channels'"
+          fields="@"
+          :depth="0">
+        <li slot="item" slot-scope="entry">{{entry.value}}</li>
+      </sky-foreach>
+    </div>
+
+    <!--button class="ice-it sub-action"
+      @click="skyStoreString(config._path+'/status', 'frozen')">
+      <i class="material-icons">ac_unit</i>
+    </button-->
+
+  </div>
+</script>
+
+
+
+<script type="text/x-template" id="domain-add-card">
+  <div class="domain-add" style="margin: 0 auto; display: grid; width: 10em;">
+    <button @click="add">Register new domain</button>
+  </div>
+</script>
+
+<script type="text/x-template" id="domain-manage-card">
+  <div class="domain-manage card" :key="config._id">
+    <header class="titlebar">
+      <h4 class="weak">domain: <strong>{{config._id}}</strong></h4>
+    </header>
+
+    <label>
+      <span>My role:</span>
+      <input type="text" :value="config['my-role']" readonly>
+    </label>
+
+    <!--label>
+      <span>Server hostname:</span>
+      <input type="text" :value="config['hostname']"
+          @change="skyStoreString(config._path+'/hostname', $event.target.value)">
+    </label>
+
+    <label>
+      <span>Server port:</span>
+      <div class="input" style="display: flex; align-items: center;">
+        <input type="number" v-model="config['port']" style="flex: 1;"
+            @change="skyStoreString(config._path+'/port', ''+$event.target.value)">
+        <label style="padding-left: 0.5em; margin-left: 0.5em;">
+          <input type="checkbox" :checked="useTls"
+              @change="skyStoreString(config._path+'/use-tls', $event.target.checked ? 'yes' : 'no')">
+          <span>Use TLS</span>
+         </label>
+      </div>
+    </label>
+
+    <label>
+      <span>Active:</span>
+      <div class="input">
+        <input type="checkbox" :checked="autoConnect"
+              @change="skyStoreString(config._path+'/auto-connect', $event.target.checked ? 'yes' : 'no')">
+        <span v-if="autoConnect">Automatically [re-]connect</span>
+      </div>
+    </label>
+
+    <label>
+      <span>Desired nickname:</span>
+      <input type="text" :value="config['nickname']"
+          @change="skyStoreString(config._path+'/nickname', $event.target.value)">
+    </label>
+
+    <label>
+      <span>Real name:</span>
+      <input type="text" :value="config['full-name']"
+          @change="skyStoreString(config._path+'/full-name', $event.target.value)">
+    </label>
+
+    <div class="label">
+      <span>
+        Autojoin channels:<br/>
+        <button @click="addChannel()">Add channel</button>
+      </span>
+      <sky-foreach
+          el="ul" class="channel-list input"
+          :path="'config/irc/networks/'+config._id+'/channels'"
+          fields="@"
+          :depth="0">
+        <li slot="item" slot-scope="entry">{{entry.value}}</li>
+      </sky-foreach>
+    </div-->
+
+    <!--button class="ice-it sub-action"
+      @click="skyStoreString(config._path+'/status', 'frozen')">
+      <i class="material-icons">ac_unit</i>
+    </button-->
+
+  </div>
+</script>
+
+
+
+<div id="app">
+  <!-- render top bar w/ connection state and current user -->
+  <sky-session></sky-session>
+
+  <div class="card">
+    <h2>starpanel</h2>
+    <p>Welcome to DevMode.</p>
+    <p>
+      This... is DevMode.
+      Welcome.
+      This is DevMode;
+      welcome... to DevMode.
+      You can do anything at DevMode.
+      Anything at all.
+      The only limit is yourself.
+      Welcome... to DevMode.
+    </p>
+    <p>PS: changes are immediately saved.</p>
+  </div>
+
+  <h3>profile identity</h3>
+  <auth-card></auth-card>
+  <notifier-card></notifier-card>
+
+  <h3>domain membership</h3>
+  <sky-foreach
+      el="div"
+      path="domains/mine"
+      fields="domain-status my-role"
+      :depth="1">
+    <domain-manage-card slot="item" slot-scope="doc" :config="doc||{}"></domain-manage-card>
+  </sky-foreach>
+  <domain-add-card></domain-add-card>
+
+  <h3>irc client</h3>
+  <irc-prefs-card></irc-prefs-card>
+  <sky-foreach
+      el="div"
+      path="config/irc/networks"
+      fields="auto-connect full-name hostname ident nickname port use-tls username"
+      :depth="1">
+    <irc-net-card slot="item" slot-scope="doc" :config="doc||{}"></irc-net-card>
+  </sky-foreach>
+  <irc-add-net></irc-add-net>
+
+</div>
+
+<script src="/~~vendor/libraries/vue.js"></script>
+<script src="/~~vendor/webapp/core/combined.js"></script>
+<script src="app.js"></script>
+<script src="/~~vendor/webapp/vue-app.js"></script>
