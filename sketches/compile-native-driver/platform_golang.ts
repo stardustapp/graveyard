@@ -1,11 +1,11 @@
-import { sprintf } from "https://deno.land/std@0.70.0/fmt/printf.ts";
-import * as path from "https://deno.land/std@0.70.0/path/mod.ts";
+import { sprintf } from "https://deno.land/std@0.95.0/fmt/printf.ts";
+import * as path from "https://deno.land/std@0.95.0/path/mod.ts";
 
-import type { NativeDriver, ShapeDef, FunctionDef } from "./driver.ts";
+import type { FunctionDef, NativeDriver, ShapeDef } from "./driver.ts";
 import {
+  commonInitialisms,
   snakeToCamel,
   snakeToCamelLower,
-  commonInitialisms,
 } from "./snaker.ts";
 
 export async function build(

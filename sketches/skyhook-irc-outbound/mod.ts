@@ -1,8 +1,8 @@
 import { AutomatonBuilder, Automaton, ApiHandle } from "https://uber.danopia.net/deno/dust@v1beta1/client-automaton/mod.ts";
 import { StringEntry, FolderEntry } from "https://uber.danopia.net/deno/dust@v1beta1/skylink/src/mod.ts";
 
-import { ApiFactory } from 'https://deno.land/x/aws_api@v0.2.0/client/mod.ts';
-import SQS from 'https://deno.land/x/aws_api@v0.2.0/services/sqs@2012-11-05/mod.ts';
+import { ApiFactory } from 'https://deno.land/x/aws_api@v0.4.0/client/mod.ts';
+import { SQS } from 'https://aws-api.deno.dev/v0.1/services/sqs.ts';
 
 if (!Deno.env.get('AWS_REGION')) throw new Error(
   `Missing AWS configuration!`);

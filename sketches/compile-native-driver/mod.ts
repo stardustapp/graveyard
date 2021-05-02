@@ -1,4 +1,4 @@
-import * as flags from "https://deno.land/std@0.70.0/flags/mod.ts";
+import * as flags from "https://deno.land/std@0.95.0/flags/mod.ts";
 
 import { NativeDriver } from "./driver.ts";
 import * as golang from "./platform_golang.ts";

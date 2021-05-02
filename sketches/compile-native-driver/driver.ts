@@ -1,5 +1,5 @@
-import * as yaml from "https://deno.land/std@0.70.0/encoding/yaml.ts";
-import * as path from "https://deno.land/std@0.70.0/path/mod.ts";
+import * as yaml from "https://deno.land/std@0.95.0/encoding/yaml.ts";
+import * as path from "https://deno.land/std@0.95.0/path/mod.ts";
 
 type DriverMetadata = {
   "platform": string;
